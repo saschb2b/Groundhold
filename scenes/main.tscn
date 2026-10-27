@@ -1,0 +1,74 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/terrain.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/decor.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/wave_director.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/build_controller.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="7"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.32, 0.36, 0.58, 1)
+sky_horizon_color = Color(0.86, 0.62, 0.42, 1)
+ground_horizon_color = Color(0.86, 0.62, 0.42, 1)
+ground_bottom_color = Color(0.16, 0.14, 0.12, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 2
+ambient_light_color = Color(0.62, 0.62, 0.8, 1)
+ambient_light_energy = 0.55
+tonemap_mode = 2
+tonemap_exposure = 1.05
+glow_enabled = true
+glow_intensity = 0.6
+glow_bloom = 0.05
+glow_hdr_threshold = 0.9
+adjustment_enabled = true
+adjustment_saturation = 1.12
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.766, -0.42, 0.487, 0, 0.758, 0.653, -0.643, -0.5, 0.58, 0, 8, 0)
+light_color = Color(1, 0.88, 0.72, 1)
+light_energy = 1.25
+shadow_enabled = true
+shadow_opacity = 0.8
+directional_shadow_mode = 0
+directional_shadow_max_distance = 45.0
+
+[node name="Camera" type="Camera3D" parent="."]
+fov = 42.0
+current = true
+script = ExtResource("7")
+
+[node name="Terrain" type="Node3D" parent="."]
+script = ExtResource("2")
+
+[node name="Decor" type="Node3D" parent="."]
+script = ExtResource("3")
+
+[node name="Creeps" type="Node3D" parent="."]
+
+[node name="Towers" type="Node3D" parent="."]
+
+[node name="Effects" type="Node3D" parent="."]
+
+[node name="WaveDirector" type="Node" parent="."]
+script = ExtResource("4")
+
+[node name="BuildController" type="Node3D" parent="."]
+script = ExtResource("5")
+
+[node name="Hud" type="CanvasLayer" parent="."]
+script = ExtResource("6")

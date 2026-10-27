@@ -1,0 +1,8 @@
+{
+  "colors": {"gold": "#e0b040", "gold_light": "#ffd860"},
+  "parts": [
+    {"shape": "box", "size": [0.16, 0.3, 0.1], "color": "gold"},
+    {"shape": "cylinder", "radius": 0.24, "radius_top": 0.0, "height": 0.26, "sides": 4, "phase": 45,
+     "scale": [1, 1, 0.4], "at": [0, 0.3, 0], "color": "gold_light", "emit": 0.3}
+  ]
+}

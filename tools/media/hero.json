@@ -1,0 +1,50 @@
+{
+  "name": "hero",
+  "seed": 4,
+  "time_scale": 2,
+  "timeout_frames": 2400,
+  "steps": [
+    {
+      "set": "Game.gold",
+      "value": 3000
+    },
+    {
+      "eval": "resource('res://tests/bot.gd').new()",
+      "as": "bot"
+    },
+    {
+      "eval": "bot.step(scene)"
+    },
+    {
+      "set": "Game.gold",
+      "value": 245
+    },
+    {
+      "set": "Game.wave",
+      "value": 6
+    },
+    {
+      "set": "Game.countdown",
+      "value": 0.1
+    },
+    {
+      "wait_until": "Game.wave == 7 and count('creeps') >= 14",
+      "timeout": 900
+    },
+    {
+      "wait": 30
+    },
+    {
+      "eval": "scene.camera.look_from(Vector3(9.5, 0, 8.6), 13.5)"
+    },
+    {
+      "click": "scene.cell_center(Vector2i(10, 8))"
+    },
+    {
+      "wait": 6
+    },
+    {
+      "capture": "hero"
+    }
+  ]
+}

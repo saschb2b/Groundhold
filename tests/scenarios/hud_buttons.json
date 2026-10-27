@@ -1,0 +1,59 @@
+{
+  "name": "hud_buttons",
+  "seed": 1,
+  "steps": [
+    {
+      "wait": 2
+    },
+    {
+      "set": "Game.gold",
+      "value": 300
+    },
+    {
+      "click": "node('BuildCannon')"
+    },
+    {
+      "assert": "node('BuildController').mode == 'cannon'",
+      "msg": "the command card button enters build mode"
+    },
+    {
+      "assert": "screen_has('Cannon Tower')",
+      "msg": "and the info panel describes the tower"
+    },
+    {
+      "click": "scene.cell_center(Vector2i(6, 4))"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(6, 4)) != null",
+      "msg": "a click on the map places it"
+    },
+    {
+      "click": "scene.cell_center(Vector2i(6, 4))"
+    },
+    {
+      "assert": "not node('Upgrade').disabled",
+      "msg": "upgrade is offered for the selected tower"
+    },
+    {
+      "click": "node('NextWave')"
+    },
+    {
+      "assert": "Game.wave == 1 and Game.state == 1",
+      "msg": "Next wave starts wave 1"
+    },
+    {
+      "assert": "node('NextWave').disabled",
+      "msg": "and is disabled while the wave runs"
+    },
+    {
+      "click": "node('Sell')"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "count('towers') == 0",
+      "msg": "Sell removes the selected tower"
+    }
+  ]
+}

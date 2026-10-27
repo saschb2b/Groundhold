@@ -1,0 +1,82 @@
+{
+ "colors": {
+  "stone": "#6c6863",
+  "stone_dark": "#4a4744",
+  "glow": "#b070ff",
+  "rune": "#d0a0ff"
+ },
+ "parts": [
+  {
+   "shape": "cylinder",
+   "radius": 0.62,
+   "height": 0.05,
+   "sides": 10,
+   "color": "stone_dark",
+   "pattern": "cobble"
+  },
+  {
+   "repeat": 5,
+   "around": 0.5,
+   "parts": [
+    {
+     "shape": "box",
+     "size": [
+      0.16,
+      0.62,
+      0.12
+     ],
+     "taper": 0.65,
+     "rotate": [
+      -8,
+      0,
+      0
+     ],
+     "at": [
+      0,
+      0.04,
+      0
+     ],
+     "color": "stone",
+     "jitter": 0.012,
+     "pattern": "stone",
+     "bevel": 0.015
+    },
+    {
+     "shape": "box",
+     "size": [
+      0.05,
+      0.1,
+      0.01
+     ],
+     "at": [
+      0,
+      0.33,
+      0.065
+     ],
+     "color": "rune",
+     "emit": 0.9
+    }
+   ]
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.17,
+   "segments": [
+    5,
+    3
+   ],
+   "scale": [
+    1,
+    1.7,
+    1
+   ],
+   "at": [
+    0,
+    0.5,
+    0
+   ],
+   "color": "glow",
+   "emit": 1.0
+  }
+ ]
+}

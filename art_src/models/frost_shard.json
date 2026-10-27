@@ -1,0 +1,5 @@
+{
+  "origin": "authored",
+  "colors": {"frost": "#8fe0f0"},
+  "parts": [{"shape": "sphere", "radius": 0.06, "segments": [4, 2], "scale": [0.7, 0.7, 1.8], "color": "frost", "emit": 1.0}]
+}

@@ -1,0 +1,329 @@
+{
+ "colors": {
+  "stone": "#a89e8e",
+  "stone_dark": "#776f64",
+  "wood": "#7a5534",
+  "wood_dark": "#4e3423",
+  "iron": "#4a4d55",
+  "cloth": "#2f58a8",
+  "gold": "#e0b040",
+  "ball": "#2c2d33"
+ },
+ "ground_ao": 0.3,
+ "parts": [
+  {
+   "shape": "cylinder",
+   "radius": 0.48,
+   "radius_top": 0.45,
+   "height": 0.13,
+   "sides": 10,
+   "bevel": 0.03,
+   "color": "stone_dark",
+   "pattern": "stone"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.41,
+   "radius_top": 0.37,
+   "height": 0.56,
+   "sides": 10,
+   "bevel": 0.025,
+   "at": [
+    0,
+    0.13,
+    0
+   ],
+   "color": "stone",
+   "pattern": "bricks"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.415,
+   "height": 0.035,
+   "sides": 10,
+   "at": [
+    0,
+    0.3,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.43,
+   "radius_top": 0.44,
+   "height": 0.08,
+   "sides": 10,
+   "bevel": 0.02,
+   "at": [
+    0,
+    0.68,
+    0
+   ],
+   "color": "stone_dark",
+   "pattern": "stone"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.445,
+   "height": 0.03,
+   "sides": 10,
+   "at": [
+    0,
+    0.755,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "repeat": 10,
+   "around": 0.39,
+   "phase": 18,
+   "parts": [
+    {
+     "shape": "box",
+     "size": [
+      0.13,
+      0.15,
+      0.1
+     ],
+     "bevel": 0.02,
+     "at": [
+      0,
+      0.75,
+      0
+     ],
+     "color": "stone",
+     "pattern": "stone"
+    }
+   ]
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.36,
+   "height": 0.03,
+   "sides": 10,
+   "at": [
+    0,
+    0.74,
+    0
+   ],
+   "color": "wood",
+   "pattern": "planks"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.2,
+    0.26,
+    0.05
+   ],
+   "bevel": 0.012,
+   "at": [
+    0,
+    0.13,
+    0.385
+   ],
+   "color": "wood_dark",
+   "pattern": "planks"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.26,
+    0.04,
+    0.06
+   ],
+   "bevel": 0.012,
+   "at": [
+    0,
+    0.39,
+    0.38
+   ],
+   "color": "stone_dark",
+   "pattern": "stone"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.12,
+    0.28,
+    0.015
+   ],
+   "rotate": [
+    0,
+    -22,
+    0
+   ],
+   "at": [
+    -0.24,
+    0.36,
+    0.33
+   ],
+   "color": "cloth",
+   "pattern": "cloth"
+  },
+  {
+   "shape": "wedge",
+   "size": [
+    0.12,
+    0.07,
+    0.015
+   ],
+   "rotate": [
+    0,
+    -22,
+    180
+   ],
+   "at": [
+    -0.24,
+    0.36,
+    0.33
+   ],
+   "color": "cloth",
+   "pattern": "cloth"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.05,
+    0.05,
+    0.02
+   ],
+   "rotate": [
+    0,
+    -22,
+    45
+   ],
+   "at": [
+    -0.245,
+    0.52,
+    0.335
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.12,
+    0.28,
+    0.015
+   ],
+   "rotate": [
+    0,
+    22,
+    0
+   ],
+   "at": [
+    0.24,
+    0.36,
+    0.33
+   ],
+   "color": "cloth",
+   "pattern": "cloth"
+  },
+  {
+   "shape": "wedge",
+   "size": [
+    0.12,
+    0.07,
+    0.015
+   ],
+   "rotate": [
+    0,
+    22,
+    180
+   ],
+   "at": [
+    0.24,
+    0.36,
+    0.33
+   ],
+   "color": "cloth",
+   "pattern": "cloth"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.05,
+    0.05,
+    0.02
+   ],
+   "rotate": [
+    0,
+    22,
+    45
+   ],
+   "at": [
+    0.245,
+    0.52,
+    0.335
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.045,
+   "segments": [
+    6,
+    4
+   ],
+   "at": [
+    -0.2,
+    0.8,
+    -0.18
+   ],
+   "color": "ball",
+   "pattern": "metal"
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.045,
+   "segments": [
+    6,
+    4
+   ],
+   "at": [
+    -0.12,
+    0.8,
+    -0.22
+   ],
+   "color": "ball",
+   "pattern": "metal"
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.045,
+   "segments": [
+    6,
+    4
+   ],
+   "at": [
+    -0.17,
+    0.8,
+    -0.26
+   ],
+   "color": "ball",
+   "pattern": "metal"
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.045,
+   "segments": [
+    6,
+    4
+   ],
+   "at": [
+    -0.163,
+    0.87,
+    -0.22
+   ],
+   "color": "ball",
+   "pattern": "metal"
+  }
+ ]
+}

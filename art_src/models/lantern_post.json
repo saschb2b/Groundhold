@@ -1,0 +1,60 @@
+{
+ "colors": {
+  "wood": "#7a5534",
+  "iron": "#3a3c42",
+  "glow": "#ffb040"
+ },
+ "parts": [
+  {
+   "shape": "cylinder",
+   "radius": 0.035,
+   "radius_top": 0.028,
+   "height": 0.62,
+   "sides": 5,
+   "color": "wood",
+   "pattern": "planks"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.22,
+    0.03,
+    0.03
+   ],
+   "at": [
+    0.09,
+    0.57,
+    0
+   ],
+   "color": "wood",
+   "pattern": "planks",
+   "bevel": 0.015
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.045,
+   "height": 0.09,
+   "sides": 6,
+   "at": [
+    0.18,
+    0.44,
+    0
+   ],
+   "color": "glow",
+   "emit": 1.0
+  },
+  {
+   "shape": "cone",
+   "radius": 0.065,
+   "height": 0.05,
+   "sides": 6,
+   "at": [
+    0.18,
+    0.53,
+    0
+   ],
+   "color": "iron",
+   "pattern": "metal"
+  }
+ ]
+}

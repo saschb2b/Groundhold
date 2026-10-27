@@ -1,0 +1,9 @@
+{
+  "colors": {"gold": "#e0b040", "gold_dark": "#a87a28"},
+  "parts": [
+    {"shape": "cylinder", "radius": 0.2, "height": 0.05, "sides": 10, "at": [-0.08, 0, 0], "color": "gold_dark", "cap_color": "gold"},
+    {"shape": "cylinder", "radius": 0.2, "height": 0.05, "sides": 10, "at": [-0.06, 0.05, 0.02], "color": "gold_dark", "cap_color": "gold"},
+    {"shape": "cylinder", "radius": 0.2, "height": 0.05, "sides": 10, "at": [-0.09, 0.1, -0.01], "color": "gold_dark", "cap_color": "gold"},
+    {"shape": "cylinder", "radius": 0.2, "height": 0.05, "sides": 10, "rotate": [0, 0, 70], "at": [0.22, 0.02, 0.05], "color": "gold_dark", "cap_color": "gold"}
+  ]
+}

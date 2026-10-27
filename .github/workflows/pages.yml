@@ -1,0 +1,98 @@
+# Every push to main exports the game for the browser and publishes it, with
+# the project page around it, on GitHub Pages. Pull requests build the same
+# site without publishing it, so a broken export shows up before it lands.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  GODOT_VERSION: 4.7.1
+
+jobs:
+  build:
+    name: Export for the browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Godot and only the web template from the 1.3 GB template archive, cached.
+      - uses: actions/cache@v4
+        id: godot
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot and its web template
+        if: steps.godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/godot && cd ~/godot
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && rm godot.zip
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt -d templates
+          rm templates.tpz
+      - name: Install the web template
+        run: |
+          dir="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dir" && cp ~/godot/templates/* "$dir/"
+
+      - name: Import the project
+        run: ~/godot/godot --headless --path . --import
+      - name: Export the game
+        run: |
+          mkdir -p site/play/game
+          ~/godot/godot --headless --path . --export-release "Web" "$PWD/site/play/game/index.html"
+          test -s site/play/game/index.pck
+      - name: Assemble the site
+        run: |
+          cp -r web/index.html web/404.html web/assets site/
+          cp web/play/index.html site/play/
+          mkdir -p site/ui site/fonts site/media
+          cp -r ui/frames ui/icons site/ui/
+          find site/ui -name '*.import' -delete -o -name '*.tres' -delete
+          cp fonts/*.ttf fonts/OFL.txt site/fonts/
+          cp docs/media/* site/media/
+          touch site/.nojekyll
+          du -sh site site/play/game
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: site
+          include-hidden-files: true
+          retention-days: 14
+      - name: Pages artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Publish on GitHub Pages
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

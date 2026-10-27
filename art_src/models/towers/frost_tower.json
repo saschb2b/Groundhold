@@ -1,0 +1,229 @@
+{
+ "colors": {
+  "stone": "#c9c3b8",
+  "stone_dark": "#8d8a86",
+  "silver": "#9fb0c0",
+  "frost": "#8fe0f0",
+  "frost_dark": "#4aa0c8",
+  "rune": "#7ff0ff",
+  "snow": "#eef4f8",
+  "gold": "#e0b040"
+ },
+ "ground_ao": 0.3,
+ "parts": [
+  {
+   "shape": "cylinder",
+   "radius": 0.47,
+   "radius_top": 0.44,
+   "height": 0.12,
+   "sides": 6,
+   "bevel": 0.03,
+   "color": "stone_dark",
+   "pattern": "stone"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.38,
+   "radius_top": 0.36,
+   "height": 0.08,
+   "sides": 6,
+   "bevel": 0.02,
+   "at": [
+    0,
+    0.12,
+    0
+   ],
+   "color": "stone",
+   "pattern": "stone"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.29,
+   "radius_top": 0.24,
+   "height": 0.42,
+   "sides": 6,
+   "bevel": 0.02,
+   "at": [
+    0,
+    0.2,
+    0
+   ],
+   "color": "stone",
+   "pattern": "stone"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.255,
+   "height": 0.06,
+   "sides": 6,
+   "bevel": 0.012,
+   "at": [
+    0,
+    0.6,
+    0
+   ],
+   "color": "silver",
+   "pattern": "metal"
+  },
+  {
+   "repeat": 6,
+   "around": 0.245,
+   "phase": 0,
+   "parts": [
+    {
+     "shape": "box",
+     "size": [
+      0.05,
+      0.035,
+      0.01
+     ],
+     "at": [
+      0,
+      0.613,
+      0.0
+     ],
+     "color": "rune",
+     "emit": 1.0
+    }
+   ]
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.23,
+   "radius_top": 0.17,
+   "height": 0.4,
+   "sides": 6,
+   "bevel": 0.018,
+   "at": [
+    0,
+    0.66,
+    0
+   ],
+   "color": "stone",
+   "pattern": "stone"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.16,
+   "radius_top": 0.25,
+   "height": 0.14,
+   "sides": 6,
+   "bevel": 0.015,
+   "at": [
+    0,
+    1.06,
+    0
+   ],
+   "color": "silver",
+   "pattern": "metal"
+  },
+  {
+   "repeat": 6,
+   "around": 0.22,
+   "phase": 30,
+   "parts": [
+    {
+     "shape": "cone",
+     "radius": 0.03,
+     "height": 0.14,
+     "sides": 4,
+     "rotate": [
+      12,
+      0,
+      0
+     ],
+     "at": [
+      0,
+      1.18,
+      0
+     ],
+     "color": "silver",
+     "pattern": "metal"
+    }
+   ]
+  },
+  {
+   "repeat": 5,
+   "around": [
+    0.32,
+    0.38
+   ],
+   "parts": [
+    {
+     "shape": "cylinder",
+     "radius": [
+      0.05,
+      0.07
+     ],
+     "radius_top": 0.0,
+     "height": [
+      0.26,
+      0.4
+     ],
+     "sides": 5,
+     "rotate": [
+      [
+       18,
+       30
+      ],
+      0,
+      0
+     ],
+     "at": [
+      0,
+      0.08,
+      0
+     ],
+     "color": "frost",
+     "pattern": "crystal",
+     "emit": 0.35
+    },
+    {
+     "shape": "cylinder",
+     "radius": 0.035,
+     "radius_top": 0.0,
+     "height": [
+      0.14,
+      0.22
+     ],
+     "sides": 5,
+     "rotate": [
+      [
+       40,
+       55
+      ],
+      25,
+      0
+     ],
+     "at": [
+      0.05,
+      0.08,
+      0
+     ],
+     "color": "frost_dark",
+     "pattern": "crystal",
+     "emit": 0.35
+    }
+   ]
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.21,
+   "segments": [
+    8,
+    3
+   ],
+   "scale": [
+    1,
+    0.25,
+    1
+   ],
+   "at": [
+    0,
+    0.64,
+    0
+   ],
+   "color": "snow"
+  }
+ ]
+}

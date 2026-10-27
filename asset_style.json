@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "background": "#2a3324",
+  "model_background": "#4a5a3a",
+  "model_material": "res://materials/painted.tres",
+  "palettes": {
+    "hollow": "palettes/hollow.gpl"
+  },
+  "ignore": [
+    "docs/**",
+    "web/**"
+  ],
+  "rules": [
+    {
+      "match": "models/**/*.glb",
+      "model": {
+        "origin": "bottom",
+        "max_tris": 1200,
+        "palette": "hollow",
+        "palette_tolerance": 26,
+        "max_materials": 3
+      }
+    },
+    {
+      "match": "models/vegetation/*.glb",
+      "model": {
+        "max_tris": 400,
+        "origin": "bottom-center",
+        "max_size": [
+          1.2,
+          1.8,
+          1.2
+        ],
+        "colors": {
+          "bark": "#5b3a29",
+          "leaf": "#5a8a3a",
+          "leaf_light": "#7fa848",
+          "needle": "#2f5f3e",
+          "needle_light": "#3f7a4a",
+          "blade": "#6a9a3c",
+          "blade_light": "#8fb84e",
+          "stone": "#8a8580",
+          "stone_dark": "#6c6863",
+          "skin": "#d9772b",
+          "stem": "#5a6b2e",
+          "cap": "#b8432f",
+          "stalk": "#e6dcc3",
+          "wood": "#a0784a",
+          "petal": "#e8c04a",
+          "center": "#7a4a20"
+        }
+      }
+    },
+    {
+      "match": "models/towers/*.glb",
+      "model": {
+        "max_tris": 1600,
+        "max_size": [
+          0.98,
+          2.4,
+          0.98
+        ]
+      }
+    },
+    {
+      "match": "models/towers/pennant.glb",
+      "model": {
+        "origin": null
+      },
+      "note": "pivot is where the cloth meets the flagpole"
+    },
+    {
+      "match": "models/creeps/*.glb",
+      "model": {
+        "max_tris": 900,
+        "origin": "bottom-center",
+        "max_size": [
+          1.1,
+          1.2,
+          1.1
+        ]
+      }
+    },
+    {
+      "match": "models/projectiles/*.glb",
+      "model": {
+        "max_tris": 120,
+        "origin": null,
+        "max_size": [
+          0.4,
+          0.4,
+          0.5
+        ]
+      }
+    },
+    {
+      "match": "models/props/*.glb",
+      "model": {
+        "max_tris": 1000,
+        "origin": "bottom-center"
+      }
+    },
+    {
+      "match": "models/props/lantern_post.glb",
+      "model": {
+        "origin": "bottom"
+      },
+      "note": "pivot is the post, the lantern hangs to the side"
+    },
+    {
+      "match": "sfx/*.wav",
+      "audio": {
+        "max_peak_db": -1.0,
+        "max_leading_silence_ms": 20,
+        "sample_rates": [
+          44100
+        ],
+        "channels": 1,
+        "max_duration_s": 1.6
+      }
+    },
+    {
+      "match": "models/ui/*.glb",
+      "model": {
+        "max_tris": 300,
+        "origin": "bottom-center"
+      }
+    },
+    {
+      "match": "ui/icons/*.png",
+      "image": {
+        "size": [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "match": "ui/frames/*.png",
+      "image": {
+        "max_size": [
+          512,
+          512
+        ]
+      }
+    }
+  ]
+}

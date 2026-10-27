@@ -1,0 +1,22 @@
+{
+  "name": "combat_look",
+  "seed": 1,
+  "time_scale": 2,
+  "timeout_frames": 1200,
+  "observe_groups": ["towers", "creeps"],
+  "observe_props": ["kind", "hp", "max_hp", "distance", "kills", "shots", "slow_factor"],
+  "steps": [
+    {"eval": "scene.build('arrow', Vector2i(5, 3))"},
+    {"eval": "scene.build('frost', Vector2i(8, 4))"},
+    {"set": "Game.gold", "value": 200},
+    {"eval": "scene.build('cannon', Vector2i(6, 4))"},
+    {"key": "N"},
+    {"assert": "Game.wave == 1", "msg": "N starts the first wave early"},
+    {"wait_until": "count('creeps') >= 3 and first('towers').shots > 0", "timeout": 600},
+    {"capture": "first_shots"},
+    {"wait": 40},
+    {"capture": "combat", "overlay": true},
+    {"wait": 40},
+    {"capture": "later"}
+  ]
+}

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lantern Hollow · a very small tower defense</title>
+<meta name="description" content="A very small tower defense at dusk in the spirit of Warcraft III custom maps. Three towers, eight waves and the Hollow King. Play it in your browser.">
+<link rel="canonical" href="https://saschb2b.github.io/Tower-Defense/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Lantern Hollow">
+<meta property="og:url" content="https://saschb2b.github.io/Tower-Defense/">
+<meta property="og:title" content="Lantern Hollow · a very small tower defense">
+<meta property="og:description" content="Hold the road from the rift gate to the hearth. Three towers, eight waves and the Hollow King, in your browser.">
+<meta property="og:image" content="https://saschb2b.github.io/Tower-Defense/media/social.jpg">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#1b2438">
+<link rel="icon" href="ui/icons/arrow_tower.png" type="image/png">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="bar">
+	<div class="wrap">
+		<a class="brand" href="./"><img src="ui/icons/arrow_tower.png" alt=""><span>Lantern Hollow</span></a>
+		<nav aria-label="Site">
+			<a href="play/">Play</a>
+			<a href="#towers">Towers</a>
+			<a href="#how">How to play</a>
+			<a href="https://github.com/saschb2b/Tower-Defense">Source</a>
+		</nav>
+	</div>
+</header>
+
+<main class="wrap">
+	<section class="hero">
+		<h1>Lantern Hollow</h1>
+		<p class="pitch">A very small tower defense at dusk, in the spirit of Warcraft&nbsp;III's custom maps.
+		Hold the winding road from the rift gate to the hearth with three towers, through eight waves and the Hollow King.</p>
+		<div class="actions">
+			<a class="button big" href="play/">Play in your browser</a>
+			<a class="button big" href="https://github.com/saschb2b/Tower-Defense">Source on GitHub</a>
+		</div>
+		<figure class="shot">
+			<img class="frame" src="media/hero.webp" width="1280" height="720" alt="Wave 7 in Lantern Hollow: creeps file along the road past arrow, cannon and frost towers; the console shows the minimap, a portrait of the selected Arrow Tower, its stats and the command card">
+			<figcaption>Wave 7 of 8. The console below holds the minimap, a live portrait of what you selected, its stats and the command card.</figcaption>
+		</figure>
+	</section>
+
+	<section id="towers">
+		<h2>Three towers</h2>
+		<div class="cards">
+			<article class="card console">
+				<h3><img src="ui/icons/arrow_tower.png" alt="">Arrow Tower</h3>
+				<p>Quick bolts at the creep closest to the hearth. <span class="cost">40 gold.</span></p>
+				<div class="stats"><span>Damage <b>8</b></span><span>Range <b>3.2</b></span><span>Every <b>0.5 s</b></span></div>
+				<p class="dim">Upgrade for 60: 16 damage, range 3.6.</p>
+			</article>
+			<article class="card console">
+				<h3><img src="ui/icons/cannon_tower.png" alt="">Cannon Tower</h3>
+				<p>Slow shells that burst and hit every creep nearby. <span class="cost">70 gold.</span></p>
+				<div class="stats"><span>Damage <b>20</b></span><span>Splash <b>1.1</b></span><span>Every <b>1.5 s</b></span></div>
+				<p class="dim">Upgrade for 80: 40 damage, a bigger blast.</p>
+			</article>
+			<article class="card console">
+				<h3><img src="ui/icons/frost_tower.png" alt="">Frost Spire</h3>
+				<p>Ice shards that slow creeps for two seconds. <span class="cost">60 gold.</span></p>
+				<div class="stats"><span>Slow <b>45%</b></span><span>Range <b>2.8</b></span><span>Every <b>0.9 s</b></span></div>
+				<p class="dim">Upgrade for 60: slows by 60%.</p>
+			</article>
+		</div>
+		<figure class="shot" style="margin-top:22px">
+			<img class="frame" src="media/towers.webp" width="1280" height="720" alt="Close up: a cannon tower firing beside two blue-roofed arrow towers, one upgraded with gold trim, and a frost spire with a floating crystal">
+			<figcaption>Upgraded towers wear gold. The cannon turns and recoils, the frost spire's crystal circles with shards.</figcaption>
+		</figure>
+	</section>
+
+	<section id="creeps">
+		<h2>What comes down the road</h2>
+		<div class="creeps console">
+			<div class="creep"><img src="ui/icons/gourdling.png" alt=""><span><b>Gourdling</b>Plenty of them, early and often.</span></div>
+			<div class="creep"><img src="ui/icons/scuttler.png" alt=""><span><b>Scuttler</b>Fast and fragile. Frost buys time.</span></div>
+			<div class="creep"><img src="ui/icons/thornback.png" alt=""><span><b>Thornback</b>Slow, tough, costs two lives.</span></div>
+			<div class="creep"><img src="ui/icons/hollow_king.png" alt=""><span><b>The Hollow King</b>Wave 8. Ten lives if he gets through.</span></div>
+		</div>
+		<div class="split" style="margin-top:22px">
+			<figure><img class="frame" src="media/combat.webp" width="720" height="286" alt="A few seconds of combat: arrows and cannon shells hit gourdlings, which burst into gold"></figure>
+			<figure><img class="frame" src="media/boss.webp" width="1280" height="720" alt="The Hollow King, a crowned pumpkin with a glowing face, walking past the rift gate; the console shows his health"></figure>
+		</div>
+	</section>
+
+	<section id="how">
+		<h2>How to play</h2>
+		<div class="inset">
+			<table class="keys">
+				<tr><td><kbd>A</kbd> <kbd>C</kbd> <kbd>F</kbd></td><td>Choose Arrow Tower, Cannon Tower or Frost Spire, then left-click a grass tile. The ghost turns red where you cannot build. Hold <kbd>Shift</kbd> to keep placing.</td></tr>
+				<tr><td>Click a tower</td><td>Select it: its range shows. <kbd>U</kbd> upgrades, <kbd>S</kbd> sells for 70% of what you paid.</td></tr>
+				<tr><td>Click a creep</td><td>See its health, speed and bounty in the console.</td></tr>
+				<tr><td><kbd>N</kbd></td><td>Call the next wave early. The seconds left on the timer are paid as gold.</td></tr>
+				<tr><td>View</td><td>Arrow keys, the mouse wheel, middle-drag, or click the minimap. <kbd>Home</kbd> shows the whole hollow.</td></tr>
+				<tr><td>Right click, <kbd>Esc</kbd></td><td>Cancel building or the selection.</td></tr>
+			</table>
+		</div>
+		<p class="actions" style="margin-top:22px"><a class="button big" href="play/">Play now</a></p>
+	</section>
+
+	<section id="made">
+		<h2>How it is made</h2>
+		<div class="inset">
+			<p>Godot 4.7. Every model, icon, console frame and sound was generated for this game from recipes kept in the repository:
+			low-poly models with painted bricks, shingles and planks, framed command icons rendered from those models, nine-slice frames,
+			and synthesized sound effects. Nothing is taken from Warcraft III or any other game.</p>
+			<p>Gameplay is checked by deterministic scenarios: a scripted player must win all eight waves, an idle one must lose,
+			and every rule (gold, leaks, waves, placement) has its own test. Fonts: Noto Serif, under the SIL Open Font License.</p>
+		</div>
+	</section>
+</main>
+
+<footer>
+	<div class="wrap">Lantern Hollow · MIT License · <a href="https://github.com/saschb2b/Tower-Defense">Source on GitHub</a></div>
+</footer>
+</body>
+</html>

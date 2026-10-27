@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Play Lantern Hollow in your browser</title>
+<meta name="description" content="Play Lantern Hollow, a very small tower defense, right in your browser. No install.">
+<link rel="canonical" href="https://saschb2b.github.io/Tower-Defense/play/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Play Lantern Hollow in your browser">
+<meta property="og:description" content="Three towers, eight waves and the Hollow King. No install.">
+<meta property="og:image" content="https://saschb2b.github.io/Tower-Defense/media/social.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#1b2438">
+<link rel="icon" href="../ui/icons/arrow_tower.png" type="image/png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="play">
+
+<header class="bar">
+	<div class="wrap">
+		<a class="brand" href="../"><img src="../ui/icons/arrow_tower.png" alt=""><span>Lantern Hollow</span></a>
+		<nav aria-label="Site">
+			<a href="./" aria-current="page">Play</a>
+			<a href="../#towers">Towers</a>
+			<a href="../#how">How to play</a>
+			<a href="https://github.com/saschb2b/Tower-Defense">Source</a>
+		</nav>
+	</div>
+</header>
+
+<main class="wrap">
+	<div class="frame">
+		<div class="stage">
+			<iframe id="game" src="game/" title="Lantern Hollow" allow="autoplay; fullscreen" allowfullscreen></iframe>
+		</div>
+	</div>
+	<div class="under">
+		<p class="note">Click into the game to give it the keyboard. <kbd>A</kbd> <kbd>C</kbd> <kbd>F</kbd> build, <kbd>U</kbd> upgrades, <kbd>S</kbd> sells, <kbd>N</kbd> calls the next wave.</p>
+		<span>
+			<a class="button" href="#" id="fullscreen">Fullscreen</a>
+			<a class="button" href="#" id="restart">Restart</a>
+		</span>
+	</div>
+	<p class="note">Runs on WebGL 2 in desktop browsers (Chrome, Firefox, Edge, Safari 15 or newer). <a href="../#how">All controls</a>.</p>
+</main>
+
+<footer>
+	<div class="wrap">Lantern Hollow · MIT License · <a href="https://github.com/saschb2b/Tower-Defense">Source on GitHub</a></div>
+</footer>
+
+<script>
+const frame = document.getElementById("game");
+document.getElementById("fullscreen").addEventListener("click", (event) => {
+	event.preventDefault();
+	frame.requestFullscreen?.();
+	frame.focus();
+});
+document.getElementById("restart").addEventListener("click", (event) => {
+	event.preventDefault();
+	frame.src = frame.src;
+});
+</script>
+</body>
+</html>

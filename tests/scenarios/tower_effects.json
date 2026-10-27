@@ -1,0 +1,91 @@
+{
+  "name": "tower_effects",
+  "seed": 1,
+  "observe_groups": [
+    "creeps",
+    "towers"
+  ],
+  "observe_props": [
+    "kind",
+    "hp",
+    "max_hp",
+    "slow_factor",
+    "shots",
+    "kills"
+  ],
+  "steps": [
+    {
+      "set": "Game.gold",
+      "value": 500
+    },
+    {
+      "eval": "scene.build('cannon', Vector2i(6, 3))"
+    },
+    {
+      "eval": "scene.build('frost', Vector2i(8, 4))"
+    },
+    {
+      "repeat": 3,
+      "steps": [
+        {
+          "eval": "node('WaveDirector')._spawn('thornback')"
+        }
+      ]
+    },
+    {
+      "repeat": 3,
+      "steps": [
+        {
+          "wait": 1
+        }
+      ]
+    },
+    {
+      "eval": "group('creeps')",
+      "as": "clump"
+    },
+    {
+      "set": "clump[0].distance",
+      "value": 6.0
+    },
+    {
+      "set": "clump[1].distance",
+      "value": 6.2
+    },
+    {
+      "set": "clump[2].distance",
+      "value": 6.4
+    },
+    {
+      "set": "clump[0].speed",
+      "value": 0.0
+    },
+    {
+      "set": "clump[1].speed",
+      "value": 0.0
+    },
+    {
+      "set": "clump[2].speed",
+      "value": 0.0
+    },
+    {
+      "wait_until": "first('towers').shots >= 1 and count('projectiles') == 0",
+      "timeout": 300
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "clump[0].hp < clump[0].max_hp and clump[1].hp < clump[1].max_hp and clump[2].hp < clump[2].max_hp",
+      "msg": "one cannon shell damages the whole clump"
+    },
+    {
+      "wait_until": "clump[0].slow_factor < 1.0 or clump[1].slow_factor < 1.0 or clump[2].slow_factor < 1.0",
+      "timeout": 300
+    },
+    {
+      "assert": "absf(min(min(clump[0].slow_factor, clump[1].slow_factor), clump[2].slow_factor) - 0.55) < 0.001",
+      "msg": "frost slows by 45%"
+    }
+  ]
+}

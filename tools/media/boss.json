@@ -1,0 +1,46 @@
+{
+  "name": "boss",
+  "seed": 3,
+  "time_scale": 2,
+  "timeout_frames": 2400,
+  "steps": [
+    {
+      "set": "Game.gold",
+      "value": 3000
+    },
+    {
+      "eval": "resource('res://tests/bot.gd').new()",
+      "as": "bot"
+    },
+    {
+      "eval": "bot.step(scene)"
+    },
+    {
+      "set": "Game.wave",
+      "value": 7
+    },
+    {
+      "set": "Game.countdown",
+      "value": 0.1
+    },
+    {
+      "wait_until": "Game.wave == 8 and node('WaveDirector')._queue.is_empty()",
+      "timeout": 900
+    },
+    {
+      "wait": 90
+    },
+    {
+      "eval": "scene.camera.look_from(group('creeps')[count('creeps') - 1].global_position, 8.0)"
+    },
+    {
+      "eval": "node('BuildController').select_creep(group('creeps')[count('creeps') - 1])"
+    },
+    {
+      "wait": 6
+    },
+    {
+      "capture": "boss"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "build_by_click",
+  "seed": 1,
+  "observe_groups": ["towers", "landmarks"],
+  "observe_props": ["kind", "level", "kills"],
+  "steps": [
+    {"wait": 5},
+    {"eval": "Game.gold", "as": "start_gold"},
+    {"key": "A"},
+    {"assert": "node('BuildController').mode == 'arrow'", "msg": "A enters arrow build mode"},
+    {"hover": "scene.cell_center(Vector2i(8, 3))"},
+    {"capture": "ghost_on_grass", "overlay": true},
+    {"assert": "node('BuildController').hover_cell == Vector2i(8, 3)", "msg": "hover picks the cell under the mouse"},
+    {"click": "scene.cell_center(Vector2i(8, 3))"},
+    {"assert": "scene.tower_at(Vector2i(8, 3)) != null", "msg": "clicking a grass cell builds"},
+    {"assert": "Game.gold == start_gold - 40", "msg": "an arrow tower costs 40"},
+    {"assert": "node('BuildController').mode == ''", "msg": "build mode ends after placing"},
+    {"assert": "node('Decor').count_on(Vector2i(8, 3)) == 0", "msg": "fluff on the cell is cleared"},
+    {"key": "C"},
+    {"click": "scene.cell_center(Vector2i(7, 4))"},
+    {"assert": "scene.tower_at(Vector2i(7, 4)) == null", "msg": "road cells are not buildable"},
+    {"assert": "Game.gold == start_gold - 40", "msg": "a refused build costs nothing"},
+    {"key": "Escape"},
+    {"set": "Game.gold", "value": 60},
+    {"key": "C"},
+    {"assert": "node('BuildController').mode == ''", "msg": "cannot pick a 70-gold cannon with 60 gold"},
+    {"click": "scene.cell_center(Vector2i(9, 5))"},
+    {"assert": "scene.tower_at(Vector2i(9, 5)) == null", "msg": "and clicking builds nothing"},
+    {"wait": 20},
+    {"capture": "after", "overlay": true}
+  ]
+}

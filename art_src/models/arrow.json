@@ -1,0 +1,10 @@
+{
+  "origin": "authored",
+  "colors": {"wood": "#a0784a", "iron": "#7a7e88", "feather": "#efe6d6"},
+  "parts": [
+    {"shape": "cylinder", "radius": 0.014, "height": 0.36, "sides": 4, "rotate": [90, 0, 0], "at": [0, 0, -0.18], "color": "wood"},
+    {"shape": "cone", "radius": 0.03, "height": 0.08, "sides": 4, "rotate": [90, 0, 0], "at": [0, 0, 0.18], "color": "iron"},
+    {"shape": "box", "size": [0.07, 0.012, 0.08], "at": [0, -0.006, -0.17], "color": "feather"},
+    {"shape": "box", "size": [0.012, 0.07, 0.08], "at": [0, -0.035, -0.17], "color": "feather"}
+  ]
+}

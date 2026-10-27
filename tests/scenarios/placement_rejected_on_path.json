@@ -1,0 +1,20 @@
+{
+  "name": "placement_rejected_on_path",
+  "seed": 1,
+  "steps": [
+    {"wait": 3},
+    {"eval": "Game.gold", "as": "gold_before"},
+    {"key": "A"},
+    {"hover": "scene.cell_center(Vector2i(8, 3))"},
+    {"assert": "node('BuildController')._ghost_material.albedo_color.g > 0.9", "msg": "the ghost is green over grass"},
+    {"hover": "scene.cell_center(Vector2i(7, 4))"},
+    {"assert": "node('BuildController')._ghost_material.albedo_color.r > 0.9 and node('BuildController')._ghost_material.albedo_color.g < 0.5", "msg": "and red over the road"},
+    {"capture": "red_ghost_on_road"},
+    {"click": "scene.cell_center(Vector2i(7, 4))"},
+    {"assert": "scene.tower_at(Vector2i(7, 4)) == null", "msg": "no tower on the road"},
+    {"assert": "count('towers') == 0"},
+    {"assert": "Game.gold == gold_before", "msg": "and no gold spent"},
+    {"assert": "screen_has('Cannot build there')", "msg": "the player is told why"},
+    {"assert": "node('BuildController').mode == 'arrow'", "msg": "build mode stays on to try another cell"}
+  ]
+}

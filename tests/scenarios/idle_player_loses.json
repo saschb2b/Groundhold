@@ -1,0 +1,13 @@
+{
+  "name": "idle_player_loses",
+  "seed": 1,
+  "time_scale": 8,
+  "timeout_frames": 20000,
+  "steps": [
+    {"eval": "scene.build('arrow', Vector2i(8, 3))"},
+    {"eval": "scene.build('arrow', Vector2i(10, 8))"},
+    {"wait_until": "Game.state >= 2", "timeout": 19000},
+    {"assert": "Game.state == 3", "msg": "two towers and no spending afterwards must not be enough"},
+    {"assert": "Game.wave < 8", "msg": "the hearth falls before the last wave"}
+  ]
+}

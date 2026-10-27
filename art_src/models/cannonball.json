@@ -1,0 +1,5 @@
+{
+  "origin": "authored",
+  "colors": {"iron": "#3a3c42"},
+  "parts": [{"shape": "sphere", "radius": 0.075, "segments": [6, 4], "color": "iron"}]
+}

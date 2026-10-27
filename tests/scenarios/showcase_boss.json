@@ -1,0 +1,65 @@
+{
+  "name": "showcase_boss",
+  "seed": 3,
+  "time_scale": 2,
+  "timeout_frames": 2400,
+  "observe_groups": [
+    "creeps"
+  ],
+  "observe_props": [
+    "kind",
+    "hp",
+    "max_hp",
+    "distance"
+  ],
+  "steps": [
+    {
+      "set": "Game.gold",
+      "value": 3000
+    },
+    {
+      "eval": "resource('res://tests/bot.gd').new()",
+      "as": "bot"
+    },
+    {
+      "eval": "bot.step(scene)"
+    },
+    {
+      "assert": "bot.done == 20",
+      "msg": "the whole build order fits the budget"
+    },
+    {
+      "set": "Game.wave",
+      "value": 7
+    },
+    {
+      "set": "Game.countdown",
+      "value": 0.1
+    },
+    {
+      "wait_until": "Game.wave == 8 and count('creeps') >= 4",
+      "timeout": 600
+    },
+    {
+      "wait_until": "node('WaveDirector').remaining() <= 1 + count('creeps') and Game.wave == 8 and node('WaveDirector')._queue.is_empty()",
+      "timeout": 900
+    },
+    {
+      "capture": "boss_wave_overview"
+    },
+    {
+      "wait_until": "node('WaveDirector').remaining() == 1",
+      "timeout": 1200,
+      "fatal": false
+    },
+    {
+      "eval": "scene.camera.look_from(first('creeps').global_position, 9.0)"
+    },
+    {
+      "wait": 20
+    },
+    {
+      "capture": "boss_close"
+    }
+  ]
+}

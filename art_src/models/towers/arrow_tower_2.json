@@ -1,0 +1,524 @@
+{
+ "colors": {
+  "stone": "#a89e8e",
+  "stone_dark": "#776f64",
+  "stone_light": "#a89e8e",
+  "wood": "#7a5534",
+  "wood_dark": "#4e3423",
+  "roof": "#3f63a8",
+  "roof_dark": "#26406e",
+  "gold": "#e0b040",
+  "cloth": "#2f58a8",
+  "slit": "#1a1410",
+  "flame": "#ffb040",
+  "iron": "#4a4d55"
+ },
+ "ground_ao": 0.3,
+ "parts": [
+  {
+   "shape": "box",
+   "size": [
+    0.94,
+    0.14,
+    0.94
+   ],
+   "bevel": 0.035,
+   "color": "stone_dark",
+   "pattern": "stone"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.74,
+    0.66,
+    0.74
+   ],
+   "taper": 0.86,
+   "bevel": 0.035,
+   "at": [
+    0,
+    0.14,
+    0
+   ],
+   "color": "stone",
+   "pattern": "bricks"
+  },
+  {
+   "repeat": 4,
+   "around": 0.47,
+   "phase": 45,
+   "parts": [
+    {
+     "shape": "box",
+     "size": [
+      0.17,
+      0.5,
+      0.15
+     ],
+     "taper": 0.55,
+     "bevel": 0.025,
+     "at": [
+      0,
+      0.14,
+      -0.04
+     ],
+     "color": "stone_dark",
+     "pattern": "stone"
+    }
+   ]
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.78,
+    0.06,
+    0.78
+   ],
+   "bevel": 0.015,
+   "at": [
+    0,
+    0.56,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.22,
+    0.3,
+    0.05
+   ],
+   "bevel": 0.012,
+   "at": [
+    0,
+    0.14,
+    0.355
+   ],
+   "color": "wood_dark",
+   "pattern": "planks"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.3,
+    0.05,
+    0.07
+   ],
+   "bevel": 0.015,
+   "at": [
+    0,
+    0.44,
+    0.35
+   ],
+   "color": "stone_light",
+   "pattern": "stone"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.035,
+    0.14,
+    0.03
+   ],
+   "at": [
+    -0.17,
+    0.52,
+    0.335
+   ],
+   "color": "slit"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.035,
+    0.14,
+    0.03
+   ],
+   "at": [
+    0.17,
+    0.52,
+    0.335
+   ],
+   "color": "slit"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.12,
+    0.26,
+    0.015
+   ],
+   "at": [
+    -0.22,
+    0.48,
+    0.345
+   ],
+   "color": "cloth",
+   "pattern": "cloth"
+  },
+  {
+   "shape": "wedge",
+   "size": [
+    0.12,
+    0.07,
+    0.015
+   ],
+   "rotate": [
+    0,
+    0,
+    180
+   ],
+   "at": [
+    -0.22,
+    0.48,
+    0.345
+   ],
+   "color": "cloth",
+   "pattern": "cloth"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.12,
+    0.26,
+    0.015
+   ],
+   "at": [
+    0.22,
+    0.48,
+    0.345
+   ],
+   "color": "cloth",
+   "pattern": "cloth"
+  },
+  {
+   "shape": "wedge",
+   "size": [
+    0.12,
+    0.07,
+    0.015
+   ],
+   "rotate": [
+    0,
+    0,
+    180
+   ],
+   "at": [
+    0.22,
+    0.48,
+    0.345
+   ],
+   "color": "cloth",
+   "pattern": "cloth"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.05,
+    0.05,
+    0.02
+   ],
+   "rotate": [
+    0,
+    0,
+    45
+   ],
+   "at": [
+    -0.22,
+    0.6,
+    0.355
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.05,
+    0.05,
+    0.02
+   ],
+   "rotate": [
+    0,
+    0,
+    45
+   ],
+   "at": [
+    0.22,
+    0.6,
+    0.355
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.16,
+    0.025,
+    0.015
+   ],
+   "at": [
+    -0.22,
+    0.74,
+    0.35
+   ],
+   "color": "wood_dark"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.16,
+    0.025,
+    0.015
+   ],
+   "at": [
+    0.22,
+    0.74,
+    0.35
+   ],
+   "color": "wood_dark"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.022,
+   "height": 0.12,
+   "sides": 5,
+   "at": [
+    -0.16,
+    0.24,
+    0.4
+   ],
+   "color": "wood_dark"
+  },
+  {
+   "shape": "cone",
+   "radius": 0.04,
+   "height": 0.09,
+   "sides": 5,
+   "at": [
+    -0.16,
+    0.36,
+    0.4
+   ],
+   "color": "flame",
+   "emit": 1.0
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.022,
+   "height": 0.12,
+   "sides": 5,
+   "at": [
+    0.16,
+    0.24,
+    0.4
+   ],
+   "color": "wood_dark"
+  },
+  {
+   "shape": "cone",
+   "radius": 0.04,
+   "height": 0.09,
+   "sides": 5,
+   "at": [
+    0.16,
+    0.36,
+    0.4
+   ],
+   "color": "flame",
+   "emit": 1.0
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.72,
+    0.07,
+    0.72
+   ],
+   "bevel": 0.02,
+   "at": [
+    0,
+    0.79,
+    0
+   ],
+   "color": "wood",
+   "pattern": "planks",
+   "pattern_rotate": true
+  },
+  {
+   "repeat": 4,
+   "around": 0.3,
+   "phase": 0,
+   "parts": [
+    {
+     "shape": "box",
+     "size": [
+      0.08,
+      0.1,
+      0.12
+     ],
+     "taper": 1.0,
+     "bevel": 0.012,
+     "at": [
+      0,
+      0.7,
+      0.04
+     ],
+     "color": "wood_dark",
+     "pattern": "planks"
+    }
+   ]
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.9,
+    0.07,
+    0.9
+   ],
+   "bevel": 0.02,
+   "at": [
+    0,
+    0.86,
+    0
+   ],
+   "color": "wood",
+   "pattern": "planks"
+  },
+  {
+   "repeat": 4,
+   "around": 0.4,
+   "phase": 45,
+   "parts": [
+    {
+     "shape": "box",
+     "size": [
+      0.06,
+      0.6,
+      0.06
+     ],
+     "bevel": 0.012,
+     "at": [
+      0,
+      0.93,
+      0
+     ],
+     "color": "wood_dark",
+     "pattern": "planks"
+    }
+   ]
+  },
+  {
+   "repeat": 4,
+   "around": 0.41,
+   "phase": 0,
+   "parts": [
+    {
+     "shape": "box",
+     "size": [
+      0.72,
+      0.045,
+      0.035
+     ],
+     "bevel": 0.01,
+     "at": [
+      0,
+      1.06,
+      0
+     ],
+     "color": "wood",
+     "pattern": "planks",
+     "pattern_rotate": true
+    },
+    {
+     "shape": "box",
+     "size": [
+      0.72,
+      0.035,
+      0.03
+     ],
+     "at": [
+      0,
+      0.97,
+      0
+     ],
+     "color": "wood_dark"
+    }
+   ]
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.66,
+   "radius_top": 0.6,
+   "height": 0.06,
+   "sides": 4,
+   "phase": 45,
+   "at": [
+    0,
+    1.5,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.62,
+   "radius_top": 0.0,
+   "height": 0.56,
+   "sides": 4,
+   "phase": 45,
+   "at": [
+    0,
+    1.54,
+    0
+   ],
+   "color": "roof",
+   "pattern": "shingles"
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.06,
+   "segments": [
+    6,
+    4
+   ],
+   "at": [
+    0,
+    2.08,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.016,
+   "height": 0.22,
+   "sides": 5,
+   "at": [
+    0,
+    2.1,
+    0
+   ],
+   "color": "iron",
+   "pattern": "metal"
+  },
+  {
+   "shape": "cone",
+   "radius": 0.05,
+   "height": 0.16,
+   "sides": 6,
+   "at": [
+    0,
+    2.12,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  }
+ ]
+}

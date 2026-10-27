@@ -1,0 +1,23 @@
+{
+  "name": "towers",
+  "seed": 2,
+  "time_scale": 2,
+  "timeout_frames": 1500,
+  "steps": [
+    {"set": "Game.gold", "value": 1000},
+    {"eval": "scene.build('arrow', Vector2i(8, 3))"},
+    {"eval": "scene.build('cannon', Vector2i(6, 3))"},
+    {"eval": "scene.build('frost', Vector2i(8, 5))"},
+    {"eval": "scene.build('arrow', Vector2i(10, 5))"},
+    {"eval": "scene.tower_at(Vector2i(10, 5)).upgrade()"},
+    {"eval": "scene.build('cannon', Vector2i(10, 7))"},
+    {"eval": "scene.tower_at(Vector2i(10, 7)).upgrade()"},
+    {"eval": "scene.camera.look_from(Vector3(8.4, 0, 5.2), 8.5)"},
+    {"key": "N"},
+    {"wait_until": "count('creeps') >= 5 and count('projectiles') > 1", "timeout": 600},
+    {"wait": 16},
+    {"click": "scene.cell_center(Vector2i(8, 5))"},
+    {"wait": 4},
+    {"capture": "towers"}
+  ]
+}

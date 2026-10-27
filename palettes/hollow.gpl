@@ -1,0 +1,64 @@
+GIMP Palette
+Name: hollow
+Columns: 8
+#
+ 91  58  41	bark
+160 120  74	wood_light
+122  85  52	wood
+ 90 138  58	leaf_green
+127 168  72	leaf_green_light
+208 138  46	leaf_amber
+232 180  74	leaf_amber_light
+184  69  44	leaf_red
+ 47  95  62	needle
+ 63 122  74	needle_light
+106 154  60	grass
+143 184  78	grass_light
+138 133 128	stone
+ 94  90  86	stone_dark
+179 172 162	stone_light
+108 104  99	stone_mid
+217 119  43	pumpkin
+168  82  30	pumpkin_dark
+181  84  31	pumpkin_deep
+ 90 107  46	stem
+184  67  47	cap
+230 220 195	stalk
+232 192  74	petal_yellow
+239 230 214	petal_white
+154 106 192	petal_purple
+122  74  32	flower_center
+ 58  90 154	roof_blue
+ 90 126 192	roof_blue_light
+224 176  64	gold
+ 74  77  85	iron
+122 126 136	iron_light
+ 58  60  66	iron_dark
+143 224 240	frost
+ 74 160 200	frost_dark
+255 176  64	glow_orange
+255 216  96	glow_yellow
+255 239 122	glow_pale
+176 112 255	glow_purple
+208 160 255	rune
+ 74  47  90	shell
+110  74 130	shell_light
+ 42  30  36	shell_dark
+156 255  90	eye_green
+107  74  52	hide
+ 74  51  36	hide_dark
+216 200 168	spike
+239 230 214	tusk
+255  90  58	eye_red
+ 62  42  30	leg
+154 148 138	stone_warm
+107 102  95	stone_shadow
+201 195 184	stone_pale
+ 78  52  35	wood_dark
+ 38  64 110	roof_dark
+ 47  88 168	cloth_blue
+176 122  58	bronze
+238 244 248	snow
+127 240 255	rune_cyan
+ 26  20  16	slit
+233 214 170	plaster

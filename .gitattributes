@@ -1,0 +1,8 @@
+# Text with LF everywhere; generated art, models, sounds and fonts are binary.
+* text=auto eol=lf
+*.png binary
+*.webp binary
+*.jpg binary
+*.glb binary
+*.wav binary
+*.ttf binary

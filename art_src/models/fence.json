@@ -1,0 +1,104 @@
+{
+ "colors": {
+  "wood": "#7a5534",
+  "wood_light": "#a0784a"
+ },
+ "parts": [
+  {
+   "shape": "box",
+   "size": [
+    0.06,
+    0.32,
+    0.06
+   ],
+   "at": [
+    -0.45,
+    0,
+    0
+   ],
+   "rotate": [
+    0,
+    0,
+    [
+     -4,
+     4
+    ]
+   ],
+   "color": "wood",
+   "pattern": "planks",
+   "bevel": 0.015
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.06,
+    0.32,
+    0.06
+   ],
+   "at": [
+    0.45,
+    0,
+    0
+   ],
+   "rotate": [
+    0,
+    0,
+    [
+     -4,
+     4
+    ]
+   ],
+   "color": "wood",
+   "pattern": "planks",
+   "bevel": 0.015
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.98,
+    0.04,
+    0.03
+   ],
+   "at": [
+    0,
+    0.12,
+    0
+   ],
+   "rotate": [
+    0,
+    0,
+    [
+     -2,
+     2
+    ]
+   ],
+   "color": "wood_light",
+   "pattern": "planks",
+   "bevel": 0.015
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.98,
+    0.04,
+    0.03
+   ],
+   "at": [
+    0,
+    0.24,
+    0
+   ],
+   "rotate": [
+    0,
+    0,
+    [
+     -2,
+     2
+    ]
+   ],
+   "color": "wood_light",
+   "pattern": "planks",
+   "bevel": 0.015
+  }
+ ]
+}

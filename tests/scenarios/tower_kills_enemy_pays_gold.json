@@ -1,0 +1,71 @@
+{
+  "name": "tower_kills_enemy_pays_gold",
+  "seed": 1,
+  "time_scale": 2,
+  "timeout_frames": 1500,
+  "observe_groups": [
+    "creeps",
+    "towers",
+    "projectiles"
+  ],
+  "observe_props": [
+    "kind",
+    "hp",
+    "max_hp",
+    "distance",
+    "kills",
+    "shots"
+  ],
+  "steps": [
+    {
+      "eval": "scene.build('arrow', Vector2i(8, 3))"
+    },
+    {
+      "eval": "scene.camera.look_from(Vector3(6.5, 0, 3.2), 7.5)"
+    },
+    {
+      "set": "Game.countdown",
+      "value": 0.1
+    },
+    {
+      "wait_until": "Game.state == 1",
+      "timeout": 60
+    },
+    {
+      "eval": "Game.gold",
+      "as": "gold_before"
+    },
+    {
+      "wait_until": "count('projectiles') > 0",
+      "timeout": 600
+    },
+    {
+      "wait": 1
+    },
+    {
+      "capture": "tower_fires"
+    },
+    {
+      "wait_until": "Game.kills >= 1",
+      "timeout": 900
+    },
+    {
+      "wait": 2
+    },
+    {
+      "capture": "enemy_dies"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(8, 3)).kills == 1",
+      "msg": "the arrow tower made the kill"
+    },
+    {
+      "assert": "Game.gold == gold_before + 3",
+      "msg": "a gourdling pays 3 gold"
+    },
+    {
+      "assert": "text('Gold') == str(gold_before + 3)",
+      "msg": "the HUD shows the new gold"
+    }
+  ]
+}
