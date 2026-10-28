@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 · 2026-10-28
+
+The ground and the water get the hand-painted treatment.
+
+- Painted, seamless ground textures: grass with blade strokes and autumn patches, a meadow with flowers,
+  a pebbled dirt road, sand, mud and stone. The road's borders are ragged, with grass creeping over them.
+- The grass rolls in gentle rises and dips; the road stays level, and towers and props stand on the ground.
+- The pond is a rounded bowl with sloping sandy banks instead of square tiles: turquoise shallows into deep
+  blue, a foam line that laps at the shore, drifting ripples with sun glints, reeds and lily pads.
+
 ## 0.1.0 · 2026-10-28
 
 The first public build, playable in the browser.

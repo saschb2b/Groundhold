@@ -21,7 +21,7 @@ func _ready() -> void:
 	Game.reset()
 	map = HollowMap.load_file(MAP_FILE)
 	terrain.build(map)
-	decor.build(map)
+	decor.build(map, terrain)
 	_place_landmarks()
 	waves.setup(map.path_points(), creeps)
 	controller.setup(map, terrain, decor, waves, towers)
@@ -36,7 +36,7 @@ func _exit_tree() -> void:
 
 
 func cell_center(cell: Vector2i) -> Vector3:
-	return map.center(cell)
+	return terrain.surface(cell)
 
 
 func build(kind: String, cell: Vector2i) -> bool:

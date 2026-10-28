@@ -16,7 +16,6 @@ const LANTERN := "L"
 
 const HIGH_HEIGHT := 0.9
 const ROAD_HEIGHT := 0.0
-const WATER_BED := -0.4
 
 var width := 0
 var depth := 0
@@ -75,8 +74,6 @@ func height(cell: Vector2i) -> float:
 	match tile(cell):
 		HIGH:
 			return HIGH_HEIGHT
-		WATER:
-			return WATER_BED
 		ROAD, SPAWN, HEARTH:
 			return ROAD_HEIGHT
 	return 0.0

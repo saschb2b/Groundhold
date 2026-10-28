@@ -49,6 +49,8 @@ func _ready() -> void:
 	_range_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_range_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_range_material.albedo_color = Color(0.5, 1.0, 0.5, 0.55)
+	# Drawn over the rolling ground, which would otherwise hide parts of the ring.
+	_range_material.no_depth_test = true
 	_range_ring = MeshInstance3D.new()
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.96
@@ -156,12 +158,12 @@ func build(kind: String, cell: Vector2i) -> bool:
 	var tower := Tower.new()
 	tower.name = "%s_%d_%d" % [kind, cell.x, cell.y]
 	tower_parent.add_child(tower)
-	tower.setup(kind, cell, map.center(cell))
+	tower.setup(kind, cell, terrain.surface(cell))
 	towers[cell] = tower
 	decor.clear_cell(cell)
 	Fx.burst(
 		get_tree(),
-		map.center(cell) + Vector3(0, 0.1, 0),
+		terrain.surface(cell) + Vector3(0, 0.1, 0),
 		Color(0.6, 0.5, 0.35, 0.9),
 		14,
 		1.2,
@@ -263,7 +265,7 @@ func _refresh_preview() -> void:
 		_ghost.visible = show_cell
 		if show_cell:
 			var ok := can_build(mode, hover_cell)
-			_ghost.position = map.center(hover_cell)
+			_ghost.position = terrain.surface(hover_cell)
 			_ghost_material.albedo_color = (
 				Color(0.4, 1.0, 0.45, 0.5) if ok else Color(1.0, 0.3, 0.25, 0.5)
 			)

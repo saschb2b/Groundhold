@@ -21,8 +21,11 @@ const FLOWERS := [
 ]
 const PUMPKINS := ["pumpkin_1", "pumpkin_2", "pumpkin_3"]
 const SMALL := ["mushroom_1", "mushroom_2", "stump"]
+const REEDS := ["reeds_1", "reeds_2", "reeds_3"]
+const LILIES := ["lily_pad_1", "lily_pad_2", "lily_pad_3"]
 
 var map: HollowMap
+var terrain: Terrain
 var _rng := RandomNumberGenerator.new()
 ## model name -> Array[Transform3D]
 var _placements := {}
@@ -32,8 +35,9 @@ var _multimeshes := {}
 var _cleared := {}
 
 
-func build(source: HollowMap) -> void:
+func build(source: HollowMap, ground: Terrain) -> void:
 	map = source
+	terrain = ground
 	_rng.seed = 20261027
 	for z in map.depth:
 		for x in map.width:
@@ -107,13 +111,39 @@ func _dress(cell: Vector2i) -> void:
 			if _rng.randf() < 0.04:
 				_put(_pick(PUMPKINS + SMALL), cell, 0.35, 1.0, 1.4)
 		HollowMap.WATER:
-			for side: Vector2i in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-				if map.tile(cell + side) != HollowMap.WATER and _rng.randf() < 0.5:
-					var edge := Vector3(side.x, 0, side.y) * 0.45
-					_put(_pick(TUFTS + ROCKS), cell, 0.1, 0.8, 1.2, edge + Vector3(0, -0.12, 0))
+			_dress_shore(cell)
 		HollowMap.LANTERN:
 			_put_exact("lantern_post", cell, Vector3.ZERO, _face_road(cell), 1.8)
 			_scatter(TUFTS, cell, 1, 0.4)
+
+
+## Reeds where the bank meets the water, lily pads out on the deep, stones on the
+## sand: placed by the ground's real height, so they follow the curved shoreline.
+func _dress_shore(cell: Vector2i) -> void:
+	for i in 18:
+		var p := (
+			Vector2(cell.x - 0.5, cell.y - 0.5) + Vector2(_rng.randf() * 2.0, _rng.randf() * 2.0)
+		)
+		var h := terrain.height_at(p)
+		var roll := _rng.randf()
+		var at := Vector3(p.x, h, p.y)
+		var owner := map.cell_at(at)
+		if h > -0.2 and h < -0.04 and roll < 0.55:
+			_put_at(_pick(REEDS), owner, at, _rng.randf_range(0.9, 1.35))
+		elif h < -0.38 and roll < 0.05:
+			_put_at(
+				_pick(LILIES),
+				owner,
+				Vector3(p.x, Terrain.WATER_LEVEL + 0.003, p.y),
+				_rng.randf_range(0.9, 1.4)
+			)
+		elif h > -0.04 and h < -0.002 and roll < 0.3:
+			_put_at(_pick(ROCKS), owner, at, _rng.randf_range(0.5, 0.9))
+
+
+func _put_at(name: String, owner: Vector2i, at: Vector3, s: float) -> void:
+	var basis := Basis(Vector3.UP, _rng.randf_range(0, TAU)).scaled(Vector3(s, s, s))
+	_add(name, owner, Transform3D(basis, at))
 
 
 func _pick(names: Array) -> String:
@@ -141,6 +171,8 @@ func _put(
 		+ offset
 		+ Vector3(_rng.randf_range(-spread, spread), 0, _rng.randf_range(-spread, spread))
 	)
+	if map.tile(cell) != HollowMap.HIGH:
+		pos.y = terrain.height_at(Vector2(pos.x, pos.z)) + offset.y
 	var s := _rng.randf_range(min_scale, max_scale)
 	var basis := Basis(Vector3.UP, _rng.randf_range(0, TAU)).scaled(Vector3(s, s, s))
 	_add(name, cell, Transform3D(basis, pos))
@@ -150,7 +182,9 @@ func _put_exact(name: String, cell: Vector2i, offset: Vector3, yaw: float, scale
 	_add(
 		name,
 		cell,
-		Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * scale), map.center(cell) + offset)
+		Transform3D(
+			Basis(Vector3.UP, yaw).scaled(Vector3.ONE * scale), terrain.surface(cell) + offset
+		)
 	)
 
 

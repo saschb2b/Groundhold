@@ -95,6 +95,7 @@ can be rebuilt from its recipe (`asset_manifest.json` records how):
 | `data/hollow.txt` | The map, one character per tile. The road is traced from `S` to `E`; edit it to redesign the level |
 | `art_src/models/` | Recipes for the low-poly towers, creeps, props and projectiles: parts with sizes, bevels, colours and painted patterns |
 | `materials/painted.gdshader` | Paints bricks, stone, planks, shingles, metal and cloth onto every model, with lit edges and dark grout |
+| `textures/`, `shaders/terrain.gdshader`, `shaders/water.gdshader` | Painted grass, meadow, path, sand, mud and rock textures, blended across the tiles with ragged edges; the pond's depth, foam and ripples |
 | `models/`, `ui/icons/`, `ui/frames/`, `sfx/` | The generated models, framed command icons, nine-slice console frames and synthesized sounds |
 | `asset_style.json`, `palettes/hollow.gpl` | The style every asset is checked against: triangle budgets, sizes, origins, palette, loudness |
 | `scripts/` | The game: rules and tables in `game.gd`, waves, building, towers, creeps, projectiles, terrain, the console |
