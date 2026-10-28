@@ -1,6 +1,7 @@
-# Every push to main exports the game for the browser and publishes it, with
-# the project page around it, on GitHub Pages. Pull requests build the same
-# site without publishing it, so a broken export shows up before it lands.
+# Every push to main runs the gameplay scenarios with godot-agent-kit, exports
+# the game for the browser and publishes it, with the project page around it,
+# on GitHub Pages. Pull requests run the same checks and build without
+# publishing, so a broken rule or export shows up before it lands.
 name: Pages
 
 on:
@@ -20,6 +21,37 @@ env:
   GODOT_VERSION: 4.7.1
 
 jobs:
+  test:
+    name: Gameplay scenarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The kit runs the scenarios; a dot folder, so Godot does not import it.
+      - uses: actions/checkout@v7
+        with:
+          repository: saschb2b/godot-agent-kit
+          path: .kit
+      - uses: actions/cache@v6
+        id: godot
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot and its web template
+        if: steps.godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/godot && cd ~/godot
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && rm godot.zip
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt -d templates
+          rm templates.tpz
+      - name: Run every scenario (headless)
+        run: |
+          export GODOT_PATH="$HOME/godot/godot"
+          python3 .kit/bin/godot-agent scenario . --headless --timeout 300
+
   build:
     name: Export for the browser
     runs-on: ubuntu-latest
@@ -82,7 +114,7 @@ jobs:
   deploy:
     name: Publish on GitHub Pages
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: build
+    needs: [test, build]
     runs-on: ubuntu-latest
     permissions:
       pages: write

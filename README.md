@@ -102,8 +102,9 @@ can be rebuilt from its recipe (`asset_manifest.json` records how):
 | `tests/scenarios/`, `tests/bot.gd` | Deterministic gameplay tests; a scripted player must win all eight waves and an idle one must lose |
 | `tools/media/` | The scenarios that stage the screenshots and the clip above |
 
-The models, icons, frames and sounds were made with godot-agent-kit, an agent toolkit for verifying Godot games
-and building their assets. The fonts are Noto Serif and Noto Serif Display under the SIL Open Font License
+The models, textures, icons, frames and sounds were made with [godot-agent-kit](https://github.com/saschb2b/godot-agent-kit),
+an agent toolkit for verifying Godot games and building their assets. It also runs the gameplay scenarios, on every push
+before the site is published. The fonts are Noto Serif and Noto Serif Display under the SIL Open Font License
 ([fonts/OFL.txt](fonts/OFL.txt)).
 
 ## License

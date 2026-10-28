@@ -3,7 +3,8 @@
 Godot 4.7.1, GDScript. The game runs from `scenes/main.tscn`; `scripts/main.gd` builds the hollow from
 `data/hollow.txt` and wires the systems. Rules and balance live in `scripts/game.gd`.
 
-Verify changes with godot-agent (its skill explains each command):
+Verify changes with godot-agent ([godot-agent-kit](https://github.com/saschb2b/godot-agent-kit): clone it and run
+its `install.sh` for the CLI, the MCP server and the skill, which explains each command):
 
 - `godot-agent check .` after editing scripts; `--resources` after editing scenes or `.tres` files.
 - `godot-agent scenario . --headless` runs every gameplay test in about a second. Add a scenario in
