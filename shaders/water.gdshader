@@ -65,7 +65,7 @@ void fragment() {
 	ALBEDO = col;
 	// The sandy bank shows through the shallows; the middle is opaque.
 	ALPHA = clamp(mix(0.5, 0.94, smoothstep(0.0, 0.45, d)) + foam * 0.5, 0.0, 1.0);
-	ROUGHNESS = mix(0.06, 0.4, foam);
-	SPECULAR = 0.75;
+	ROUGHNESS = mix(0.14, 0.45, foam);
+	SPECULAR = 0.5;
 	METALLIC = 0.0;
 }

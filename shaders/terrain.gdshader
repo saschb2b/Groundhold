@@ -71,6 +71,10 @@ void fragment() {
 	grass = mix(grass, grass * autumn * 1.35, patch * 0.75);
 	// Broad light and shade across the field, as a painter blocks in a meadow.
 	grass *= 0.84 + 0.3 * fbm(xz * 0.38 + 4.0);
+	// Darker clumps, and bare earth showing through here and there.
+	grass *= 1.0 - 0.22 * smoothstep(0.58, 0.72, fbm(xz * 1.1 + 21.0));
+	float bare = smoothstep(0.72, 0.78, fbm(xz * 0.45 + 33.0) + (fine - 0.5) * 0.12);
+	grass = mix(grass, painted(path_tex, xz + 9.0) * 0.9, bare);
 	grass = mix(grass, painted(meadow_tex, xz + 3.7), smoothstep(0.25, 0.6, m.g + (n - 0.5) * 0.4));
 
 	// The road: ragged edges where grass creeps over, a shadowed lip along them.

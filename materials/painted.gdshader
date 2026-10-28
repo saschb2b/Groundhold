@@ -1,4 +1,4 @@
-// godot-agent painted v2
+// godot-agent painted v3
 // Hand-painted surfaces for models from `godot-agent asset mesh`.
 //
 // Vertex color carries the paint (linear RGB) and, in alpha, which pattern to draw:
@@ -140,9 +140,12 @@ vec3 cobble(vec3 c, vec2 uv) {
 }
 
 vec3 leaves(vec3 c, vec2 uv) {
-	vec2 v = voronoi(uv / 0.06);
-	vec3 clump = tint(c, v.y) * (0.68 + 0.55 * smoothstep(0.0, 0.45, v.x));
-	return clump * (0.9 + 0.2 * vnoise(uv * 60.0));
+	// Soft clumps: each one brighter where it bulges toward the light, with no
+	// outline between them, and fine leaf noise on top.
+	vec2 v = voronoi(uv / 0.05);
+	float dome = smoothstep(0.0, 0.4, v.x);
+	vec3 clump = tint(c, v.y) * (0.84 + 0.3 * dome);
+	return clump * (0.88 + 0.22 * vnoise(uv * 85.0 + v.y * 7.0));
 }
 
 void fragment() {

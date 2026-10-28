@@ -62,3 +62,10 @@ Columns: 8
 127 240 255	rune_cyan
  26  20  16	slit
 233 214 170	plaster
+195 224 112	leaf_tip
+168 210  76	needle_tip
+ 29  69  40	needle_deep
+ 63 122  46	leaf_deep
+127 180  68	leaf_bright
+246 208 112	autumn_tip
+240 160  80	ember_tip

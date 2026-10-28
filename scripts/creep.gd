@@ -55,6 +55,7 @@ func setup(creep_kind: String, points: PackedVector3Array, hp_multiplier: float)
 	_model_scale = float(data.get("scale", 1.0))
 	_body.scale = Vector3.ONE * _model_scale
 	add_child(_body)
+	BlobShadow.under(self, 0.24 * _model_scale)
 	_height = _model_height(_body) * _model_scale
 	_build_bar()
 	_place(0.0)

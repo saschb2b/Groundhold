@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 · 2026-10-28
+
+Richer light and forests.
+
+- Tall layered pines with jagged, drooping boughs, dark at the base and bright at the tips, and broadleaf
+  trees in green, amber and red with lit crowns. Woods are dense, with stumps among them.
+- A low late-afternoon sun from the upper left: faces toward the camera are lit and long, crisp shadows fall
+  away. Soft contact shadows under every creep, tower, tree and landmark; SSAO on desktop.
+- Deeper greens with darker clumps and bare earth showing through, light haze at the far edge of the view,
+  warmer colour grading and a vignette.
+
 ## 0.2.0 · 2026-10-28
 
 The ground and the water get the hand-painted treatment.

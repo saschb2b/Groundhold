@@ -27,12 +27,14 @@ func _ready() -> void:
 	controller.setup(map, terrain, decor, waves, towers)
 	hud.setup(self)
 	_frame_camera()
+	_set_the_scene()
 	Game.announce("Lantern Hollow · the first creeps come in %d s" % int(Game.FIRST_PREP))
 
 
 func _exit_tree() -> void:
 	Models.clear_cache()
 	Fx.clear_cache()
+	BlobShadow.clear_cache()
 
 
 func cell_center(cell: Vector2i) -> Vector3:
@@ -53,6 +55,7 @@ func _place_landmarks() -> void:
 	gate.position = map.center(map.spawn)
 	gate.add_to_group("landmarks")
 	add_child(gate)
+	BlobShadow.under(gate, 0.75)
 	var glow := OmniLight3D.new()
 	glow.light_color = Color(0.7, 0.45, 1.0)
 	glow.light_energy = 1.6
@@ -65,12 +68,33 @@ func _place_landmarks() -> void:
 	hearth.position = map.center(map.hearth)
 	hearth.add_to_group("landmarks")
 	add_child(hearth)
+	BlobShadow.under(hearth, 0.8)
 	var fire := OmniLight3D.new()
 	fire.light_color = Color(1.0, 0.7, 0.35)
 	fire.light_energy = 2.2
 	fire.omni_range = 3.5
 	fire.position = Vector3(0, 1.1, 0)
 	hearth.add_child(fire)
+
+
+## Late-afternoon light and a painterly frame: a low sun from the upper left lights
+## the faces toward the camera and throws long shadows away to the right, haze
+## softens the far edge, and the corners darken. SSAO only shows on desktop (Forward+); blob shadows and the
+## vignette carry the look in the browser build too.
+func _set_the_scene() -> void:
+	var sun: DirectionalLight3D = $Sun
+	sun.basis = Basis.looking_at(Vector3(0.62, -0.55, -0.56).normalized(), Vector3.UP)
+	var layer := CanvasLayer.new()
+	layer.name = "Vignette"
+	layer.layer = 0
+	var shade := ColorRect.new()
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://shaders/vignette.gdshader")
+	shade.material = material
+	layer.add_child(shade)
+	add_child(layer)
 
 
 ## Starts close enough to see the units, over the first stretch of road.

@@ -21,16 +21,28 @@ sky_material = SubResource("sky_mat")
 background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.62, 0.62, 0.8, 1)
+ambient_light_color = Color(0.6, 0.64, 0.82, 1)
 ambient_light_energy = 0.55
 tonemap_mode = 2
-tonemap_exposure = 1.05
+tonemap_exposure = 1.08
+ssao_enabled = true
+ssao_radius = 1.2
+ssao_intensity = 2.2
+ssao_power = 1.6
 glow_enabled = true
-glow_intensity = 0.6
-glow_bloom = 0.05
-glow_hdr_threshold = 0.9
+glow_intensity = 0.55
+glow_bloom = 0.0
+glow_hdr_threshold = 0.95
+fog_enabled = true
+fog_mode = 1
+fog_light_color = Color(0.82, 0.72, 0.6, 1)
+fog_density = 0.35
+fog_sky_affect = 0.0
+fog_depth_begin = 16.0
+fog_depth_end = 48.0
 adjustment_enabled = true
-adjustment_saturation = 1.12
+adjustment_contrast = 1.06
+adjustment_saturation = 1.18
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1")
@@ -39,13 +51,13 @@ script = ExtResource("1")
 environment = SubResource("env")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.766, -0.42, 0.487, 0, 0.758, 0.653, -0.643, -0.5, 0.58, 0, 8, 0)
-light_color = Color(1, 0.88, 0.72, 1)
-light_energy = 1.25
+light_color = Color(1, 0.86, 0.68, 1)
+light_energy = 1.5
 shadow_enabled = true
-shadow_opacity = 0.8
-directional_shadow_mode = 0
-directional_shadow_max_distance = 45.0
+shadow_opacity = 0.92
+shadow_blur = 1.4
+directional_shadow_mode = 1
+directional_shadow_max_distance = 34.0
 
 [node name="Camera" type="Camera3D" parent="."]
 fov = 42.0

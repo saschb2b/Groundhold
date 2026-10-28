@@ -31,6 +31,7 @@ func setup(tower_kind: String, at_cell: Vector2i, world_pos: Vector3) -> void:
 	position = world_pos
 	invested = int(Game.TOWERS[kind]["cost"])
 	add_to_group("towers")
+	BlobShadow.under(self, 0.62)
 	_apply_level()
 	# Rise out of the ground, the way a building completes.
 	_base.scale = Vector3(1, 0.05, 1)

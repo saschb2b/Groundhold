@@ -6319,10 +6319,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#d08a2e",
-          "leaf_light": "#e8b44a",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#c0602a",
+          "leaf_light": "#e8a040",
+          "leaf_tip": "#f6d070",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -6339,24 +6340,123 @@
           {
             "shape": "cylinder",
             "radius": [
-              0.06,
-              0.08
+              0.08,
+              0.1
             ],
-            "radius_top": 0.045,
+            "radius_top": 0.055,
             "height": [
-              0.45,
-              0.6
+              0.7,
+              0.85
             ],
-            "sides": 6,
+            "sides": 7,
             "color": "bark",
-            "jitter": 0.01,
+            "jitter": 0.012,
             "pattern": "bark"
+          },
+          {
+            "repeat": 2,
+            "around": 0.05,
+            "parts": [
+              {
+                "shape": "cylinder",
+                "radius": 0.035,
+                "radius_top": 0.02,
+                "height": 0.32,
+                "sides": 5,
+                "rotate": [
+                  [
+                    35,
+                    50
+                  ],
+                  0,
+                  0
+                ],
+                "at": [
+                  0,
+                  [
+                    0.45,
+                    0.6
+                  ],
+                  0
+                ],
+                "color": "bark",
+                "pattern": "bark"
+              }
+            ]
           },
           {
             "shape": "sphere",
             "radius": [
-              0.3,
-              0.38
+              0.44,
+              0.52
+            ],
+            "segments": [
+              9,
+              6
+            ],
+            "at": [
+              0,
+              [
+                0.98,
+                1.08
+              ],
+              0
+            ],
+            "scale": [
+              1,
+              [
+                0.78,
+                0.9
+              ],
+              1
+            ],
+            "jitter": 0.05,
+            "color": "leaf",
+            "color_top": "leaf_light",
+            "gradient": 1.3,
+            "pattern": "leaves"
+          },
+          {
+            "repeat": [
+              3,
+              4
+            ],
+            "around": [
+              0.26,
+              0.34
+            ],
+            "parts": [
+              {
+                "shape": "sphere",
+                "radius": [
+                  0.24,
+                  0.31
+                ],
+                "segments": [
+                  7,
+                  5
+                ],
+                "jitter": 0.035,
+                "at": [
+                  0,
+                  [
+                    0.88,
+                    1.18
+                  ],
+                  0
+                ],
+                "color": "leaf",
+                "color_top": "leaf_light",
+                "gradient": 1.2,
+                "pattern": "leaves"
+              }
+            ]
+          },
+          {
+            "shape": "sphere",
+            "radius": [
+              0.24,
+              0.3
             ],
             "segments": [
               7,
@@ -6365,63 +6465,21 @@
             "at": [
               0,
               [
-                0.62,
-                0.72
+                1.32,
+                1.42
               ],
               0
             ],
-            "scale": [
-              1,
-              [
-                0.8,
-                0.95
-              ],
-              1
-            ],
-            "jitter": 0.045,
-            "color": "leaf",
+            "jitter": 0.03,
+            "color": "leaf_light",
+            "color_top": "leaf_tip",
+            "gradient": 1.4,
             "pattern": "leaves"
-          },
-          {
-            "repeat": [
-              2,
-              3
-            ],
-            "parts": [
-              {
-                "shape": "sphere",
-                "radius": [
-                  0.16,
-                  0.22
-                ],
-                "segments": [
-                  6,
-                  4
-                ],
-                "jitter": 0.03,
-                "at": [
-                  [
-                    -0.22,
-                    0.22
-                  ],
-                  [
-                    0.75,
-                    0.95
-                  ],
-                  [
-                    -0.22,
-                    0.22
-                  ]
-                ],
-                "color": "leaf_light",
-                "pattern": "leaves"
-              }
-            ]
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:51Z"
     },
     "models/vegetation/tree_amber_2.glb": {
       "tool": "mesh",
@@ -6430,10 +6488,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#d08a2e",
-          "leaf_light": "#e8b44a",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#c0602a",
+          "leaf_light": "#e8a040",
+          "leaf_tip": "#f6d070",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -6450,24 +6509,123 @@
           {
             "shape": "cylinder",
             "radius": [
-              0.06,
-              0.08
+              0.08,
+              0.1
             ],
-            "radius_top": 0.045,
+            "radius_top": 0.055,
             "height": [
-              0.45,
-              0.6
+              0.7,
+              0.85
             ],
-            "sides": 6,
+            "sides": 7,
             "color": "bark",
-            "jitter": 0.01,
+            "jitter": 0.012,
             "pattern": "bark"
+          },
+          {
+            "repeat": 2,
+            "around": 0.05,
+            "parts": [
+              {
+                "shape": "cylinder",
+                "radius": 0.035,
+                "radius_top": 0.02,
+                "height": 0.32,
+                "sides": 5,
+                "rotate": [
+                  [
+                    35,
+                    50
+                  ],
+                  0,
+                  0
+                ],
+                "at": [
+                  0,
+                  [
+                    0.45,
+                    0.6
+                  ],
+                  0
+                ],
+                "color": "bark",
+                "pattern": "bark"
+              }
+            ]
           },
           {
             "shape": "sphere",
             "radius": [
-              0.3,
-              0.38
+              0.44,
+              0.52
+            ],
+            "segments": [
+              9,
+              6
+            ],
+            "at": [
+              0,
+              [
+                0.98,
+                1.08
+              ],
+              0
+            ],
+            "scale": [
+              1,
+              [
+                0.78,
+                0.9
+              ],
+              1
+            ],
+            "jitter": 0.05,
+            "color": "leaf",
+            "color_top": "leaf_light",
+            "gradient": 1.3,
+            "pattern": "leaves"
+          },
+          {
+            "repeat": [
+              3,
+              4
+            ],
+            "around": [
+              0.26,
+              0.34
+            ],
+            "parts": [
+              {
+                "shape": "sphere",
+                "radius": [
+                  0.24,
+                  0.31
+                ],
+                "segments": [
+                  7,
+                  5
+                ],
+                "jitter": 0.035,
+                "at": [
+                  0,
+                  [
+                    0.88,
+                    1.18
+                  ],
+                  0
+                ],
+                "color": "leaf",
+                "color_top": "leaf_light",
+                "gradient": 1.2,
+                "pattern": "leaves"
+              }
+            ]
+          },
+          {
+            "shape": "sphere",
+            "radius": [
+              0.24,
+              0.3
             ],
             "segments": [
               7,
@@ -6476,63 +6634,21 @@
             "at": [
               0,
               [
-                0.62,
-                0.72
+                1.32,
+                1.42
               ],
               0
             ],
-            "scale": [
-              1,
-              [
-                0.8,
-                0.95
-              ],
-              1
-            ],
-            "jitter": 0.045,
-            "color": "leaf",
+            "jitter": 0.03,
+            "color": "leaf_light",
+            "color_top": "leaf_tip",
+            "gradient": 1.4,
             "pattern": "leaves"
-          },
-          {
-            "repeat": [
-              2,
-              3
-            ],
-            "parts": [
-              {
-                "shape": "sphere",
-                "radius": [
-                  0.16,
-                  0.22
-                ],
-                "segments": [
-                  6,
-                  4
-                ],
-                "jitter": 0.03,
-                "at": [
-                  [
-                    -0.22,
-                    0.22
-                  ],
-                  [
-                    0.75,
-                    0.95
-                  ],
-                  [
-                    -0.22,
-                    0.22
-                  ]
-                ],
-                "color": "leaf_light",
-                "pattern": "leaves"
-              }
-            ]
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:51Z"
     },
     "models/vegetation/tree_amber_3.glb": {
       "tool": "mesh",
@@ -6541,10 +6657,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#d08a2e",
-          "leaf_light": "#e8b44a",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#c0602a",
+          "leaf_light": "#e8a040",
+          "leaf_tip": "#f6d070",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -6561,24 +6678,123 @@
           {
             "shape": "cylinder",
             "radius": [
-              0.06,
-              0.08
+              0.08,
+              0.1
             ],
-            "radius_top": 0.045,
+            "radius_top": 0.055,
             "height": [
-              0.45,
-              0.6
+              0.7,
+              0.85
             ],
-            "sides": 6,
+            "sides": 7,
             "color": "bark",
-            "jitter": 0.01,
+            "jitter": 0.012,
             "pattern": "bark"
+          },
+          {
+            "repeat": 2,
+            "around": 0.05,
+            "parts": [
+              {
+                "shape": "cylinder",
+                "radius": 0.035,
+                "radius_top": 0.02,
+                "height": 0.32,
+                "sides": 5,
+                "rotate": [
+                  [
+                    35,
+                    50
+                  ],
+                  0,
+                  0
+                ],
+                "at": [
+                  0,
+                  [
+                    0.45,
+                    0.6
+                  ],
+                  0
+                ],
+                "color": "bark",
+                "pattern": "bark"
+              }
+            ]
           },
           {
             "shape": "sphere",
             "radius": [
-              0.3,
-              0.38
+              0.44,
+              0.52
+            ],
+            "segments": [
+              9,
+              6
+            ],
+            "at": [
+              0,
+              [
+                0.98,
+                1.08
+              ],
+              0
+            ],
+            "scale": [
+              1,
+              [
+                0.78,
+                0.9
+              ],
+              1
+            ],
+            "jitter": 0.05,
+            "color": "leaf",
+            "color_top": "leaf_light",
+            "gradient": 1.3,
+            "pattern": "leaves"
+          },
+          {
+            "repeat": [
+              3,
+              4
+            ],
+            "around": [
+              0.26,
+              0.34
+            ],
+            "parts": [
+              {
+                "shape": "sphere",
+                "radius": [
+                  0.24,
+                  0.31
+                ],
+                "segments": [
+                  7,
+                  5
+                ],
+                "jitter": 0.035,
+                "at": [
+                  0,
+                  [
+                    0.88,
+                    1.18
+                  ],
+                  0
+                ],
+                "color": "leaf",
+                "color_top": "leaf_light",
+                "gradient": 1.2,
+                "pattern": "leaves"
+              }
+            ]
+          },
+          {
+            "shape": "sphere",
+            "radius": [
+              0.24,
+              0.3
             ],
             "segments": [
               7,
@@ -6587,63 +6803,21 @@
             "at": [
               0,
               [
-                0.62,
-                0.72
+                1.32,
+                1.42
               ],
               0
             ],
-            "scale": [
-              1,
-              [
-                0.8,
-                0.95
-              ],
-              1
-            ],
-            "jitter": 0.045,
-            "color": "leaf",
+            "jitter": 0.03,
+            "color": "leaf_light",
+            "color_top": "leaf_tip",
+            "gradient": 1.4,
             "pattern": "leaves"
-          },
-          {
-            "repeat": [
-              2,
-              3
-            ],
-            "parts": [
-              {
-                "shape": "sphere",
-                "radius": [
-                  0.16,
-                  0.22
-                ],
-                "segments": [
-                  6,
-                  4
-                ],
-                "jitter": 0.03,
-                "at": [
-                  [
-                    -0.22,
-                    0.22
-                  ],
-                  [
-                    0.75,
-                    0.95
-                  ],
-                  [
-                    -0.22,
-                    0.22
-                  ]
-                ],
-                "color": "leaf_light",
-                "pattern": "leaves"
-              }
-            ]
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:51Z"
     },
     "models/vegetation/tree_green_1.glb": {
       "tool": "mesh",
@@ -6652,10 +6826,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#5a8a3a",
-          "leaf_light": "#7fa848",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#3f7a2e",
+          "leaf_light": "#7fb444",
+          "leaf_tip": "#c3e070",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -6672,24 +6847,123 @@
           {
             "shape": "cylinder",
             "radius": [
-              0.06,
-              0.08
+              0.08,
+              0.1
             ],
-            "radius_top": 0.045,
+            "radius_top": 0.055,
             "height": [
-              0.45,
-              0.6
+              0.7,
+              0.85
             ],
-            "sides": 6,
+            "sides": 7,
             "color": "bark",
-            "jitter": 0.01,
+            "jitter": 0.012,
             "pattern": "bark"
+          },
+          {
+            "repeat": 2,
+            "around": 0.05,
+            "parts": [
+              {
+                "shape": "cylinder",
+                "radius": 0.035,
+                "radius_top": 0.02,
+                "height": 0.32,
+                "sides": 5,
+                "rotate": [
+                  [
+                    35,
+                    50
+                  ],
+                  0,
+                  0
+                ],
+                "at": [
+                  0,
+                  [
+                    0.45,
+                    0.6
+                  ],
+                  0
+                ],
+                "color": "bark",
+                "pattern": "bark"
+              }
+            ]
           },
           {
             "shape": "sphere",
             "radius": [
-              0.3,
-              0.38
+              0.44,
+              0.52
+            ],
+            "segments": [
+              9,
+              6
+            ],
+            "at": [
+              0,
+              [
+                0.98,
+                1.08
+              ],
+              0
+            ],
+            "scale": [
+              1,
+              [
+                0.78,
+                0.9
+              ],
+              1
+            ],
+            "jitter": 0.05,
+            "color": "leaf",
+            "color_top": "leaf_light",
+            "gradient": 1.3,
+            "pattern": "leaves"
+          },
+          {
+            "repeat": [
+              3,
+              4
+            ],
+            "around": [
+              0.26,
+              0.34
+            ],
+            "parts": [
+              {
+                "shape": "sphere",
+                "radius": [
+                  0.24,
+                  0.31
+                ],
+                "segments": [
+                  7,
+                  5
+                ],
+                "jitter": 0.035,
+                "at": [
+                  0,
+                  [
+                    0.88,
+                    1.18
+                  ],
+                  0
+                ],
+                "color": "leaf",
+                "color_top": "leaf_light",
+                "gradient": 1.2,
+                "pattern": "leaves"
+              }
+            ]
+          },
+          {
+            "shape": "sphere",
+            "radius": [
+              0.24,
+              0.3
             ],
             "segments": [
               7,
@@ -6698,63 +6972,21 @@
             "at": [
               0,
               [
-                0.62,
-                0.72
+                1.32,
+                1.42
               ],
               0
             ],
-            "scale": [
-              1,
-              [
-                0.8,
-                0.95
-              ],
-              1
-            ],
-            "jitter": 0.045,
-            "color": "leaf",
+            "jitter": 0.03,
+            "color": "leaf_light",
+            "color_top": "leaf_tip",
+            "gradient": 1.4,
             "pattern": "leaves"
-          },
-          {
-            "repeat": [
-              2,
-              3
-            ],
-            "parts": [
-              {
-                "shape": "sphere",
-                "radius": [
-                  0.16,
-                  0.22
-                ],
-                "segments": [
-                  6,
-                  4
-                ],
-                "jitter": 0.03,
-                "at": [
-                  [
-                    -0.22,
-                    0.22
-                  ],
-                  [
-                    0.75,
-                    0.95
-                  ],
-                  [
-                    -0.22,
-                    0.22
-                  ]
-                ],
-                "color": "leaf_light",
-                "pattern": "leaves"
-              }
-            ]
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:50Z"
     },
     "models/vegetation/tree_green_2.glb": {
       "tool": "mesh",
@@ -6763,10 +6995,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#5a8a3a",
-          "leaf_light": "#7fa848",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#3f7a2e",
+          "leaf_light": "#7fb444",
+          "leaf_tip": "#c3e070",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -6783,24 +7016,123 @@
           {
             "shape": "cylinder",
             "radius": [
-              0.06,
-              0.08
+              0.08,
+              0.1
             ],
-            "radius_top": 0.045,
+            "radius_top": 0.055,
             "height": [
-              0.45,
-              0.6
+              0.7,
+              0.85
             ],
-            "sides": 6,
+            "sides": 7,
             "color": "bark",
-            "jitter": 0.01,
+            "jitter": 0.012,
             "pattern": "bark"
+          },
+          {
+            "repeat": 2,
+            "around": 0.05,
+            "parts": [
+              {
+                "shape": "cylinder",
+                "radius": 0.035,
+                "radius_top": 0.02,
+                "height": 0.32,
+                "sides": 5,
+                "rotate": [
+                  [
+                    35,
+                    50
+                  ],
+                  0,
+                  0
+                ],
+                "at": [
+                  0,
+                  [
+                    0.45,
+                    0.6
+                  ],
+                  0
+                ],
+                "color": "bark",
+                "pattern": "bark"
+              }
+            ]
           },
           {
             "shape": "sphere",
             "radius": [
-              0.3,
-              0.38
+              0.44,
+              0.52
+            ],
+            "segments": [
+              9,
+              6
+            ],
+            "at": [
+              0,
+              [
+                0.98,
+                1.08
+              ],
+              0
+            ],
+            "scale": [
+              1,
+              [
+                0.78,
+                0.9
+              ],
+              1
+            ],
+            "jitter": 0.05,
+            "color": "leaf",
+            "color_top": "leaf_light",
+            "gradient": 1.3,
+            "pattern": "leaves"
+          },
+          {
+            "repeat": [
+              3,
+              4
+            ],
+            "around": [
+              0.26,
+              0.34
+            ],
+            "parts": [
+              {
+                "shape": "sphere",
+                "radius": [
+                  0.24,
+                  0.31
+                ],
+                "segments": [
+                  7,
+                  5
+                ],
+                "jitter": 0.035,
+                "at": [
+                  0,
+                  [
+                    0.88,
+                    1.18
+                  ],
+                  0
+                ],
+                "color": "leaf",
+                "color_top": "leaf_light",
+                "gradient": 1.2,
+                "pattern": "leaves"
+              }
+            ]
+          },
+          {
+            "shape": "sphere",
+            "radius": [
+              0.24,
+              0.3
             ],
             "segments": [
               7,
@@ -6809,63 +7141,21 @@
             "at": [
               0,
               [
-                0.62,
-                0.72
+                1.32,
+                1.42
               ],
               0
             ],
-            "scale": [
-              1,
-              [
-                0.8,
-                0.95
-              ],
-              1
-            ],
-            "jitter": 0.045,
-            "color": "leaf",
+            "jitter": 0.03,
+            "color": "leaf_light",
+            "color_top": "leaf_tip",
+            "gradient": 1.4,
             "pattern": "leaves"
-          },
-          {
-            "repeat": [
-              2,
-              3
-            ],
-            "parts": [
-              {
-                "shape": "sphere",
-                "radius": [
-                  0.16,
-                  0.22
-                ],
-                "segments": [
-                  6,
-                  4
-                ],
-                "jitter": 0.03,
-                "at": [
-                  [
-                    -0.22,
-                    0.22
-                  ],
-                  [
-                    0.75,
-                    0.95
-                  ],
-                  [
-                    -0.22,
-                    0.22
-                  ]
-                ],
-                "color": "leaf_light",
-                "pattern": "leaves"
-              }
-            ]
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:50Z"
     },
     "models/vegetation/tree_green_3.glb": {
       "tool": "mesh",
@@ -6874,10 +7164,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#5a8a3a",
-          "leaf_light": "#7fa848",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#3f7a2e",
+          "leaf_light": "#7fb444",
+          "leaf_tip": "#c3e070",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -6894,24 +7185,123 @@
           {
             "shape": "cylinder",
             "radius": [
-              0.06,
-              0.08
+              0.08,
+              0.1
             ],
-            "radius_top": 0.045,
+            "radius_top": 0.055,
             "height": [
-              0.45,
-              0.6
+              0.7,
+              0.85
             ],
-            "sides": 6,
+            "sides": 7,
             "color": "bark",
-            "jitter": 0.01,
+            "jitter": 0.012,
             "pattern": "bark"
+          },
+          {
+            "repeat": 2,
+            "around": 0.05,
+            "parts": [
+              {
+                "shape": "cylinder",
+                "radius": 0.035,
+                "radius_top": 0.02,
+                "height": 0.32,
+                "sides": 5,
+                "rotate": [
+                  [
+                    35,
+                    50
+                  ],
+                  0,
+                  0
+                ],
+                "at": [
+                  0,
+                  [
+                    0.45,
+                    0.6
+                  ],
+                  0
+                ],
+                "color": "bark",
+                "pattern": "bark"
+              }
+            ]
           },
           {
             "shape": "sphere",
             "radius": [
-              0.3,
-              0.38
+              0.44,
+              0.52
+            ],
+            "segments": [
+              9,
+              6
+            ],
+            "at": [
+              0,
+              [
+                0.98,
+                1.08
+              ],
+              0
+            ],
+            "scale": [
+              1,
+              [
+                0.78,
+                0.9
+              ],
+              1
+            ],
+            "jitter": 0.05,
+            "color": "leaf",
+            "color_top": "leaf_light",
+            "gradient": 1.3,
+            "pattern": "leaves"
+          },
+          {
+            "repeat": [
+              3,
+              4
+            ],
+            "around": [
+              0.26,
+              0.34
+            ],
+            "parts": [
+              {
+                "shape": "sphere",
+                "radius": [
+                  0.24,
+                  0.31
+                ],
+                "segments": [
+                  7,
+                  5
+                ],
+                "jitter": 0.035,
+                "at": [
+                  0,
+                  [
+                    0.88,
+                    1.18
+                  ],
+                  0
+                ],
+                "color": "leaf",
+                "color_top": "leaf_light",
+                "gradient": 1.2,
+                "pattern": "leaves"
+              }
+            ]
+          },
+          {
+            "shape": "sphere",
+            "radius": [
+              0.24,
+              0.3
             ],
             "segments": [
               7,
@@ -6920,63 +7310,21 @@
             "at": [
               0,
               [
-                0.62,
-                0.72
+                1.32,
+                1.42
               ],
               0
             ],
-            "scale": [
-              1,
-              [
-                0.8,
-                0.95
-              ],
-              1
-            ],
-            "jitter": 0.045,
-            "color": "leaf",
+            "jitter": 0.03,
+            "color": "leaf_light",
+            "color_top": "leaf_tip",
+            "gradient": 1.4,
             "pattern": "leaves"
-          },
-          {
-            "repeat": [
-              2,
-              3
-            ],
-            "parts": [
-              {
-                "shape": "sphere",
-                "radius": [
-                  0.16,
-                  0.22
-                ],
-                "segments": [
-                  6,
-                  4
-                ],
-                "jitter": 0.03,
-                "at": [
-                  [
-                    -0.22,
-                    0.22
-                  ],
-                  [
-                    0.75,
-                    0.95
-                  ],
-                  [
-                    -0.22,
-                    0.22
-                  ]
-                ],
-                "color": "leaf_light",
-                "pattern": "leaves"
-              }
-            ]
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:50Z"
     },
     "models/vegetation/tree_pine_1.glb": {
       "tool": "mesh",
@@ -6985,10 +7333,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
-          "leaf": "#5a8a3a",
-          "leaf_light": "#7fa848",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
+          "needle_tip": "#a8d24c",
+          "leaf": "#3f7a2e",
+          "leaf_light": "#7fb444",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -7004,84 +7353,227 @@
         "parts": [
           {
             "shape": "cylinder",
-            "radius": 0.06,
+            "radius": 0.075,
             "radius_top": 0.04,
-            "height": 0.35,
-            "sides": 5,
+            "height": 0.6,
+            "sides": 6,
             "color": "bark",
             "pattern": "bark"
           },
           {
             "shape": "cone",
             "radius": [
-              0.36,
-              0.42
+              0.595,
+              0.672
             ],
-            "height": 0.55,
-            "sides": 7,
+            "height": 0.5,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
             "at": [
               0,
-              0.25,
-              0
-            ],
-            "jitter": 0.025,
-            "color": "needle",
-            "pattern": "leaves"
-          },
-          {
-            "shape": "cone",
-            "radius": [
-              0.28,
-              0.32
-            ],
-            "height": 0.48,
-            "sides": 7,
-            "at": [
-              0,
-              0.52,
+              0.3,
               0
             ],
             "rotate": [
               0,
               [
                 0,
-                50
-              ],
-              0
-            ],
-            "jitter": 0.02,
-            "color": "needle_light",
-            "pattern": "leaves"
-          },
-          {
-            "shape": "cone",
-            "radius": [
-              0.18,
-              0.22
-            ],
-            "height": 0.42,
-            "sides": 6,
-            "at": [
-              0,
-              0.8,
-              0
-            ],
-            "rotate": [
-              0,
-              [
-                0,
-                50
+                60
               ],
               0
             ],
             "jitter": 0.015,
             "color": "needle",
-            "pattern": "leaves"
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.512,
+              0.578
+            ],
+            "height": 0.48,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              0.58,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.428,
+              0.483
+            ],
+            "height": 0.45,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              0.85,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.344,
+              0.389
+            ],
+            "height": 0.42,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.1,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.251,
+              0.284
+            ],
+            "height": 0.4,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.34,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_tip",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.158,
+              0.179
+            ],
+            "height": 0.36,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.56,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_tip",
+            "gradient": 0.8,
+            "pattern": "thatch"
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:51Z"
     },
     "models/vegetation/tree_pine_2.glb": {
       "tool": "mesh",
@@ -7090,10 +7582,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
-          "leaf": "#5a8a3a",
-          "leaf_light": "#7fa848",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
+          "needle_tip": "#a8d24c",
+          "leaf": "#3f7a2e",
+          "leaf_light": "#7fb444",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -7109,84 +7602,227 @@
         "parts": [
           {
             "shape": "cylinder",
-            "radius": 0.06,
+            "radius": 0.075,
             "radius_top": 0.04,
-            "height": 0.35,
-            "sides": 5,
+            "height": 0.6,
+            "sides": 6,
             "color": "bark",
             "pattern": "bark"
           },
           {
             "shape": "cone",
             "radius": [
-              0.36,
-              0.42
+              0.595,
+              0.672
             ],
-            "height": 0.55,
-            "sides": 7,
+            "height": 0.5,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
             "at": [
               0,
-              0.25,
-              0
-            ],
-            "jitter": 0.025,
-            "color": "needle",
-            "pattern": "leaves"
-          },
-          {
-            "shape": "cone",
-            "radius": [
-              0.28,
-              0.32
-            ],
-            "height": 0.48,
-            "sides": 7,
-            "at": [
-              0,
-              0.52,
+              0.3,
               0
             ],
             "rotate": [
               0,
               [
                 0,
-                50
-              ],
-              0
-            ],
-            "jitter": 0.02,
-            "color": "needle_light",
-            "pattern": "leaves"
-          },
-          {
-            "shape": "cone",
-            "radius": [
-              0.18,
-              0.22
-            ],
-            "height": 0.42,
-            "sides": 6,
-            "at": [
-              0,
-              0.8,
-              0
-            ],
-            "rotate": [
-              0,
-              [
-                0,
-                50
+                60
               ],
               0
             ],
             "jitter": 0.015,
             "color": "needle",
-            "pattern": "leaves"
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.512,
+              0.578
+            ],
+            "height": 0.48,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              0.58,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.428,
+              0.483
+            ],
+            "height": 0.45,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              0.85,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.344,
+              0.389
+            ],
+            "height": 0.42,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.1,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.251,
+              0.284
+            ],
+            "height": 0.4,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.34,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_tip",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.158,
+              0.179
+            ],
+            "height": 0.36,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.56,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_tip",
+            "gradient": 0.8,
+            "pattern": "thatch"
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:51Z"
     },
     "models/vegetation/tree_pine_3.glb": {
       "tool": "mesh",
@@ -7195,10 +7831,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
-          "leaf": "#5a8a3a",
-          "leaf_light": "#7fa848",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
+          "needle_tip": "#a8d24c",
+          "leaf": "#3f7a2e",
+          "leaf_light": "#7fb444",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -7214,84 +7851,227 @@
         "parts": [
           {
             "shape": "cylinder",
-            "radius": 0.06,
+            "radius": 0.075,
             "radius_top": 0.04,
-            "height": 0.35,
-            "sides": 5,
+            "height": 0.6,
+            "sides": 6,
             "color": "bark",
             "pattern": "bark"
           },
           {
             "shape": "cone",
             "radius": [
-              0.36,
-              0.42
+              0.595,
+              0.672
             ],
-            "height": 0.55,
-            "sides": 7,
+            "height": 0.5,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
             "at": [
               0,
-              0.25,
-              0
-            ],
-            "jitter": 0.025,
-            "color": "needle",
-            "pattern": "leaves"
-          },
-          {
-            "shape": "cone",
-            "radius": [
-              0.28,
-              0.32
-            ],
-            "height": 0.48,
-            "sides": 7,
-            "at": [
-              0,
-              0.52,
+              0.3,
               0
             ],
             "rotate": [
               0,
               [
                 0,
-                50
-              ],
-              0
-            ],
-            "jitter": 0.02,
-            "color": "needle_light",
-            "pattern": "leaves"
-          },
-          {
-            "shape": "cone",
-            "radius": [
-              0.18,
-              0.22
-            ],
-            "height": 0.42,
-            "sides": 6,
-            "at": [
-              0,
-              0.8,
-              0
-            ],
-            "rotate": [
-              0,
-              [
-                0,
-                50
+                60
               ],
               0
             ],
             "jitter": 0.015,
             "color": "needle",
-            "pattern": "leaves"
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.512,
+              0.578
+            ],
+            "height": 0.48,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              0.58,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.428,
+              0.483
+            ],
+            "height": 0.45,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              0.85,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.344,
+              0.389
+            ],
+            "height": 0.42,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.1,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_light",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.251,
+              0.284
+            ],
+            "height": 0.4,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.34,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_tip",
+            "gradient": 0.8,
+            "pattern": "thatch"
+          },
+          {
+            "shape": "cone",
+            "radius": [
+              0.158,
+              0.179
+            ],
+            "height": 0.36,
+            "sides": 14,
+            "serrate": [
+              0.3,
+              0.4
+            ],
+            "droop": [
+              0.07,
+              0.11
+            ],
+            "at": [
+              0,
+              1.56,
+              0
+            ],
+            "rotate": [
+              0,
+              [
+                0,
+                60
+              ],
+              0
+            ],
+            "jitter": 0.015,
+            "color": "needle",
+            "color_top": "needle_tip",
+            "gradient": 0.8,
+            "pattern": "thatch"
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:51Z"
     },
     "models/vegetation/tree_red_1.glb": {
       "tool": "mesh",
@@ -7300,10 +8080,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#b8452c",
-          "leaf_light": "#d08a2e",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#a83a24",
+          "leaf_light": "#d8682e",
+          "leaf_tip": "#f0a050",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -7320,24 +8101,123 @@
           {
             "shape": "cylinder",
             "radius": [
-              0.06,
-              0.08
+              0.08,
+              0.1
             ],
-            "radius_top": 0.045,
+            "radius_top": 0.055,
             "height": [
-              0.45,
-              0.6
+              0.7,
+              0.85
             ],
-            "sides": 6,
+            "sides": 7,
             "color": "bark",
-            "jitter": 0.01,
+            "jitter": 0.012,
             "pattern": "bark"
+          },
+          {
+            "repeat": 2,
+            "around": 0.05,
+            "parts": [
+              {
+                "shape": "cylinder",
+                "radius": 0.035,
+                "radius_top": 0.02,
+                "height": 0.32,
+                "sides": 5,
+                "rotate": [
+                  [
+                    35,
+                    50
+                  ],
+                  0,
+                  0
+                ],
+                "at": [
+                  0,
+                  [
+                    0.45,
+                    0.6
+                  ],
+                  0
+                ],
+                "color": "bark",
+                "pattern": "bark"
+              }
+            ]
           },
           {
             "shape": "sphere",
             "radius": [
-              0.3,
-              0.38
+              0.44,
+              0.52
+            ],
+            "segments": [
+              9,
+              6
+            ],
+            "at": [
+              0,
+              [
+                0.98,
+                1.08
+              ],
+              0
+            ],
+            "scale": [
+              1,
+              [
+                0.78,
+                0.9
+              ],
+              1
+            ],
+            "jitter": 0.05,
+            "color": "leaf",
+            "color_top": "leaf_light",
+            "gradient": 1.3,
+            "pattern": "leaves"
+          },
+          {
+            "repeat": [
+              3,
+              4
+            ],
+            "around": [
+              0.26,
+              0.34
+            ],
+            "parts": [
+              {
+                "shape": "sphere",
+                "radius": [
+                  0.24,
+                  0.31
+                ],
+                "segments": [
+                  7,
+                  5
+                ],
+                "jitter": 0.035,
+                "at": [
+                  0,
+                  [
+                    0.88,
+                    1.18
+                  ],
+                  0
+                ],
+                "color": "leaf",
+                "color_top": "leaf_light",
+                "gradient": 1.2,
+                "pattern": "leaves"
+              }
+            ]
+          },
+          {
+            "shape": "sphere",
+            "radius": [
+              0.24,
+              0.3
             ],
             "segments": [
               7,
@@ -7346,63 +8226,21 @@
             "at": [
               0,
               [
-                0.62,
-                0.72
+                1.32,
+                1.42
               ],
               0
             ],
-            "scale": [
-              1,
-              [
-                0.8,
-                0.95
-              ],
-              1
-            ],
-            "jitter": 0.045,
-            "color": "leaf",
+            "jitter": 0.03,
+            "color": "leaf_light",
+            "color_top": "leaf_tip",
+            "gradient": 1.4,
             "pattern": "leaves"
-          },
-          {
-            "repeat": [
-              2,
-              3
-            ],
-            "parts": [
-              {
-                "shape": "sphere",
-                "radius": [
-                  0.16,
-                  0.22
-                ],
-                "segments": [
-                  6,
-                  4
-                ],
-                "jitter": 0.03,
-                "at": [
-                  [
-                    -0.22,
-                    0.22
-                  ],
-                  [
-                    0.75,
-                    0.95
-                  ],
-                  [
-                    -0.22,
-                    0.22
-                  ]
-                ],
-                "color": "leaf_light",
-                "pattern": "leaves"
-              }
-            ]
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:51Z"
     },
     "models/vegetation/tree_red_2.glb": {
       "tool": "mesh",
@@ -7411,10 +8249,11 @@
       "recipe": {
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#b8452c",
-          "leaf_light": "#d08a2e",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#a83a24",
+          "leaf_light": "#d8682e",
+          "leaf_tip": "#f0a050",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -7431,24 +8270,123 @@
           {
             "shape": "cylinder",
             "radius": [
-              0.06,
-              0.08
+              0.08,
+              0.1
             ],
-            "radius_top": 0.045,
+            "radius_top": 0.055,
             "height": [
-              0.45,
-              0.6
+              0.7,
+              0.85
             ],
-            "sides": 6,
+            "sides": 7,
             "color": "bark",
-            "jitter": 0.01,
+            "jitter": 0.012,
             "pattern": "bark"
+          },
+          {
+            "repeat": 2,
+            "around": 0.05,
+            "parts": [
+              {
+                "shape": "cylinder",
+                "radius": 0.035,
+                "radius_top": 0.02,
+                "height": 0.32,
+                "sides": 5,
+                "rotate": [
+                  [
+                    35,
+                    50
+                  ],
+                  0,
+                  0
+                ],
+                "at": [
+                  0,
+                  [
+                    0.45,
+                    0.6
+                  ],
+                  0
+                ],
+                "color": "bark",
+                "pattern": "bark"
+              }
+            ]
           },
           {
             "shape": "sphere",
             "radius": [
-              0.3,
-              0.38
+              0.44,
+              0.52
+            ],
+            "segments": [
+              9,
+              6
+            ],
+            "at": [
+              0,
+              [
+                0.98,
+                1.08
+              ],
+              0
+            ],
+            "scale": [
+              1,
+              [
+                0.78,
+                0.9
+              ],
+              1
+            ],
+            "jitter": 0.05,
+            "color": "leaf",
+            "color_top": "leaf_light",
+            "gradient": 1.3,
+            "pattern": "leaves"
+          },
+          {
+            "repeat": [
+              3,
+              4
+            ],
+            "around": [
+              0.26,
+              0.34
+            ],
+            "parts": [
+              {
+                "shape": "sphere",
+                "radius": [
+                  0.24,
+                  0.31
+                ],
+                "segments": [
+                  7,
+                  5
+                ],
+                "jitter": 0.035,
+                "at": [
+                  0,
+                  [
+                    0.88,
+                    1.18
+                  ],
+                  0
+                ],
+                "color": "leaf",
+                "color_top": "leaf_light",
+                "gradient": 1.2,
+                "pattern": "leaves"
+              }
+            ]
+          },
+          {
+            "shape": "sphere",
+            "radius": [
+              0.24,
+              0.3
             ],
             "segments": [
               7,
@@ -7457,63 +8395,21 @@
             "at": [
               0,
               [
-                0.62,
-                0.72
+                1.32,
+                1.42
               ],
               0
             ],
-            "scale": [
-              1,
-              [
-                0.8,
-                0.95
-              ],
-              1
-            ],
-            "jitter": 0.045,
-            "color": "leaf",
+            "jitter": 0.03,
+            "color": "leaf_light",
+            "color_top": "leaf_tip",
+            "gradient": 1.4,
             "pattern": "leaves"
-          },
-          {
-            "repeat": [
-              2,
-              3
-            ],
-            "parts": [
-              {
-                "shape": "sphere",
-                "radius": [
-                  0.16,
-                  0.22
-                ],
-                "segments": [
-                  6,
-                  4
-                ],
-                "jitter": 0.03,
-                "at": [
-                  [
-                    -0.22,
-                    0.22
-                  ],
-                  [
-                    0.75,
-                    0.95
-                  ],
-                  [
-                    -0.22,
-                    0.22
-                  ]
-                ],
-                "color": "leaf_light",
-                "pattern": "leaves"
-              }
-            ]
           }
         ]
       },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-27T23:31:21Z"
+      "updated": "2026-10-28T01:09:51Z"
     },
     "sfx/arrow_1.wav": {
       "tool": "sfx",
@@ -7959,18 +8855,28 @@
       "preset": "grass",
       "size": 256,
       "seed": 1,
-      "colors": {},
+      "colors": {
+        "dark": "#1f4a16",
+        "mid": "#3d7a26",
+        "light": "#5f9e36",
+        "tip": "#8cc24a"
+      },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-28T01:00:46Z"
+      "updated": "2026-10-28T01:09:52Z"
     },
     "textures/meadow.png": {
       "tool": "texture",
       "preset": "meadow",
       "size": 256,
       "seed": 1,
-      "colors": {},
+      "colors": {
+        "dark": "#2a5218",
+        "mid": "#4a8a2c",
+        "light": "#6fae3e",
+        "tip": "#9ccc52"
+      },
       "license": "generated by godot-agent; owned by the project",
-      "updated": "2026-10-28T01:00:47Z"
+      "updated": "2026-10-28T01:09:52Z"
     },
     "textures/mud.png": {
       "tool": "texture",

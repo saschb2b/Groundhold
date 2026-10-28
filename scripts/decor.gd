@@ -33,6 +33,7 @@ var _placements := {}
 var _owners := {}
 var _multimeshes := {}
 var _cleared := {}
+var _tree_shadows: Array[Transform3D] = []
 
 
 func build(source: HollowMap, ground: Terrain) -> void:
@@ -58,6 +59,27 @@ func build(source: HollowMap, ground: Terrain) -> void:
 		mmi.multimesh = mm
 		add_child(mmi)
 		_multimeshes[name] = mm
+	_add_tree_shadows()
+
+
+func _add_tree_shadows() -> void:
+	var plane := PlaneMesh.new()
+	plane.size = Vector2.ONE
+	var material := ShaderMaterial.new()
+	material.shader = BlobShadow.SHADER
+	material.set_shader_parameter("strength", 0.6)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = plane
+	mm.instance_count = _tree_shadows.size()
+	for i in _tree_shadows.size():
+		mm.set_instance_transform(i, _tree_shadows[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "TreeShadows"
+	mmi.multimesh = mm
+	mmi.material_override = material
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
 
 
 ## Hides the fluff standing on a cell (a tower is being built there).
@@ -87,13 +109,16 @@ func _dress(cell: Vector2i) -> void:
 	var t := map.tile(cell)
 	match t:
 		HollowMap.WOODS:
-			for i in _rng.randi_range(1, 2):
-				_put(_pick(TREES_GREEN + TREES_AUTUMN + TREES_AUTUMN + PINES), cell, 0.3, 1.1, 1.5)
+			# Dense woods: two or three big trees a tile, a bush, and now and then a stump.
+			for i in _rng.randi_range(2, 3):
+				_put(_pick(TREES_GREEN + TREES_AUTUMN + PINES + PINES), cell, 0.34, 0.85, 1.15)
 			_put(_pick(BUSHES), cell, 0.4, 0.8, 1.2)
+			if _rng.randf() < 0.3:
+				_put("stump", cell, 0.42, 0.9, 1.3)
 			_scatter(TUFTS, cell, 2, 0.45)
 		HollowMap.HIGH:
-			if _rng.randf() < 0.55:
-				_put(_pick(PINES + TREES_AUTUMN), cell, 0.3, 1.0, 1.45)
+			if _rng.randf() < 0.7:
+				_put(_pick(PINES + PINES + TREES_AUTUMN), cell, 0.3, 0.8, 1.1)
 			elif _rng.randf() < 0.5:
 				_put(_pick(ROCKS), cell, 0.3, 1.2, 2.0)
 			if _rng.randf() < 0.5:
@@ -189,6 +214,15 @@ func _put_exact(name: String, cell: Vector2i, offset: Vector3, yaw: float, scale
 
 
 func _add(name: String, cell: Vector2i, transform: Transform3D) -> void:
+	if name.begins_with("tree_"):
+		# A soft contact shadow under every tree, sized to it.
+		var r := 0.62 * transform.basis.get_scale().x
+		_tree_shadows.append(
+			Transform3D(
+				Basis.from_scale(Vector3(r * 2.0, 1.0, r * 2.0)),
+				transform.origin + Vector3(0, 0.03, 0)
+			)
+		)
 	if not _placements.has(name):
 		_placements[name] = []
 		_owners[name] = []

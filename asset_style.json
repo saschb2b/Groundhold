@@ -24,19 +24,19 @@
     {
       "match": "models/vegetation/*.glb",
       "model": {
-        "max_tris": 400,
+        "max_tris": 700,
         "origin": "bottom-center",
         "max_size": [
-          1.2,
-          1.8,
-          1.2
+          1.4,
+          2.4,
+          1.4
         ],
         "colors": {
           "bark": "#5b3a29",
-          "leaf": "#5a8a3a",
-          "leaf_light": "#7fa848",
-          "needle": "#2f5f3e",
-          "needle_light": "#3f7a4a",
+          "leaf": "#3f7a2e",
+          "leaf_light": "#7fb444",
+          "needle": "#1d4528",
+          "needle_light": "#3f8a3a",
           "blade": "#6a9a3c",
           "blade_light": "#8fb84e",
           "stone": "#8a8580",
@@ -141,6 +141,15 @@
         "max_size": [
           512,
           512
+        ]
+      }
+    },
+    {
+      "match": "textures/*.png",
+      "image": {
+        "size": [
+          256,
+          256
         ]
       }
     }
