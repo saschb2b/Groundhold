@@ -1,5 +1,5 @@
 /* Lantern Hollow's pages, dressed in the game's own console: the painted
- * nine-slice frames from ui/frames (border-image), its framed icons, and the
+ * nine-slice pieces from ui/console (border-image), its framed icons, and the
  * same fonts (Noto Serif Display and Noto Serif, OFL). The build copies ui/,
  * fonts/ and docs/media/ next to these pages. */
 
@@ -45,24 +45,23 @@ h3 { font-size: 1.3rem; }
 p { margin: 0 0 1em; }
 .dim { color: var(--dim); }
 
-/* ---- painted frames (nine-slice, from the game's ui/frames) ---- */
-.console { border: 26px solid transparent; border-image: url(../ui/frames/console.png) 26 fill round; padding: 6px 10px; }
-.inset { border: 14px solid transparent; border-image: url(../ui/frames/inset.png) 14 fill round; padding: 6px 10px; }
-.frame { border: 17px solid transparent; border-image: url(../ui/frames/frame.png) 17 round; background: #0b0f18; display: block; }
-.plate { border: 11px solid transparent; border-image: url(../ui/frames/banner.png) 11 fill round; display: inline-block; padding: 2px 14px; }
+/* ---- painted frames (nine-slice, from the game's ui/console; painted at 2x, so slice 24 for a 12px border) ---- */
+.console { border: 12px solid transparent; border-image: url(../ui/console/tooltip.png) 24 fill round; padding: 12px 16px; }
+.inset { border: 12px solid transparent; border-image: url(../ui/console/tooltip.png) 24 fill round; padding: 8px 14px; }
+.frame { border: 12px solid transparent; border-image: url(../ui/console/tooltip.png) 24 round; background: #0b0f18; display: block; }
 
 .button {
 	display: inline-block;
-	border: 10px solid transparent;
-	border-image: url(../ui/frames/wide_button_normal.png) 10 fill round;
-	padding: 4px 16px;
+	border: 12px solid transparent;
+	border-image: url(../ui/console/button_normal.png) 24 fill round;
+	padding: 2px 16px;
 	color: var(--gold);
 	font: 700 1.05rem var(--body);
 	text-decoration: none;
 	text-shadow: var(--outline);
 }
-.button:hover, .button:focus-visible { border-image-source: url(../ui/frames/wide_button_hover.png); color: #fff1c0; }
-.button:active { border-image-source: url(../ui/frames/wide_button_pressed.png); }
+.button:hover, .button:focus-visible { border-image-source: url(../ui/console/button_hover.png); color: #fff1c0; }
+.button:active { border-image-source: url(../ui/console/button_pressed.png); }
 .button.big { font-size: 1.3rem; padding: 8px 26px; }
 
 /* ---- header ---- */

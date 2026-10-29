@@ -92,7 +92,7 @@ jobs:
           cp -r web/index.html web/404.html web/assets site/
           cp web/play/index.html site/play/
           mkdir -p site/ui site/fonts site/media
-          cp -r ui/frames ui/icons site/ui/
+          cp -r ui/console ui/icons site/ui/
           find site/ui -name '*.import' -delete -o -name '*.tres' -delete
           cp fonts/*.ttf fonts/OFL.txt site/fonts/
           cp docs/media/* site/media/
