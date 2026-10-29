@@ -35,6 +35,9 @@ RETIRED = [
     (r"lantern[ ._-]?hollow", "the game is Groundhold; the map is Wickhollow"),
     (r"lantern\.saschb2b", "the site is groundhold.saschb2b.com"),
     (r"lantern[ ._-]?server", "the server package is groundhold_server (GROUNDHOLD_SERVER_*)"),
+    # the repository's old name (renamed 30 October 2026): GitHub redirects the repository,
+    # not its Pages site; the genre ("a tower defense", "tower-defense game") stays
+    (r"(?-i:Tower-Defense)", "the repository is saschb2b/Groundhold; the site saschb2b.github.io/Groundhold"),
     # the old WebSocket path; data/hollow.txt and palettes/hollow.gpl keep their names,
     # and a full stop that ends a sentence is not an extension
     (r"/hollow(?!\w|\.\w)", "the WebSocket path is /causeway"),
@@ -88,9 +91,10 @@ SAMPLES = {
         "rift_gate_light", "var rift_gate := 1", "Hollow King", "hollow_king.glb", "Owlwatch",
         "owlwatch.json", "Hessel", "hessel_bramble", "Hessel Bramble", "HesselBramble",
         "Bramble the Beekeeper", "her Skep", "skep_tower",
+        "https://saschb2b.github.io/Tower-Defense/play/", "github.com/saschb2b/Tower-Defense",
     ],
     "kept": [
-        "Groundhold", "Wickhollow", "Hollowtide", "data/hollow.txt", "palettes/hollow.gpl",
+        "a small tower defense", "a tower-defense game", "Groundhold", "Wickhollow", "Hollowtide", "data/hollow.txt", "palettes/hollow.gpl",
         "res://data/hollow.txt", "scripts/hollow_map.gd", "models/props/rift_gate.glb",
         "models/props/rift_gate.glb.import", "res://.godot/imported/rift_gate.glb-31eb040e.scn",
         "art_src/models/rift_gate.json", "the Hollowtide Crest", "a loose dome",

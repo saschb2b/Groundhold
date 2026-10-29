@@ -12,6 +12,8 @@ The game is called Groundhold now, after its world (`docs/design/world.md`).
   the modes are `classic`, `high_water`, `tide_race` and `undertow`, the second Builder is the `lookout`, a
   send is corked and uncorked (`CORK`, `UNCORK`, refused with `NO_CORKS_LEFT` and `NOTHING_CORKED`), and the
   comeback is the `SEAWALL` (`SEAWALL_STANDING`); every id keeps its number. The boss's id is `hollowtide_crest`.
+- The repository is `saschb2b/Groundhold` and the site moved to https://saschb2b.github.io/Groundhold/. GitHub
+  forwards the old repository address; the old site address does not forward.
 - `tools/names_check.py` fails on a retired name anywhere in the tracked tree, and CI runs it next to the
   simulation lint.
 

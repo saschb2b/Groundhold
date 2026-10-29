@@ -897,7 +897,7 @@ Opens above the right wing from **Join** (J).
   anything else becomes `wss://<host>/causeway`. LAN players type `192.168.1.20` and never see a scheme or a port.
 - **Nearby** lists LAN servers heard on the UDP beacon (§6.2), keyed by address, with name, mode, seats and a
   matching version only; a server silent for 3 s drops off.
-- **Join link:** `https://saschb2b.github.io/Tower-Defense/play/?join=K7Q4M`. The game runs in a same-origin iframe,
+- **Join link:** `https://saschb2b.github.io/Groundhold/play/?join=K7Q4M`. The game runs in a same-origin iframe,
   so `web/play/index.html` copies its query string onto the iframe's `src`, and the game reads it through
   `JavaScriptBridge.eval`. A code is not personal data; identity keys never appear in a URL.
 - **The browser build hides Nearby and the address field** and shows one line instead: "LAN games need the
@@ -1552,7 +1552,7 @@ commands in the turn stream. All are in-memory objects in the same asyncio proce
 | Setting | Value |
 |---|---|
 | Project and app | the existing project that runs `cyberworld-net-square`; a new app, for example `groundhold-server` |
-| Build | Docker Compose from the Tower-Defense repository; Base Directory `/`; Compose Location `/deploy/coolify/compose.yaml`; **Preserve repository** on (for the read-only `server.ini` bind) |
+| Build | Docker Compose from the Groundhold repository; Base Directory `/`; Compose Location `/deploy/coolify/compose.yaml`; **Preserve repository** on (for the read-only `server.ini` bind) |
 | Domain | `https://groundhold.saschb2b.com` (the user picks it) to container port **8766**; no host port published |
 | Services | `groundhold` and `backup`, both from one image, UID 10001, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`, an 8 MB tmpfs `/tmp`, json-file logs capped |
 | Health | `GET /health` every 30 s; the backup sidecar turns unhealthy when the newest archive is older than 26 h |
@@ -1606,7 +1606,7 @@ this computer" button in the desktop game that launches the bundled binary (`OS.
 | Item | Why |
 |---|---|
 | The subdomain (proposed `groundhold.saschb2b.com`) and its DNS record | `wss://` from an https page needs a certificate for a hostname |
-| A new app in the existing Coolify project, with access to the Tower-Defense repository, the domain and port 8766 set, Preserve repository on | the official server |
+| A new app in the existing Coolify project, with access to the Groundhold repository, the domain and port 8766 set, Preserve repository on | the official server |
 | Deploy policy: from tags at releases (proposed) or auto-deploy on push | a restart ends running matches; balance changes need no deploy |
 | Making the `ghcr.io/saschb2b/groundhold-server` package public, once, by hand | self-hosters pull it |
 | Checking that Coolify's proxy writes no access log for the domain | the privacy promise |
@@ -1993,7 +1993,7 @@ for every pack of a tier), `uncork_reveal_checked` (a wrong salt gives `BAD_REVE
 ## 10. Decisions only the user can make
 
 1. **The subdomain** for the official server (proposed `groundhold.saschb2b.com`) and its DNS record.
-2. **The Coolify app:** create it in the existing project with access to the Tower-Defense repository; confirm the
+2. **The Coolify app:** create it in the existing project with access to the Groundhold repository; confirm the
    proxy writes no access log for it.
 3. **Server deploy policy:** from tags when the protocol changes (proposed), or auto-deploy on push (every deploy
    ends running matches).

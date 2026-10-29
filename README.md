@@ -7,9 +7,9 @@ through eight waves and the Hollowtide Crest.
 </p>
 
 <p align="center">
-<a href="https://saschb2b.github.io/Tower-Defense/play/"><b>Play in the browser</b></a>
+<a href="https://saschb2b.github.io/Groundhold/play/"><b>Play in the browser</b></a>
 &nbsp;·&nbsp;
-<a href="https://saschb2b.github.io/Tower-Defense/">Project page</a>
+<a href="https://saschb2b.github.io/Groundhold/">Project page</a>
 &nbsp;·&nbsp;
 <a href="#how-to-play">How to play</a>
 &nbsp;·&nbsp;
@@ -17,7 +17,7 @@ through eight waves and the Hollowtide Crest.
 </p>
 
 <p align="center">
-<a href="https://saschb2b.github.io/Tower-Defense/play/"><img src="docs/media/hero.webp" width="760" alt="Wave 7 in Wickhollow: creeps file along the road past arrow, cannon and frost towers. A low bronze console along the bottom holds the minimap, the selected Arrow Tower in an arched portrait with its stats, and the command card; gold, lives and the wave hang from a strip at the top right"></a>
+<a href="https://saschb2b.github.io/Groundhold/play/"><img src="docs/media/hero.webp" width="760" alt="Wave 7 in Wickhollow: creeps file along the road past arrow, cannon and frost towers. A low bronze console along the bottom holds the minimap, the selected Arrow Tower in an arched portrait with its stats, and the command card; gold, lives and the wave hang from a strip at the top right"></a>
 </p>
 
 <p align="center">
