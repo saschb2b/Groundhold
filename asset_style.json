@@ -127,9 +127,10 @@
     {
       "match": "models/ui/*.glb",
       "model": {
-        "max_tris": 300,
+        "max_tris": 1500,
         "origin": "bottom-center"
-      }
+      },
+      "note": "drawn only as icons, so they may carry more shape than world props"
     },
     {
       "match": "ui/icons/*.png",
@@ -141,13 +142,44 @@
       }
     },
     {
-      "match": "ui/frames/*.png",
+      "match": [
+        "ui/icons/arrow_tower.png",
+        "ui/icons/cannon_tower.png",
+        "ui/icons/frost_tower.png",
+        "ui/icons/upgrade.png",
+        "ui/icons/sell.png",
+        "ui/icons/next_wave.png"
+      ],
+      "image": {
+        "size": [
+          108,
+          108
+        ]
+      },
+      "note": "command icons: twice the 54 px socket, drawn at half size"
+    },
+    {
+      "match": [
+        "ui/icons/res_gold.png",
+        "ui/icons/res_lives.png"
+      ],
+      "image": {
+        "size": [
+          128,
+          128
+        ]
+      },
+      "note": "resource icons: cropped and drawn at about 30 px, sharp at 2x"
+    },
+    {
+      "match": "ui/console/*.png",
       "image": {
         "max_size": [
-          512,
+          1600,
           512
         ]
-      }
+      },
+      "note": "painted at twice the layout size (art_src/ui/console.json scale 2)"
     },
     {
       "match": "textures/*.png",
@@ -177,6 +209,16 @@
           256
         ]
       }
+    },
+    {
+      "match": "art_src/ui/renders/*.png",
+      "image": {
+        "size": [
+          216,
+          216
+        ]
+      },
+      "note": "raw model renders (godot-agent asset icon, no frame) that art_src/ui/icons.py frames"
     }
   ]
 }

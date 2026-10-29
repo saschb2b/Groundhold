@@ -1,0 +1,28 @@
+{
+  "seed": 7,
+  "scale": 2,
+  "rail": 28,
+  "shadow": 14,
+  "rim": 6,
+  "fillet": 10,
+  "socket": {"wall": 4, "bead": 0, "depth": 5},
+  "wing": {"size": [250, 142], "slope": [198, 246], "well": [16, 10, 168, 112]},
+  "card": {"socket": 54, "gap": [3, 4]},
+  "centre": {
+    "width": 572,
+    "height": 184,
+    "crest": {"x": 116, "radius": 76, "base": 80, "rise": [4, 24]},
+    "keystone": {"half": 14, "rise": 28, "drop": 10, "gem": 6.5},
+    "flanges": {"width": 11, "from": 10, "to": 40, "lift": 2.5},
+    "window": [54, 14, 124, 128],
+    "moulding": 14,
+    "shoulder": [116, 534, 108],
+    "text": [214, 8, 300, 86]
+  },
+  "strip": {"height": 34, "cap": 44, "period": 64},
+  "plate": [460, 200],
+  "banner": {"band": [512, 64], "rule": [128, 4], "gem": 12},
+  "stone": {"ramp": 96, "macro": 0.10, "meso": 0.12, "fine": 0.08, "pits": 0.35},
+  "lip": {"catch": 0.25, "shade": 0.4, "shade_width": 2},
+  "cast": {"reach": 5, "dark": 0.45}
+}

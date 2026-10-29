@@ -1,271 +1,424 @@
-## The console, laid out the way strategy games do it: resources across the top
-## right, and along the bottom a minimap, a live portrait of the selection, its
-## stats, and a command card of framed icon buttons with hotkeys and tooltips.
-## All frames are painted nine-slice StyleBoxes from ui/frames/.
+## The console, composed the way Warcraft III lays it out but pared down: one piece of
+## dark bronze and stone along the bottom edge whose top rises into an arched crest
+## around the live portrait and dips low between its parts so the hollow shows
+## through. A minimap on the left wing, the portrait and the selection's numbers in the
+## middle, the command card on the right wing. Resources hang from a slim strip at the
+## top right. The pieces are painted by art_src/ui/console.py from
+## art_src/ui/console.json at twice the layout's resolution and drawn at half size, so
+## they stay crisp on large screens; layout.json gives the wells and windows.
 class_name Hud
 extends CanvasLayer
 
-const GOLD := Color("#f2c94c")
-const TEXT := Color("#efe3c4")
-const DIM := Color("#b8a888")
+const GOLD := Color("#f0cf86")
+const TEXT := Color("#ece2cc")
+const DIM := Color("#a3957d")
+const KEY := Color("#f3e6c4")
+const COIN := Color("#f6d06a")
+const SHORT := Color("#ff6a50")
+const NOTICE := Color("#ffd36a")
+const INK := Color(0.04, 0.03, 0.02, 0.85)
 const TITLE_FONT := preload("res://fonts/NotoSerifDisplay-Bold.ttf")
 const BOLD_FONT := preload("res://fonts/NotoSerif-Bold.ttf")
 const BODY_FONT := preload("res://fonts/NotoSerif-Regular.ttf")
-const FRAMES := "res://ui/frames/"
+const GREY := preload("res://shaders/hud_grey.gdshader")
+const ART := "res://ui/console/"
 const ICONS := "res://ui/icons/"
-const CARD_SIZE := Vector2(54, 54)
+## How light a greyed command stays: readable when only unaffordable, darker when it
+## does not apply (nothing selected, fully upgraded, a wave running). An idle command
+## keeps a fifth of its colour, so it still reads as a command and not a hole.
+const POOR_VALUE := 0.72
+const IDLE_VALUE := 0.6
+const IDLE_GREY := 0.8
+## How long a title stays up, and a notice such as "Not enough gold".
+const BANNER_HOLD := 1.8
+const NOTICE_HOLD := 0.9
+## Titles: how far below the top edge they stand, above the first row of towers.
+const BANNER_TOP := 24
 
 var controller: BuildController
 var waves: WaveDirector
 
+var _layout: Dictionary
+## Texels of console art per layout pixel.
+var _k := 1.0
 var _gold: Label
 var _lives: Label
 var _wave: Label
 var _countdown: Label
 var _next_button: Button
-var _banner: PanelContainer
-var _banner_label: Label
-var _banner_tween: Tween
+var _banner: TitleBanner
+var _notice: Label
+var _notice_tween: Tween
 var _portrait: Portrait
-var _portrait_name: Label
+var _creep_shown := []
 var _title: Label
 var _subtitle: Label
-var _stats: GridContainer
-var _body: Label
+var _stats: HBoxContainer
+var _caps: FontVariation
 var _card := {}
 var _tooltip: PanelContainer
 var _tooltip_title: Label
+var _tooltip_key: Label
+var _tooltip_cost: Label
+var _tooltip_coin: TextureRect
 var _tooltip_body: Label
 var _hovered := ""
-var _end_panel: PanelContainer
+var _end_panel: Control
 var _end_label: Label
+var _end_detail: Label
 
 
 func setup(main: Node) -> void:
 	controller = main.controller
 	waves = main.waves
+	_layout = (load(ART + "layout.json") as JSON).data
+	_k = float(_layout.get("scale", 1))
 	_build(main)
 	Game.gold_changed.connect(func(_g: int) -> void: _refresh())
 	Game.lives_changed.connect(func(_l: int) -> void: _refresh())
 	Game.wave_changed.connect(func(_w: int) -> void: _refresh())
 	Game.state_changed.connect(_on_state)
 	Game.announced.connect(show_banner)
+	Game.noticed.connect(show_notice)
 	controller.selection_changed.connect(func(_t: Tower) -> void: _refresh())
 	controller.creep_selected.connect(func(_c: Creep) -> void: _refresh())
-	controller.mode_changed.connect(func(_k: String) -> void: _refresh())
+	controller.mode_changed.connect(func(_k2: String) -> void: _refresh())
 	_refresh()
 
 
 func _process(_delta: float) -> void:
+	var next_cost := ""
 	if Game.state == Game.State.PREP:
-		_countdown.text = "Next wave in %d" % ceili(Game.countdown)
+		var seconds := ceili(Game.countdown)
+		if Game.wave == 0:
+			_countdown.text = "First wave in %d s" % seconds
+		else:
+			_countdown.text = "· next in %d s" % seconds
+		if int(Game.countdown) > 0 and Game.wave < Game.total_waves():
+			next_cost = "+%d" % int(Game.countdown)  # the gold an early call pays
 	elif Game.state == Game.State.WAVE:
-		_countdown.text = "Creeps left: %d" % waves.remaining()
+		var left := waves.remaining()
+		_countdown.text = "· %d %s left" % [left, "creep" if left == 1 else "creeps"]
 	else:
 		_countdown.text = ""
+	_set_cost(_next_button, next_cost)
 	var creep := controller.selected_creep
 	if creep and is_instance_valid(creep) and not creep.dead:
-		_describe_creep(creep)
+		# Only when what it shows changes, not every frame.
+		if _creep_shown != [ceili(creep.hp), creep.slow_factor < 1.0]:
+			_describe_creep(creep)
 	elif creep:
 		controller.select_creep(null)
 
 
+## A title for a moment of the game: a wave arriving, a wave cleared, the end.
 func show_banner(text: String) -> void:
-	_banner_label.text = text
-	_banner.visible = true
-	_banner.modulate.a = 1.0
-	if _banner_tween:
-		_banner_tween.kill()
-	_banner_tween = create_tween()
-	_banner_tween.tween_interval(2.2)
-	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.6)
-	_banner_tween.tween_callback(func() -> void: _banner.visible = false)
+	if _end_panel.visible:
+		return  # the end plate says it already
+	_banner.show_title(text, BANNER_HOLD)
+
+
+## A short line above the selection's name for a refused order, gone in about a second and a half.
+func show_notice(text: String) -> void:
+	if _end_panel.visible:
+		return
+	_notice.text = text
+	_notice.visible = true
+	_notice.modulate.a = 1.0
+	if _notice_tween:
+		_notice_tween.kill()
+	_notice_tween = create_tween()
+	_notice_tween.tween_interval(NOTICE_HOLD)
+	_notice_tween.tween_property(_notice, "modulate:a", 0.0, 0.6)
+	_notice_tween.tween_callback(func() -> void: _notice.visible = false)
 
 
 # ── Layout ──
 
 
 func _build(main: Node) -> void:
+	_caps = FontVariation.new()
+	_caps.base_font = BOLD_FONT
+	_caps.spacing_glyph = 1
 	var root := Control.new()
 	root.name = "Root"
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.theme = _theme()
+	# The art has twice the texels it is drawn with: mipmaps keep it clean at any size.
+	root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	add_child(root)
+	_build_console(root, main)
+	_build_strip(root)
+	_build_banner(root)
+	_build_notice(root)
+	_build_tooltip(root)
+	_build_end_panel(root)
 
-	# Resources, top right.
-	var top := _panel("topbar")
-	top.name = "TopBar"
-	top.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	top.offset_left = -600
-	top.offset_right = -6
-	top.offset_top = 6
-	top.offset_bottom = 50
-	root.add_child(top)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	top.add_child(row)
-	_gold = _resource(row, "Gold", ICONS + "sell.png", GOLD)
-	_lives = _resource(row, "Lives", ICONS + "hearth.png", Color("#ffb070"))
-	_wave = _resource(row, "Wave", ICONS + "gourdling.png", Color("#d8c8ff"))
-	_countdown = _label("", BODY_FONT, 15, DIM)
-	_countdown.custom_minimum_size.x = 140
-	_countdown.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(_countdown)
 
-	_next_button = Button.new()
-	_next_button.name = "NextWave"
-	_next_button.text = "Next Wave  (N)"
-	_next_button.focus_mode = Control.FOCUS_NONE
-	_next_button.position = Vector2(8, 8)
-	_next_button.custom_minimum_size = Vector2(170, 40)
-	_next_button.pressed.connect(func() -> void: waves.start_next_wave())
-	root.add_child(_next_button)
-
-	# Announcement plate.
-	_banner = _panel("banner")
-	_banner.name = "Banner"
-	_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_banner.offset_top = 62
-	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_banner.visible = false
-	root.add_child(_banner)
-	_banner_label = _label("", TITLE_FONT, 24, GOLD)
-	_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_banner.add_child(_banner_label)
-
-	# Console.
-	var console := _panel("console")
+func _build_console(root: Control, main: Node) -> void:
+	var console := Control.new()
 	console.name = "Console"
-	console.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	console.offset_top = -208
+	console.set_anchors_preset(Control.PRESET_FULL_RECT)
+	console.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(console)
-	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 10)
-	console.add_child(columns)
 
-	var mini_frame := _panel("frame")
-	mini_frame.custom_minimum_size = Vector2(176, 164)
-	columns.add_child(mini_frame)
+	# The low band that joins the pieces, tiled across any width.
+	var rail := _art("rail.png", true)
+	rail.name = "Rail"
+	rail.tile = true
+	rail.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	rail.anchor_left = 0.0
+	rail.anchor_right = 1.0
+	rail.anchor_top = 1.0
+	rail.anchor_bottom = 1.0
+	rail.offset_left = 0
+	rail.offset_right = 0
+	rail.offset_top = -float(_layout["rail"])
+	rail.offset_bottom = 0
+	console.add_child(rail)
+
+	# Centre: the arched crest round the portrait, the selection's numbers beside it.
+	var centre_size := _vec("centre")
+	var centre := _piece(console, "Centre", 0.5, -centre_size.x * 0.5, centre_size)
+	var window := _rect("window")
+	# The backdrop is shaped like the window and clips the portrait to the arch.
+	var backdrop := _art("portrait_bg.png")
+	backdrop.name = "Backdrop"
+	_place(backdrop, _rect("backdrop"))
+	backdrop.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	centre.add_child(backdrop)
+	_portrait = Portrait.new()
+	_portrait.name = "Portrait"
+	_place(_portrait, Rect2(window.position - backdrop.position, window.size))
+	backdrop.add_child(_portrait)
+	var crest := _art("crest.png", true)
+	crest.name = "Crest"
+	crest.window = window
+	centre.add_child(crest)
+	centre.add_child(_build_info())
+
+	# Left wing: the minimap.
+	var wing := _vec("wing")
+	var left := _piece(console, "WingLeft", 0.0, 0.0, wing)
+	left.add_child(_art("wing_left.png", true))
 	var minimap := Minimap.new()
 	minimap.name = "Minimap"
 	minimap.clip_contents = true
+	_place(minimap, _rect("map_well"))
 	minimap.setup(main.map, main.camera)
-	mini_frame.add_child(minimap)
+	left.add_child(minimap)
+	var shade := _art("well_shade.png")
+	_place(shade, _rect("map_well"))
+	left.add_child(shade)
 
-	var portrait_box := VBoxContainer.new()
-	portrait_box.add_theme_constant_override("separation", 2)
-	columns.add_child(portrait_box)
-	var portrait_frame := _panel("frame")
-	portrait_frame.custom_minimum_size = Vector2(140, 136)
-	portrait_box.add_child(portrait_frame)
-	var backdrop := TextureRect.new()
-	backdrop.texture = _backdrop()
-	backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	backdrop.stretch_mode = TextureRect.STRETCH_SCALE
-	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	portrait_frame.add_child(backdrop)
-	_portrait = Portrait.new()
-	_portrait.name = "Portrait"
-	portrait_frame.add_child(_portrait)
-	_portrait_name = _label("", BOLD_FONT, 13, GOLD)
-	_portrait_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_portrait_name.custom_minimum_size.x = 140
-	portrait_box.add_child(_portrait_name)
-
-	var info := _panel("inset")
-	info.name = "Info"
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	columns.add_child(info)
-	var info_box := VBoxContainer.new()
-	info_box.add_theme_constant_override("separation", 3)
-	info.add_child(info_box)
-	_title = _label("", TITLE_FONT, 22, GOLD)
-	_title.name = "Title"
-	info_box.add_child(_title)
-	_subtitle = _label("", BOLD_FONT, 14, DIM)
-	info_box.add_child(_subtitle)
-	_stats = GridContainer.new()
-	_stats.columns = 4
-	_stats.add_theme_constant_override("h_separation", 18)
-	info_box.add_child(_stats)
-	_body = _label("", BODY_FONT, 14, TEXT)
-	_body.name = "Body"
-	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_body.custom_minimum_size.x = 300
-	info_box.add_child(_body)
-
-	var card := GridContainer.new()
+	# Right wing: the command card, every slot a command, each in a fixed place.
+	var right := _piece(console, "WingRight", 1.0, -wing.x, wing)
+	right.add_child(_art("wing_right.png", true))
+	var card := Control.new()
 	card.name = "CommandCard"
-	card.columns = 4
-	card.add_theme_constant_override("h_separation", 4)
-	card.add_theme_constant_override("v_separation", 4)
-	columns.add_child(card)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(card, _rect("card_well"))
+	right.add_child(card)
+	var commands := []
 	for kind: String in ["arrow", "cannon", "frost"]:
 		var data: Dictionary = Game.TOWERS[kind]
 		var button := _card_button(
-			"Build%s" % kind.capitalize(), str(data["hotkey"]), str(data["icon"]), int(data["cost"])
+			"Build%s" % kind.capitalize(), str(data["hotkey"]), str(data["icon"])
 		)
 		button.pressed.connect(controller.set_mode.bind(kind))
-		button.mouse_entered.connect(_hover.bind(kind))
+		commands.append([button, kind])
+	var upgrade := _card_button("Upgrade", "U", ICONS + "upgrade.png")
+	upgrade.pressed.connect(controller.upgrade_selected)
+	commands.append([upgrade, "upgrade"])
+	var sell := _card_button("Sell", "S", ICONS + "sell.png")
+	sell.pressed.connect(controller.sell_selected)
+	commands.append([sell, "sell"])
+	_next_button = _card_button("NextWave", "N", ICONS + "next_wave.png")
+	_next_button.pressed.connect(func() -> void: waves.start_next_wave())
+	commands.append([_next_button, "next"])
+	var socket := _vec("socket")
+	var gap := _vec("gap")
+	for i in commands.size():
+		var button: Button = commands[i][0]
+		var what: String = commands[i][1]
+		button.position = Vector2(i % 3, i / 3) * (socket + gap)
+		button.mouse_entered.connect(_hover.bind(what))
 		button.mouse_exited.connect(_hover.bind(""))
 		card.add_child(button)
-		_card[kind] = button
-	card.add_child(_slot())
-	var upgrade := _card_button("Upgrade", "U", ICONS + "upgrade.png", 0)
-	upgrade.pressed.connect(controller.upgrade_selected)
-	upgrade.mouse_entered.connect(_hover.bind("upgrade"))
-	upgrade.mouse_exited.connect(_hover.bind(""))
-	card.add_child(upgrade)
-	_card["upgrade"] = upgrade
-	var sell := _card_button("Sell", "S", ICONS + "sell.png", 0)
-	sell.pressed.connect(controller.sell_selected)
-	sell.mouse_entered.connect(_hover.bind("sell"))
-	sell.mouse_exited.connect(_hover.bind(""))
-	card.add_child(sell)
-	_card["sell"] = sell
-	for i in 6:
-		card.add_child(_slot())
+		_card[what] = button
 
-	# Tooltip above the command card.
-	_tooltip = _panel("tooltip")
+
+## One title, one line under it and one row of numbers, clipped to the shoulder's text area.
+func _build_info() -> Control:
+	var info := VBoxContainer.new()
+	info.name = "Info"
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.clip_contents = true
+	info.add_theme_constant_override("separation", 0)
+	_place(info, _rect("text"))
+	_title = _label("", TITLE_FONT, 21, GOLD)
+	_title.name = "Title"
+	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_title.add_theme_constant_override("outline_size", 3)
+	info.add_child(_title)
+	_subtitle = _label("", BOLD_FONT, 13, DIM)
+	_subtitle.name = "Subtitle"
+	_subtitle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_subtitle.add_theme_constant_override("outline_size", 0)
+	info.add_child(_subtitle)
+	_stats = HBoxContainer.new()
+	_stats.name = "Stats"
+	_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stats.add_theme_constant_override("separation", 28)
+	info.add_child(_stats)
+	return info
+
+
+## Gold, lives and the wave on a strip hanging from the top right. It is a nine-slice
+## that grows leftwards, so big numbers widen it instead of spilling past its art.
+func _build_strip(root: Control) -> void:
+	var strip := ResourceStrip.new()
+	strip.name = "TopBar"
+	strip.setup(load(ART + "strip.tres"), _k, float(_layout["strip"]["cap"]))
+	strip.anchor_left = 1.0
+	strip.anchor_right = 1.0
+	strip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	strip.custom_minimum_size.y = float(_layout["strip"]["height"])
+	root.add_child(strip)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 5)
+	strip.add_child(row)
+	_gold = _resource(row, "Gold", _tight(ICONS + "res_gold.png"), COIN, 26)
+	_gap(row, 10)
+	# The hearth's lantern, its head only and glowing: what the lives keep alight.
+	_lives = _resource(row, "Lives", _tight(ICONS + "res_lives.png", 0.6), TEXT, 30, true)
+	_gap(row, 12)
+	_wave = _label("", BOLD_FONT, 15, TEXT)
+	_wave.name = "Wave"
+	_wave.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(_wave)
+	_countdown = _label("", BODY_FONT, 15, TEXT)
+	_countdown.name = "Countdown"
+	_countdown.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_countdown.custom_minimum_size.x = 98
+	row.add_child(_countdown)
+
+
+## Titles stand high over the hollow, above the first row of towers.
+func _build_banner(root: Control) -> void:
+	_banner = TitleBanner.new()
+	_banner.name = "Banner"
+	_banner.anchor_left = 0.5
+	_banner.anchor_right = 0.5
+	_banner.offset_top = BANNER_TOP
+	root.add_child(_banner)
+	var title := _label("", TITLE_FONT, 24, GOLD)
+	title.name = "BannerTitle"
+	_banner.setup(_layout["banner"], ART, title)
+
+
+## Notices sit just above the shoulder, over the column where the selection's name and
+## cost are, small and quick: the eye is already there when an order is refused.
+func _build_notice(root: Control) -> void:
+	_notice = _label("", BOLD_FONT, 16, NOTICE)
+	_notice.name = "Notice"
+	_notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_notice.anchor_left = 0.5
+	_notice.anchor_right = 0.5
+	_notice.anchor_top = 1.0
+	_notice.anchor_bottom = 1.0
+	var column := -_vec("centre").x * 0.5 + _rect("text").get_center().x
+	var above := float(_layout["shoulder"]) + 6
+	_notice.offset_left = column - 240
+	_notice.offset_right = column + 240
+	_notice.offset_top = -above - 24
+	_notice.offset_bottom = -above
+	_notice.add_theme_constant_override("outline_size", 5)
+	_notice.add_theme_color_override("font_outline_color", INK)
+	_notice.visible = false
+	root.add_child(_notice)
+
+
+## Above the command card, like a strategy game's command tooltip: the name and its key,
+## the cost on the same line, then what it does.
+func _build_tooltip(root: Control) -> void:
+	_tooltip = PanelContainer.new()
 	_tooltip.name = "Tooltip"
-	_tooltip.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_tooltip.offset_left = -340
+	_tooltip.add_theme_stylebox_override("panel", HdStyleBox.new(load(ART + "tooltip.tres"), _k))
+	_tooltip.anchor_left = 1.0
+	_tooltip.anchor_right = 1.0
+	_tooltip.anchor_top = 1.0
+	_tooltip.anchor_bottom = 1.0
+	_tooltip.offset_left = -300
 	_tooltip.offset_right = -14
-	_tooltip.offset_top = -342
-	_tooltip.offset_bottom = -216
+	_tooltip.offset_top = -_vec("wing").y + 2
+	_tooltip.offset_bottom = _tooltip.offset_top
 	_tooltip.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tooltip.visible = false
 	root.add_child(_tooltip)
 	var tip_box := VBoxContainer.new()
+	tip_box.add_theme_constant_override("separation", 2)
 	_tooltip.add_child(tip_box)
-	_tooltip_title = _label("", TITLE_FONT, 18, GOLD)
-	tip_box.add_child(_tooltip_title)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	tip_box.add_child(head)
+	_tooltip_title = _label("", TITLE_FONT, 17, GOLD)
+	head.add_child(_tooltip_title)
+	_tooltip_key = _label("", BOLD_FONT, 13, KEY)
+	_tooltip_key.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tooltip_key.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_tooltip_key)
+	_tooltip_coin = TextureRect.new()
+	_tooltip_coin.texture = _tight(ICONS + "res_gold.png")
+	_tooltip_coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_tooltip_coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_tooltip_coin.custom_minimum_size = Vector2(18, 18)
+	_tooltip_coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_tooltip_coin)
+	_tooltip_cost = _label("", BOLD_FONT, 15, COIN)
+	_tooltip_cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_tooltip_cost)
 	_tooltip_body = _label("", BODY_FONT, 14, TEXT)
 	_tooltip_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tooltip_body.custom_minimum_size.x = 290
+	_tooltip_body.custom_minimum_size.x = 262
+	_tooltip_body.add_theme_constant_override("outline_size", 0)
 	tip_box.add_child(_tooltip_body)
 
-	# End of game.
-	_end_panel = _panel("console")
+
+func _build_end_panel(root: Control) -> void:
+	_end_panel = Control.new()
 	_end_panel.name = "EndPanel"
-	_end_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_end_panel.custom_minimum_size = Vector2(440, 170)
-	_end_panel.offset_left = -220
-	_end_panel.offset_top = -150
+	_end_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_end_panel.visible = false
 	root.add_child(_end_panel)
-	var end_box := VBoxContainer.new()
-	end_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	end_box.add_theme_constant_override("separation", 14)
-	_end_panel.add_child(end_box)
-	_end_label = _label("", TITLE_FONT, 30, GOLD)
+	var dim := ColorRect.new()
+	dim.color = Color(0.02, 0.015, 0.01, 0.45)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_end_panel.add_child(dim)
+	var size := Vector2(_layout["plate"]["size"][0], _layout["plate"]["size"][1])
+	var plate := _art("plate.png")
+	plate.set_anchors_preset(Control.PRESET_CENTER)
+	plate.offset_left = -size.x * 0.5
+	plate.offset_right = size.x * 0.5
+	plate.offset_top = -size.y * 0.5 - 50
+	plate.offset_bottom = size.y * 0.5 - 50
+	_end_panel.add_child(plate)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 6)
+	var text: Array = _layout["plate"]["text"]
+	_place(box, Rect2(text[0], text[1], text[2], text[3]))
+	plate.add_child(box)
+	_end_label = _label("", TITLE_FONT, 28, GOLD)
 	_end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	end_box.add_child(_end_label)
+	box.add_child(_end_label)
+	_end_detail = _label("", BODY_FONT, 15, TEXT)
+	_end_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_end_detail)
+	_gap(box, 6)
 	var again := Button.new()
 	again.name = "PlayAgain"
 	again.text = "Play Again"
@@ -273,7 +426,7 @@ func _build(main: Node) -> void:
 	again.custom_minimum_size = Vector2(170, 40)
 	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	again.pressed.connect(func() -> void: get_tree().reload_current_scene())
-	end_box.add_child(again)
+	box.add_child(again)
 
 
 # ── Content ──
@@ -282,78 +435,127 @@ func _build(main: Node) -> void:
 func _refresh() -> void:
 	_gold.text = str(Game.gold)
 	_lives.text = str(Game.lives)
-	_wave.text = "%d / %d" % [Game.wave, Game.total_waves()]
-	_next_button.disabled = Game.state != Game.State.PREP or Game.wave >= Game.total_waves()
+	_lives.add_theme_color_override("font_color", _health_tone(Game.lives, Game.START_LIVES))
+	_wave.text = "Wave %d/%d" % [Game.wave, Game.total_waves()]
+	_wave.visible = Game.wave > 0  # before the first, the countdown says it all
+	var over := _over()
 	for kind: String in ["arrow", "cannon", "frost"]:
-		var button: Button = _card[kind]
-		button.disabled = not Game.can_afford(int(Game.TOWERS[kind]["cost"]))
-		button.modulate = Color(1.25, 1.2, 0.95) if controller.mode == kind else Color.WHITE
+		var cost := int(Game.TOWERS[kind]["cost"])
+		_command(_card[kind], not over, Game.can_afford(cost), str(cost))
+		_set_active(_card[kind], controller.mode == kind)
 	var tower := controller.selected
 	var has_tower := tower != null and is_instance_valid(tower)
-	(_card["upgrade"] as Button).disabled = (
-		not has_tower or tower.upgrade_cost() < 0 or not Game.can_afford(tower.upgrade_cost())
-	)
-	(_card["sell"] as Button).disabled = not has_tower
-	if has_tower:
+	var upgrade_cost := tower.upgrade_cost() if has_tower else -1
+	if has_tower and upgrade_cost < 0:
+		_command(_card["upgrade"], false, true, "Max")
+	else:
+		_command(
+			_card["upgrade"],
+			upgrade_cost > 0,
+			Game.can_afford(upgrade_cost),
+			str(upgrade_cost) if upgrade_cost > 0 else ""
+		)
+	_command(_card["sell"], has_tower, true, "+%d" % tower.sell_value() if has_tower else "")
+	var can_call := Game.state == Game.State.PREP and Game.wave < Game.total_waves()
+	_command(_next_button, can_call, true, (_next_button.get_node("Cost") as Label).text)
+	var creep := controller.selected_creep
+	var has_creep := creep != null and is_instance_valid(creep) and not creep.dead
+	if has_creep:
+		_describe_creep(creep)
+	elif has_tower:
 		_describe_tower(tower)
-	elif controller.selected_creep and is_instance_valid(controller.selected_creep):
-		_describe_creep(controller.selected_creep)
 	elif controller.mode != "":
 		_describe_build(controller.mode)
 	else:
-		_portrait.show_model("res://models/props/hearth.glb")
-		_portrait_name.text = "The Hearth"
-		_title.text = "Lantern Hollow"
-		_subtitle.text = "Keep the lantern lit"
-		_set_stats([])
-		_body.text = (
-			"Build with A, C and F, then click a grass tile. Click a tower to upgrade (U) or sell (S). "
-			+ "N calls the next wave early for bonus gold. Arrows, wheel or the minimap move the view."
-		)
+		_describe_hearth()
 	if _hovered != "":
 		_show_tooltip(_hovered)
 
 
+func _over() -> bool:
+	return Game.state == Game.State.WON or Game.state == Game.State.LOST
+
+
+## Nothing selected: the hearth the player keeps, how it stands and what comes next.
+func _describe_hearth() -> void:
+	_portrait.show_model("res://models/props/hearth.glb", "", 0.0, 1.0, true)
+	var line := ""  # at the end the plate tells how it went
+	if Game.state == Game.State.WAVE:
+		line = "Wave %d of %d" % [Game.wave, Game.total_waves()]
+	elif Game.state == Game.State.PREP and Game.wave < Game.total_waves():
+		line = "Next: " + _wave_brings(Game.wave)
+	_head("The Hearth", line)
+	_set_stats(
+		[
+			[
+				"Lives",
+				"%d/%d" % [Game.lives, Game.START_LIVES],
+				_health_tone(Game.lives, Game.START_LIVES)
+			],
+			["Kills", str(Game.kills)],
+			["Towers", str(get_tree().get_node_count_in_group("towers"))],
+		]
+	)
+
+
+## What wave `index` (0-based) sends: "8 Gourdlings", "5 Thornbacks and The Hollow King".
+func _wave_brings(index: int) -> String:
+	var parts := PackedStringArray()
+	for group: Dictionary in Game.WAVES[index]:
+		var count := int(group["count"])
+		var creep_name := str(Game.CREEPS[group["creep"]]["name"])
+		if count == 1:
+			parts.append(creep_name)
+		else:
+			parts.append("%d %ss" % [count, creep_name])
+	return " and ".join(parts)
+
+
 func _describe_build(kind: String) -> void:
 	var data: Dictionary = Game.TOWERS[kind]
+	var cost := int(data["cost"])
 	_show_tower_portrait(kind, 1)
-	_portrait_name.text = str(data["name"])
-	_title.text = str(data["name"])
-	_subtitle.text = "Costs %d gold · click a grass tile" % int(data["cost"])
+	_head(str(data["name"]), "%d gold" % cost, DIM if Game.can_afford(cost) else SHORT)
 	_set_stats(_tower_stats(data))
-	_body.text = str(data["description"])
 
 
 func _describe_tower(tower: Tower) -> void:
 	var data: Dictionary = Game.TOWERS[tower.kind]
 	_show_tower_portrait(tower.kind, tower.level)
-	_portrait_name.text = str(data["name"])
-	_title.text = str(data["name"])
-	_subtitle.text = "Level %d · %d kills" % [tower.level, tower.kills]
+	var kills := "%d %s" % [tower.kills, "kill" if tower.kills == 1 else "kills"]
+	_head(str(data["name"]), "Level %d · %s" % [tower.level, kills])
 	_set_stats(_tower_stats(tower.stats))
-	var next := (
-		"Upgrade (U) for %d gold." % tower.upgrade_cost()
-		if tower.upgrade_cost() > 0
-		else "Fully upgraded."
-	)
-	_body.text = "%s  Sell (S) for %d gold." % [next, tower.sell_value()]
 
 
 func _describe_creep(creep: Creep) -> void:
+	_creep_shown = [ceili(creep.hp), creep.slow_factor < 1.0]
 	var data: Dictionary = Game.CREEPS[creep.kind]
 	_portrait.show_model(str(data["model"]))
-	_portrait_name.text = str(data["name"])
-	_title.text = str(data["name"])
-	_subtitle.text = "Wave %d" % Game.wave
+	_head(
+		str(data["name"]), "Wave %d%s" % [Game.wave, " · slowed" if creep.slow_factor < 1.0 else ""]
+	)
+	var fraction := creep.hp / creep.max_hp
 	_set_stats(
 		[
-			["Health", "%d / %d" % [ceili(creep.hp), ceili(creep.max_hp)]],
+			[
+				"Health",
+				"%d/%d" % [ceili(creep.hp), ceili(creep.max_hp)],
+				_health_tone(fraction, 1.0)
+			],
 			["Speed", "%.1f" % (creep.speed * creep.slow_factor)],
-			["Bounty", "%d gold" % creep.bounty],
-			["Lives", str(creep.lives_cost)],
+			["Bounty", str(creep.bounty)],
+			# What it takes from the hearth if it gets there.
+			["Toll", "–%d" % creep.lives_cost, Color("#ff9a7a")],
 		]
 	)
-	_body.text = "Slowed by frost." if creep.slow_factor < 1.0 else ""
+
+
+func _head(title: String, line: String, tone := DIM) -> void:
+	_title.text = title
+	_subtitle.text = line
+	# Without a line the numbers move up under the title instead of leaving a gap.
+	_subtitle.visible = line != ""
+	_subtitle.add_theme_color_override("font_color", tone)
 
 
 func _show_tower_portrait(kind: String, level: int) -> void:
@@ -364,7 +566,9 @@ func _show_tower_portrait(kind: String, level: int) -> void:
 
 func _tower_stats(s: Dictionary) -> Array:
 	var stats := [
-		["Damage", str(s["damage"])], ["Range", str(s["range"])], ["Every", "%ss" % s["cooldown"]]
+		["Damage", str(s["damage"])],
+		["Range", str(s["range"])],
+		["Cooldown", "%ss" % s["cooldown"]]
 	]
 	if s.has("splash"):
 		stats.append(["Splash", str(s["splash"])])
@@ -373,19 +577,35 @@ func _tower_stats(s: Dictionary) -> Array:
 	return stats
 
 
-## Rebuilt only when the values change, so labels are not recreated every frame.
-func _set_stats(pairs: Array) -> void:
-	if _stats.get_meta("pairs", []) == pairs:
+## One row of numbers, each a bold value over its name in small capitals. Rebuilt only
+## when the values change.
+func _set_stats(cells: Array) -> void:
+	if _stats.get_meta("cells", []) == cells:
 		return
-	_stats.set_meta("pairs", pairs)
+	_stats.set_meta("cells", cells)
 	for child in _stats.get_children():
 		child.free()
-	for pair: Array in pairs:
-		var cell := HBoxContainer.new()
-		cell.add_theme_constant_override("separation", 6)
-		cell.add_child(_label(str(pair[0]), BOLD_FONT, 13, DIM))
-		cell.add_child(_label(str(pair[1]), BOLD_FONT, 14, TEXT))
-		_stats.add_child(cell)
+	for cell: Array in cells:
+		var box := VBoxContainer.new()
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_theme_constant_override("separation", -3)
+		var value_color: Color = cell[2] if cell.size() > 2 else TEXT
+		var value := _label(str(cell[1]), BOLD_FONT, 16, value_color)
+		value.add_theme_constant_override("outline_size", 2)
+		box.add_child(value)
+		# On the dark plate the captions need no outline; one would clog their counters.
+		var caption := _label(str(cell[0]).to_upper(), _caps, 11, DIM)
+		caption.add_theme_constant_override("outline_size", 0)
+		box.add_child(caption)
+		_stats.add_child(box)
+
+
+## Green while most is left, yellow below 60 %, red below 30 %.
+func _health_tone(value: float, full: float) -> Color:
+	var share := value / full
+	if share > 0.6:
+		return Color("#9be06a")
+	return Color("#ffd166") if share > 0.3 else Color("#ff7a5a")
 
 
 func _hover(what: String) -> void:
@@ -400,33 +620,92 @@ func _hover(what: String) -> void:
 
 
 func _show_tooltip(what: String) -> void:
+	if _over():
+		return
 	_tooltip.visible = true
 	var tower := controller.selected
 	var has_tower := tower != null and is_instance_valid(tower)
+	var cost := 0
+	_tooltip_cost.text = ""
 	if what in Game.TOWERS:
 		var data: Dictionary = Game.TOWERS[what]
-		_tooltip_title.text = "%s  [%s]" % [data["name"], data["hotkey"]]
-		_tooltip_body.text = "Costs %d gold.\n%s" % [int(data["cost"]), data["description"]]
+		_tooltip_title.text = str(data["name"])
+		_tooltip_key.text = "(%s)" % data["hotkey"]
+		cost = int(data["cost"])
+		_tooltip_body.text = str(data["description"])
 	elif what == "upgrade":
-		_tooltip_title.text = "Upgrade  [U]"
+		_tooltip_title.text = "Upgrade"
+		_tooltip_key.text = "(U)"
+		var can := has_tower and tower.upgrade_cost() > 0
+		cost = tower.upgrade_cost() if can else 0
 		_tooltip_body.text = (
-			"Raises damage and range for %d gold." % tower.upgrade_cost()
-			if has_tower and tower.upgrade_cost() > 0
-			else "Select a tower to upgrade it."
+			_upgrade_gains(tower)
+			if can
+			else ("Fully upgraded." if has_tower else "Select a tower to upgrade it.")
+		)
+	elif what == "sell":
+		_tooltip_title.text = "Sell"
+		_tooltip_key.text = "(S)"
+		_tooltip_cost.text = "+%d" % tower.sell_value() if has_tower else ""
+		_tooltip_body.text = (
+			"Returns most of what the tower cost." if has_tower else "Select a tower to sell it."
 		)
 	else:
-		_tooltip_title.text = "Sell  [S]"
+		_tooltip_title.text = "Next Wave"
+		_tooltip_key.text = "(N)"
+		var bonus := int(Game.countdown) if Game.state == Game.State.PREP else 0
+		_tooltip_cost.text = "+%d" % bonus if bonus > 0 and not _next_button.disabled else ""
 		_tooltip_body.text = (
-			"Returns %d gold." % tower.sell_value() if has_tower else "Select a tower to sell it."
+			"Calls the next wave now. Each second left on the countdown pays one gold."
+			if not _next_button.disabled
+			else "The horn waits until this wave is cleared."
 		)
+	if cost > 0:
+		_tooltip_cost.text = str(cost)
+	_tooltip_cost.add_theme_color_override(
+		"font_color", SHORT if cost > 0 and not Game.can_afford(cost) else COIN
+	)
+	_tooltip_cost.visible = _tooltip_cost.text != ""
+	_tooltip_coin.visible = _tooltip_cost.visible
+
+
+## What the next level changes, in numbers: "Damage 8.0 to 16.0 · range 3.2 to 3.6".
+func _upgrade_gains(tower: Tower) -> String:
+	var after := Game.tower_stats(tower.kind, tower.level + 1)
+	var parts := PackedStringArray()
+	for key: String in ["damage", "range", "cooldown", "splash", "slow"]:
+		if not tower.stats.has(key) or is_equal_approx(tower.stats[key], after[key]):
+			continue
+		var was: float = tower.stats[key]
+		var now: float = after[key]
+		if key == "slow":
+			parts.append("slow %d%% to %d%%" % [roundi(was * 100), roundi(now * 100)])
+		elif key == "cooldown":
+			parts.append("cooldown %ss to %ss" % [was, now])
+		else:
+			parts.append("%s %s to %s" % [key, was, now])
+	if parts.is_empty():
+		return ""
+	var text := " · ".join(parts)
+	return text[0].to_upper() + text.substr(1)
 
 
 func _on_state(state: int) -> void:
 	_refresh()
 	if state == Game.State.WON or state == Game.State.LOST:
 		controller.set_mode("")
+		_hovered = ""
+		_tooltip.visible = false
 		_end_panel.visible = true
-		_end_label.text = "Victory!" if state == Game.State.WON else "The hearth has gone dark"
+		_banner.hide_title()
+		_notice.visible = false
+		var won := state == Game.State.WON
+		_end_label.text = "Victory!" if won else "The hearth has gone dark"
+		_end_detail.text = "Fell in wave %d of %d" % [Game.wave, Game.total_waves()]
+		if won:
+			_end_detail.text = "All %d waves held back" % Game.total_waves()
+		elif Game.wave == 0:
+			_end_detail.text = "Fell before the first wave"
 
 
 # ── Widgets ──
@@ -438,100 +717,228 @@ func _theme() -> Theme:
 	theme.default_font_size = 15
 	theme.set_color("font_color", "Label", TEXT)
 	theme.set_constant("outline_size", "Label", 4)
-	theme.set_color("font_outline_color", "Label", Color(0.05, 0.03, 0.02, 0.9))
+	theme.set_color("font_outline_color", "Label", INK)
 	for state: String in ["normal", "hover", "pressed", "disabled"]:
-		theme.set_stylebox(state, "Button", load(FRAMES + "wide_button_%s.tres" % state))
+		theme.set_stylebox(
+			state, "Button", HdStyleBox.new(load(ART + "button_%s.tres" % state), _k)
+		)
+	theme.set_stylebox(
+		"hover_pressed", "Button", HdStyleBox.new(load(ART + "button_pressed.tres"), _k)
+	)
 	theme.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	theme.set_font("font", "Button", BOLD_FONT)
 	theme.set_font_size("font_size", "Button", 15)
 	theme.set_color("font_color", "Button", GOLD)
-	theme.set_color("font_hover_color", "Button", Color("#fff1c0"))
-	theme.set_color("font_disabled_color", "Button", Color("#7a6d58"))
+	theme.set_color("font_hover_color", "Button", Color("#fff1c8"))
+	theme.set_color("font_pressed_color", "Button", GOLD)
+	theme.set_color("font_disabled_color", "Button", Color("#76695a"))
 	theme.set_constant("outline_size", "Button", 4)
-	theme.set_color("font_outline_color", "Button", Color(0.05, 0.03, 0.02))
+	theme.set_color("font_outline_color", "Button", Color(0.04, 0.03, 0.02))
 	return theme
 
 
-func _panel(frame: String) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", load(FRAMES + frame + ".tres"))
-	return panel
+## A piece of the console anchored to the bottom edge at anchor_x (0 left, 0.5 centre, 1 right).
+func _piece(parent: Control, name: String, anchor_x: float, left: float, size: Vector2) -> Control:
+	var piece := Control.new()
+	piece.name = name
+	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	piece.anchor_left = anchor_x
+	piece.anchor_right = anchor_x
+	piece.anchor_top = 1.0
+	piece.anchor_bottom = 1.0
+	piece.offset_left = left
+	piece.offset_right = left + size.x
+	piece.offset_top = -size.y
+	piece.offset_bottom = 0
+	parent.add_child(piece)
+	return piece
+
+
+func _rect(key: String) -> Rect2:
+	var r: Array = _layout[key]
+	return Rect2(r[0], r[1], r[2], r[3])
+
+
+func _vec(key: String) -> Vector2:
+	var v: Array = _layout[key]
+	return Vector2(v[0], v[1])
+
+
+func _place(control: Control, rect: Rect2) -> void:
+	control.position = rect.position
+	control.size = rect.size
+
+
+func _gap(parent: Control, width: float) -> void:
+	var gap := Control.new()
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gap.custom_minimum_size = Vector2(width, width)
+	parent.add_child(gap)
+
+
+func _art(file: String, hit := false) -> ConsoleArt:
+	return ConsoleArt.new(load(ART + file), _k, hit)
+
+
+## An icon cropped to what is drawn in it, so a small icon shows its subject large;
+## `top` keeps only that share of it from the top (the lantern without its plinth).
+func _tight(path: String, top := 1.0) -> Texture2D:
+	var texture: Texture2D = load(path)
+	var image := texture.get_image()
+	if image == null:
+		return texture
+	if image.is_compressed():
+		image.decompress()
+	var used := image.get_used_rect()
+	used.size.y = roundi(used.size.y * top)
+	var atlas := AtlasTexture.new()
+	atlas.atlas = texture
+	atlas.region = used
+	return atlas
 
 
 func _label(text: String, font: Font, size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_font_override("font", font)
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
 	return label
 
 
-func _resource(parent: Node, name: String, icon_path: String, color: Color) -> Label:
-	var icon := TextureRect.new()
-	icon.texture = load(icon_path)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.custom_minimum_size = Vector2(28, 28)
-	parent.add_child(icon)
-	var value := _label("", TITLE_FONT, 19, color)
+## An icon and its number; `glow` lays a warm light behind the icon.
+func _resource(
+	parent: Node, name: String, icon: Texture2D, color: Color, tall: float, glow := false
+) -> Label:
+	var holder := Control.new()
+	holder.name = name + "Icon"
+	holder.custom_minimum_size = Vector2(tall, tall)
+	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(holder)
+	if glow:
+		var light := TextureRect.new()
+		light.texture = ResourceStrip.glow(Color("#ffb347"))
+		light.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		light.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_place(light, Rect2(Vector2(-tall * 0.35, -tall * 0.4), Vector2(tall, tall) * 1.7))
+		holder.add_child(light)
+	var picture := TextureRect.new()
+	picture.texture = icon
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(picture)
+	var value := _label("", BOLD_FONT, 17, color)
 	value.name = name
-	value.custom_minimum_size.x = 64
+	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	parent.add_child(value)
 	return value
 
 
-func _card_button(name: String, hotkey: String, icon_path: String, cost: int) -> Button:
+## A command: the bevelled icon is the button. It brightens and leaks warm light on
+## hover, sinks when pressed, glows while active, greys with a red cost when the gold is
+## short, and greys darker when it does not apply. The hotkey sits on a dark tab in the
+## corner and the cost on the icon's shaded foot, so neither is painted over the subject.
+func _card_button(name: String, hotkey: String, icon_path: String) -> Button:
 	var button := Button.new()
 	button.name = name
 	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = CARD_SIZE
-	for state: String in ["normal", "hover", "pressed", "disabled"]:
-		button.add_theme_stylebox_override(state, load(FRAMES + "button_%s.tres" % state))
+	button.custom_minimum_size = _vec("socket")
+	button.size = _vec("socket")
+	var glow := HdStyleBox.new(load(ART + "card_glow.tres"), _k)
+	var empty := StyleBoxEmpty.new()
+	for state: String in ["normal", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, empty)
+	for state: String in ["hover", "pressed", "hover_pressed"]:
+		button.add_theme_stylebox_override(state, glow)
+	var ring := Panel.new()
+	ring.name = "Ring"
+	ring.add_theme_stylebox_override("panel", glow)
+	ring.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.visible = false
+	button.add_child(ring)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
 	icon.texture = load(icon_path)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_SCALE
-	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	icon.offset_left = 4
-	icon.offset_top = 4
-	icon.offset_right = -4
-	icon.offset_bottom = -4
+	icon.size = button.size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var material := ShaderMaterial.new()
+	material.shader = GREY
+	icon.material = material
 	button.add_child(icon)
-	# Disabled buttons grey their icon out, like an unaffordable command.
-	button.draw.connect(
-		func() -> void: icon.modulate = Color(0.4, 0.4, 0.42) if button.disabled else Color.WHITE
-	)
-	var key := _label(hotkey, BOLD_FONT, 13, Color("#ffe08a"))
-	key.position = Vector2(6, 2)
-	key.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(key)
-	if cost > 0:
-		var price := _label(str(cost), BOLD_FONT, 12, GOLD)
-		price.position = Vector2(27, 34)
-		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.add_child(price)
+	button.draw.connect(_style_command.bind(button, icon, material))
+	var tab := Panel.new()
+	tab.name = "KeyTab"
+	var tab_box := StyleBoxFlat.new()
+	tab_box.bg_color = Color(0, 0, 0, 0.7)
+	tab_box.set_corner_radius_all(3)
+	tab.add_theme_stylebox_override("panel", tab_box)
+	tab.position = Vector2(2, 2)
+	tab.size = Vector2(14, 14)
+	tab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(tab)
+	var key := _label(hotkey, BOLD_FONT, 10, KEY)
+	key.name = "Hotkey"
+	key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	key.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	key.add_theme_constant_override("outline_size", 0)
+	key.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tab.add_child(key)
+	var cost := _label("", BOLD_FONT, 12, COIN)
+	cost.name = "Cost"
+	cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	cost.position = Vector2(3, button.size.y - 18)
+	cost.size = Vector2(button.size.x - 7, 16)
+	cost.add_theme_constant_override("outline_size", 3)
+	button.add_child(cost)
 	return button
 
 
-## A dusk-blue radial backdrop for the portrait, brighter behind the model.
-func _backdrop() -> GradientTexture2D:
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color("#2c3f63"))
-	gradient.set_color(1, Color("#0c111c"))
-	var texture := GradientTexture2D.new()
-	texture.gradient = gradient
-	texture.fill = GradientTexture2D.FILL_RADIAL
-	texture.fill_from = Vector2(0.5, 0.42)
-	texture.fill_to = Vector2(1.0, 1.0)
-	return texture
+## Sets a command's state: usable, short of gold (grey, red cost) or not applicable
+## (darker grey, the cost line shows only a note such as "Max").
+func _command(button: Button, applies: bool, affordable: bool, cost_text: String) -> void:
+	button.disabled = not applies or not affordable
+	var state := "ok" if button.disabled == false else ("poor" if applies else "idle")
+	button.set_meta("state", state)
+	var cost: Label = button.get_node("Cost")
+	cost.text = cost_text
+	var color := COIN
+	if state == "poor":
+		color = SHORT
+	elif state == "idle":
+		color = DIM
+	cost.add_theme_color_override("font_color", color)
+	button.queue_redraw()
 
 
-func _slot() -> Control:
-	var slot := Panel.new()
-	slot.custom_minimum_size = CARD_SIZE
-	slot.add_theme_stylebox_override("panel", load(FRAMES + "slot.tres"))
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return slot
+func _style_command(button: Button, icon: TextureRect, material: ShaderMaterial) -> void:
+	var mode := button.get_draw_mode()
+	var pressed := mode == BaseButton.DRAW_PRESSED or mode == BaseButton.DRAW_HOVER_PRESSED
+	icon.position = Vector2(0, 1) if pressed else Vector2.ZERO
+	var state: String = button.get_meta("state", "ok")
+	material.set_shader_parameter(
+		"grey", 0.0 if state == "ok" else (1.0 if state == "poor" else IDLE_GREY)
+	)
+	material.set_shader_parameter("value", POOR_VALUE if state == "poor" else IDLE_VALUE)
+	if state != "ok":
+		icon.modulate = Color.WHITE
+	elif pressed:
+		icon.modulate = Color(0.8, 0.76, 0.7)
+	elif mode == BaseButton.DRAW_HOVER:
+		icon.modulate = Color(1.2, 1.15, 1.05)
+	else:
+		icon.modulate = Color.WHITE
+
+
+func _set_cost(button: Button, text: String) -> void:
+	(button.get_node("Cost") as Label).text = text
+
+
+func _set_active(button: Button, active: bool) -> void:
+	(button.get_node("Ring") as Control).visible = active

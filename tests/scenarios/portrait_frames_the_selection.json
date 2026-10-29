@@ -1,0 +1,13 @@
+{
+  "name": "portrait_frames_the_selection",
+  "seed": 2,
+  "time_scale": 2,
+  "timeout_frames": 2400,
+  "steps": [
+    {"key": "N"},
+    {"wait_until": "count('creeps') >= 1", "timeout": 600},
+    {"eval": "node('BuildController').select_creep(group('creeps')[0])"},
+    {"wait": 2},
+    {"assert": "node('Portrait')._camera.position.length() < 2.5", "msg": "the portrait frames the creep, not the hearth it replaced"}
+  ]
+}

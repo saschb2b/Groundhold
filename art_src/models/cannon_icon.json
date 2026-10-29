@@ -1,0 +1,221 @@
+{
+ "note": "the cannon head of models/towers/cannon_head.glb with its bore drawn, for the command icon only",
+ "colors": {
+  "wood": "#7a5534",
+  "wood_dark": "#4e3423",
+  "iron": "#4a4d55",
+  "bronze": "#b07a3a",
+  "gold": "#e0b040",
+  "bore": "#2a1e24",
+  "bore_rim": "#3a3c42"
+ },
+ "ground_ao": 0.0,
+ "parts": [
+  {
+   "shape": "cylinder",
+   "radius": 0.2,
+   "height": 0.05,
+   "sides": 10,
+   "bevel": 0.012,
+   "color": "wood_dark",
+   "pattern": "planks"
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.08,
+    0.13,
+    0.3
+   ],
+   "bevel": 0.015,
+   "at": [
+    -0.09,
+    0.05,
+    0
+   ],
+   "color": "wood",
+   "pattern": "planks",
+   "pattern_rotate": true
+  },
+  {
+   "shape": "box",
+   "size": [
+    0.08,
+    0.13,
+    0.3
+   ],
+   "bevel": 0.015,
+   "at": [
+    0.09,
+    0.05,
+    0
+   ],
+   "color": "wood",
+   "pattern": "planks",
+   "pattern_rotate": true
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.085,
+   "height": 0.035,
+   "sides": 10,
+   "rotate": [
+    0,
+    0,
+    90
+   ],
+   "at": [
+    0.155,
+    0.1,
+    0.07
+   ],
+   "color": "wood_dark",
+   "cap_color": "iron",
+   "pattern": "planks"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.085,
+   "height": 0.035,
+   "sides": 10,
+   "rotate": [
+    0,
+    0,
+    90
+   ],
+   "at": [
+    -0.12,
+    0.1,
+    0.07
+   ],
+   "color": "wood_dark",
+   "cap_color": "iron",
+   "pattern": "planks"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.085,
+   "radius_top": 0.068,
+   "height": 0.46,
+   "sides": 10,
+   "bevel": 0.01,
+   "rotate": [
+    82,
+    0,
+    0
+   ],
+   "at": [
+    0,
+    0.2,
+    -0.14
+   ],
+   "color": "bronze",
+   "pattern": "gold"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.088,
+   "height": 0.05,
+   "sides": 10,
+   "bevel": 0.01,
+   "rotate": [
+    82,
+    0,
+    0
+   ],
+   "at": [
+    0,
+    0.215,
+    -0.02
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.085,
+   "radius_top": 0.09,
+   "height": 0.06,
+   "sides": 10,
+   "bevel": 0.012,
+   "rotate": [
+    82,
+    0,
+    0
+   ],
+   "at": [
+    0,
+    0.26,
+    0.3
+   ],
+   "color": "bronze",
+   "pattern": "gold"
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.075,
+   "segments": [
+    8,
+    5
+   ],
+   "at": [
+    0,
+    0.19,
+    -0.16
+   ],
+   "color": "bronze",
+   "pattern": "gold"
+  },
+  {
+   "shape": "sphere",
+   "radius": 0.035,
+   "segments": [
+    6,
+    4
+   ],
+   "at": [
+    0,
+    0.18,
+    -0.25
+   ],
+   "color": "bronze",
+   "pattern": "gold"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.058,
+   "height": 0.012,
+   "sides": 12,
+   "rotate": [
+    82,
+    0,
+    0
+   ],
+   "at": [
+    0,
+    0.268,
+    0.357
+   ],
+   "color": "bore_rim",
+   "cap_color": "bore"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.044,
+   "height": 0.016,
+   "sides": 12,
+   "rotate": [
+    82,
+    0,
+    0
+   ],
+   "at": [
+    0,
+    0.27,
+    0.36
+   ],
+   "color": "bore",
+   "cap_color": "bore"
+  }
+ ]
+}

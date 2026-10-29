@@ -45,6 +45,15 @@
     },
     {
       "capture": "hero"
+    },
+    {
+      "eval": "scene.get_window().set('size', Vector2i(1280, 640))"
+    },
+    {
+      "wait": 4
+    },
+    {
+      "capture": "social"
     }
   ]
 }

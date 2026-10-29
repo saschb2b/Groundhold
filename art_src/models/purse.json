@@ -1,0 +1,14 @@
+{
+  "colors": {"hide": "#6b4a34", "hide_dark": "#4a3324", "wood_light": "#a0784a", "gold": "#e0b040", "gold_dark": "#a87a28"},
+  "origin": "bottom-center",
+  "parts": [
+    {"shape": "sphere", "radius": 0.2, "segments": [14, 9], "lobes": 6, "lobe_depth": 0.09, "scale": [1.12, 0.8, 1.05], "at": [-0.03, 0.155, 0], "color": "hide_dark", "color_top": "wood_light", "pattern": "cloth"},
+    {"shape": "cylinder", "radius": 0.07, "radius_top": 0.058, "height": 0.05, "sides": 12, "at": [-0.03, 0.29, 0], "color": "hide_dark", "color_top": "hide", "pattern": "cloth"},
+    {"shape": "cylinder", "radius": 0.068, "height": 0.026, "sides": 12, "bevel": 0.006, "at": [-0.03, 0.31, 0], "color": "gold_dark", "color_top": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.056, "radius_top": 0.12, "height": 0.075, "sides": 14, "serrate": 0.6, "at": [-0.03, 0.33, 0], "color": "hide", "color_top": "wood_light", "pattern": "cloth"},
+    {"shape": "cylinder", "radius": 0.1, "height": 0.024, "sides": 18, "bevel": 0.007, "at": [0.17, 0, 0.13], "color": "gold_dark", "cap_color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.1, "height": 0.024, "sides": 18, "bevel": 0.007, "at": [0.19, 0.024, 0.11], "color": "gold_dark", "cap_color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.1, "height": 0.024, "sides": 18, "bevel": 0.007, "at": [0.175, 0.048, 0.125], "color": "gold_dark", "cap_color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.1, "height": 0.024, "sides": 18, "bevel": 0.007, "rotate": [66, 0, 0], "at": [-0.08, 0.0, 0.22], "color": "gold_dark", "cap_color": "gold", "pattern": "gold"}
+  ]
+}

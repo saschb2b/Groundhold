@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0 · 2026-10-29
+
+A smaller, crafted console.
+
+- The 208 px bar is gone. A low bronze-over-stone console holds the minimap and the command card on two wings,
+  and rises only at the centre into an arched portrait window with a keystone and an amber gem; between them
+  the hollow shows through. Gold, lives and the wave hang from a slim strip at the top right.
+- The command card holds only its six commands: the three towers, Upgrade (a hammer), Sell (a purse) and Next
+  Wave (a war horn). Each icon has its own coloured backdrop, a cost on a shaded foot and a hotkey tab.
+  Tooltips give the hotkey, the cost and, for an upgrade, the numbers it changes.
+- The info shows numbers, not prose: damage, range, cooldown and slow or splash for a tower; health, speed,
+  bounty and toll (the lives it would take) for a creep.
+- Wave titles get a gilt rule fitted to the text; "Cannot build there" and "Not enough gold" are small notices
+  over the console instead.
+- The console is painted at twice its size, so it stays sharp at 1080p and above, and the portrait looks the
+  same in the browser as on desktop.
+- Fixed: the portrait sometimes framed a newly selected creep tiny or not at all.
+
 ## 0.4.0 · 2026-10-29
 
 Hand-modelled plants and creatures, built in Blender.

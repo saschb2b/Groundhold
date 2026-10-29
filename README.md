@@ -16,7 +16,7 @@ Hold the winding road from the rift gate to the hearth with three towers, throug
 </p>
 
 <p align="center">
-<a href="https://saschb2b.github.io/Tower-Defense/play/"><img src="docs/media/hero.webp" width="760" alt="Wave 7 in Lantern Hollow: creeps file along the road past arrow, cannon and frost towers; the console at the bottom shows the minimap, a portrait of the selected Arrow Tower, its stats and the command card"></a>
+<a href="https://saschb2b.github.io/Tower-Defense/play/"><img src="docs/media/hero.webp" width="760" alt="Wave 7 in Lantern Hollow: creeps file along the road past arrow, cannon and frost towers. A low bronze console along the bottom holds the minimap, the selected Arrow Tower in an arched portrait with its stats, and the command card; gold, lives and the wave hang from a strip at the top right"></a>
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@ three towers with an upgrade each, and creeps that walk one road. About six minu
 </table>
 
 <p align="center">
-<img src="docs/media/towers.webp" width="760" alt="Close up: a cannon tower firing beside two blue-roofed arrow towers, one upgraded with gold trim, and a frost spire with a floating crystal">
+<img src="docs/media/towers.webp" width="760" alt="Close up: a cannon tower firing beside two blue-roofed arrow towers, one upgraded with gold trim, and the selected frost spire with a floating crystal, shown in the console portrait with its damage, range, cooldown and slow">
 </p>
 
 <h2 align="center">What comes down the road</h2>
@@ -52,7 +52,7 @@ three towers with an upgrade each, and creeps that walk one road. About six minu
 <table align="center">
 <tr>
 <td align="center" width="50%"><img src="docs/media/combat.webp" width="380" alt="A few seconds of combat: arrows and cannon shells hit gourdlings, which burst into gold"><br><sub>Every kill pays gold. Each wave is 22% tougher than the last.</sub></td>
-<td align="center" width="50%"><img src="docs/media/boss.webp" width="380" alt="The Hollow King, a crowned pumpkin with a glowing face, walking past the rift gate; the console shows his health"><br><sub>Click a creep to see its health in the console.</sub></td>
+<td align="center" width="50%"><img src="docs/media/boss.webp" width="380" alt="The Hollow King, a crowned pumpkin with a glowing face, walking past the rift gate; the console portrait shows him with his health, speed, bounty and the ten lives he would take"><br><sub>Click a creep to see its health in the console.</sub></td>
 </tr>
 </table>
 
@@ -62,7 +62,7 @@ three towers with an upgrade each, and creeps that walk one road. About six minu
 |---|---|
 | <kbd>A</kbd> <kbd>C</kbd> <kbd>F</kbd> | Choose Arrow Tower, Cannon Tower or Frost Spire, then left-click a grass tile. The ghost turns red where you cannot build; hold <kbd>Shift</kbd> to keep placing |
 | Click a tower | Select it and see its range. <kbd>U</kbd> upgrades, <kbd>S</kbd> sells for 70% of what you paid |
-| Click a creep | Its health, speed and bounty in the console |
+| Click a creep | Its health, speed, bounty and toll (the lives it would take) in the console |
 | <kbd>N</kbd> | Call the next wave early; the seconds left are paid as gold |
 | Arrow keys, wheel, middle-drag, minimap | Move and zoom the view; <kbd>Home</kbd> shows the whole hollow |
 | Right click, <kbd>Esc</kbd> | Cancel building or the selection |
@@ -98,13 +98,15 @@ can be rebuilt from its recipe (`asset_manifest.json` records how):
 | `textures/foliage_*.png`, `materials/foliage.gdshader` | Painted needle, leaf, grass and fern cards, tinted per plant and swaying in the wind |
 | `materials/painted.gdshader` | Paints bricks, stone, planks, shingles, metal and cloth onto every model, with lit edges and dark grout |
 | `textures/`, `shaders/terrain.gdshader`, `shaders/water.gdshader` | Painted grass, meadow, path, sand, mud and rock textures, blended across the tiles with ragged edges; the pond's depth, foam and ripples |
-| `models/`, `ui/icons/`, `ui/frames/`, `sfx/` | The generated models, framed command icons, nine-slice console frames and synthesized sounds |
+| `art_src/ui/console.py`, `console.json` | The console's painter and its spec: wings, wells, the arched portrait window with its keystone, the rail, the resource strip, the end plate and the banner. `python3 art_src/ui/console.py` paints every piece in one material, a bronze rim over textured stone, at twice the layout's resolution (`"scale": 2`, drawn at half size, so it stays sharp on large screens), and writes `ui/console/layout.json`, the wells and windows the HUD places itself by. Needs only Pillow |
+| `art_src/ui/icons.py`, `icons.json` | Frames the command icons as buttons from the model renders in `art_src/ui/renders/` (made with `godot-agent asset icon --size 216`), at twice their size on screen: `python3 art_src/ui/icons.py` |
+| `models/`, `ui/icons/`, `ui/console/`, `sfx/` | The generated models, icons, painted console pieces and synthesized sounds |
 | `asset_style.json`, `palettes/hollow.gpl` | The style every asset is checked against: triangle budgets, sizes, origins, palette, loudness |
 | `scripts/` | The game: rules and tables in `game.gd`, waves, building, towers, creeps, projectiles, terrain, the console |
 | `tests/scenarios/`, `tests/bot.gd` | Deterministic gameplay tests; a scripted player must win all eight waves and an idle one must lose |
 | `tools/media/` | The scenarios that stage the screenshots and the clip above |
 
-The models, textures, icons, frames and sounds were made with [godot-agent-kit](https://github.com/saschb2b/godot-agent-kit),
+The models, textures, icon renders and sounds were made with [godot-agent-kit](https://github.com/saschb2b/godot-agent-kit),
 an agent toolkit for verifying Godot games and building their assets. It also runs the gameplay scenarios, on every push
 before the site is published. The fonts are Noto Serif and Noto Serif Display under the SIL Open Font License
 ([fonts/OFL.txt](fonts/OFL.txt)).

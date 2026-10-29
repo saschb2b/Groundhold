@@ -1,0 +1,183 @@
+{
+ "colors": {
+  "horn": "#e2d2a8",
+  "horn_light": "#f2e6c4",
+  "horn_dark": "#8a6a44",
+  "gold": "#e0b040",
+  "mouth": "#2a1a10"
+ },
+ "origin": "bottom-center",
+ "parts": [
+  {
+   "shape": "cylinder",
+   "radius": 0.024,
+   "radius_top": 0.032,
+   "height": 0.085,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -112.0
+   ],
+   "at": [
+    -0.22,
+    0.12,
+    0
+   ],
+   "color": "horn_dark",
+   "color_top": "horn_dark"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.036000000000000004,
+   "height": 0.026,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -112.0
+   ],
+   "at": [
+    -0.2107,
+    0.1163,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.032,
+   "radius_top": 0.042,
+   "height": 0.085,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -93.6
+   ],
+   "at": [
+    -0.1443,
+    0.0894,
+    0
+   ],
+   "color": "horn_dark",
+   "color_top": "horn"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.042,
+   "radius_top": 0.054,
+   "height": 0.085,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -75.2
+   ],
+   "at": [
+    -0.0629,
+    0.0843,
+    0
+   ],
+   "color": "horn",
+   "color_top": "horn"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.054,
+   "radius_top": 0.07,
+   "height": 0.085,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -56.8
+   ],
+   "at": [
+    0.016,
+    0.1052,
+    0
+   ],
+   "color": "horn",
+   "color_top": "horn"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.066,
+   "height": 0.026,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -56.8
+   ],
+   "at": [
+    0.0244,
+    0.1106,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.07,
+   "radius_top": 0.092,
+   "height": 0.085,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -38.4
+   ],
+   "at": [
+    0.0843,
+    0.1498,
+    0
+   ],
+   "color": "horn",
+   "color_top": "horn_light"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.092,
+   "radius_top": 0.135,
+   "height": 0.10625000000000001,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -20.0
+   ],
+   "at": [
+    0.135,
+    0.2138,
+    0
+   ],
+   "color": "horn_light",
+   "color_top": "horn_light",
+   "cap_color": "mouth"
+  },
+  {
+   "shape": "cylinder",
+   "radius": 0.14500000000000002,
+   "radius_top": 0.14900000000000002,
+   "height": 0.024,
+   "sides": 8,
+   "rotate": [
+    0,
+    0,
+    -20.0
+   ],
+   "at": [
+    0.163,
+    0.2908,
+    0
+   ],
+   "color": "gold",
+   "pattern": "gold",
+   "cap_color": "mouth"
+  }
+ ]
+}

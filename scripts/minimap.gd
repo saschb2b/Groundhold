@@ -1,23 +1,30 @@
-## The minimap: the tile map in small, creeps and towers as marks, and the camera's
-## view as an outline. Click or drag on it to move the camera there.
+## The minimap: the hollow seen from straight above, towers, creeps, the rift gate and
+## the hearth as marks, and the camera's view as an outline. Click or drag on it to move
+## the camera there. The picture is the real terrain and woods, rendered once by an
+## orthographic camera when the hollow is built (towers come later, so they are marks);
+## a flat colour map of the tiles lies under it for runs that render nothing (headless).
 class_name Minimap
 extends Control
 
 const COLORS := {
 	".": Color("#4f7a2e"),
-	",": Color("#6f8a34"),
-	"T": Color("#2f5a2a"),
-	"^": Color("#6b665f"),
+	",": Color("#64843a"),
+	"T": Color("#2a4a26"),
+	"^": Color("#3a352e"),
 	"~": Color("#2c5866"),
 	"#": Color("#8a6a44"),
 	"S": Color("#8a6a44"),
 	"E": Color("#8a6a44"),
 	"L": Color("#4f7a2e"),
 }
+## Pixels per tile in the photograph: twice what the well shows, for a clean downscale.
+const PIXELS_PER_TILE := 14
+const INK := Color(0.04, 0.03, 0.03, 0.85)
 
 var map: HollowMap
 var camera: CameraRig
-var _texture: ImageTexture
+var _tiles: ImageTexture
+var _photo: SubViewport
 var _dragging := false
 
 
@@ -28,8 +35,36 @@ func setup(source: HollowMap, rig: CameraRig) -> void:
 	for z in map.depth:
 		for x in map.width:
 			image.set_pixel(x, z, COLORS.get(map.tile(Vector2i(x, z)), Color.BLACK))
-	_texture = ImageTexture.create_from_image(image)
+	_tiles = ImageTexture.create_from_image(image)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	_photograph()
+
+
+## One render from straight above, in the world's own light but without its haze and
+## ambient occlusion (the camera is far up, both would only grey it).
+func _photograph() -> void:
+	_photo = SubViewport.new()
+	_photo.size = Vector2i(map.width, map.depth) * PIXELS_PER_TILE
+	_photo.world_3d = camera.get_world_3d()
+	_photo.render_target_update_mode = SubViewport.UPDATE_ONCE
+	_photo.msaa_3d = Viewport.MSAA_2X
+	var eye := Camera3D.new()
+	eye.projection = Camera3D.PROJECTION_ORTHOGONAL
+	eye.keep_aspect = Camera3D.KEEP_HEIGHT
+	eye.size = map.depth
+	eye.near = 1.0
+	eye.far = 80.0
+	eye.position = Vector3(map.width * 0.5, 40.0, map.depth * 0.5)
+	eye.rotation_degrees = Vector3(-90, 0, 0)
+	var world_env := camera.get_world_3d().environment
+	if world_env:
+		var env := world_env.duplicate() as Environment
+		env.fog_enabled = false
+		env.volumetric_fog_enabled = false
+		env.ssao_enabled = false
+		eye.environment = env
+	_photo.add_child(eye)
+	add_child(_photo)
 
 
 func _process(_delta: float) -> void:
@@ -40,35 +75,46 @@ func _draw() -> void:
 	if map == null:
 		return
 	var area := _map_rect()
-	draw_texture_rect(_texture, area, false)
+	draw_texture_rect(_tiles, area, false)
+	draw_texture_rect(_photo.get_texture(), area, false)
 	var cell := area.size.x / map.width
-	draw_rect(
-		Rect2(_to_mini(map.center(map.spawn)) - Vector2(4, 4), Vector2(8, 8)), Color("#b070ff")
-	)
-	draw_rect(
-		Rect2(_to_mini(map.center(map.hearth)) - Vector2(4, 4), Vector2(8, 8)), Color("#ffb040")
-	)
+	_mark(_to_mini(map.center(map.spawn)), cell * 0.5, Color("#c58cff"))
+	_mark(_to_mini(map.center(map.hearth)), cell * 0.5, Color("#ffbf4a"))
 	for tower in get_tree().get_nodes_in_group("towers"):
-		var at := _to_mini((tower as Node3D).global_position)
-		draw_rect(
-			Rect2(at - Vector2(cell, cell) * 0.4, Vector2(cell, cell) * 0.8), Color("#5a8cff")
-		)
+		_mark(_to_mini((tower as Node3D).global_position), cell * 0.34, Color("#9cc4ff"))
 	for creep in get_tree().get_nodes_in_group("creeps"):
-		draw_circle(
-			_to_mini((creep as Node3D).global_position), maxf(1.5, cell * 0.28), Color("#ff4a3a")
-		)
-	# What the camera sees, projected onto the ground.
+		_mark(_to_mini((creep as Node3D).global_position), maxf(1.6, cell * 0.24), Color("#ff5a40"))
+	_draw_view(area)
+
+
+## A dot with a dark rim, so marks read on grass and road alike.
+func _mark(at: Vector2, radius: float, color: Color) -> void:
+	draw_circle(at, radius + 1.2, INK, true, -1.0, true)
+	draw_circle(at, radius, color, true, -1.0, true)
+
+
+## What the camera sees, projected onto the ground and cut to the map's edge.
+func _draw_view(area: Rect2) -> void:
 	var view := get_viewport().get_visible_rect().size
 	var corners := PackedVector2Array()
-	for p: Vector2 in [
-		Vector2(0, 0), Vector2(view.x, 0), Vector2(view.x, view.y), Vector2(0, view.y)
-	]:
+	for p: Vector2 in [Vector2(0, 0), Vector2(view.x, 0), view, Vector2(0, view.y)]:
 		var hit := _ground(p)
 		if hit == Vector3.INF:
 			return
 		corners.append(_to_mini(hit))
-	corners.append(corners[0])
-	draw_polyline(corners, Color(1, 1, 1, 0.85), 1.0)
+	var bounds := PackedVector2Array(
+		[
+			area.position,
+			Vector2(area.end.x, area.position.y),
+			area.end,
+			Vector2(area.position.x, area.end.y)
+		]
+	)
+	for shape: PackedVector2Array in Geometry2D.intersect_polygons(corners, bounds):
+		var loop := shape.duplicate()
+		loop.append(shape[0])
+		draw_polyline(loop, Color(0, 0, 0, 0.4), 3.0, true)
+		draw_polyline(loop, Color(1, 0.97, 0.9, 0.9), 1.2, true)
 
 
 func _gui_input(event: InputEvent) -> void:

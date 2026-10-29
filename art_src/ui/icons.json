@@ -1,0 +1,15 @@
+{
+  "size": 108,
+  "button": 54,
+  "foot": 0.22,
+  "corner": 17,
+  "dest": "ui/icons",
+  "icons": {
+    "arrow_tower": {"render": "art_src/ui/renders/arrow_tower.png", "centre": "#3d6cb4", "edge": "#0a1226"},
+    "cannon_tower": {"render": "art_src/ui/renders/cannon_tower.png", "centre": "#55302a", "edge": "#120708", "rim": 0.9},
+    "frost_tower": {"render": "art_src/ui/renders/frost_tower.png", "centre": "#2a9a88", "edge": "#04201c"},
+    "upgrade": {"render": "art_src/ui/renders/upgrade.png", "centre": "#3f8a2c", "edge": "#0a1c08", "rim": 0.7},
+    "sell": {"render": "art_src/ui/renders/sell.png", "centre": "#4c5260", "edge": "#0b0d12", "rim": 0.7},
+    "next_wave": {"render": "art_src/ui/renders/next_wave.png", "centre": "#6c3ea8", "edge": "#140a22"}
+  }
+}

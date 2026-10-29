@@ -1,0 +1,28 @@
+{
+  "name": "hud_console",
+  "seed": 1,
+  "time_scale": 2,
+  "timeout_frames": 2400,
+  "steps": [
+    {"wait": 2},
+    {"assert": "node('CommandCard').get_child_count() == 6", "msg": "the command card holds only real commands, no empty slots"},
+    {"set": "Game.gold", "value": 300},
+    {"hover": "node('BuildCannon')"},
+    {"wait": 1},
+    {"assert": "node('Tooltip').visible and screen_has('Cannon Tower') and screen_has('(C)')", "msg": "a command's tooltip names it with its hotkey"},
+    {"eval": "scene.build('arrow', Vector2i(8, 3))"},
+    {"click": "scene.cell_center(Vector2i(8, 3))"},
+    {"hover": "node('Upgrade')"},
+    {"wait": 1},
+    {"assert": "screen_has('Damage 8.0 to 16.0')", "msg": "the upgrade tooltip says what the upgrade changes, in numbers"},
+    {"hover": [640, 300]},
+    {"click": "node('NextWave')"},
+    {"wait_until": "count('creeps') >= 1", "timeout": 600},
+    {"eval": "node('BuildController').select_creep(group('creeps')[0])"},
+    {"wait": 2},
+    {"assert": "screen_has('HEALTH') and screen_has('TOLL') and screen_has('–1')", "msg": "a selected creep shows its health and the lives it would take, as a toll"},
+    {"eval": "node('BuildController').select_creep(null)"},
+    {"wait": 1},
+    {"assert": "not screen_has('HEALTH') and not screen_has('TOLL')", "msg": "and its numbers leave with the selection"}
+  ]
+}

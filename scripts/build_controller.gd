@@ -117,7 +117,7 @@ func set_mode(kind: String) -> void:
 		return
 	if kind != "" and not Game.can_afford(int(Game.TOWERS[kind]["cost"])):
 		Sfx.play("error")
-		Game.announce("Not enough gold")
+		Game.notice("Not enough gold")
 		kind = ""
 	mode = kind
 	if _ghost:
@@ -150,9 +150,9 @@ func build(kind: String, cell: Vector2i) -> bool:
 	if not can_build(kind, cell):
 		Sfx.play("error")
 		if not map.buildable(cell) or towers.has(cell):
-			Game.announce("Cannot build there")
+			Game.notice("Cannot build there")
 		else:
-			Game.announce("Not enough gold")
+			Game.notice("Not enough gold")
 		return false
 	Game.spend(int(Game.TOWERS[kind]["cost"]))
 	var tower := Tower.new()
@@ -207,7 +207,7 @@ func upgrade_selected() -> bool:
 		return false
 	if not Game.spend(selected.upgrade_cost()):
 		Sfx.play("error")
-		Game.announce("Not enough gold")
+		Game.notice("Not enough gold")
 		return false
 	selected.upgrade()
 	Sfx.play("upgrade")

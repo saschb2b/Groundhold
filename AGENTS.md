@@ -16,6 +16,8 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
 Assets are generated, never hand-edited: change the recipe in `art_src/models/` and rebuild with
 `godot-agent asset mesh`, or the Blender build script in `art_src/blender/` (plants, rocks, creeps) and rebuild
 with `godot-agent asset blender`; `godot-agent asset regen . <path>` rebuilds anything listed in
-`asset_manifest.json`. A creep's `stride` in `Game.CREEPS` is the walking speed its walk cycle was made for;
+`asset_manifest.json`. The console art and the command icons come from the game's own painters,
+`art_src/ui/console.py` and `art_src/ui/icons.py` (Pillow; their specs sit beside them), and `asset regen` reruns
+them too. The HUD places itself by the `ui/console/layout.json` the painter writes. A creep's `stride` in `Game.CREEPS` is the walking speed its walk cycle was made for;
 its build script prints the value.
 `godot-agent asset check .` must stay clean. `godot-agent scenario . tools/media` re-renders the README's shots.

@@ -28,7 +28,7 @@ func _ready() -> void:
 	hud.setup(self)
 	_frame_camera()
 	_set_the_scene()
-	Game.announce("Lantern Hollow · the first creeps come in %d s" % int(Game.FIRST_PREP))
+	Game.announce("Lantern Hollow")
 
 
 func _exit_tree() -> void:
@@ -79,8 +79,8 @@ func _place_landmarks() -> void:
 
 ## Late-afternoon light and a painterly frame: a low sun from the upper left lights
 ## the faces toward the camera and throws long shadows away to the right, haze
-## softens the far edge, and the corners darken. SSAO only shows on desktop (Forward+); blob shadows and the
-## vignette carry the look in the browser build too.
+## softens the far edge, and the corners darken. SSAO only shows on desktop (Forward+);
+## blob shadows and the vignette carry the look in the browser build too.
 func _set_the_scene() -> void:
 	var sun: DirectionalLight3D = $Sun
 	sun.basis = Basis.looking_at(Vector3(0.62, -0.55, -0.56).normalized(), Vector3.UP)

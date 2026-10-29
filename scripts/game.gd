@@ -9,6 +9,8 @@ signal lives_changed(lives: int)
 signal wave_changed(wave: int)
 signal state_changed(state: int)
 signal announced(text: String)
+## A short notice for the player, such as a rejected order; not a ceremony like a wave title.
+signal noticed(text: String)
 
 enum State { PREP, WAVE, WON, LOST }
 
@@ -220,6 +222,10 @@ func lose_lives(amount: int) -> void:
 
 func announce(text: String) -> void:
 	announced.emit(text)
+
+
+func notice(text: String) -> void:
+	noticed.emit(text)
 
 
 ## Creep health multiplier for a wave: later waves are tougher.
