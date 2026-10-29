@@ -295,12 +295,13 @@ class Server:
 
     async def serve_player(self, reader, player):
         """A joined game's messages until it says goodbye (True) or its
-        connection ends; a bad one raises ProtocolError."""
-        now = time.monotonic()
+        connection ends; a bad one raises ProtocolError. The buckets refill on
+        the server's clock, so a test's ManualClock holds them still."""
+        now = self.clock.now() / 1e9
         buckets = {name: Bucket(spec["burst"], spec["refill"], now) for name, spec in SPEC["buckets"].items()}
         while True:
             opcode, data = await asyncio.wait_for(websocket.receive(reader), self.silence_timeout)
-            now = time.monotonic()
+            now = self.clock.now() / 1e9
             message = protocol.BY_ID.get(data[0]) if opcode == 2 and data else None
             if not buckets[(message and message.bucket) or "hub"].take(now):
                 raise ProtocolError("Message rate exceeded", protocol.ERRORS["rate"])

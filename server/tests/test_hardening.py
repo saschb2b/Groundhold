@@ -215,7 +215,7 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         await until(lambda: not self.server.players)
 
     async def test_ping_pong_and_its_bucket(self):
-        await self.start()
+        await self.start(clock=ManualClock())
         client, _ = await self.connect()
         await client.send_message("PING", client_ms=0xfffffffe, rtt_ms=42)
         self.assertEqual(await client.until("PONG"), {"client_ms": 0xfffffffe, "turn": 0})
@@ -227,12 +227,32 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error["code"], ERRORS["rate"])
 
     async def test_hub_bucket(self):
-        await self.start()
+        await self.start(clock=ManualClock())
         client, _ = await self.connect()
         client.writer.write(masked(b"", opcode=9) * 41)
         await client.writer.drain()
         for _ in range(40):
             self.assertEqual(await client.raw(), b"")      # (a pong each)
+        name, error = await client.next()
+        self.assertEqual((name, error["code"]), ("ERROR", ERRORS["rate"]))
+
+    async def test_buckets_refill_on_the_servers_clock(self):
+        # (a slow machine's wall clock must not refill a bucket mid-burst: the
+        # hub bucket refills 30 a second, so a quarter second of wall time
+        # would answer the 41st ping; only the server's clock counts)
+        clock = ManualClock()
+        await self.start(clock=clock)
+        client, _ = await self.connect()
+        client.writer.write(masked(b"", opcode=9) * 40)
+        await client.writer.drain()
+        for _ in range(40):
+            self.assertEqual(await client.raw(), b"")
+        await asyncio.sleep(0.25)
+        await clock.advance(100)                            # (3 tokens)
+        client.writer.write(masked(b"", opcode=9) * 4)
+        await client.writer.drain()
+        for _ in range(3):
+            self.assertEqual(await client.raw(), b"")
         name, error = await client.next()
         self.assertEqual((name, error["code"]), ("ERROR", ERRORS["rate"]))
 
