@@ -24,7 +24,7 @@
     },
     {
       "assert": "Game.lives == 19",
-      "msg": "the first gourdling to reach the hearth costs one life"
+      "msg": "the first gourdling to reach the Holdfast costs one life"
     },
     {
       "assert": "Game.kills == 0",

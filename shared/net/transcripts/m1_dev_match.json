@@ -12,7 +12,7 @@
    "fields": {
     "version": 1,
     "build_seq": 7,
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
     "flags": 0,
     "name": "Tamsin"
@@ -29,7 +29,7 @@
     "turn_ticks": 3,
     "hash_every": 60,
     "flags": 2,
-    "server_name": "Lantern Hollow",
+    "server_name": "Groundhold",
     "motd": "Hold the road together"
    }
   },
@@ -40,7 +40,7 @@
    "fields": {
     "version": 1,
     "build_seq": 7,
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "token": "1112131415161718191a1b1c1d1e1f20",
     "flags": 0,
     "name": "Edda"
@@ -57,7 +57,7 @@
     "turn_ticks": 3,
     "hash_every": 60,
     "flags": 2,
-    "server_name": "Lantern Hollow",
+    "server_name": "Groundhold",
     "motd": "Hold the road together"
    }
   },
@@ -70,7 +70,7 @@
     "mode": 0,
     "map": 0,
     "seed": 20261029,
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "your_seat": 0,
     "seats": [
      {
@@ -99,7 +99,7 @@
     "mode": 0,
     "map": 0,
     "seed": 20261029,
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "your_seat": 1,
     "seats": [
      {
@@ -260,7 +260,7 @@
    "client": 0,
    "type": "LOADED",
    "fields": {
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "tick0_hash": "9e3779b97f4a7c15"
    }
   },
@@ -309,7 +309,7 @@
    "client": 1,
    "type": "LOADED",
    "fields": {
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "tick0_hash": "9e3779b97f4a7c15"
    }
   },

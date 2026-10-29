@@ -11,8 +11,8 @@
       "wait": 2
     },
     {
-      "assert": "screen_has('The Hearth') and screen_has('Next: 8 Gourdlings') and screen_has('20/20')",
-      "msg": "with nothing selected the info shows the hearth's lives and what the next wave brings, not prose"
+      "assert": "screen_has('The Holdfast') and screen_has('Next: 8 Gourdlings') and screen_has('20/20')",
+      "msg": "with nothing selected the info shows the Holdfast's lives and what the next wave brings, not prose"
     },
     {
       "assert": "node('Countdown').text.begins_with('First wave in') and not node('Wave').visible",
@@ -172,12 +172,12 @@
       "msg": "no stale tooltip over the end plate"
     },
     {
-      "assert": "screen_has('The hearth has gone dark') and screen_has('Fell in wave 1 of 8')",
-      "msg": "the end plate says how far the hollow held"
+      "assert": "screen_has('The Holdfast has gone under') and screen_has('Fell in wave 1 of 8')",
+      "msg": "the end plate says how far the Holdfast held"
     },
     {
       "assert": "(node('Subtitle').text == '') and not node('Notice').visible",
-      "msg": "at the end the hearth's line leaves the telling to the plate"
+      "msg": "at the end the Holdfast's line leaves the telling to the plate"
     },
     {
       "assert": "not node('Subtitle').visible",

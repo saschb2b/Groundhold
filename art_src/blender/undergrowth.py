@@ -1,4 +1,4 @@
-"""Undergrowth for Lantern Hollow: leafy bushes, ferns, grass tufts and reeds.
+"""Undergrowth for Wickhollow: leafy bushes, ferns, grass tufts and reeds.
 
     godot-agent asset blender . art_src/blender/undergrowth.py --param kind=bush \
         --to res://models/vegetation/bush_1.glb --seed 1 --review --no-import

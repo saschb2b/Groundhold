@@ -21,7 +21,7 @@ const STATE_TEXT := {
 const TEXT := Color("#ece2cc")
 const DIM := Color("#a3957d")
 const COIN := Color("#f6d06a")
-## My own name: the lantern gold the notices use.
+## My own name: the gold the notices use.
 const MINE := Color("#ffd36a")
 
 var main: Node
@@ -114,14 +114,14 @@ func _status_text(client: MatchClient) -> String:
 		MatchClient.Phase.WAITING:
 			return "On %s · waiting for the others" % client.server_name
 		MatchClient.Phase.LOADING:
-			return "Loading · everyone's hollow checked against yours"
+			return "Walking out · everyone's land checked against yours"
 		MatchClient.Phase.STARTING:
-			return "The rift stirs ..."
+			return "The tide turns ..."
 		MatchClient.Phase.FAILED:
 			return "Link lost · %s" % client.error_text
 		MatchClient.Phase.ENDED:
 			if client.outcome == "desynced":
-				return "The hollows fell out of step"
+				return "The lands fell out of step"
 	return ""
 
 
@@ -305,7 +305,7 @@ class LinkBars:
 			draw_rect(rect, Color("#f0cf86") if on else Color(0.35, 0.3, 0.24, 0.8))
 
 
-## Ready this window: a lit lantern bead; not yet: a dim ring.
+## Ready this window: a lit bead; not yet: a dim ring.
 class ReadyMark:
 	extends Control
 	var lit := false

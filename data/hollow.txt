@@ -1,6 +1,6 @@
-# Lantern Hollow. One character per 1x1 tile; x grows to the right, z downward.
-#   .  grass, buildable          #  road               S  rift gate (road start)
-#   ^  high ground (cliff)       T  woods              E  hearth (road end)
+# Wickhollow. One character per 1x1 tile; x grows to the right, z downward.
+#   .  grass, buildable          #  road               S  the Welling (road start)
+#   ^  high ground (cliff)       T  woods              E  the Holdfast (road end)
 #   ~  pond                      ,  meadow (decor)     L  lantern post
 ^^^^^^^^^^^^^^^^^^^^^^^^
 ^^TT......,....TT...TT^^

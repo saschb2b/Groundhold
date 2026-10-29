@@ -1,4 +1,4 @@
-## The console, composed the way Warcraft III lays it out but pared down: one piece of
+## The console, laid out like a classic strategy game's but pared down: one piece of
 ## dark bronze and stone along the bottom edge whose top rises into an arched crest
 ## around the live portrait and dips low between its parts so the hollow shows
 ## through. A minimap on the left wing, the portrait and the selection's numbers in the
@@ -313,7 +313,7 @@ func _build_strip(root: Control) -> void:
 	strip.add_child(row)
 	_gold = _resource(row, "Gold", _tight(ICONS + "res_gold.png"), COIN, 26)
 	_gap(row, 10)
-	# The hearth's lantern, its head only and glowing: what the lives keep alight.
+	# The Holdfast, its head only and glowing (on Wickhollow the hearth's lamp): what the lives keep.
 	_lives = _resource(row, "Lives", _tight(ICONS + "res_lives.png", 0.6), TEXT, 30, true)
 	_gap(row, 12)
 	_wave = _label("", BOLD_FONT, 15, TEXT)
@@ -517,7 +517,7 @@ func _refresh() -> void:
 	elif controller.mode != "":
 		_describe_build(controller.mode)
 	else:
-		_describe_hearth()
+		_describe_holdfast()
 	if _hovered != "":
 		_show_tooltip(_hovered)
 
@@ -526,15 +526,15 @@ func _over() -> bool:
 	return Game.state == Game.State.WON or Game.state == Game.State.LOST
 
 
-## Nothing selected: the hearth the player keeps, how it stands and what comes next.
-func _describe_hearth() -> void:
+## Nothing selected: the Holdfast the player keeps, how it stands and what comes next.
+func _describe_holdfast() -> void:
 	_portrait.show_model("res://models/props/hearth.glb", "", 0.0, 1.0, true)
 	var line := ""  # at the end the plate tells how it went
 	if Game.state == Game.State.WAVE:
 		line = "Wave %d of %d" % [Game.wave, Game.total_waves()]
 	elif Game.state == Game.State.PREP and Game.wave < Game.total_waves():
 		line = "Next: " + _wave_brings(Game.wave)
-	_head("The Hearth", line)
+	_head("The Holdfast", line)
 	_set_stats(
 		[
 			[
@@ -548,7 +548,7 @@ func _describe_hearth() -> void:
 	)
 
 
-## What wave `index` (0-based) sends: "8 Gourdlings", "5 Thornbacks and The Hollow King".
+## What wave `index` (0-based) sends: "8 Gourdlings", "5 Thornbacks and The Hollowtide Crest".
 func _wave_brings(index: int) -> String:
 	var parts := PackedStringArray()
 	for group: Dictionary in Game.wave_groups(index):
@@ -594,7 +594,7 @@ func _describe_creep(creep: Creep) -> void:
 			],
 			["Speed", "%.1f" % (creep.speed * creep.slow_factor)],
 			["Bounty", str(creep.bounty)],
-			# What it takes from the hearth if it gets there.
+			# What it takes from the Holdfast if it gets there.
 			["Toll", "–%d" % creep.lives_cost, Color("#ff9a7a")],
 		]
 	)
@@ -762,7 +762,7 @@ func _on_state(state: int) -> void:
 		_banner.hide_title()
 		_notice.visible = false
 		var won := state == Game.State.WON
-		_end_label.text = "Victory!" if won else "The hearth has gone dark"
+		_end_label.text = "Victory!" if won else "The Holdfast has gone under"
 		_end_detail.text = "Fell in wave %d of %d" % [Game.wave, Game.total_waves()]
 		if won:
 			_end_detail.text = "All %d waves held back" % Game.total_waves()
@@ -843,7 +843,7 @@ func _art(file: String, hit := false) -> ConsoleArt:
 
 
 ## An icon cropped to what is drawn in it, so a small icon shows its subject large;
-## `top` keeps only that share of it from the top (the lantern without its plinth).
+## `top` keeps only that share of it from the top (the lives icon without its plinth).
 func _tight(path: String, top := 1.0) -> Texture2D:
 	var texture: Texture2D = load(path)
 	var image := texture.get_image()

@@ -36,7 +36,7 @@ const TOWERS := {
 	{
 		"name": "Arrow Tower",
 		"hotkey": "A",
-		"description": "Quick bolts at the creep closest to the hearth.",
+		"description": "Quick bolts at the creep closest to the Holdfast.",
 		"projectile": "arrow",
 		"model": "res://models/towers/arrow_tower.glb",
 		"model_2": "res://models/towers/arrow_tower_2.glb",
@@ -97,10 +97,10 @@ const CREEPS := {
 		"scale": 1.35,
 		"color": Color("#6b4a34"),
 	},
-	"hollow_king":
+	"hollowtide_crest":
 	{
-		"name": "The Hollow King",
-		"model": "res://models/creeps/hollow_king.glb",
+		"name": "The Hollowtide Crest",
+		"model": "res://models/creeps/hollowtide_crest.glb",
 		"stride": 0.756,
 		"scale": 1.6,
 		"color": Color("#b5541f"),
@@ -280,17 +280,17 @@ func _on_wave(e: Dictionary) -> void:
 			wave_changed.emit(wave)
 		SimTypes.PHASE_DONE:
 			state_changed.emit(State.WON)
-			announce("The hearth burns on. Victory!")
+			announce("The Holdfast stands. Victory!")
 			Sfx.play("victory")
 		SimTypes.PHASE_FALLEN:
 			state_changed.emit(State.LOST)
-			announce("The hearth has gone dark")
+			announce("The Holdfast has gone under")
 			Sfx.play("defeat")
 
 
 func _wave_title(number: int) -> String:
 	if number == total_waves():
-		return "Final wave · The Hollow King"
+		return "Final wave · The Hollowtide Crest"
 	var first: String = wave_groups(number - 1)[0]["creep"]
 	return "Wave %d · %s" % [number, CREEPS[first]["name"]]
 

@@ -1,4 +1,4 @@
-"""Thornback: a slow, armoured hedgehog-boar creep for Lantern Hollow.
+"""Thornback: a slow, armoured hedgehog-boar creep for Wickhollow.
 
 Build:
     godot-agent asset blender . art_src/blender/thornback.py --to res://models/creeps/thornback.glb \

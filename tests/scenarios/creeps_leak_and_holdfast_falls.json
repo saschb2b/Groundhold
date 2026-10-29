@@ -1,5 +1,5 @@
 {
-  "name": "creeps_leak_and_hearth_falls",
+  "name": "creeps_leak_and_holdfast_falls",
   "seed": 1,
   "ticks_per_frame": 8,
   "timeout_frames": 6000,
@@ -40,7 +40,7 @@
       "assert": "Game.lives == 0"
     },
     {
-      "assert": "screen_has('The hearth has gone dark')",
+      "assert": "screen_has('The Holdfast has gone under')",
       "msg": "the defeat panel shows"
     },
     {

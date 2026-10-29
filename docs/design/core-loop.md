@@ -1,4 +1,4 @@
-# Lantern Hollow multiplayer: the core loop
+# Groundhold multiplayer: the core loop
 
 Merged design, 29 October 2026. It judges the three competing designs (`coop_first.md`, `versus_first.md`,
 `ship_it.md`), takes the strongest as the spine, grafts the best of the others onto it, and replaces every design's
@@ -19,8 +19,9 @@ Base read for this document:
 - **Godot 4.7.1:** every engine API named here was looked up in the installed class reference with
   `godot-agent api show` (Appendix C lists them).
 
-Every number below is Lantern Hollow's own starting value for the balance bots to tune. None is taken from another
-game's tables. Builder, creep, tower and mode names are original and can be renamed freely.
+Every number below is Groundhold's own starting value for the balance bots to tune. None is taken from another
+game's tables. Builder, creep, tower, place and mode names are original. [`world.md`](world.md) sets them and gives
+the world they come from; where the two documents differ, it wins.
 
 ---
 
@@ -51,16 +52,16 @@ game's tables. Builder, creep, tower and mode names are original and can be rena
 - *Fidelity 9.* Real competition in v1 (1v1 and 2v2). A rival's weak checks become what you send, and co-op comes
   from the same parts.
 - *Fun 9.* The most original of the three:
-  - the **Rift Offer**: three seeded packs, the same for both sides;
-  - **sealed rousings** that you loose at a moment you choose;
+  - the **Drift**: three seeded packs, the same for both sides;
+  - **corked bottles** that you uncork at a moment you choose;
   - defending that pays;
-  - **Last Light**, a flare charged by losing lives;
-  - the **Long Night** as a hard end.
+  - **Seawall**, a comeback charged by losing lives;
+  - the **Surge** as a hard end.
 
   It also carries an explicit guard against reading as Legion TD 2.
-- *Technical 5.* Its sealed sends depend on the server filtering what each client sees, which the chosen model
+- *Technical 5.* Its corked sends depend on the server filtering what each client sees, which the chosen model
   cannot do without a trick (§1.4 supplies one). It mixes `@rpc` with raw packets and needs a new mirrored map.
-- *Scope 4.* Everything at once: a twin map, a send economy, the flare, the night, pings with seven meanings,
+- *Scope 4.* Everything at once: a twin map, a send economy, the seawall, the surge, pings with seven meanings,
   phrases, 2v2 and four Builders with forks.
 
 **ship_it.**
@@ -88,22 +89,24 @@ every wave, and it scores at least 6 on every axis. Grafted onto it:
 
 | From | What |
 |---|---|
-| `ship_it` | The engineering spine: one code path (solo runs the same simulation through an in-process turn source); M1 split into M1a (solo on the new simulation) and M1b (two players over the server); the explicit tick order; range as road intervals; the integer units table; creep icons used as check icons; Builders shown only as portraits and pennants in v1; "start with who's here" when a queue is quiet; separate server releases |
-| `versus_first` | The competitive design after v1 (the Rift Offer, rousing and loosing, defending that pays, Last Light, the Long Night); Okabe-Ito seat colours with glyphs; racing or duelling the caretaker offline; the originality guard against Legion TD 2; the Bellfounder and the Beekeeper |
+| `ship_it` | The engineering spine: one code path (solo runs the same simulation through an in-process turn source); M1 split into M1a (solo on the new simulation) and M1b (two players over the server); the explicit tick order; range as road intervals; the integer units table; a creep shown with every check (now the local creep's portrait beside a tide-form glyph, `world.md`); Builders shown only as portraits and pennants in v1; "start with who's here" when a queue is quiet; separate server releases |
+| `versus_first` | The competitive design after v1 (the Drift, corking and uncorking, defending that pays, Seawall, the Surge); Okabe-Ito seat colours with glyphs; racing or duelling the caretaker offline; the originality guard against Legion TD 2; the Bellfounder and the Beekeeper |
 | The Cyberworld study and the user | The whole networking, server, hosting and operations chapter (§6). All three designs chose a headless Godot authority; that is overruled |
 
 ### 0.3 Decisions on one page
 
-1. **v1 modes:** **Vigil**, co-op for 1 to 4 players on one shared hollow (12 waves, about 13 minutes), and
-   **Lantern Race**, competitive for 1v1 or 2v2 on two copies of the hollow with the same seed and waves and no
-   creeps crossing over. **Rift Duel** (1v1 with sends) is milestone 7, the first release after v1; the
-   simulation and protocol are built for it from M1.
+1. **v1 modes:** **High Water**, co-op for 1 to 4 players on one shared hollow (12 waves, about 13 minutes), and
+   **Tide Race** (the Race), competitive for 1v1 or 2v2 on two copies of the hollow with the same seed and waves
+   and no creeps crossing over. **Undertow** (the Duel: 1v1 with sends) is milestone 7, the first release after
+   v1; the simulation and protocol are built for it from M1. The hollow is **Wickhollow**, Tamsin Wick's home and
+   v1's one map.
 2. **Builders:** four in v1, each with two signature towers and one **team tower**, a two-way **fork** on every
    tower (A deepens the role, B patches a weakness) and one passive. No active abilities, so the six-slot command
    card keeps its shape. Everything is unlocked; there are no accounts.
-3. **Checks:** four, each taught by a creep whose icon *is* the check icon: Swarm (Gourdling), Swift (Scuttler),
-   Armored (Thornback, flat armour 4), Winged (the new **Duskmoth**, which only `air` towers can target). The
-   Bristlesow (wave 6) and the Hollow King (wave 12) are the exams that combine them.
+3. **Checks:** four, each shown by a tide-form glyph with the local creep's portrait beside it, and each taught on
+   Wickhollow by one creep: Swarm (the Froth glyph; Gourdling), Swift (Runnel; Scuttler), Armored (Ballast;
+   Thornback, flat armour 4), Winged (Spindrift; the new **Duskmoth**, which only `air` towers can target). The
+   Bristlesow (wave 6) and the Hollowtide Crest (wave 12) are the exams that combine them.
 4. **Constellation:** the Builders sit on a cycle (Swarm, Swift, Armored, Winged), each strong on two neighbours.
    Only 2 of the 6 possible duos are strong on all four checks. Team towers (slow, mark, crack, haste) help any
    player's towers, the strongest effect applies, and the player whose effect applied is credited with **Help**.
@@ -124,10 +127,10 @@ every wave, and it scores at least 6 on every axis. Grafted onto it:
    deterministic zipapp, five native binaries for LAN hosts, a multi-arch `ghcr.io` image, a Coolify Compose file
    and a Caddy Compose file for self-hosters.
 9. **Transport:** WebSocket everywhere. Clients use Godot's `WebSocketPeer`; the server speaks Cyberworld's
-   bounded RFC 6455 subset on one port (8766, path `/hollow`, subprotocol `lantern-hollow.v1`). Desktop LAN uses
+   bounded RFC 6455 subset on one port (8766, path `/causeway`, subprotocol `groundhold.v1`). Desktop LAN uses
    `ws://`; online, desktop and browser use `wss://`, with TLS terminated by Coolify's proxy.
 10. **Hosting:** the official server is a second app in the user's existing Coolify, next to
-    `wss://cyberworld.saschb2b.com/presence`, at a new subdomain (proposed `wss://lantern.saschb2b.com/hollow`).
+    `wss://cyberworld.saschb2b.com/presence`, at a new subdomain (proposed `wss://groundhold.saschb2b.com/causeway`).
     The only new thing is a DNS record; the extra cost is nil.
 11. **LAN** is a desktop feature: download the server, double-click it, and desktop players find it under
     **Nearby** (a UDP beacon the server sends) or type the address its banner shows. Browsers play online only.
@@ -139,7 +142,7 @@ every wave, and it scores at least 6 on every axis. Grafted onto it:
     the GDScript and Python codecs honest, a multi-process smoke run, and a native-against-web replay check.
     §7.5 lists the kit extensions.
 14. **Milestone 1** is a playable two-player co-op match over localhost: two desktop windows and the forked server
-    on `ws://127.0.0.1:8766/hollow`. Seven milestones in all; v1 is M1 to M6.
+    on `ws://127.0.0.1:8766/causeway`. Seven milestones in all; v1 is M1 to M6.
 
 ### 0.4 Every conflict, resolved
 
@@ -157,11 +160,11 @@ every wave, and it scores at least 6 on every axis. Grafted onto it:
 | 10 | Armour | 6, floor ¼ | 4, floor ¼ | 4, floor 30% | **4, floor ¼:** two of three agree; 4 keeps the Lamplighter, the starter, viable before forks |
 | 11 | Winged blind spot | ✕ until a fork | ✕ until a fork | never blind | **✕ until a fork** for two Builders: a real check. The strip shows the moth a window ahead |
 | 12 | Build windows | 25 s then 15 s in a team; 15 s then 10 s solo | 20 then 12 | 20 then 12 | **`coop_first`'s:** a team needs time to agree; solo keeps today's 15 and 10 |
-| 13 | Hollow King toll | douses the hearth | 10 | 10 | **10**, as today |
+| 13 | Hollowtide Crest toll | ends the match | 10 | 10 | **10**, as today |
 | 14 | Hotkeys | positional Q W E / A S D | Builder letters, U and I | Q W E plus U S N | **Positional Q W E / A S D**, the same for every Builder; N and Space still toggle Ready. A user decision (§10) |
 | 15 | Team effects | a team tower per Builder | one amplifier | one armour shred | **A team tower per Builder**, four distinct effects |
-| 16 | Co-op mode name | Vigil | Hold the Hollow | Hold the Hollow | **Vigil** (short; "one night in the hollow") |
-| 17 | Comeback device | none in co-op | Last Light everywhere | none | **Last Light only in the Duel** (M7); co-op has none |
+| 16 | Co-op mode name | a night-watch word, now retired | Hold the Hollow | Hold the Hollow | **High Water** (`world.md`: holding a land through a whole flood) |
+| 17 | Comeback device | none in co-op | Seawall everywhere | none | **Seawall only in the Duel** (M7); co-op has none |
 | 18 | Pings | one meaning | seven meanings | one meaning | **One meaning**, "look here", rate-limited |
 | 19 | Seat colours | amber, sky, rose, ivory with shapes | Okabe-Ito with glyphs | numbered pips | **Okabe-Ito colours plus a glyph plus a pennant shape** |
 | 20 | Match Found window | 10 s | 12 s | 15 s | **15 s**: a browser player may need to switch tabs |
@@ -185,7 +188,7 @@ every wave, and it scores at least 6 on every axis. Grafted onto it:
 ```
   BUILD WINDOW                HORN                 WAVE                          PAYOFF
   read the next wave's   ->   creeps leave    ->   towers fire on their own;  ->  clear bonus to each player,
-  check icons; build,         the rift gate        emergency builds and sells;     next wave's icons appear,
+  check icons; build,         the Welling          emergency builds and sells;     next wave's icons appear,
   fork, sell; signal;                              signals; watch the lives         the next window opens
   press Ready (D)
 ```
@@ -201,10 +204,11 @@ every wave, and it scores at least 6 on every axis. Grafted onto it:
   at most 50 ms). The client draws the ghost tower, the hammer and the greyed gold at once and confirms or
   withdraws them when the command runs (§6.3).
 
-### 1.2 Vigil (co-op, 1 to 4 players)
+### 1.2 High Water (co-op, 1 to 4 players)
 
-**Fantasy.** One night in the hollow. The rift opens twelve times; the players hold the road together until the
-Hollow King comes for the hearth.
+**Fantasy.** Holding a land through a whole flood. The Tide wells up twelve times; the players hold the road
+together until its Crest comes for the Holdfast. On Wickhollow the flood is one Hollowtide night, and its Crest is
+the Hollowtide Crest.
 
 **Minute by minute** (2 to 4 players; the balance bots confirm the times):
 
@@ -219,11 +223,11 @@ Hollow King comes for the hearth.
 | 4:10 to 5:20 | Wave 5: **Winged** | 8 Duskmoths over the road | "Who reaches the sky?" The first composition moment; a team without anti-air forks for it |
 | 5:20 to 6:40 | Wave 6: **the Bristlesow** | A huge armoured boar and three Thornbacks; toll 5 | Focus: marks, cracks and heavy towers on the long straight |
 | 6:40 to 7:40 | Wave 7: Swarm + Swift | the Lamplighter's wave | Waves 7 to 10 are each exactly one Builder's strong pair |
-| 7:40 to 8:50 | Wave 8: Armored + Winged | the Owlwatch's wave | |
+| 7:40 to 8:50 | Wave 8: Armored + Winged | the Lookout's wave | |
 | 8:50 to 10:00 | Wave 9: Swift + Armored | the Bellfounder's wave | |
 | 10:00 to 11:10 | Wave 10: Winged + Swarm | the Beekeeper's wave | |
 | 11:10 to 12:20 | Wave 11: **all four** | every check at once | Last big spend; fill the gaps the coverage row showed |
-| 12:20 to 13:45 | Wave 12: **the Hollow King** | the King with Duskmoths and Thornbacks | Everything into the road ahead of him |
+| 12:20 to 13:45 | Wave 12: **the Hollowtide Crest** | the Crest with Duskmoths and Thornbacks | Everything into the road ahead of it |
 | 13:45 | Results | Title, team line, lives per wave, one row per player | Play again, or the hub |
 
 - **Session:** loading about 10 s, match about 13 minutes, results about 30 s: hub to hub in about 14 to 15
@@ -237,27 +241,27 @@ Hollow King comes for the hearth.
 - **Nobody falls behind on income**, because income is equal by rule; "behind" can only mean poor placement. A
   quiet stretch of road is still a good place for a team tower. The caretaker covers anyone who drops.
 
-### 1.3 Lantern Race (competitive, v1)
+### 1.3 Tide Race (competitive, v1)
 
-**Fantasy.** Two households keep two copies of the same hollow on the same night. Whose hearth holds best, and
-fastest?
+**Fantasy.** The still flood mirrors the land, and two crews hold the hollow and its reflection against the same
+surges. Whose Holdfast holds best, and fastest?
 
-- **Teams:** two, of 1 or 2 players (1v1 or 2v2). Each team plays a Vigil on its own copy of the hollow, with the
-  same seed and the same wave list. Nothing crosses between the hollows. Each hollow keeps its **own clock**, so
-  calling waves early with Ready is the race lever.
+- **Teams:** two, of 1 or 2 players (1v1 or 2v2). Each team plays High Water on its own copy of the hollow, with
+  the same seed and the same wave list. Nothing crosses between the hollows. Each hollow keeps its **own clock**,
+  so calling waves early with Ready is the race lever.
 - **Race time** = the tick at which a team clears wave 12, plus **600 ticks (10 s) for every life lost**. The
   strip shows both teams' race times as they go.
 - **Win order:**
   1. Both teams clear wave 12: the lower race time wins; equal ticks are a draw.
-  2. A hearth goes dark on wave *W*: the other team wins as soon as it clears wave *W* ("Your rival fell on
-     wave 9. Clear wave 9 to win"). If both fall, the later wave wins; on the same wave, more of that wave's
+  2. A Holdfast goes under on wave *W*: the other team wins as soon as it clears wave *W* ("Your rival fell
+     on wave 9. Clear wave 9 to win"). If both fall, the later wave wins; on the same wave, more of that wave's
      creeps killed; then a draw.
   3. Hard cap at 20 minutes of match time: compare waves cleared, then lives, then race time.
 - **Practice:** race the caretaker offline (it plays the rival hollow from its plan).
 
 | Clock (1v1) | What happens | What you decide |
 |---|---|---|
-| 0:00 to 0:25 | First window, as in the Vigil | How greedy to open |
+| 0:00 to 0:25 | First window, as in High Water | How greedy to open |
 | 0:25 to about 5:00 | Waves 1 to 5; each side presses Ready as early as it dares | Ready early (faster, and gold for the skipped seconds) or late (safer) |
 | about 5:00 to 6:30 | Wave 6, the Bristlesow | Whether to call a boss early |
 | 6:30 to 11:00 | Waves 7 to 11; the strip shows the rival's wave, lives and race time; **V** shows the rival's hollow | Chase or protect: the rival's line is the information |
@@ -268,17 +272,17 @@ The race is the stepping stone: it proves two-team matches, two hollows and the 
 almost nothing in netcode, since both hollows live in one simulation that every client runs. Its weakness is the
 lack of direct pressure, which the Duel adds.
 
-### 1.4 Rift Duel (milestone 7, the first release after v1)
+### 1.4 Undertow (milestone 7, the first release after v1)
 
 Specified now so the v1 simulation and protocol leave room for it. It is `versus_first`'s design, cut to 1v1 and
 adapted to lockstep.
 
 - **Layout:** the race layout (two copies of the hollow), with **one shared clock**: both sides build and start
   each wave together, so every wave is a simultaneous reveal.
-- **The Rift Offer.** From window 2, each window offers three of four packs, drawn from the match's random
+- **The Drift.** From window 2, each window offers three of four packs, drawn from the match's random
   stream and identical for both sides. The left-out pack never repeats twice in a row.
 
-  | Pack | Check | Tier I (windows 2 to 4) | Tier II (5 to 8) | Tier III (9 to 12) |
+  | Pack (on Wickhollow) | Check | Tier I (windows 2 to 4) | Tier II (5 to 8) | Tier III (9 to 12) |
   |---|---|---|---|---|
   | Gourd Rush | Swarm | 6 Gourdlings | 10 | 14 |
   | Scuttle | Swift | 6 Scuttlers | 10 | 14 |
@@ -287,44 +291,44 @@ adapted to lockstep.
   | **Price, same for every pack in a tier** | | 30 gold | 55 | 85 |
   | **Stipend gain** for the rest of the match | | +4 a wave | +6 | +8 |
 
-- **Rouse and loose.** In a window a player may **rouse** one pack (two from window 9): the gold is taken at once.
-  During the next wave, from 3 s after the horn, the player chooses when to **loose** it (Space or a click on the
-  sealed lantern); the client looses it by itself at 24 s. The pack then walks the rival's road. The stipend
-  gain starts when the pack is loosed.
-- **Sealed under lockstep, without a referee.** Every client holds the whole state, so a rousing cannot simply be
-  withheld from the rival. A commitment hides it instead:
-  - `ROUSE(tier, commit)` carries `commit = SHA-256(match_seed ‖ seat ‖ window ‖ pack ‖ salt)[:8]`, where the
-    8-byte random `salt` stays on the sender's machine until the loose. Trying every salt for each of three packs
-    is out of reach, so the commitment hides the pack.
+- **Cork and uncork.** In a window a player may **cork** one pack (two from window 9): the gold is taken at once.
+  During the next wave, from 3 s after the horn, the player chooses when to **uncork** it (Space or a click on the
+  corked bottle); the client uncorks it by itself at 24 s. The pack then walks the rival's road. The stipend
+  gain starts when the pack is uncorked.
+- **Corked under lockstep, without a referee.** Every client holds the whole state, so a corked pack cannot simply
+  be withheld from the rival. A commitment hides it instead:
+  - `CORK(tier, commit)` carries `commit = SHA-256(match_seed ‖ seat ‖ window ‖ pack ‖ salt)[:8]`, where the
+    8-byte random `salt` stays on the sender's machine until the uncorking. Trying every salt for each of three
+    packs is out of reach, so the commitment hides the pack.
   - Every simulation charges the tier's price (equal for every pack in the tier, so the gold reveals nothing)
-    and shows the rival a sealed lantern.
-  - `LOOSE(pack, salt)` reveals the pack. Every simulation recomputes the hash and spawns the pack only if it
+    and shows the rival a corked bottle.
+  - `UNCORK(pack, salt)` reveals the pack. Every simulation recomputes the hash and spawns the pack only if it
     matches. Both values fit one command: `a` = tier or pack, `b` and `c` = the two 32-bit halves of the commit or
     the salt.
-  - If no valid reveal arrives by 25 s after the horn (the sender dropped, or cheated), the rousing fizzles: the
-    gold stays spent, and no creeps or stipend follow.
-  - Hashing uses `HashingContext`, which is deterministic on every platform. A caretaker's rousings are not
-    sealed (it has no private salt), which is a fair price for being absent.
-- **Defending pays.** Each roused creep a defender kills pays its normal bounty. A roused creep that reaches the
-  rival hearth (a **breach**) costs the toll and pays its sender twice its bounty.
-- **Last Light** (the one comeback device):
-  - Every 4 lives a hearth loses add a charge, up to 2.
-  - **F** spends one: a ring of fire around the hearth, radius 3.0 m. It stuns every creep inside for 2 s and
-    takes 25% of each one's maximum health; the Hollow King loses 8% and is slowed 50% instead.
+  - If no valid reveal arrives by 25 s after the horn (the sender dropped, or cheated), the corked pack fizzles:
+    the gold stays spent, and no creeps or stipend follow.
+  - Hashing uses `HashingContext`, which is deterministic on every platform. A caretaker's corked packs are not
+    hidden (it has no private salt), which is a fair price for being absent.
+- **Defending pays.** Each uncorked creep a defender kills pays its normal bounty. An uncorked creep that reaches
+  the rival Holdfast (a **breach**) costs the toll and pays its sender twice its bounty.
+- **Seawall** (the one comeback device):
+  - Every 4 lives a Holdfast loses add a charge, up to 2.
+  - **F** spends one: a seawall bursts up in a ring around the Holdfast, radius 3.0 m. It stuns every creep inside
+    for 2 s and takes 25% of each one's maximum health; the Hollowtide Crest loses 8% and is slowed 50% instead.
   - Cooldown 15 s.
-- **The Long Night.** If both hearths burn after wave 12, three night waves follow (waves 9, 10 and 11 again,
-  with +35% health each). Windows last 8 s, stipends freeze, and rousings cost half. After the third night wave,
+- **The Surge.** If both Holdfasts stand after wave 12, three surge waves follow (waves 9, 10 and 11 again,
+  with +35% health each). Windows last 8 s, stipends freeze, and corks cost half. After the third surge wave,
   more lives wins; then more breach dealt; then a draw. No duel runs past about 16 minutes.
 - **Originality guard** (`versus_first`'s, kept as a design rule): persistent towers, one currency, no workers, a
-  seeded shared offer instead of a mercenary shop, sealed packs loosed at a moment the sender picks, a hearth that
-  does not fight back, a comeback charged by damage taken. That is the genre's send-for-income convention, not
-  Legion TD 2's package.
+  seeded shared drift instead of a mercenary shop, corked packs uncorked at a moment the sender picks, a Holdfast
+  that does not fight back, a comeback charged by damage taken. That is the genre's send-for-income convention,
+  not Legion TD 2's package.
 
 ### 1.5 Solo, Try and practice
 
-- **Solo** is a Vigil with one seat. It runs offline through the in-process turn source, needs no server, and may
+- **Solo** is High Water with one seat. It runs offline through the in-process turn source, needs no server, and may
   pause (Esc). It is today's game with a Builder.
-- **Try** on the Builders screen starts a solo Vigil with that Builder.
+- **Try** on the Builders screen starts a solo High Water match with that Builder.
 - **Race the caretaker** (and, from M7, **duel the caretaker**) start offline from the hub with the caretaker in
   the rival seat, so the competitive modes are playable with nobody online.
 
@@ -336,40 +340,40 @@ adapted to lockstep.
 
 One simulation runs every mode; a mode is a dictionary in `scripts/sim/content.gd` (§4.2).
 
-| Key | Vigil | Lantern Race | Rift Duel (M7) |
+| Key | High Water | Tide Race | Undertow (M7) |
 |---|---|---|---|
 | Teams × players | 1 × 1-4 | 2 × 1-2 | 2 × 1 |
 | Hollows | 1, shared | 1 per team | 1 per team |
 | Space | build anywhere on grass; a tower belongs to whoever built it | own hollow per team | own hollow |
 | Lives | 20 per team | 20 per team | 20 per team |
-| Waves | `vigil12` | `vigil12`, same seed | `vigil12` plus the offer, then the Long Night |
+| Waves | `hollow12` | `hollow12`, same seed | `hollow12` plus the Drift, then the Surge |
 | Clock | per hollow | per hollow (independent) | shared |
-| Sends | none | none | the Rift Offer |
-| Comeback | none | none | Last Light |
+| Sends | none | none | the Drift |
+| Comeback | none | none | Seawall |
 | Duplicate Builders | allowed | allowed | allowed across sides |
 | End | wave 12 cleared, or lives 0 | §1.3 | §1.4 |
 | Pause | solo only | never | never |
 
-Solo is a Vigil with one seat, so `bot_wins` and `idle_player_loses` keep testing the real code path.
+Solo is High Water with one seat, so `bot_wins` and `idle_player_loses` keep testing the real code path.
 
-### 2.2 How today's hollow becomes the multiplayer maps
+### 2.2 How Wickhollow becomes the multiplayer maps
 
-- **Vigil** uses `data/hollow.txt` unchanged: 24 × 16 tiles, one road of 51 tiles (50 m between the gate's and
-  the hearth's centres, 6 bends), 206 grass tiles, 86 of them touching the road (diagonals included) and 141
-  within 3 steps of it. Counted for this document. Today's bot builds 10 towers over 8 waves; four players at 10 to
-  15 towers each use 40 to 60 of the 141. That fits, but crowds at four (§9).
+- **High Water** uses Wickhollow's `data/hollow.txt` unchanged: 24 × 16 tiles, one road of 51 tiles (50 m between
+  the Welling's and the Holdfast's centres, 6 bends), 206 grass tiles, 86 of them touching the road (diagonals
+  included) and 141 within 3 steps of it. Counted for this document. Today's bot builds 10 towers over 8 waves;
+  four players at 10 to 15 towers each use 40 to 60 of the 141. That fits, but crowds at four (§9).
 - **Race and Duel** place a second instance of the same file at a world offset of 26 tiles in x, with a two-tile
   cliff band between the copies that the terrain builder fills in. The simulation sees two hollows, each with its
-  own road, gate, hearth and cells; a cell is addressed as `(hollow, x, z)`. The camera starts over your hollow,
+  own road, Welling, Holdfast and cells; a cell is addressed as `(hollow, x, z)`. The camera starts over your hollow,
   **V** jumps to the rival's and back, and the minimap shows both with yours brighter.
-- **Seats:** 1 to 4. Vigil seats share hollow 0. Race seats 1-2 are team A on hollow 0, seats 3-4 team B on hollow
-  1. A seat fixes the player's colour, glyph and pennant shape (§5.9).
-- **Later maps** (not v1): a braided hollow where digits `1` to `4` mark per-seat gates whose roads join a shared
-  trunk before `E` (the parser grows a road graph; ownership follows the nearest gate's road), and
-  `versus_first`'s Twin Hollow, two mirrored halves around one shared rift (`scratchpad/mp/design/twin.py`
-  generates it from `hollow.txt`).
+- **Seats:** 1 to 4. High Water seats share hollow 0. Race seats 1-2 are team A on hollow 0, seats 3-4 team B
+  on hollow 1. A seat fixes the player's colour, glyph and pennant shape (§5.9).
+- **Later maps** (not v1): a braided map where digits `1` to `4` mark per-seat Wellings whose roads join a shared
+  trunk before `E` (the parser grows a road graph; ownership follows the nearest Welling's road), and
+  `versus_first`'s Twin Hollow, two mirrored halves of Wickhollow around one shared Welling
+  (`scratchpad/mp/design/twin.py` generates it from `hollow.txt`).
 
-### 2.3 The wave list (`vigil12`)
+### 2.3 Wickhollow's wave list (`hollow12`)
 
 Spawn intervals are authored in ticks (shown here in seconds). Counts never change with the number of players.
 
@@ -385,8 +389,8 @@ Spawn intervals are authored in ticks (shown here in seconds). Counts never chan
 | 8 | Thornback ×6 @1.1, Duskmoth ×8 @0.7 | Armored, Winged | |
 | 9 | Scuttler ×16 @0.4, Thornback ×5 @1.0 | Swift, Armored | |
 | 10 | Duskmoth ×12 @0.6, Gourdling ×20 @0.35 | Winged, Swarm | |
-| 11 | Gourdling ×16 @0.35, Scuttler ×10 @0.4, Thornback ×5 @1.0, Duskmoth ×8 @0.6 | all four | Wave 11 · The long night |
-| 12 | Duskmoth ×6 @0.7, Thornback ×4 @1.0, the Hollow King | Boss, Winged, Armored | Final wave · The Hollow King |
+| 11 | Gourdling ×16 @0.35, Scuttler ×10 @0.4, Thornback ×5 @1.0, Duskmoth ×8 @0.6 | all four | Wave 11 · The heart of Hollowtide |
+| 12 | Duskmoth ×6 @0.7, Thornback ×4 @1.0, the Hollowtide Crest | Boss, Winged, Armored | Final wave · The Hollowtide Crest |
 
 Each check is taught alone (waves 1 to 5), tested as exactly one Builder's strong pair (7 to 10), then all at once
 (11). Each boss is announced a window ahead. Nothing is hidden: hovering the wave label lists every remaining wave
@@ -401,19 +405,19 @@ as rows of creep icons.
 | Thornback | 80 | 0.85 | 4 | 6 | 2 | ground | exists; gains armour |
 | **Duskmoth** | 30 | 1.5 | 0 | 3 | 1 | **winged**: hovers about 1 m over the road; only `air` towers can target it | **new**: a Blender build script with a flap cycle |
 | **Bristlesow** | 900 | 0.7 | 6 | 50 | 5 | ground, boss, 30% control resistance | the Thornback model at 2× scale with a darker tint; no new mesh |
-| The Hollow King | 700 | 0.6 | 4 | 60 | 10 | ground, boss, 50% control resistance | exists |
+| The Hollowtide Crest | 700 | 0.6 | 4 | 60 | 10 | ground, boss, 50% control resistance | exists |
 
-- The Duskmoth is a large grey-brown moth whose wings glow lantern-orange, drawn up out of the rift toward the
-  hearth's fire. The glow is an emissive material, not a light: WebGL 2 allows 8 lights per object and 32 per
-  frame (`rendering/limits/opengl/*`). It follows the road like every creep, so its position stays one number
-  and no new pathing is needed. Its `stride` (the flight speed its flap cycle was made for) is printed by its
+- The Duskmoth is a large grey-brown moth whose wings glow orange, drawn up through Wickhollow's sunken field gate
+  toward the hollow's lamps. The glow is an emissive material, not a light: WebGL 2 allows 8 lights per object and
+  32 per frame (`rendering/limits/opengl/*`). It follows the road like every creep, so its position stays one
+  number and no new pathing is needed. Its `stride` (the flight speed its flap cycle was made for) is printed by its
   build script, as `AGENTS.md` asks.
 - **Control resistance** scales slows and turns stuns on bosses into a 50% slow of the same length: a 45% slow on
-  the King is 22.5%.
+  the Hollowtide Crest is 22.5%.
 - **Health growth:** each wave adds 20% of base health (wave 12 creeps have 3.2× base health; today 22% over 8
   waves).
 
-### 2.5 Player-count scaling (Vigil and each Race team)
+### 2.5 Player-count scaling (High Water and each Race team)
 
 | Players on the hollow | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|
@@ -430,7 +434,7 @@ held by a caretaker count. The balance gates (§4.4) run every player count, so 
 ### 2.6 Difficulty
 
 One difficulty in v1. Every difficulty would multiply the balance gates (4 Builders by 4 player counts already).
-A later hard preset ("Nightfall": +35% health, overlapping waves) is a mode key, not a lobby vote.
+A later hard preset ("Spring Tide": +35% health, overlapping waves) is a mode key, not a lobby vote.
 
 ---
 
@@ -443,20 +447,20 @@ checks (what makes the team's makeup matter). Roles are labels, never locks: no 
 
 | Role | Icon | Job | v1 Builder |
 |---|---|---|---|
-| **Warden** | lantern on a pole | hold the road: area damage and slows | Tamsin Wick, the Lamplighter |
-| **Marksman** | feather | delete the big and the high: heavy single hits, anti-air | Edda Greyplume, the Owlwatch |
+| **Warden** | wall-stone | hold the road: area damage and slows | Tamsin Wick, the Lamplighter |
+| **Marksman** | feather | delete the big and the high: heavy single hits, anti-air | Edda Greyplume, the Lookout |
 | **Breaker** | bell | stop and break: stuns, heavy bronze, cracked armour | Ottilie Brass, the Bellfounder |
-| **Sweeper** | bee | blanket the road: clouds that reach the sky, hives that pay | Hessel Bramble, the Beekeeper |
+| **Sweeper** | bee | blanket the road: clouds that reach the sky, hives that pay | Sefa Amberwell, the Beekeeper |
 | **Kindler** (after v1) | candle | light and amplify; answers the Veiled check | a fifth Builder |
 
 ### 3.2 Checks and the damage model
 
-| Check | Creep (its icon is the check icon) | What it demands | Answered by |
+| Check | Glyph, and the creep that teaches it on Wickhollow (its portrait sits beside the glyph) | What it demands | Answered by |
 |---|---|---|---|
-| **Swarm** | Gourdling packs | hitting several at once | splash, bounces, clouds |
-| **Swift** | Scuttler | keeping them in range | slows, stuns, fast fire |
-| **Armored** | Thornback (and both bosses) | big hits | heavy hits, armour piercing, cracks |
-| **Winged** | Duskmoth | reaching the sky | towers flagged `air` |
+| **Swarm** | Froth; Gourdling packs | hitting several at once | splash, bounces, clouds |
+| **Swift** | Runnel; Scuttler | keeping them in range | slows, stuns, fast fire |
+| **Armored** | Ballast; Thornback (and both bosses) | big hits | heavy hits, armour piercing, cracks |
+| **Winged** | Spindrift; Duskmoth | reaching the sky | towers flagged `air` |
 
 There is **no attack and armour table to learn**. Two rules carry the checks:
 
@@ -471,7 +475,7 @@ There is **no attack and armour table to learn**. Two rules carry the checks:
 
 | Effect | Comes from | On | Rule |
 |---|---|---|---|
-| Slow | Frost Spire; also Pinning Ballista, Drowsy Skep, Sky Toll on fliers | creep | the strongest active slow applies, scaled by control resistance; its duration refreshes to the longest |
+| Slow | Frost Spire; also Pinning Ballista, Drowsy Clay Hive, Sky Toll on fliers | creep | the strongest active slow applies, scaled by control resistance; its duration refreshes to the longest |
 | Stun | Toll Tower | creep | speed 0 for the duration; then 1 s of stun immunity, so stuns cannot chain; on a boss, a 50% slow instead |
 | Mark | Owl's Eye | creep | takes +X% from every tower; the strongest mark applies; lasts while the Eye keeps it in range, plus 1 s |
 | Crack | Chime Post | creep | armour reduced by X while inside the post's radius; the strongest applies |
@@ -483,7 +487,7 @@ for each distinct helper. Results show Help next to damage, so support is visibl
 
 **Targeting** (ties always go to the lower creep id): towers fire at the creep furthest along the road and keep it
 until it dies or leaves range; the Hawk Roost and the Apiary prefer winged creeps; the Owl's Eye marks the highest
-current health; the Toll Tower and the Skep pulse at everything in reach.
+current health; the Toll Tower and the Clay Hive pulse at everything in reach.
 
 ### 3.3 Coverage of the v1 roster
 
@@ -491,13 +495,13 @@ current health; the Toll Tower and the Skep pulse at everything in reach.
 
 | Builder (role, difficulty) | Swarm | Swift | Armored | Winged | Complementary partner |
 |---|---|---|---|---|---|
-| Tamsin Wick, the **Lamplighter** (Warden, ★) | ● | ● | ○ → ◐ Iron Mortar | ✕ → ◐ Skyward Loft, Rime Spire | Owlwatch |
-| Edda Greyplume, the **Owlwatch** (Marksman, ★★) | ○ → ◐ Kestrel Flock | ○ → ◐ Pinning Ballista | ● | ● | Lamplighter |
+| Tamsin Wick, the **Lamplighter** (Warden, ★) | ● | ● | ○ → ◐ Iron Mortar | ✕ → ◐ Skyward Loft, Rime Spire | Lookout |
+| Edda Greyplume, the **Lookout** (Marksman, ★★) | ○ → ◐ Kestrel Flock | ○ → ◐ Pinning Ballista | ● | ● | Lamplighter |
 | Ottilie Brass, the **Bellfounder** (Breaker, ★★) | ○ → ◐ Ringing Clapper | ● | ● | ✕ → ◐ Sky Toll | Beekeeper |
-| Hessel Bramble, the **Beekeeper** (Sweeper, ★★★) | ● | ○ → ◐ Drowsy Skep | ○ → ◐ Queen's Guard | ● | Bellfounder |
+| Sefa Amberwell, the **Beekeeper** (Sweeper, ★★★) | ● | ○ → ◐ Drowsy Clay Hive | ○ → ◐ Queen's Guard | ● | Bellfounder |
 
 - **The cycle.** Each Builder is strong on two neighbouring checks. Of the six possible duos, exactly two
-  (Lamplighter with Owlwatch, Bellfounder with Beekeeper) are strong on all four, which is the smallest roster where
+  (Lamplighter with Lookout, Bellfounder with Beekeeper) are strong on all four, which is the smallest roster where
   the choice of partner matters (`gaps.md` §5). Any trio or quartet of different Builders is strong on all four;
   there the team's makeup matters through **depth**, which the double-check waves 7 to 11 test, and through which
   team effects it brings.
@@ -516,7 +520,7 @@ every Builder; on a selected, unforked tower of yours, Q and W choose branch A a
 
 #### Tamsin Wick, the Lamplighter · Warden · ★ (the recommended first Builder)
 
-*The hollow's lamplighter: a broad, cheerful woman in a waxed oilskin coat with a brass lighting pole and a ring of
+*Wickhollow's lamplighter: a broad, cheerful woman in a waxed oilskin coat with a brass lighting pole and a ring of
 keys. She knows every bend of the road and lights it at dusk.* She plays forgivingly: place, try, sell and place
 again. Strong against Swarm and Swift. **Signature:** slow, then splash: the Frost Spire holds a crowd where the
 Cannon lands.
@@ -529,12 +533,13 @@ Cannon lands.
 | Cannon Tower (W) | 70 | 20 dmg, splash 1.1, 1.5 s, 3.0, ground | 80 | **Great Cannon**: 40 dmg, splash 1.35, 1.3 s, 3.3 (today's) | **Iron Mortar**: 45 dmg, splash 0.6, 1.4 s, 3.3, pierces 4 armour |
 | Frost Spire (E), **team: slow** | 60 | 4 dmg, 0.9 s, 2.8, slows 45% for 2 s, ground | 60 | **Deep Frost**: 8 dmg, slow 60%, 3.2 (today's) | **Rime Spire**: 6 dmg, slow 40%, 3.2, **air** |
 
-#### Edda Greyplume, the Owlwatch · Marksman · ★★
+#### Edda Greyplume, the Lookout · Marksman · ★★
 
-*An owl-folk sentinel, tall and grey-feathered in a hooded leather mantle, who keeps the high perches over the
-hollow at night. She speaks rarely and does not miss.* She plays few, expensive towers on long sight lines; the
-target matters more than the count. Strong against Armored and Winged. **Signature:** the mark, v1's only
-amplifier, which makes every teammate's hits land harder on the creep that matters.
+*An owl-folk lookout from Fogholm, tall and grey-feathered in a hooded leather mantle, who left the high perches
+over the fog-sea to do something about the Tide. She speaks rarely and does not miss.* She plays few, expensive
+towers on long sight lines; the target matters more than the count. Strong against Armored and Winged.
+**Signature:** the mark, v1's only amplifier, which makes every teammate's hits land harder on the creep that
+matters.
 
 **Passive, Keen Sight:** her towers reach 0.4 tiles farther.
 
@@ -546,9 +551,10 @@ amplifier, which makes every teammate's hits land harder on the creep that matte
 
 #### Ottilie Brass, the Bellfounder · Breaker · ★★
 
-*A stout bell-caster with scorched leather gloves and a hammer on a chain, who rings the hollow's hours from the
-mill tower. A bell struck at the right moment stops a charging boar dead.* She plays on placement and timing: stun
-the creeps where the road bends, then break them where they bunch. Strong against Swift and Armored.
+*A stout bell-caster from Brackwater with scorched leather gloves and a hammer on a chain, who casts the storm bells
+that ring when the dikes are threatened. A bell struck at the right moment stops wrack dead.* She plays on
+placement and timing: stun the creeps where the road bends, then break them where they bunch. Strong against Swift
+and Armored.
 **Signature:** the Toll Tower's stun pulse, v1's only hard control, and the Chime that cracks armour for everyone.
 
 **Passive, Bronze Hand:** her hits ignore 2 armour.
@@ -559,18 +565,19 @@ the creeps where the road bends, then break them where they bunch. Strong agains
 | Toll Tower (W) | 65 | a pulse every 2.4 s: 6 dmg and a 0.6 s stun to every ground creep within 2.2 | 70 | **Great Toll**: 10 dmg, 0.9 s stun, 2.6 | **Sky Toll**: 9 dmg, 2.4; also reaches fliers, which it slows 50% for 1 s instead of stunning |
 | Chime Post (E), **team: crack** | 60 | no damage; creeps within 2.5 have 2 less armour | 60 | **Deep Chime**: 4 less | **Long Chime**: 2 less, radius 3.2 |
 
-#### Hessel Bramble, the Beekeeper · Sweeper · ★★★
+#### Sefa Amberwell, the Beekeeper · Sweeper · ★★★
 
-*A wiry, sun-browned beekeeper in a veiled straw hat who keeps forty skeps at the wood's edge and talks to every one
-of them. Her bees chase anything that crawls or flies, and the honey pays her way.* She plays greedy: clouds over
-the road and hives that pay, timed against what the next wave brings. Strong against Winged and Swarm.
+*A wiry, sun-browned beekeeper from Thousandwell in a veiled straw hat, who keeps her bees in clay pipes on the
+rooftops and talks to every hive. When the Tide came up the wells, only her bees would go down after it; they chase
+anything that crawls or flies, and the honey pays her way.* She plays greedy: clouds over the road and hives that
+pay, timed against what the next wave brings. Strong against Winged and Swarm.
 **Signature:** bee clouds that hit ground and sky alike, and the only personal income in co-op.
 
-**Passive, Hive Tithe:** each Skep and Hive Hum she owns pays her 2 gold at every wave clear, at most 12.
+**Passive, Hive Tithe:** each Clay Hive and Hive Hum she owns pays her 2 gold at every wave clear, at most 12.
 
 | Tower (key) | Cost | Base | Fork | A, deepen | B, patch |
 |---|---|---|---|---|---|
-| Skep (Q) | 60 | a bee cloud over the foremost creep within 3.0 stings every creep, ground or air, within 0.9 of it: 3 dmg every 0.3 s | 70 | **Great Skep**: cloud 1.2, 4 dmg | **Drowsy Skep**: stung creeps are slowed 25% for 1 s |
+| Clay Hive (Q) | 60 | a bee cloud over the foremost creep within 3.0 stings every creep, ground or air, within 0.9 of it: 3 dmg every 0.3 s | 70 | **Great Clay Hive**: cloud 1.2, 4 dmg | **Drowsy Clay Hive**: stung creeps are slowed 25% for 1 s |
 | Apiary (W) | 85 | 18 dmg, 0.8 s, 4.2, **air**, prefers winged, +50% to fliers | 80 | **Royal Apiary**: 34 dmg | **Queen's Guard**: 40 dmg, 1.2 s |
 | Hive Hum (E), **team: haste** | 60 | no damage; every tower within 2.2, whoever owns it, fires 15% faster | 70 | **Great Hum**: 25% | **Long Hum**: 15%, radius 3.0 |
 
@@ -581,7 +588,7 @@ the road and hives that pay, timed against what the next wave brings. Strong aga
 - Branch B needs three new models (Skyward Loft, Iron Mortar, Rime Spire), made as kit mesh recipes in
   `art_src/models/towers/` that reuse the base mesh and change the crown, head or roof.
 - The Arrow Tower becomes ground-only. Today nothing flies, so no current behaviour changes.
-- A new profile starts with the Lamplighter selected and the others shown by difficulty, because the Vigil opens
+- A new profile starts with the Lamplighter selected and the others shown by difficulty, because High Water opens
   with her two checks.
 
 ### 3.6 Ownership, unlocks and "manage Builders"
@@ -589,8 +596,8 @@ the road and hives that pay, timed against what the next wave brings. Strong aga
 - **Everything is unlocked.** No accounts, no currency. A LAN server cannot verify ownership anyway, and gating
   gameplay behind grind costs goodwill (`builders.md` §4.4).
 - **"Manage Builders" in v1** means the Builders screen: browse the roster, read each kit (towers, both branches of
-  every fork and the check each branch helps), set a **main** and a **backup**, and **Try** one in a solo Vigil.
-  Main and backup live in `user://profile.cfg`. This reading is a decision for the user to confirm (§10).
+  every fork and the check each branch helps), set a **main** and a **backup**, and **Try** one solo. Main and
+  backup live in `user://profile.cfg`. This reading is a decision for the user to confirm (§10).
 - **Duplicates:** allowed in a party; friends settle the makeup in the party panel with the coverage row as the
   hint. When the queue fills open seats with strangers, the server avoids duplicates: whoever queued first keeps
   their main, the other gets their backup, and a still-clashing seat gets a free Builder from the server's
@@ -599,7 +606,7 @@ the road and hives that pay, timed against what the next wave brings. Strong aga
   on loading cards and as an icon on result rows; in a match a player's presence is the pennant colour and shape
   on every tower they own and their row in the party strip. An idle avatar at the owner's last build site is the
   first candidate after v1; it needs no rule change.
-- **Progression**, if it ever comes, unlocks cosmetics only (pennant patterns, lantern colours), never Builders.
+- **Progression**, if it ever comes, unlocks cosmetics only (pennant patterns and colours), never Builders.
 
 ### 3.7 Art budget
 
@@ -609,11 +616,11 @@ the road and hives that pay, timed against what the next wave brings. Strong aga
 | Projectiles and effects | ballista bolt, hawk, bee; bell ring, chime shimmer, bee cloud and mark rune as `Fx` | kit mesh recipes and `scripts/fx.gd` |
 | Creeps | Duskmoth (new); Bristlesow (scaled, tinted Thornback) | Blender build script in `art_src/blender/` |
 | Builder characters | 4, each a posed figure with a signature prop and a short idle cycle; portraits and cards only, so no walk cycle | Blender build scripts |
-| Icons | 30 towers, 4 Builders, 4 roles, the Duskmoth, Signal, Ready | `godot-agent asset icon`, then `art_src/ui/icons.py` |
+| Icons | 30 towers, 4 Builders, 4 roles, 4 check glyphs, the Duskmoth, Signal, Ready | `godot-agent asset icon`, then `art_src/ui/icons.py` |
 | Sounds | signal chime, ready, toll, chime hum, bees, mark, match found, countdown tick | `godot-agent asset sfx` |
 | Console pieces | loading card plate, wide results plate, party strip plate, join panel, queue pill | `art_src/ui/console.json` and `console.py` |
 
-Order of production: the Lamplighter's three B branches, the Duskmoth and the whole Owlwatch in M2 (the
+Order of production: the Lamplighter's three B branches, the Duskmoth and the whole Lookout in M2 (the
 complementary pair first); the Bellfounder and the Beekeeper in M6. Art can start the day M2's content format is
 fixed and runs beside everything else.
 
@@ -630,11 +637,11 @@ fixed and runs beside everything else.
 | Clear bonus | each player | 8 + 2 × wave (today's formula) |
 | Early Ready | when every present player of the hollow is Ready, each receives one gold per whole second left | 0 to 25 |
 | Sell | the owner gets 70% of what was put in (Lamplighter 90%), rounded half up | |
-| Hive Tithe | the Beekeeper | 2 per Skep or Hive Hum at each clear, at most 12 |
+| Hive Tithe | the Beekeeper | 2 per Clay Hive or Hive Hum at each clear, at most 12 |
 | Interest | none: it rewards hoarding and widens skill gaps | |
 | Gold gifts | none: income is equal by rule | |
 | Lives | one pool per team; a leak costs the creep's toll | 20 |
-| Duel only (M7) | stipend `10 + 2 × wave + rousing gains` at each window; breach pays the sender 2 × bounty | |
+| Duel only (M7) | stipend `10 + 2 × wave + pack gains` at each window; breach pays the sender 2 × bounty | |
 
 Why "every player gets the full bounty" rather than a split: it keeps gold in integers with no remainder rule, it
 makes everyone's income identical, and it leaves difficulty for 2 to 4 players to a single table (creep health).
@@ -660,19 +667,19 @@ part of the rules hash. The lint (§6.4) forbids float literals in `scripts/sim/
 const SIM_VERSION := 1
 
 const RULES := {
-	"vigil": {
-		"teams": 1, "seats": [1, 4], "map": "hollow", "waves": "vigil12", "clock": "hollow",
+	"high_water": {
+		"teams": 1, "seats": [1, 4], "map": "hollow", "waves": "hollow12", "clock": "hollow",
 		"start_gold": 120, "lives": 20, "hp_growth_pm": 200,
 		"hp_by_seats_pm": [1000, 1850, 2650, 3400],
 		"window_first_t": [900, 1500, 1500, 1500], "window_t": [600, 900, 900, 900],
 		"sell_pm": 700, "clear_bonus": [8, 2], "ready_pays": true, "cap_t": 0,
 	},
-	"race": {  # "vigil" plus:
+	"tide_race": {  # "high_water" plus:
 		"teams": 2, "seats": [1, 2], "race": true, "life_penalty_t": 600, "cap_t": 72000,
 	},
-	"duel": {  # M7; "race" plus:
-		"seats": [1, 1], "clock": "shared", "offer": true, "rousings": [1, 2], "loose_t": [180, 1500],
-		"breach_mult": 2, "last_light": [4, 2], "night_waves": 3, "night_hp_pm": 1350, "night_window_t": 480,
+	"undertow": {  # M7; "tide_race" plus:
+		"seats": [1, 1], "clock": "shared", "drift": true, "corks": [1, 2], "uncork_t": [180, 1500],
+		"breach_mult": 2, "seawall": [4, 2], "surge_waves": 3, "surge_hp_pm": 1350, "surge_window_t": 480,
 	},
 }
 
@@ -689,7 +696,7 @@ const TOWERS := {
 const CREEPS := {
 	"gourdling": {"hp_c": 2400, "speed_um_t": 21667, "armor_c": 0, "bounty": 3, "toll": 1},
 	"duskmoth": {"hp_c": 3000, "speed_um_t": 25000, "armor_c": 0, "bounty": 3, "toll": 1, "winged": true},
-	"hollow_king": {"hp_c": 70000, "speed_um_t": 10000, "armor_c": 400, "bounty": 60, "toll": 10,
+	"hollowtide_crest": {"hp_c": 70000, "speed_um_t": 10000, "armor_c": 400, "bounty": 60, "toll": 10,
 		"boss": true, "control_resist_pm": 500},
 	# ...
 }
@@ -710,8 +717,8 @@ text. It is the matchmaking key (§6.9).
 | Tolls | 1 / 1 / 2 / 1 / 5 / 10 | leaks hurt more |
 | Clear bonus | 8 + 2 × wave | more gold late, faster snowball |
 | Fork prices | 60 to 90 | towers spread out rather than deepened |
-| Armour | Thornback 4, Bristlesow 6, King 4 | the Armored check sharper |
-| Control resistance | 30% Bristlesow, 50% King | slows and stuns matter less against bosses |
+| Armour | Thornback 4, Bristlesow 6, Hollowtide Crest 4 | the Armored check sharper |
+| Control resistance | 30% Bristlesow, 50% Hollowtide Crest | slows and stuns matter less against bosses |
 | Team effect sizes | slow 45%, mark 20%, crack 2, haste 15% | synergy stronger; watch for a must-pick Builder |
 
 ### 4.4 Balance gates (how `bot_wins` and `idle_player_loses` extend to multiplayer)
@@ -728,23 +735,23 @@ text. It is the matchmaking key (§6.9).
 
 | Gate | Cases | Must hold |
 |---|---|---|
-| `bot_wins` (kept) | 1 | the Lamplighter's plan, sent as commands through the local client, wins the Vigil solo with at least 10 lives |
+| `bot_wins` (kept) | 1 | the Lamplighter's plan, sent as commands through the local client, wins High Water solo with at least 10 lives |
 | `bot_wins_solo_<builder>` | 4 | each Builder alone, forking for its weak checks, wins with at least 10 lives |
-| `bot_wins_vigil_2p` / `_3p` / `_4p` | 3 | Lamplighter + Owlwatch; + Bellfounder; + Beekeeper: win with at least 10 lives |
+| `bot_wins_high_water_2p` / `_3p` / `_4p` | 3 | Lamplighter + Lookout; + Bellfounder; + Beekeeper: win with at least 10 lives |
 | `idle_player_loses` (kept) | 1 | two towers and nothing else lose before wave 12 |
-| `idle_team_loses_2p` / `_3p` / `_4p` | 3 | every seat builds two towers and nothing else; the hearth falls before wave 12 |
+| `idle_team_loses_2p` / `_3p` / `_4p` | 3 | every seat builds two towers and nothing else; the Holdfast falls before wave 12 |
 | `one_idle_of_two_loses` | 1 | one plan bot carrying an idle partner at two-player scaling loses: every seat matters |
 | `caretaker_holds_seat_2p` | 1 | the two-player win above, with seat 2 caretaken from wave 4, still wins |
 | `coverage_matters_winged` | 1 | two Lamplighters that never fork for air lose at least 4 lives on waves 5 and 8 |
 | `coverage_holds_complementary` | 2 | both complementary duos lose at most 2 lives over waves 5 to 10 |
-| `vigil_length_2p` | 1 | the two-player bot match lasts 11 to 15 minutes of match time |
+| `high_water_length_2p` | 1 | the two-player bot match lasts 11 to 15 minutes of match time |
 | `race_mirror_is_fair` | 1 | the same plan on both hollows: equal lives and equal clear tick |
 | `race_bots_both_finish` | 1 | one bot readies at once, one waits out every window; both clear wave 12 and the result follows the race-time rule |
 
 M7 adds the Duel's gates: `duel_mirror_is_draw`, `duel_turtle_holds` (a defend-only bot against a passive rival
 keeps at least 10 lives), `duel_balanced_beats_turtle` and `duel_turtle_beats_reckless` (each over seeds 1 to 5,
-at least 3 wins), `duel_counter_rouse_beats_random` (rousing the rival's weak checks wins at least 3 of 5) and
-`duel_last_light_saves`.
+at least 3 wins), `duel_counter_cork_beats_random` (corking the rival's weak checks wins at least 3 of 5) and
+`duel_seawall_saves`.
 
 `AGENTS.md`'s balance rule then reads: every `bot_wins*` wins with half the lives left, every `idle_*` loses,
 every `coverage_*` holds. Each gate prints a per-check leak table (leaks grouped by creep kind) as watches, which
@@ -756,14 +763,15 @@ is what a balance pass reads.
 
 ### 5.1 The flow
 
-Six places and a few overlays. The hollow at dusk stays behind every one of them.
+Six places and a few overlays. Outside a match, the Causeway at low water stays behind every one of them; later
+the backdrop can show the selected Builder's home.
 
 ```
- first launch: a name prompt (one field, prefilled with a hollow-style name, editable)
+ first launch: a name prompt (one field, prefilled with a generated name, editable)
         |
         v
  +----------------+   B / Builders   +----------------+
- |      HUB       |----------------->|    BUILDERS    |   roster, main + backup, Try (a solo Vigil)
+ |      HUB       |----------------->|    BUILDERS    |   roster, main + backup, Try (a solo High Water)
  | party, mode,   |<-----------------|                |
  | your Builder,  |    Esc / Back    +----------------+
  | one button     |
@@ -814,45 +822,45 @@ not duplicated.
 ```
 +---------------------------------------------------------------------------------------------------+
 |                                            .---------------------------------------------------.  |
-|                                            | Online . lantern.saschb2b.com   Party K7Q-4M      |  |
+|                                            | Online . groundhold.saschb2b.com   Party K7Q-4M   |  |
 |                                            | [copy code]  [copy link]                     (=)  |  |
 |                                            '---------------------------------------------------'  |
-|                   (the hollow at dusk, live; the camera drifts slowly along the road)             |
+|                   (the Causeway at low water, live; the camera drifts slowly along it)            |
 |                                                                                                   |
 |  .--------------------.          _.-^^^^^^^^^^-._                          .------------------.   |
-|  | PARTY         2/4  |         /                \   Tamsin Wick           |[Vigil][Race][  ] |   |
+|  | PARTY         2/4  |         /                \   Tamsin Wick           |[HiWtr][Tide][  ] |   |
 |  | <> Sascha [Lm]  ^  |        |   live model     |  the Lamplighter       |                  |   |
-|  | () Ana    [Ow]  ok |        |   (turning)      |  Warden  *             |[Bldr][Join][GO]  |   |
-|  | /\ + open seat     |        |                  |  team [Gd][Sc][Th][Dm] |     START        |   |
-|  | [] + open seat     |         \________________/   Vigil . 1-4 . ~13 min |                  |   |
+|  | () Ana    [Lk]  ok |        |   (turning)      |  Warden  *             |[Bldr][Join][GO]  |   |
+|  | /\ + open seat     |        |                  |  team [Fr][Ru][Ba][Sp] |     START        |   |
+|  | [] + open seat     |         \________________/   High Water, 1-4, ~13m |                  |   |
 |==|____________________|====================================================|__________________|===|
 +---------------------------------------------------------------------------------------------------+
-  <> () /\ []  seat glyphs    ^ leader    ok Ready    [Gd][Sc][Th][Dm] creep icons, lit when the
-  party has a strong answer (here all four: Lamplighter + Owlwatch)
+  <> () /\ []  seat glyphs    ^ leader    ok Ready    [Fr][Ru][Ba][Sp] check glyphs, lit when the
+  party has a strong answer (here all four: Lamplighter + Lookout)
 ```
 
 - **Left well, the party:** up to four rows: seat glyph in seat colour, name, Builder icon, and a state (leader
   crown, Ready tick, "in Builders", "connecting", "back from results", "needs to reload"). Empty rows read
   "+ open seat" when open seats are on, otherwise "+ invite" (copies the link).
 - **Arch:** your Builder turning slowly (`Portrait.show_model`). Beside it: name, epithet, role, difficulty and the
-  **team coverage row**, four creep icons, lit when any party member is strong against that check, with a tooltip
+  **team coverage row**, four check glyphs, lit when any party member is strong against that check, with a tooltip
   on a dim one ("Nobody here is strong against Winged").
-- **Right well, the command card's six slots:** top row the modes (**Vigil**, **Race**, and one slot reserved for
-  the Duel, greyed until M7); bottom row **Builders** (B), **Join** (J) and the primary button (Enter).
+- **Right well, the command card's six slots:** top row the modes (**High Water**, **Tide Race**, and one slot
+  reserved for Undertow, greyed until M7); bottom row **Builders** (B), **Join** (J) and the primary button (Enter).
 - **Strip:** where the party lives. **Offline** (no server; solo, Try, and racing the caretaker), **LAN ·
-  192.168.1.20** or **Online · lantern.saschb2b.com**, with the party code and copy buttons once on a server.
+  192.168.1.20** or **Online · groundhold.saschb2b.com**, with the party code and copy buttons once on a server.
 
 **The primary button** (one call to action, never two):
 
 | Situation | Leader sees | Member sees |
 |---|---|---|
-| Party of one, Vigil, open seats off | **Play** (an offline match at once) | |
+| Party of one, High Water, open seats off | **Play** (an offline match at once) | |
 | Party of one, Race, offline | **Race the caretaker** | |
 | Party, everyone Ready, open seats off | **Start** (3-2-1 over the button; anyone can cancel) | **Ready** / **Not ready** |
 | Party, open seats on and free | **Find players** | **Ready** / **Not ready** |
 | Race, party of one, online | **Find a rival** | |
 | Race, party of 2 or 4 | **Start** once two teams exist (click a row to change team) | **Ready** |
-| Queued | **Cancel · 0:42**; after 60 s also **Start with caretakers** (Vigil) or **Race the caretaker** | "Finding players 0:42" |
+| Queued | **Cancel · 0:42**; after 60 s also **Start with caretakers** (High Water) or **Race the caretaker** | "Finding players 0:42" |
 | Request pending | **Entering queue...** / **Leaving queue...** (disabled) | same |
 | A member on another rules version | disabled: "Ana needs to reload" (or "You need to reload") | |
 
@@ -871,10 +879,10 @@ Opens above the right wing from **Join** (J).
                                               |  code  [ _ _ _ - _ _ ]   joins after 5 symbols |
                                               |  -------------------------------------------  |
                                               |  ONLINE                                       |
-                                              |   (o) Official   lantern.saschb2b.com         |
+                                              |   (o) Official   groundhold.saschb2b.com      |
                                               |  -------------------------------------------  |
                                               |  NEARBY (LAN)                  desktop only   |
-                                              |   Sascha's hollow   2/4  Vigil      [Go]      |
+                                              |   Sascha's server   2/4  High Water [Go]      |
                                               |   > Server address  [192.168.1.20        ]    |
                                               |  -------------------------------------------  |
                                               |  [Create a party here]       [Leave party]    |
@@ -885,8 +893,8 @@ Opens above the right wing from **Join** (J).
   accepts lower case and ignores spaces and hyphens. Lookups are rate-limited per connection.
 - **Address rule** (ported from Cyberworld's `network_address.c`, about 40 lines of GDScript): a private IPv4
   address (including `100.64/10`), a link-local or IPv6 ULA address, a single-label name or a name ending in
-  `.local`, `.lan`, `.home`, `.home.arpa`, `.internal` or `.localdomain` becomes `ws://<addr>:8766/hollow`;
-  anything else becomes `wss://<host>/hollow`. LAN players type `192.168.1.20` and never see a scheme or a port.
+  `.local`, `.lan`, `.home`, `.home.arpa`, `.internal` or `.localdomain` becomes `ws://<addr>:8766/causeway`;
+  anything else becomes `wss://<host>/causeway`. LAN players type `192.168.1.20` and never see a scheme or a port.
 - **Nearby** lists LAN servers heard on the UDP beacon (§6.2), keyed by address, with name, mode, seats and a
   matching version only; a server silent for 3 s drops off.
 - **Join link:** `https://saschb2b.github.io/Tower-Defense/play/?join=K7Q4M`. The game runs in a same-origin iframe,
@@ -906,27 +914,27 @@ Opens above the right wing from **Join** (J).
 |   .-------------------------------------------------------------------------------------------.   |
 |   | KIT                                                                                       |   |
 |   | [Arrow Tower 40]  --+--> Longbow Loft     +60   faster, harder bolts                      |   |
-|   |                     '--> Skyward Loft     +60   reaches the sky        [Dm]               |   |
+|   |                     '--> Skyward Loft     +60   reaches the sky        [Sp]               |   |
 |   | [Cannon Tower 70] --+--> Great Cannon     +80   bigger blast                              |   |
-|   |                     '--> Iron Mortar      +80   pierces armour         [Th]               |   |
+|   |                     '--> Iron Mortar      +80   pierces armour         [Ba]               |   |
 |   | [Frost Spire 60]  --+--> Deep Frost       +60   stronger slow                             |   |
-|   |   (team: slow)      '--> Rime Spire       +60   reaches the sky        [Dm]               |   |
+|   |   (team: slow)      '--> Rime Spire       +60   reaches the sky        [Sp]               |   |
 |   | Passive  Thrifty: towers sell for 90%                                                     |   |
 |   '-------------------------------------------------------------------------------------------'   |
 |  .--------------------.          _.-^^^^^^^^^^-._                          .------------------.   |
-|  | [Lamp]*   [Owl]    |         /                \   Tamsin Wick           |[Arw] [Can] [Frs] |   |
+|  | [Lamp]*   [Look]   |         /                \   Tamsin Wick           |[Arw] [Can] [Frs] |   |
 |  |  Warden   Marksman |        |   live model     |  the Lamplighter       |                  |   |
 |  | [Bell]'   [Bee]    |        |                  |  Warden  *             |[Main][Bkup][Try] |   |
-|  |  Breaker  Sweeper  |         \________________/   strong [Gd][Sc]       |                  |   |
-|  |                    |                              weak   [Th][Dm]       |                  |   |
+|  |  Breaker  Sweeper  |         \________________/   strong [Fr][Ru]       |                  |   |
+|  |                    |                              weak   [Ba][Sp]       |                  |   |
 |==|____________________|====================================================|__________________|===|
 +---------------------------------------------------------------------------------------------------+
-   * main   ' backup     [Gd][Sc][Th][Dm] creep icons as check icons
+   * main   ' backup     [Fr][Ru][Ba][Sp] check glyphs (Froth, Runnel, Ballast, Spindrift)
 ```
 
 - Hovering a tower button shows exactly the in-game command-card tooltip (cost, numbers, both branches, `air`),
   one source of truth for both.
-- **Try** starts a solo Vigil with that Builder, offline, with Esc pause and restart.
+- **Try** starts a solo High Water match with that Builder, offline, with Esc pause and restart.
 - Builders can be browsed while queued; the queue pill follows into the corner. Changing the main while queued
   applies to the next match and does not drop the queue.
 - Not shown: lore pages, per-level stat tables, skins, unlock tracks.
@@ -938,7 +946,8 @@ Shown only when the queue joined players from outside the party.
 ```
                  .---------------------------------------------------.
                  |                    MATCH FOUND                    |
-                 |            Vigil  .  4 players  .  ~13 min        |
+                 |            The tide turns at Wickhollow           |
+                 |        High Water  .  4 players  .  ~13 min       |
                  |               (#) (#) ( ) ( )    2 of 4           |
                  |      [=====================-----------]   9 s     |
                  |             [  ACCEPT  ]          decline          |
@@ -958,17 +967,17 @@ Shown only when the queue joined players from outside the party.
 
 ```
 +---------------------------------------------------------------------------------------------------+
-|                               VIGIL  .  LANTERN HOLLOW  .  12 waves                               |
+|                              HIGH WATER  .  WICKHOLLOW  .  12 waves                               |
 |                                    ----------- gilt rule -----------                              |
 |      .--------------.     .--------------.     .--------------.     .--------------.            |
 |      |   Builder    |     |   Builder    |     |   Builder    |     |   Builder    |            |
 |      |   portrait   |     |   portrait   |     |   portrait   |     |   portrait   |            |
 |      |--------------|     |--------------|     |--------------|     |--------------|            |
 |      | <> Sascha    |     | () Ana       |     | /\ Ben       |     | [] Kim       |            |
-|      | Lamplighter  |     | Owlwatch     |     | Bellfounder  |     | Beekeeper    |            |
+|      | Lamplighter  |     | Lookout      |     | Bellfounder  |     | Beekeeper    |            |
 |      | [#######   ] |     |    Ready     |     | Slow  0:18   |     | Checking     |            |
 |      '--------------'     '--------------'     '--------------'     '--------------'            |
-|                         team covers:  [Gd] [Sc] [Th] [Dm]                                         |
+|                         team covers:  [Fr] [Ru] [Ba] [Sp]                                         |
 |                                         Waiting for Ben                                  leave    |
 +---------------------------------------------------------------------------------------------------+
 ```
@@ -976,6 +985,8 @@ Shown only when the queue joined players from outside the party.
 - **Card states:** `Connecting`, a progress bar (eased toward the reported value, because the single-threaded web
   build reports in steps), `Checking` (hashes being compared), `Ready`, `Slow 0:18` (amber), `In another tab`
   (a browser tab is hidden), `Caretaker` (the match started without them), `Reconnecting`.
+- **The line under the cards** reads *"Walking out"* while the seats load; from 15 s it names the seat
+  everyone waits for ("Waiting for Ben", §6.6).
 - **What "synced" means** under lockstep: the client has (1) received `MATCH_CONFIG`, (2) loaded every model the
   seats' Builders need and built the hollow, (3) built the simulation at tick 0 and sent `LOADED` with its rules
   hash and its tick-0 state hash, which the server compares across seats, and (4) taken five ping samples to size
@@ -993,7 +1004,7 @@ The console stays as it is. Three additions and one change.
 +---------------------------------------------------------------------------------------------------+
 | .---------------------------------.                .---------------------------------------------.|
 | | <> Sascha [Lm] 142  ||| ok      |                | (o) 142  (lives) 18   Wave 5 / 12           ||
-| | () Ana    [Ow]  97  ||  .       |                | next [Dm]          Ready 1/2 . 9 s          ||
+| | () Ana    [Lk]  97  ||  .       |                | next [Sp][Dm]      Ready 1/2 . 9 s          ||
 | | /\ Ben    [Bf] caretaker        |                '---------------------------------------------'|
 | '---------------------------------'                                                               |
 |                                         [ Wave 5 . Duskmoths ]                                    |
@@ -1010,10 +1021,11 @@ The console stays as it is. Three additions and one change.
 - **Party strip** (top left, new, `scripts/ui/party_strip.gd`): one slim plate per player: glyph in seat colour,
   Builder icon, name, gold, link bars (from the round-trip times the server relays), and a Ready mark during the
   window. "away", "caretaker" and "left" replace the gold when they apply.
-- **Resource strip** (top right, extended): your gold, the team's lives, "Wave 5 / 12", the next wave's creep icons
-  (during a wave, the current wave's), the window countdown and "Ready 1/2". Hovering the wave label lists every
-  remaining wave as icon rows. When everyone else is Ready and you are not, your Ready slot glows and the strip
-  says "Waiting for you". **Race** adds a second line: "Rival · Wave 7 · 18 lives · 6:12 +20 s".
+- **Resource strip** (top right, extended): your gold, the team's lives, "Wave 5 / 12", the next wave's check glyphs
+  with its creeps' portraits beside them (during a wave, the current wave's), the window countdown and "Ready 1/2".
+  Hovering the wave label lists every remaining wave as icon rows. When everyone else is Ready and you are not,
+  your Ready slot glows and the strip says "Waiting for you". **Race** adds a second line:
+  "Rival · Wave 7 · 18 lives · 6:12 +20 s".
 - **Signals** (new): Alt+click on the ground, a creep, a tower or the minimap, or A then a click. A ring in your
   colour and glyph with a soft chime, and a blip on the minimap; on a creep it pulses the creep, on a tower it
   outlines the tower. One meaning ("look here"), no wheel, no text, at most 3 per 5 s. No chat in v1.
@@ -1028,8 +1040,8 @@ The console stays as it is. Three additions and one change.
 | A teammate's tower, or a creep | Tower 1 | Tower 2 | Tower 3 | Signal | (idle) | Ready |
 
   Today's hammer moves onto the branch buttons' frames; the war horn now means Ready (it toggles, lit while you
-  are Ready). N and Space also toggle Ready, except during a Duel wave, where Space looses a sealed rousing. Branch
-  tooltips give the name, cost, one line of what changes in numbers and the check icon it helps. Selecting a
+  are Ready). N and Space also toggle Ready, except during a Duel wave, where Space uncorks a corked bottle. Branch
+  tooltips give the name, cost, one line of what changes in numbers and the check glyph it helps. Selecting a
   teammate's tower shows the owner in the subtitle ("Cannon Tower · Ana's"); the simulation refuses your fork or
   sell anyway. Shift keeps placing, Esc and right click cancel, Home frames the hollow, **V** shows the rival's
   hollow in a Race.
@@ -1047,22 +1059,22 @@ The console stays as it is. Three additions and one change.
      '------------------------------------------'      '------------------------------------------'
 ```
 
-  "The hollows fell out of step" ends the match on the results plate when the server declares a desync (§6.7), with
+  "The lands fell out of step" ends the match on the results plate when the server declares a desync (§6.7), with
   "A report was saved" and the path of the dump.
 
-### 5.8 Results
+### 5.8 Results (the Ebb)
 
 An overlay on the finished hollow, on the plate art widened. It never times out into the hub.
 
 ```
 +---------------------------------------------------------------------------------------------------+
-|                                     THE HEARTH HOLDS                                              |
-|                       Vigil . 12 waves . 13:42 . 17 of 20 lives left                              |
+|                                     THE HOLDFAST HOLDS                                            |
+|                       High Water . 12 waves . 13:42 . 17 of 20 lives left                         |
 |               lives  ''''''''''''''-.......------------------'''''''   (waves 1 to 12)            |
 |                                                                                                   |
 |   PLAYER        BUILDER          KILLS    DAMAGE     HELP    TOWERS                                |
 |   <> Sascha     Lamplighter        212     48.1k     9.2k    9 (4 forked)   Held wave 7            |
-|   () Ana        Owlwatch            97     31.7k    22.4k    7 (5 forked)   Most help              |
+|   () Ana        Lookout             97     31.7k    22.4k    7 (5 forked)   Most help              |
 |   /\ Ben        Bellfounder        130     30.2k    12.8k    8 (2 forked)   Most Thornbacks        |
 |   [] Kim        Beekeeper      (left at wave 6; the caretaker finished)                           |
 |                                                                                                   |
@@ -1070,9 +1082,8 @@ An overlay on the finished hollow, on the plate art widened. It never times out 
 +---------------------------------------------------------------------------------------------------+
 ```
 
-- **Titles** in the game's words. Vigil: "The Hearth Holds" / "The Hearth Goes Dark". Race: "Your Lantern Burns
-  Longest" / "Your Rival's Lantern Burns Longest" / "Two Lanterns, One Time". Desync: "The Hollows Fell Out of
-  Step".
+- **Titles** in the game's words. High Water: "The Holdfast Holds" / "The Holdfast Goes Under". Race:
+  "You Outran the Tide" / "Your Rival Outran the Tide" / "Two Crews, One Time". Desync: "The Lands Fell Out of Step".
 - **Every number is computed by the simulation** on every client, so every client shows the same results; the
   server only confirms the outcome.
 - **One positive line per player**, picked from a fixed list by the player's best stat relative to the team (Held
@@ -1131,7 +1142,7 @@ the user's hosting direction and the Cyberworld study's evidence overrule them.
   log natively and in the web export.
 - **A desync failure mode** (§6.7), handled by hashes, checkpoints and dumps.
 - **No hidden information:** every client holds the whole state. In a Race nothing is hidden anyway. The Duel's
-  sealed rousings use a commitment instead (§1.4).
+  corked packs use a commitment instead (§1.4).
 - **A modified client** can only desync itself: seats are stamped by the server and every simulation enforces the
   rules. With 3 or more seats it is outvoted; with 2 the match ends "desynced". There is no ladder in v1 to cheat
   on.
@@ -1144,21 +1155,21 @@ is an add-on, not a rewrite.
 
 ```
  Solo / Try / caretaker race   views <- MatchClient <- LocalSequencer (the same turns, zero delay)      one process
- LAN                           desktop clients <-- ws://192.168.x.y:8766/hollow --> lantern-hollow-server
-                                                                                    (.pyz or a native binary)
- Online (official)             desktop and browser clients <-- wss://lantern.saschb2b.com/hollow -->
+ LAN                           desktop clients <-- ws://192.168.x.y:8766/causeway --> groundhold-server
+                                                                                      (.pyz or a native binary)
+ Online (official)             desktop and browser clients <-- wss://groundhold.saschb2b.com/causeway -->
                                      Coolify's proxy (TLS) <-- ws --> container :8766 (no host port)
 ```
 
 | | Solo, Try | LAN | Online |
 |---|---|---|---|
-| **Desktop** (Linux, Windows, macOS exports) | in-process `LocalSequencer` | `ws://<lan-address>:8766/hollow` to the downloadable server; **Nearby** from its UDP beacon on 8767; or the typed address | `wss://lantern.saschb2b.com/hollow`, or any self-hosted `wss://` server |
+| **Desktop** (Linux, Windows, macOS exports) | in-process `LocalSequencer` | `ws://<lan-address>:8766/causeway` to the downloadable server; **Nearby** from its UDP beacon on 8767; or the typed address | `wss://groundhold.saschb2b.com/causeway`, or any self-hosted `wss://` server |
 | **Browser** (Pages, https, WebGL 2) | in-process | not available: no UDP, and an https page may not open `ws://` to a LAN address (only `ws://localhost` on the server's own machine) | `wss://` as desktop |
 | **Server** | none | `.pyz` (Python 3.11+) or one of five native zips: Windows x64, Linux x86_64 and arm64, macOS Intel and arm64; or `docker run` | the `ghcr.io` image behind Coolify's proxy, or the self-host Caddy Compose |
 
 **Client socket** (`scripts/net/link.gd`): Godot's `WebSocketPeer`.
 
-- `supported_protocols = ["lantern-hollow.v1"]`, then `connect_to_url(url, TLSOptions.client())`. On desktop the
+- `supported_protocols = ["groundhold.v1"]`, then `connect_to_url(url, TLSOptions.client())`. On desktop the
   default CA list is Godot's bundled Mozilla bundle; on the web the browser verifies the certificate.
 - One message per binary frame (`put_packet`); text frames are refused both ways.
 - `inbound_buffer_size = 1048576` (default 65,535), so a hidden browser tab can buffer far more than it will ever
@@ -1174,12 +1185,12 @@ server), as Cyberworld's `websocket.py` does with 512. Checkpoints, the only lar
 the application level into 1,024-byte parts. The M1 smoke test covers that both Godot and browsers send each
 message as one frame.
 
-**LAN beacon** (new, `server/lantern_server/beacon.py`): when not running in a container, the server broadcasts one
+**LAN beacon** (new, `server/groundhold_server/beacon.py`): when not running in a container, the server broadcasts one
 small UDP datagram a second to `255.255.255.255:8767`:
 
 | Bytes | Field |
 |---|---|
-| 4 | `LHB1` |
+| 4 | `GHB1` |
 | 2 | protocol version |
 | 2 | WebSocket port |
 | 1 | open parties |
@@ -1245,7 +1256,7 @@ func state_hash() -> PackedByteArray                 # SHA-256(serialize()) thro
 3. Caretaker: for each caretaken seat, at the window's start and every 30 ticks, `caretaker.gd` picks commands from
    the seat's plan, and they are applied as if received.
 4. Creeps move, in id order: effects expire; a stunned creep stands; slows scale its speed; a creep reaching the
-   hearth leaks its toll from the team's lives, and a hollow at 0 lives is FALLEN.
+   Holdfast leaks its toll from the team's lives, and a hollow at 0 lives is FALLEN.
 5. Towers, in id order: cool down, keep or pick a target, fire (schedule a shot) or pulse.
 6. Shots landing this tick, in id order: damage by the armour rule, effects, bounces, splash; a death pays the bounty
    to every seat on the team and credits Help.
@@ -1319,8 +1330,8 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 | Constant | Value |
 |---|---|
 | `version` | 1 |
-| `subprotocol` | `lantern-hollow.v1` |
-| `path`, `port`, `beacon_port` | `/hollow`, 8766 (8765 stays free for a Cyberworld server on the same PC), 8767 |
+| `subprotocol` | `groundhold.v1` |
+| `path`, `port`, `beacon_port` | `/causeway`, 8766 (8765 stays free for a Cyberworld server on the same PC), 8767 |
 | `max_message` | 1,100 bytes, client to server |
 | `turn_ticks`, `turn_ms`, `hash_every` | 3, 50, 60 |
 | `checkpoint_part` | 1,024 bytes |
@@ -1379,9 +1390,9 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 | `SELL` | tower id | `NOT_YOURS` |
 | `READY` | 0 or 1 | `WRONG_PHASE` |
 | `SIGNAL` | x mm, z mm, target id | `RATE_LIMITED` |
-| `ROUSE` (M7) | tier, commit high 32 bits, commit low 32 bits | `WRONG_PHASE`, `NO_ROUSINGS_LEFT`, `NOT_ENOUGH_GOLD` |
-| `LOOSE` (M7) | pack, salt high 32 bits, salt low 32 bits | `TOO_EARLY`, `NOTHING_SEALED`, `BAD_REVEAL` |
-| `FLARE` (M7) | | `NO_CHARGE`, `ALREADY_FLARING` |
+| `CORK` (M7) | tier, commit high 32 bits, commit low 32 bits | `WRONG_PHASE`, `NO_CORKS_LEFT`, `NOT_ENOUGH_GOLD` |
+| `UNCORK` (M7) | pack, salt high 32 bits, salt low 32 bits | `TOO_EARLY`, `NOTHING_CORKED`, `BAD_REVEAL` |
+| `SEAWALL` (M7) | | `NO_CHARGE`, `SEAWALL_STANDING` |
 
 **System commands** in a `TURN` (seat 255): `AWAY(seat)`, `BACK(seat)`, `LEFT(seat)`, `TIMEOUT` (the server's
 hard match cap). The server checks only a command's **shape** (type and argument ranges), the seat (from the
@@ -1477,7 +1488,7 @@ scenarios the fake sequencer counts them in turns, so they stay deterministic.
 
 - **The protocol version is checked strictly** in `HELLO`: error 2 says the game is older ("A newer version is out:
   reload"), error 17 says the server is older ("Online play is being updated"). As in Cyberworld since its v10, the
-  server accepts any `lantern-hollow.vN` subprotocol at the upgrade, so it can answer which side is behind instead
+  server accepts any `groundhold.vN` subprotocol at the upgrade, so it can answer which side is behind instead
   of "no answer".
 - **`rules_hash` is a matchmaking key, not a refusal.** Parties and queues merge only players with the same hash.
   A party member with another hash shows "needs to reload"; `build_seq` (the CI run number, written into
@@ -1489,13 +1500,13 @@ scenarios the fake sequencer counts them in turns, so they stay deterministic.
 ### 6.10 The server: what is taken from Cyberworld
 
 Copy, do not depend: the two repositories release separately, and a shared package would couple their release
-cycles for about 1,500 lines of stable code. **Reuse** = copy with renames only (`cyberworld` → `lantern`,
-`CYBERWORLD_SERVER_` → `LANTERN_SERVER_`, `/presence` → `/hollow`, 8765 → 8766). **Adapt** = keep the structure,
+cycles for about 1,500 lines of stable code. **Reuse** = copy with renames only (`cyberworld` → `groundhold`,
+`CYBERWORLD_SERVER_` → `GROUNDHOLD_SERVER_`, `/presence` → `/causeway`, 8765 → 8766). **Adapt** = keep the structure,
 change the content. **Skip** = do not take it.
 
-| Cyberworld piece | Verdict | In Lantern Hollow |
+| Cyberworld piece | Verdict | In Groundhold |
 |---|---|---|
-| `websocket.py`: the bounded RFC 6455 subset, `/health` and `/stats` on the same port, the origin allowlist, the subprotocol, the other-version passthrough | **Reuse** | path `/hollow`, subprotocol regex `lantern-hollow\.v[0-9]{1,4}`, `max_message` 1,100 |
+| `websocket.py`: the bounded RFC 6455 subset, `/health` and `/stats` on the same port, the origin allowlist, the subprotocol, the other-version passthrough | **Reuse** | path `/causeway`, subprotocol regex `groundhold\.v[0-9]{1,4}`, `max_message` 1,100 |
 | `protocol.py` pattern: a spec from JSON, `struct` records, exact lengths, `ProtocolError(reason, code)` | **Adapt** | keeps HELLO, WELCOME, ERROR, NOTICE, PING/PONG with RTT, BYE and the error codes; everything else is the hub, party, loading and match set of §6.5. ROM and Square fields go; `rules_hash` and `build_seq` come in |
 | `shared/online/protocol.json` and its README byte tables | **Adapt** | `shared/net/protocol.json` and `shared/net/README.md`; read by GDScript at runtime, so no C header |
 | `identity.py`: salted HMAC identity, `state_lock`, atomic writes, `moderation.json` hot reload, expiring kicks | **Reuse** | the privacy core, unchanged |
@@ -1506,15 +1517,15 @@ change the content. **Skip** = do not take it.
 | `teams.py` | **Skip** (the pattern only) | parties replace teams; keep its in-memory ask, answer and expiry pattern for `party.py` |
 | `social.py`: fixed phrases and emotes | **Skip in v1** | signals are simulation commands; fixed phrases may come later under the same "no free text" rule |
 | `trade.py` | **Skip** | no trading |
-| `week.py`: a weekly seed | **Skip in v1** | a later "weekly hollow" challenge; the derivation is ready when wanted |
+| `week.py`: a weekly seed | **Skip in v1** | a later "weekly flood" challenge; the derivation is ready when wanted |
 | `retention.py` | **Reuse** | without trade and Board keys; `log_days = 0`, `stats_days = 365`, `backup_days = 14`; no match log on disk |
 | `stats.py`, `/stats` | **Adapt** | joins, identities (a count), peak, matches started and finished per mode, **desyncs**, reconnects, caretaker seats, HELLOs per protocol version |
 | `backup.py` and the backup sidecar | **Reuse** | backs up `identity.key` and `moderation.json` |
 | `admin.py` | **Reuse** | minus `hide`/`unhide` (no Board) |
-| `cli.py`, `hosting.py` (banner, LAN address probe, container detection, config beside the binary, environment overrides) | **Reuse** | new strings ("Players type this in Lantern Hollow's Join panel"); the banner also says the beacon is on |
+| `cli.py`, `hosting.py` (banner, LAN address probe, container detection, config beside the binary, environment overrides) | **Reuse** | new strings ("Players type this in Groundhold's Join panel"); the banner also says the beacon is on |
 | `build.py`, `release.py`, `smoke.py`, `notices.py`, hash-pinned `requirements-build.txt` | **Reuse** | the deterministic zipapp, native freezes, a smoke outside the checkout, licence notices |
 | `server/Dockerfile` and its `.dockerignore` | **Reuse** | non-root 10001, allowlisted context, two stages; `shared/net/` instead of `shared/online/` |
-| `deploy/coolify/compose.yaml` and `server.ini` | **Reuse** | service `lantern`, port 8766, the new domain, the same hardening, health checks, log caps and backup service |
+| `deploy/coolify/compose.yaml` and `server.ini` | **Reuse** | service `groundhold`, port 8766, the new domain, the same hardening, health checks, log caps and backup service |
 | `deploy/selfhost/compose.yaml` (Caddy, Let's Encrypt, no access log) | **Reuse** | browser players can use any community server with `wss://` |
 | `server.yml`, `server-native.yml`, `server-image.yml` | **Reuse** | plus a small `release.yml` that also attaches the desktop game builds |
 | The test harness (`IsolatedAsyncioTestCase`, a real server on port 0, a minimal client) and `test_hardening`, `test_holds`, `test_hosting`, `test_packaging`, `test_retention`, `test_stats` | **Reuse** | plus new tests for turns, parties and the barrier (§7.3) |
@@ -1540,12 +1551,12 @@ commands in the turn stream. All are in-memory objects in the same asyncio proce
 
 | Setting | Value |
 |---|---|
-| Project and app | the existing project that runs `cyberworld-net-square`; a new app, for example `lantern-hollow-server` |
+| Project and app | the existing project that runs `cyberworld-net-square`; a new app, for example `groundhold-server` |
 | Build | Docker Compose from the Tower-Defense repository; Base Directory `/`; Compose Location `/deploy/coolify/compose.yaml`; **Preserve repository** on (for the read-only `server.ini` bind) |
-| Domain | `https://lantern.saschb2b.com` (the user picks it) to container port **8766**; no host port published |
-| Services | `lantern` and `backup`, both from one image, UID 10001, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`, an 8 MB tmpfs `/tmp`, json-file logs capped |
+| Domain | `https://groundhold.saschb2b.com` (the user picks it) to container port **8766**; no host port published |
+| Services | `groundhold` and `backup`, both from one image, UID 10001, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`, an 8 MB tmpfs `/tmp`, json-file logs capped |
 | Health | `GET /health` every 30 s; the backup sidecar turns unhealthy when the newest archive is older than 26 h |
-| Players connect to | `wss://lantern.saschb2b.com/hollow` (the client's default, from `data/net.json`) |
+| Players connect to | `wss://groundhold.saschb2b.com/causeway` (the client's default, from `data/net.json`) |
 
 **What Coolify gives for free** (already set up and verified for Cyberworld): `wss://` with a Let's Encrypt
 certificate and WebSocket upgrade forwarding to the container port; Git-based Compose deploys with a history and
@@ -1594,10 +1605,10 @@ this computer" button in the desktop game that launches the bundled binary (`OS.
 
 | Item | Why |
 |---|---|
-| The subdomain (proposed `lantern.saschb2b.com`) and its DNS record | `wss://` from an https page needs a certificate for a hostname |
+| The subdomain (proposed `groundhold.saschb2b.com`) and its DNS record | `wss://` from an https page needs a certificate for a hostname |
 | A new app in the existing Coolify project, with access to the Tower-Defense repository, the domain and port 8766 set, Preserve repository on | the official server |
 | Deploy policy: from tags at releases (proposed) or auto-deploy on push | a restart ends running matches; balance changes need no deploy |
-| Making the `ghcr.io/saschb2b/lantern-hollow-server` package public, once, by hand | self-hosters pull it |
+| Making the `ghcr.io/saschb2b/groundhold-server` package public, once, by hand | self-hosters pull it |
 | Checking that Coolify's proxy writes no access log for the domain | the privacy promise |
 | The policy page text: operator, moderation contact, and whether an imprint is needed | an EU-hosted service handling names and connection data |
 | Desktop releases: GitHub Releases for Windows, Linux and macOS; macOS signing and notarisation (an Apple developer account) or unsigned builds with quarantine instructions | LAN play needs desktop builds; today only Web is exported |
@@ -1624,7 +1635,7 @@ the real flow end to end.
 
 ### 7.2 Conventions, and an example
 
-The example below is an M2-era scenario (it uses the Owlwatch).
+The example below is an M2-era scenario (it uses the Lookout).
 
 - The loopback scene exposes `scene.start(config)`, `scene.seq` (the fake sequencer), `scene.client(k)` (with
   `.sim`, `.cmd(type, a, b, c)`, `.last_refusal()`, `.phase()`), `scene.run_turns(n)`, `scene.cut(k, turns)`,
@@ -1641,7 +1652,7 @@ The example below is an M2-era scenario (it uses the Owlwatch).
   "seed": 7,
   "watch": {"turn": "scene.seq.turn", "hash": "scene.client(1).sim.state_hash().hex_encode()"},
   "steps": [
-    {"eval": "scene.start({'mode': 'vigil', 'clients': 2, 'builders': ['lamplighter', 'owlwatch'], 'latency_turns': [2, 4], 'jitter_turns': 1})"},
+    {"eval": "scene.start({'mode': 'high_water', 'clients': 2, 'builders': ['lamplighter', 'lookout'], 'latency_turns': [2, 4], 'jitter_turns': 1})"},
     {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
     {"eval": "scene.client(1).cmd('BUILD', 0, 8, 3)"},
     {"eval": "scene.client(2).cmd('BUILD', 1, 10, 8)"},
@@ -1712,7 +1723,7 @@ Ordered by when a milestone needs it. Each has a project-side workaround, so no 
 |---|---|---|
 | `pages.yml` `test` (exists) | every push and pull request | `godot-agent scenario . --headless`: simulation, fake-sequencer, view and flow scenarios and the golden transcripts |
 | `pages.yml` `balance` (new) | pull requests touching `scripts/sim/`, `data/plans/`, `tests/balance/`; nightly | `godot-agent scenario tests/balance --headless` |
-| `pages.yml` `net-smoke` (new) | every pull request | `tools/net/smoke.py`: the Python server plus two headless clients, a two-player Vigil and (from M6) a 1v1 Race; finished matches with equal hash streams |
+| `pages.yml` `net-smoke` (new) | every pull request | `tools/net/smoke.py`: the Python server plus two headless clients, a two-player High Water and (from M6) a 1v1 Tide Race; finished matches with equal hash streams |
 | `pages.yml` `build` (exists) | every push | also writes `data/build.json` (`build_seq` = the run number, and the commit) |
 | `server.yml` (from Cyberworld) | pushes and pull requests touching `server/`, `shared/net/`, `deploy/` | unit tests on Python 3.11; the zipapp and a real-process smoke; `docker compose config` and build for both Compose files; a bare `docker run` that must answer `/health` |
 | `server-native.yml`, `server-image.yml` (from Cyberworld) | called by `release.yml` | five native server zips; the multi-arch image to `ghcr.io` |
@@ -1733,19 +1744,19 @@ without touching another track's.
 and layouts of §6.5, and `scripts/sim/sim_types.gd` with the command types, refusal reasons, event types and record
 field names.
 
-### M1. Two lanterns on one road: the integer simulation and a two-player co-op match over localhost
+### M1. Two Builders on one road: the integer simulation and a two-player co-op match over localhost
 
 **Goal.** *M1a:* the solo game plays exactly as today (8 waves, today's three towers with today's upgrade standing
 in for branch A) on the new integer simulation, through the in-process `LocalSequencer`. *M1b:* two desktop windows
-on one machine play that match together through the forked server on `ws://127.0.0.1:8766/hollow`: shared lives,
+on one machine play that match together through the forked server on `ws://127.0.0.1:8766/causeway`: shared lives,
 own gold, full bounty to both, owner-only upgrade and sell, Ready. No hub yet: the server's `--dev-match classic:2`
 forms a match from the first two `HELLO`s, and the game takes `-- --join=127.0.0.1`. `content.gd` carries a
-`classic` preset (today's 8 waves as `classic8`, no armour, nothing winged) that M2 replaces with `vigil12`.
+`classic` preset (today's 8 waves as `classic8`, no armour, nothing winged) that M2 replaces with `hollow12`.
 
 | Track | Files |
 |---|---|
 | A. Simulation | `scripts/sim/content.gd`, `sim_types.gd`, `sim_match.gd`, `sim_road.gd`, `sim_records.gd`, `sim_waves.gd`, `sim_math.gd`, `sim_rng.gd`, `sim_codec.gd`, `caretaker.gd`; `data/plans/lamplighter.json`; `tests/sim/sim_harness.tscn`, `tests/sim/sim_harness.gd` |
-| B. Server fork | `server/main.py`, `server/build.py`, `server/.gdignore`, `server/lantern_server/__init__.py`, `websocket.py`, `protocol.py`, `app.py`, `match.py`, `cli.py`, `hosting.py`; `server/tests/test_hardening.py`, `test_turn_clock.py`, `test_turn_stamping.py`, `test_dev_match.py`; `shared/net/protocol.json`, `shared/net/README.md`, `shared/net/transcripts/m1_*.bin` |
+| B. Server fork | `server/main.py`, `server/build.py`, `server/.gdignore`, `server/groundhold_server/__init__.py`, `websocket.py`, `protocol.py`, `app.py`, `match.py`, `cli.py`, `hosting.py`; `server/tests/test_hardening.py`, `test_turn_clock.py`, `test_turn_stamping.py`, `test_dev_match.py`; `shared/net/protocol.json`, `shared/net/README.md`, `shared/net/transcripts/m1_*.bin` |
 | C. Client networking | `scripts/net/protocol.gd`, `link.gd`, `address.gd`, `turn_source.gd`, `local_sequencer.gd`, `remote_sequencer.gd`, `match_client.gd`, `playout.gd`; `tests/net/fake_sequencer.gd`, `fake_link.gd`, `loopback_match.tscn`, `loopback_match.gd` |
 | D. Views and the app | `scripts/game.gd` (facade; display tables), `main.gd` (boot flags `--join`, `--bot`, `--seed`, `--hash-log`, `--quit-after-match`), `creep.gd`, `tower.gd`, `projectile.gd`, `build_controller.gd` (commands, ghost), `hud.gd` (Ready replaces Next Wave, Ready pips), `fx.gd` (own RNG); `scripts/ui/party_strip.gd`; delete `scripts/wave_director.gd`; `tests/bot.gd`; every `tests/scenarios/*.json` and `tools/media/*.json` re-baselined; `AGENTS.md` |
 | E. Multi-process smoke | `tools/net/smoke.py` |
@@ -1778,28 +1789,28 @@ forms a match from the first two `HELLO`s, and the game takes `-- --join=127.0.0
 
 ### M2. Builders and checks (parallel with M3)
 
-**Goal.** The Vigil as designed with the complementary pair: the Lamplighter's forks and the whole Owlwatch; flat
-armour, `air`, the Duskmoth, the Bristlesow, team effects and Help, the `vigil12` list, the player-count table, the
-positional command card with branches, creep icons as check icons, the wave-list tooltip and the first balance
-gates.
+**Goal.** High Water as designed with the complementary pair: the Lamplighter's forks and the whole Lookout; flat
+armour, `air`, the Duskmoth, the Bristlesow, team effects and Help, the `hollow12` list, the player-count table,
+the positional command card with branches, check glyphs with the creeps' portraits beside them, the wave-list
+tooltip and the first balance gates.
 
 | Track | Files |
 |---|---|
-| A. Rules | `scripts/sim/content.gd`, `sim_match.gd`, `sim_effects.gd`, `sim_targeting.gd`, `caretaker.gd`; `data/plans/lamplighter.json`, `data/plans/owlwatch.json` |
+| A. Rules | `scripts/sim/content.gd`, `sim_match.gd`, `sim_effects.gd`, `sim_targeting.gd`, `caretaker.gd`; `data/plans/lamplighter.json`, `data/plans/lookout.json` |
 | B. HUD and input | `scripts/hud.gd`, `resource_strip.gd`, `portrait.gd`, `build_controller.gd`, `minimap.gd`, `game.gd` (display tables) |
-| C. Art and views | `art_src/models/towers/*.json` (3 Lamplighter B branches; the Owlwatch's 3 bases and 6 branches), projectile recipes, `art_src/blender/duskmoth.py`, `art_src/ui/icons.json`, `asset_manifest.json`, `models/`, `ui/icons/`, `sfx/`; `scripts/creep.gd` (hover and flap), `tower.gd`, `projectile.gd`, `fx.gd` (mark rune) |
+| C. Art and views | `art_src/models/towers/*.json` (3 Lamplighter B branches; the Lookout's 3 bases and 6 branches), projectile recipes, `art_src/blender/duskmoth.py`, `art_src/ui/icons.json`, `asset_manifest.json`, `models/`, `ui/icons/`, `sfx/`; `scripts/creep.gd` (hover and flap), `tower.gd`, `projectile.gd`, `fx.gd` (mark rune) |
 | D. Bots and balance | `tools/gen_balance_scenarios.py`, `tests/balance/*.json` |
 
-**Acceptance:** `bot_wins` and `idle_player_loses` move to `vigil12` and keep their bars; `armor_reduces_small_hits` (an arrow does 4 to a Thornback; a 32-damage bolt that pierces 3 does
+**Acceptance:** `bot_wins` and `idle_player_loses` move to `hollow12` and keep their bars; `armor_reduces_small_hits` (an arrow does 4 to a Thornback; a 32-damage bolt that pierces 3 does
 31), `armor_floor_quarter`, `winged_ignores_ground_towers` (an Arrow Tower never fires at a Duskmoth, a Skyward Loft
 does, cannon splash leaves moths untouched), `fork_is_final`, `fork_branch_stats`, `effects_strongest_applies`
 (Frost Spires at 45% and 60% give 60%), `mark_amplifies_teammate_and_credits_help`, `boss_resists_control`,
-`thrifty_sells_for_90`, `keen_sight_range`, `bot_wins_solo_lamplighter`, `bot_wins_solo_owlwatch`,
-`bot_wins_vigil_2p`, `idle_team_loses_2p`, `one_idle_of_two_loses`, `coverage_matters_winged`,
-`coverage_holds_complementary_lo`, `vigil_length_2p`, `hud_branch_card` (Q and W show the branches on your own
-unforked tower), `hud_check_icons` (the moth icon shows before wave 5), `hud_teammate_tower_greys_sell`;
-`godot-agent asset check .` clean; `godot-agent run . --renderer gl_compatibility` shows the Duskmoth's glow with no
-extra lights.
+`thrifty_sells_for_90`, `keen_sight_range`, `bot_wins_solo_lamplighter`, `bot_wins_solo_lookout`,
+`bot_wins_high_water_2p`, `idle_team_loses_2p`, `one_idle_of_two_loses`, `coverage_matters_winged`,
+`coverage_holds_complementary_lo`, `high_water_length_2p`, `hud_branch_card` (Q and W show the branches on your
+own unforked tower), `hud_check_icons` (the Winged glyph and the Duskmoth's portrait show before wave 5),
+`hud_teammate_tower_greys_sell`; `godot-agent asset check .` clean; `godot-agent run . --renderer gl_compatibility`
+shows the Duskmoth's glow with no extra lights.
 
 ### M3. The loop: hub, Builders, party, loading, results, LAN (parallel with M2)
 
@@ -1810,21 +1821,21 @@ offline solo from the hub.
 
 | Track | Files |
 |---|---|
-| A. Server lobby | `server/lantern_server/party.py`, `codes.py`, `lobby.py` (barrier, match lifecycle, back to party), `identity.py`, `holds.py`, `beacon.py`, `retention.py`, `stats.py`, `admin.py`, `backup.py`, `app.py` (routing); `server/tests/test_party_codes.py`, `test_party_flow.py`, `test_barrier.py`, `test_holds.py`, `test_beacon.py`, `test_identity.py`, `test_retention.py`, `test_stats.py` |
+| A. Server lobby | `server/groundhold_server/party.py`, `codes.py`, `lobby.py` (barrier, match lifecycle, back to party), `identity.py`, `holds.py`, `beacon.py`, `retention.py`, `stats.py`, `admin.py`, `backup.py`, `app.py` (routing); `server/tests/test_party_codes.py`, `test_party_flow.py`, `test_barrier.py`, `test_holds.py`, `test_beacon.py`, `test_identity.py`, `test_retention.py`, `test_stats.py` |
 | B. Client session | `scripts/session/session.gd` (autoload state machine: OFFLINE, CONNECTING, HUB, COUNTDOWN, QUEUED, MATCH_FOUND, LOADING, IN_MATCH, RESULTS), `profile.gd`, `identity.gd`; `scripts/net/beacon_listener.gd`; `project.godot` (autoload, main scene) |
 | C. Screens | `scenes/hub.tscn`; `scripts/ui/shell.gd`, `hub_panel.gd`, `join_panel.gd`, `builders_screen.gd`, `loading_screen.gd`, `results_panel.gd`, `coverage_row.gd`, `name_prompt.gd`; `scripts/main.gd` (enter from `MATCH_CONFIG`, leave to results) |
-| D. Console art and characters | `art_src/ui/console.json`, `art_src/ui/console.py`, `ui/console/`; `art_src/blender/builders/lamplighter.py`, `owlwatch.py`; `models/builders/` |
+| D. Console art and characters | `art_src/ui/console.json`, `art_src/ui/console.py`, `ui/console/`; `art_src/blender/builders/lamplighter.py`, `lookout.py`; `models/builders/` |
 | E. Flow tests | `tests/net/fake_sequencer.gd` (hub and loading scripting), `tests/scenarios/flow_*.json` |
 
 **Acceptance:** Python `test_party_codes`, `test_party_flow`, `test_barrier`, `test_holds` (party seat 40 s),
 `test_beacon`, `test_identity` (stable per origin, unlinkable across), the back-to-party test; scenarios
 `flow_hub_boots_offline` (the main scene is the hub; Play reaches a match in under 300 frames),
 `flow_party_panel_renders_state` (2/4, glyphs, Ready ticks, "needs to reload"), `flow_coverage_row` (Lamplighter +
-Owlwatch light all four; two Lamplighters leave Thornback and Duskmoth dim), `flow_loading_card_states`
+Lookout light all four; two Lamplighters leave Armored and Winged dim), `flow_loading_card_states`
 (Connecting, a percentage, Checking, Ready; Slow at 15 s), `flow_results_one_line_each`,
 `flow_results_play_again_keeps_party`, `flow_try_from_builders`, `flow_join_code_lenient`, `beacon_lists_server`
 (an injected datagram; a mismatched version is not listed), `address_rule` (`192.168.1.20` →
-`ws://192.168.1.20:8766/hollow`, `100.64.1.2` → `ws://`, `play.example.org` → `wss://play.example.org/hollow`),
+`ws://192.168.1.20:8766/causeway`, `100.64.1.2` → `ws://`, `play.example.org` → `wss://play.example.org/causeway`),
 `identity_token_stable`; `tools/net/smoke.py --flow`: two clients go hub, party by code, start, loading, match,
 results, and are both back in the party. By hand: two desktops on one LAN find the server under Nearby, play and
 return together.
@@ -1835,12 +1846,12 @@ return together.
 
 | Track | Files |
 |---|---|
-| A. Server | `server/lantern_server/match.py` (hash referee, checkpoint store, `AWAY`/`BACK`/`LEFT`, `RESULT` agreement, `TURN_REQUEST`), `catchup.py`, `stats.py` (desync and reconnect counters); `server/tests/test_hash_referee.py`, `test_checkpoint_accept.py`, `test_catchup_budget.py`, `test_away_back.py`, `test_versions.py` |
+| A. Server | `server/groundhold_server/match.py` (hash referee, checkpoint store, `AWAY`/`BACK`/`LEFT`, `RESULT` agreement, `TURN_REQUEST`), `catchup.py`, `stats.py` (desync and reconnect counters); `server/tests/test_hash_referee.py`, `test_checkpoint_accept.py`, `test_catchup_budget.py`, `test_away_back.py`, `test_versions.py` |
 | B. Client | `scripts/net/match_client.gd`, `playout.gd`, `checkpointing.gd`, `desync_dump.gd`, `web_bridge.gd` (`visibilitychange`, title flash, query string); `scripts/ui/connection_overlay.gd` |
 | C. Simulation | `scripts/sim/caretaker.gd` (any seat, returning, hand-back at the window), `sim_codec.gd`, `sim_match.gd` (seat states) |
 | D. Tools and tests | `tools/net/smoke.py` (faults), `tools/net/shaper.py`; `tests/net/fake_sequencer.gd`, `fake_link.gd` (cut, hide, corrupt); `tests/scenarios/net_*.json`, `tests/scenarios/sim_bench.json` |
 
-**Acceptance:** `net_hashes_agree_long_match` (four clients, a whole `vigil12`), `net_checkpoint_kept_only_if_agreed`,
+**Acceptance:** `net_hashes_agree_long_match` (four clients, a whole `hollow12`), `net_checkpoint_kept_only_if_agreed`,
 `net_reconnect_from_checkpoint` (client 2 cut at wave 5 for 20 s rejoins, catches up, hashes agree, and gets the seat
 back at the next window), `net_away_after_5s_caretaker_builds` (the caretaker spends the seat's gold and is Ready
 every window), `net_hand_back_at_window` (the seat's commands are refused until the window opens),
@@ -1869,10 +1880,10 @@ packages, desktop builds for LAN, the browser build online, the join link, the r
 `/health`); a release dry run whose native zips answer `--help` and serve `/health` outside the checkout; the desktop
 exports build in CI; `flow_join_link_through_iframe` checked with agent-browser (`?join=K7Q4M` reaches the party);
 the release gate of §7.6 passes. Live, with the user: a browser on Pages and a desktop build join one party by code
-on `wss://lantern.saschb2b.com/hollow` and finish a Vigil; `/stats` shows the match and no desync; the Coolify proxy's
-access log is confirmed off.
+on `wss://groundhold.saschb2b.com/causeway` and finish a High Water match; `/stats` shows the match and no desync;
+the Coolify proxy's access log is confirmed off.
 
-### M6. The full roster, Lantern Race and the queue
+### M6. The full roster, Tide Race and the queue
 
 **Goal.** v1 complete: the Bellfounder and the Beekeeper; the Race (two hollows in one simulation, per-hollow
 clocks, race time, rival line, the V view, two-team loading and results, racing the caretaker); open seats and Find
@@ -1883,35 +1894,35 @@ a rival with Match Found, front-of-queue requeue, Builder clash resolution and "
 | A. Rules | `scripts/sim/content.gd`, `sim_effects.gd` (stun and its immunity, pulses, clouds, crack aura, haste), `sim_match.gd` (two hollows, race rules, the 20-minute cap), `caretaker.gd`; `data/plans/bellfounder.json`, `beekeeper.json` |
 | B. Art | the two Builders' 18 tower models, bell and bee effects, two characters, icons and sounds |
 | C. Race views | `scripts/main.gd` (two hollows), `terrain.gd`, `decor.gd`, `camera_rig.gd` (V), `minimap.gd`, `resource_strip.gd` (rival line); `scripts/ui/loading_screen.gd`, `results_panel.gd` (two-team layouts) |
-| D. Queue | `server/lantern_server/queue.py`, `server/tests/test_queue.py`; `scripts/ui/match_found.gd`, `hub_panel.gd` (queue states); `scripts/session/session.gd` |
+| D. Queue | `server/groundhold_server/queue.py`, `server/tests/test_queue.py`; `scripts/ui/match_found.gd`, `hub_panel.gd` (queue states); `scripts/session/session.gd` |
 
 **Acceptance:** `stun_then_immune`, `toll_pulse_hits_all_ground`, `cloud_hits_air_and_ground`,
 `crack_lowers_armor_for_all_and_credits_help`, `haste_any_owner`, `tithe_pays_capped`, `bronze_hand_ignores_2`,
-`bot_wins_solo_bellfounder`, `bot_wins_solo_beekeeper`, `bot_wins_vigil_3p`, `bot_wins_vigil_4p`,
+`bot_wins_solo_bellfounder`, `bot_wins_solo_beekeeper`, `bot_wins_high_water_3p`, `bot_wins_high_water_4p`,
 `idle_team_loses_3p`, `idle_team_loses_4p`, `coverage_holds_complementary_bb`, `race_same_waves_both_hollows`,
 `race_independent_clocks`, `race_time_penalty_per_life`, `race_rival_fell_clear_to_win`, `race_cap_20_minutes`,
 `race_mirror_is_fair`, `race_bots_both_finish`, `race_rival_view_toggle`, `race_results_two_teams`; Python
 `test_queue` (merging open parties, a decline requeues the others at the front, the timeout, Builder clash
-resolution, the caretaker offer at 60 s, keying on the rules hash); `smoke.py --mode race`; two hollows in
+resolution, the caretaker offer at 60 s, keying on the rules hash); `smoke.py --mode tide_race`; two hollows in
 `godot-agent run . --renderer gl_compatibility` within the browser's frame budget.
 
-### M7. Rift Duel (v1.1)
+### M7. Undertow (v1.1)
 
-**Goal.** The Duel of §1.4: the Rift Offer, sealed rousings by commitment, loosing, stipends, breaches, Last Light,
-the Long Night, duelling the caretaker, and its balance gates.
+**Goal.** Undertow, the Duel of §1.4: the Drift, corked packs by commitment, uncorking, stipends, breaches,
+Seawall, the Surge, duelling the caretaker, and its balance gates.
 
 | Track | Files |
 |---|---|
-| A. Simulation | `scripts/sim/sim_rift.gd` (offer, rouse, commit, reveal, stipend, breach, Last Light, Long Night), `sim_match.gd` (shared clock), `content.gd` (packs, the duel preset) |
-| B. Interface | `scripts/ui/duel_bar.gd`, `rift_offer.gd`; `scripts/hud.gd` (duel layout); `art_src/ui/console.json` (offer tray, sealed lantern) |
-| C. Caretaker and balance | `scripts/sim/caretaker.gd` (a rousing policy), `data/plans/*_duel.json`, `tests/balance/duel_*.json` |
-| D. Server | `server/lantern_server/queue.py` (duel mode), `server/tests/test_queue.py` |
+| A. Simulation | `scripts/sim/sim_undertow.gd` (drift, cork, commit, reveal, stipend, breach, Seawall, the Surge), `sim_match.gd` (shared clock), `content.gd` (packs, the `undertow` preset) |
+| B. Interface | `scripts/ui/duel_bar.gd`, `drift_tray.gd`; `scripts/hud.gd` (duel layout); `art_src/ui/console.json` (drift tray, corked bottle) |
+| C. Caretaker and balance | `scripts/sim/caretaker.gd` (a corking policy), `data/plans/*_duel.json`, `tests/balance/duel_*.json` |
+| D. Server | `server/groundhold_server/queue.py` (undertow mode), `server/tests/test_queue.py` |
 
-**Acceptance:** `offer_same_for_both_sides`, `offer_seeded`, `offer_never_skips_a_check_twice`,
-`rouse_commit_hides_pack` (the rival's simulation holds no pack id before the loose, and the gold is the same for
-every pack of a tier), `loose_reveal_checked` (a wrong salt gives `BAD_REVEAL`), `loose_auto_at_24s`,
-`fizzle_without_reveal`, `roused_creeps_pay_defender`, `breach_pays_double`, `last_light_charges_every_four`,
-`flare_stuns_near_hearth`, `long_night_freezes_stipend`, `tiebreak_lives_then_breach`, the Duel's balance gates of
+**Acceptance:** `drift_same_for_both_sides`, `drift_seeded`, `drift_never_skips_a_check_twice`,
+`cork_commit_hides_pack` (the rival's simulation holds no pack id before the uncorking, and the gold is the same
+for every pack of a tier), `uncork_reveal_checked` (a wrong salt gives `BAD_REVEAL`), `uncork_auto_at_24s`,
+`fizzle_without_reveal`, `uncorked_creeps_pay_defender`, `breach_pays_double`, `seawall_charges_every_four`,
+`seawall_stuns_near_holdfast`, `surge_freezes_stipend`, `tiebreak_lives_then_breach`, the Duel's balance gates of
 §4.4, `duel_caretaker_plays_full_match`.
 
 ### Dependencies and parallel work
@@ -1947,7 +1958,7 @@ every pack of a tier), `loose_reveal_checked` (a wrong salt gives `BAD_REVEAL`),
 | Art budget: 30 tower models, a creep, 4 characters | high | branches reuse base meshes; Builders ship in two pairs (M2, M6); characters need only an idle cycle |
 | Four players crowd 141 near-road tiles | medium | measure with the four-player bots; a larger map is a text file |
 | A Builder becomes a must-pick through its team tower | medium | strongest applies, never stacks; Help shows who carries; per-Builder solo and team gates |
-| Too few players online for a queue | high | codes, links, LAN, caretakers after 60 s, racing the caretaker; the Vigil scales from 1 |
+| Too few players online for a queue | high | codes, links, LAN, caretakers after 60 s, racing the caretaker; High Water scales from 1 |
 | A server restart ends running matches | certain | releases from tags only when the protocol changes; the maintenance line; `/health` shows running matches |
 | Background browser tabs | certain | 1 MiB buffer, the caretaker after 5 s, catch-up, `TURN_REQUEST` |
 | Version skew after a Pages deploy | certain | `rules_hash` as a matchmaking key; `build_seq`; `?v=` on the build files; errors 2 and 17 |
@@ -1960,17 +1971,17 @@ every pack of a tier), `loose_reveal_checked` (a wrong salt gives `BAD_REVEAL`),
 
 | Cut | Why | Back in |
 |---|---|---|
-| Rift Duel and any sends | Race proves two-team matches first; sends need their own balance gates | M7 (v1.1) |
-| Last Light, the Long Night | they belong to the Duel | M7 |
+| Undertow and any sends | Race proves two-team matches first; sends need their own balance gates | M7 (v1.1) |
+| Seawall, the Surge | they belong to the Duel | M7 |
 | Veiled check, the Kindler, light radii | a fifth check needs a fifth Builder to stay fair, and light drawn as decals for WebGL 2 | after M7 |
 | Braided roads, the Twin Hollow, mazing, more maps | one map proves the loop; mazing needs anti-block and invites griefing | later |
 | Gold gifts | income is equal by rule | if playtests show stuck players |
 | Chat and quick phrases | signals and voice cover friends; free text needs moderation | later, fixed phrases only |
-| Boons, Embers, a Hearth Flare, hearth upgrades | the fork is v1's one mid-game system | later, one at a time |
-| Difficulty choice, Nightfall, overlapping waves | one difficulty keeps the gates at 4 × 4 | after v1 |
+| Boons, Embers, a Holdfast flare, Holdfast upgrades | the fork is v1's one mid-game system | later, one at a time |
+| Difficulty choice, Spring Tide, overlapping waves | one difficulty keeps the gates at 4 × 4 | after v1 |
 | Random-pick bonus, drafts, bans | pick before Play is enough for 2 to 4 friends | later modes |
 | Ranked, ratings, accounts, friends, progression, cosmetics | no population yet | later; ranked needs the referee |
-| Spectating, the replay viewer, a weekly seeded hollow | the turn log keeps the door open | after v1 |
+| Spectating, the replay viewer, a weekly seeded flood | the turn log keeps the door open | after v1 |
 | Builder avatars on the map | character art budget | the first candidate after v1 |
 | "Host on this computer" in the desktop game | needs the server bundled in desktop exports | after v1 |
 | Host migration, ENet, WebRTC, browser LAN | one transport; browser LAN is not portable | later |
@@ -1981,7 +1992,7 @@ every pack of a tier), `loose_reveal_checked` (a wrong salt gives `BAD_REVEAL`),
 
 ## 10. Decisions only the user can make
 
-1. **The subdomain** for the official server (proposed `lantern.saschb2b.com`) and its DNS record.
+1. **The subdomain** for the official server (proposed `groundhold.saschb2b.com`) and its DNS record.
 2. **The Coolify app:** create it in the existing project with access to the Tower-Defense repository; confirm the
    proxy writes no access log for it.
 3. **Server deploy policy:** from tags when the protocol changes (proposed), or auto-deploy on push (every deploy
@@ -1990,19 +2001,20 @@ every pack of a tier), `loose_reveal_checked` (a wrong salt gives `BAD_REVEAL`),
 5. **Desktop releases:** GitHub Releases for Windows, Linux and macOS; macOS signing and notarisation (an Apple
    developer account) or unsigned builds with quarantine instructions. LAN play needs desktop builds.
 6. **The policy page:** operator name, moderation contact, and whether an imprint is needed (not legal advice).
-7. **v1's competitive mode:** ship v1 with Lantern Race and the Duel as v1.1 (proposed), or hold v1 until the Duel
+7. **v1's competitive mode:** ship v1 with Tide Race and Undertow as v1.1 (proposed), or hold v1 until Undertow
    lands.
 8. **What "manage Builders" means:** browse, set main and backup, Try, everything unlocked (proposed); or unlocks
    through play; or loadouts per Builder.
 9. **Builders on the map:** not in v1 (proposed); an idle avatar after v1.
-10. **Party cap and duplicates:** Vigil 1 to 4 with duplicates allowed in parties (proposed); the queue avoids
+10. **Party cap and duplicates:** High Water 1 to 4 with duplicates allowed in parties (proposed); the queue avoids
     duplicates among strangers.
 11. **A public queue in v1:** only open seats and Find a rival, with caretakers after 60 s (proposed).
 12. **Hotkeys:** positional Q W E / A S D for every Builder, replacing today's A C F U S N (proposed).
-13. **Names:** Tamsin Wick the Lamplighter, Edda Greyplume the Owlwatch, Ottilie Brass the Bellfounder, Hessel
-    Bramble the Beekeeper; the Duskmoth and the Bristlesow; Vigil, Lantern Race and Rift Duel. All original; rename
-    freely before art and media are made.
-14. **Sealed sends in the Duel:** by commitment (proposed, no extra server), or visible as soon as bought (simpler),
+13. **Names:** settled in [`world.md`](world.md) on 29 October 2026: the game is Groundhold; Tamsin Wick the
+    Lamplighter, Edda Greyplume the Lookout, Ottilie Brass the Bellfounder, Sefa Amberwell the Beekeeper; the
+    Duskmoth, the Bristlesow and the Hollowtide Crest on Wickhollow; High Water, Tide Race and Undertow. All
+    original.
+14. **Corked sends in Undertow:** by commitment (proposed, no extra server), or visible as soon as bought (simpler),
     or hidden by a referee (needs a headless Godot on the server).
 
 ---
@@ -2019,8 +2031,8 @@ counts them in turns).
 | Checkpoint | the first hash tick of each wave, and every 1,800 ticks | clients and server |
 | First window | 900 ticks solo, 1,500 with company | simulation |
 | Later windows | 600 ticks solo, 900 with company | simulation |
-| Duel night window | 480 ticks | simulation |
-| Duel loose | from 180 to 1,440 ticks after the horn; reveal deadline 1,500 | simulation |
+| Duel surge window | 480 ticks | simulation |
+| Duel uncork | from 180 to 1,440 ticks after the horn; reveal deadline 1,500 | simulation |
 | Slow (Frost Spire) | 120 ticks | simulation |
 | Stun immunity | 60 ticks | simulation |
 | Caretaker decisions | at each window's start and every 30 ticks | simulation |
@@ -2046,7 +2058,7 @@ scripts/
   main.gd                 the app: world (one or two hollows), views, boot flags
   sim/                    content.gd, sim_types.gd, sim_match.gd, sim_road.gd, sim_records.gd, sim_waves.gd,
                           sim_effects.gd, sim_targeting.gd, sim_math.gd, sim_rng.gd, sim_codec.gd, caretaker.gd
-                          (M7: sim_rift.gd)
+                          (M7: sim_undertow.gd)
   net/                    protocol.gd, link.gd, address.gd, turn_source.gd, local_sequencer.gd,
                           remote_sequencer.gd, match_client.gd, playout.gd, checkpointing.gd, desync_dump.gd,
                           web_bridge.gd, beacon_listener.gd
@@ -2059,7 +2071,7 @@ scenes/   main.tscn (the match), hub.tscn (the boot scene)
 data/     hollow.txt, plans/*.json, net.json, build.json (written by CI)
 shared/net/   protocol.json, README.md, transcripts/*.bin
 server/   main.py, build.py, release.py, smoke.py, notices.py, Dockerfile, README.md, .gdignore,
-          lantern_server/ (websocket, protocol, app, match, catchup, party, codes, lobby, queue, identity, holds,
+          groundhold_server/ (websocket, protocol, app, match, catchup, party, codes, lobby, queue, identity, holds,
           beacon, retention, stats, backup, admin, cli, hosting), tests/
 deploy/   coolify/compose.yaml, coolify/server.ini, selfhost/compose.yaml, selfhost/.env.example, .gdignore
 tests/    bot.gd, sim/, net/ (fake_sequencer.gd, fake_link.gd, loopback_match.tscn), scenarios/, balance/

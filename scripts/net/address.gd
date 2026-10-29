@@ -1,8 +1,8 @@
 ## What a player types into the Join field (or --join=) becomes a server URL (design
 ## 6.10, adapted from Cyberworld's network_address.c): a private or loopback address, a
 ## single-label name or a .local/.lan/.home/... name means a server on this network, so
-## it becomes ws://host:8766/hollow; anything else is an online server behind TLS,
-## wss://host/hollow. A typed port or path is kept; a whole ws:// or wss:// URL is taken
+## it becomes ws://host:8766/causeway; anything else is an online server behind TLS,
+## wss://host/causeway. A typed port or path is kept; a whole ws:// or wss:// URL is taken
 ## as it is, with the path added when it has none.
 class_name NetAddress
 extends RefCounted

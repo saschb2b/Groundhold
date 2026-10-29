@@ -1,4 +1,4 @@
-"""Gourdling: a walking pumpkin goblin, the first creep of Lantern Hollow.
+"""Gourdling: a walking pumpkin goblin, the first creep of Wickhollow.
 
     godot-agent asset blender . art_src/blender/gourdling.py --to res://models/creeps/gourdling.glb \
         --seed 1 --review --no-import

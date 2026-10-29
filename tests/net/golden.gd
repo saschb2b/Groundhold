@@ -3,7 +3,7 @@
 ## the .json beside it lists (recorded from the Python server), and encoded back to the
 ## same bytes. Used by the protocol_golden_* scenarios:
 ##   {"eval": "resource('res://tests/net/golden.gd').check(['m1_handshake'])", "as": "report"}
-## The .bin format: "LHTX", u8 format, u16 protocol version, u8 clients, u32 records; each
+## The .bin format: "GHTX", u8 format, u16 protocol version, u8 clients, u32 records; each
 ## record u8 direction, u8 client, u16 length, then the message without its frame.
 extends RefCounted
 
@@ -27,7 +27,7 @@ static func check(transcripts: Array) -> Dictionary:
 		reader.big_endian = true
 		reader.data_array = bytes
 		var magic: PackedByteArray = reader.get_data(4)[1]
-		if magic.get_string_from_ascii() != "LHTX" or reader.get_u8() != 1:
+		if magic.get_string_from_ascii() != "GHTX" or reader.get_u8() != 1:
 			report["mismatches"].append("%s: not a format-1 transcript" % name)
 			continue
 		report["version"] = reader.get_u16()

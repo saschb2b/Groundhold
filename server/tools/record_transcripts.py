@@ -12,9 +12,9 @@ values back into the same bytes.
                  turns with every command type, TURN_REQUEST, HASH, LINKS, AWAY, BACK,
                  LEFT, TIMEOUT, RESULT, MATCH_END, BYE
   m1_codec       every message of protocol.json once (each PARTY op, each command type),
-                 encoded by server/lantern_server/protocol.py with canonical values
+                 encoded by server/groundhold_server/protocol.py with canonical values
 
-The .bin format (all big-endian): "LHTX", u8 format (1), u16 protocol version,
+The .bin format (all big-endian): "GHTX", u8 format (1), u16 protocol version,
 u8 clients, u32 records; then each record: u8 direction (0 game to server,
 1 server to game), u8 client, u16 length, the message (no WebSocket framing).
 The .json lists the same records decoded: {"dir", "client", "type", "fields"},
@@ -36,13 +36,13 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "server" / "tests"))
 
 from support import Client, ManualClock, server, start_match, until   # noqa: E402
-from lantern_server import protocol                                    # noqa: E402
-from lantern_server.protocol import SPEC                               # noqa: E402
+from groundhold_server import protocol                                    # noqa: E402
+from groundhold_server.protocol import SPEC                               # noqa: E402
 
 TRANSCRIPTS = ROOT / "shared" / "net" / "transcripts"
-MAGIC = b"LHTX"
+MAGIC = b"GHTX"
 FORMAT = 1
-RULES = bytes.fromhex("4c616e7465726e31")
+RULES = bytes.fromhex("47726f756e646831")  # "Groundh1"
 TICK0 = bytes.fromhex("9e3779b97f4a7c15")
 HASH_60 = bytes.fromhex("0123456789abcdef")
 FINAL = bytes.fromhex("fedcba9876543210")
@@ -53,7 +53,7 @@ COMMAND = protocol.COMMAND
 
 def options():
     """The server every transcript is recorded against: fixed name, key and seed."""
-    return dict(name="Lantern Hollow", motd="Hold the road together", identity_key=bytes(range(32)), seed=20261029)
+    return dict(name="Groundhold", motd="Hold the road together", identity_key=bytes(range(32)), seed=20261029)
 
 
 async def handshake(record):
@@ -67,8 +67,8 @@ async def handshake(record):
         await tamsin.until("PONG")
         await tamsin.send_message("VISIBILITY", hidden=1)
         await tamsin.bye()
-        refusals = ((dict(name="Old", version=0, subprotocol="lantern-hollow.v0"), 1),
-                    (dict(name="New", version=2, subprotocol="lantern-hollow.v2"), 2),
+        refusals = ((dict(name="Old", version=0, subprotocol="groundhold.v0"), 1),
+                    (dict(name="New", version=2, subprotocol="groundhold.v2"), 2),
                     (dict(name="bad<name>"), 3),
                     (dict(name="Zero", token=bytes(16)), 4))
         for hello, index in refusals:
@@ -132,9 +132,9 @@ async def dev_match(record):
         # Turn 2: every other command type (the simulation refuses what its mode lacks).
         await tamsin.send_message("CMD", seq=3, type=COMMAND["FORK"], a=1, b=0, c=0)
         await tamsin.send_message("CMD", seq=4, type=COMMAND["SELL"], a=2, b=0, c=0)
-        await edda.send_message("CMD", seq=3, type=COMMAND["ROUSE"], a=1, b=0x12345678, c=-1)
-        await edda.send_message("CMD", seq=4, type=COMMAND["LOOSE"], a=0, b=-2147483648, c=2147483647)
-        await edda.send_message("CMD", seq=5, type=COMMAND["FLARE"], a=0, b=0, c=0)
+        await edda.send_message("CMD", seq=3, type=COMMAND["CORK"], a=1, b=0x12345678, c=-1)
+        await edda.send_message("CMD", seq=4, type=COMMAND["UNCORK"], a=0, b=-2147483648, c=2147483647)
+        await edda.send_message("CMD", seq=5, type=COMMAND["SEAWALL"], a=0, b=0, c=0)
         await arrived(5)
         await turns(1)
         await tamsin.send_message("PING", client_ms=1234, rtt_ms=12)
@@ -186,14 +186,14 @@ def codec_records():
              dict(op="team", member=3, team=1), dict(op="open", on=1), dict(op="start"), dict(op="cancel")]
     member = dict(member=0, team=0, main=0, backup=1, state=1, rtt_ms=38, build_seq=7, rules_hash=rules, name="Tamsin")
     seats = [dict(seat=i, team=i // 2, builder=i, flags=1 if i == 3 else 0, name=name)
-             for i, name in enumerate(("Tamsin", "Edda", "Ottilie", "Hessel"))]
+             for i, name in enumerate(("Tamsin", "Edda", "Ottilie", "Sefa"))]
     system = [dict(seat=SPEC["system_seat"], seq=i + 1, type=spec["type"], a=1 if name != "TIMEOUT" else 0, b=0, c=0)
               for i, (name, spec) in enumerate(SPEC["system_commands"].items())]
     stamped = [dict(seat=1, seq=c["seq"], type=c["type"], a=c["a"], b=c["b"], c=c["c"]) for c in commands]
     records = [
         ("HELLO", dict(version=1, build_seq=0xffffffff, rules_hash=rules, token=token, flags=3, name="Tamsin Wick")),
         ("WELCOME", dict(session=1, identity=identity, turn_ms=50, turn_ticks=3, hash_every=60, flags=2,
-                         server_name="Lantern Hollow", motd="Hüte die Straße bis zum Herd")),
+                         server_name="Groundhold", motd="Hüte den Grund bis zur Ebbe")),
         ("ERROR", dict(code=2, text="A newer version is out: reload")),
         ("PING", dict(client_ms=0xffffffff, rtt_ms=0xffff)),
         ("PONG", dict(client_ms=123456, turn=72000)),
@@ -289,7 +289,7 @@ async def record_all(directory):
     write(directory, "m1_dev_match", records, clients,
           "A whole --dev-match classic:2 on a hand-moved clock (seed 20261029, match_cap_ms 6500).")
     write(directory, "m1_codec", codec_records(), 1,
-          "Every message once with canonical values, as server/lantern_server/protocol.py encodes it.")
+          "Every message once with canonical values, as server/groundhold_server/protocol.py encodes it.")
     return sorted(path.name for path in directory.iterdir())
 
 

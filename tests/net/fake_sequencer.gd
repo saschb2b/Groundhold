@@ -1,5 +1,5 @@
 ## The server's match side in GDScript (test level 1, design 7.1): a port of
-## server/lantern_server/match.py and the dev match of app.py that counts frames instead
+## server/groundhold_server/match.py and the dev match of app.py that counts frames instead
 ## of milliseconds, so N MatchClients in one SceneTree play a whole match through it
 ## deterministically. It speaks the real bytes (NetProtocol) over FakeLinks.
 ##

@@ -15,9 +15,9 @@ import unittest
 import urllib.request
 
 from support import RULES, ROOT, TICK0, Client, ManualClock, server, start_match, until
-from lantern_server import protocol
-from lantern_server.app import dev_match_spec
-from lantern_server.protocol import SPEC
+from groundhold_server import protocol
+from groundhold_server.app import dev_match_spec
+from groundhold_server.protocol import SPEC
 
 sys.path.insert(0, str(ROOT / "server" / "tools"))
 import record_transcripts   # noqa: E402
@@ -30,8 +30,9 @@ KIT_READY = r"listening.*port\D*(?P<port>\d+)"
 class DevMatchSpecTests(unittest.TestCase):
     def test_mode_and_seats(self):
         self.assertEqual(dev_match_spec("classic:2"), ("classic", 2))
-        self.assertEqual(dev_match_spec("race:4"), ("race", 4))
-        for text in ("classic", "classic:", "nope:2", "classic:5", "classic:0", "race:1", "duel:3", ":2", "classic:x"):
+        self.assertEqual(dev_match_spec("tide_race:4"), ("tide_race", 4))
+        for text in ("classic", "classic:", "nope:2", "classic:5", "classic:0", "tide_race:1", "undertow:3", ":2", "classic:x",
+                     "race:2", "duel:2"):
             with self.assertRaises(ValueError):
                 dev_match_spec(text)
 
@@ -84,11 +85,11 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
                                           rules_hash=RULES, your_seat=seat, seats=seats))
         three = await self.join("Ottilie", 3)
         self.assertTrue(await three.quiet())
-        four = await self.join("Hessel", 4)
+        four = await self.join("Sefa", 4)
         for seat, client in enumerate((three, four)):
             config = await client.until("MATCH_CONFIG")
             self.assertEqual((config["match"], config["your_seat"], [s["name"] for s in config["seats"]]),
-                             (2, seat, ["Ottilie", "Hessel"]))
+                             (2, seat, ["Ottilie", "Sefa"]))
         self.assertEqual(sorted(self.server.matches), [1, 2])
         self.assertEqual(self.server.health()["matches"], 2)
 
@@ -108,11 +109,11 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await other.quiet())
         self.assertEqual(list(self.server.waiting), [bytes(8)])
 
-    async def test_a_race_puts_half_the_seats_on_each_team(self):
-        await self.start("race:4")
+    async def test_a_tide_race_puts_half_the_seats_on_each_team(self):
+        await self.start("tide_race:4")
         clients = [await self.join(name, i + 1) for i, name in enumerate(("A", "B", "C", "D"))]
         config = await clients[0].until("MATCH_CONFIG")
-        self.assertEqual(config["mode"], SPEC["modes"]["race"]["id"])
+        self.assertEqual(config["mode"], SPEC["modes"]["tide_race"]["id"])
         self.assertEqual([s["team"] for s in config["seats"]], [0, 0, 1, 1])
 
     async def test_the_barrier_waits_for_every_seat_and_the_minimum(self):
@@ -511,7 +512,7 @@ class ProgramTests(unittest.TestCase):
                                        env=dict(os.environ, PYTHONUNBUFFERED="1"))
             try:
                 line = process.stdout.readline()
-                self.assertRegex(line, r"^listening port=\d+ host=127\.0\.0\.1 path=/hollow$")
+                self.assertRegex(line, r"^listening port=\d+ host=127\.0\.0\.1 path=/causeway$")
                 port = int(line.split()[1].split("=")[1])
                 self.assertNotEqual(port, 0)
                 # (godot-agent's topology waits for this pattern on the server's output)
@@ -524,7 +525,7 @@ class ProgramTests(unittest.TestCase):
                 self.assertEqual((health["status"], health["dev_match"], health["protocol"]), ("ok", "classic:2", 1))
                 self.assertEqual(asyncio.run(self.two_players(port)), [0, 1])
                 banner = "".join(process.stdout.readline() for _ in range(3))
-                self.assertIn('The Lantern Hollow server "Lantern Hollow" is open on port', banner)
+                self.assertIn('The Groundhold server "Groundhold" is open on port', banner)
             finally:
                 process.terminate()
                 process.wait(timeout=10)

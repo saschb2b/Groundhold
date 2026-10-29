@@ -1,4 +1,4 @@
-"""Ground props for Lantern Hollow: stones, a stump, toadstools, pumpkins, flowers, lily pads.
+"""Ground props for Wickhollow: stones, a stump, toadstools, pumpkins, flowers, lily pads.
 
     godot-agent asset blender . art_src/blender/ground_props.py --to res://models/vegetation/rock_1.glb \
         --seed 1 --param kind=rock --review --no-import

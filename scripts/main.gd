@@ -29,6 +29,8 @@
 extends Node3D
 
 const MAP_FILE := "res://data/hollow.txt"
+## The map's name, which the match opens with.
+const MAP_NAME := "Wickhollow"
 const MODE := "classic"
 ## The kit's fast-forward hook: simulation ticks to run per frame.
 const TICKS_PER_FRAME_META := &"godot_agent_ticks_per_frame"
@@ -88,7 +90,7 @@ func _ready() -> void:
 	hud.setup(self)
 	_frame_camera()
 	_set_the_scene()
-	Game.announce("Lantern Hollow")
+	Game.announce(MAP_NAME)
 
 
 func _exit_tree() -> void:
@@ -248,7 +250,7 @@ func play_through(joining: MatchClient) -> void:
 	Game.detach()
 	client = joining
 	client.configured.connect(_on_net_configured)
-	client.started.connect(func() -> void: Game.announce("The rift stirs"))
+	client.started.connect(func() -> void: Game.announce("The tide turns at " + MAP_NAME))
 	client.ended.connect(_on_net_ended)
 	client.failed.connect(_on_net_failed)
 
@@ -256,7 +258,7 @@ func play_through(joining: MatchClient) -> void:
 func _on_net_configured() -> void:
 	begin(client.mode, client.seat_list, client.match_seed, client.source, client.seat, client.sim)
 	_finished = false
-	DisplayServer.window_set_title("Lantern Hollow · %s · seat %d" % [client.player_name, client.seat])
+	DisplayServer.window_set_title("Groundhold · %s · seat %d" % [client.player_name, client.seat])
 	print("MATCH %d seat %d of %d seed %d" % [client.match_id, client.seat, client.seat_list.size(), client.match_seed])
 
 
@@ -266,7 +268,7 @@ func _on_net_ended(outcome: String, reason: String) -> void:
 	# (no order goes out any more: the placement grid, the ghost and the lit slot go too)
 	controller.set_mode("")
 	if outcome == "desynced":
-		Game.announce("The hollows fell out of step")
+		Game.announce("The lands fell out of step")
 	elif outcome == "aborted":
 		Game.announce("The match was called off")
 	if options.has("quit-after-match"):
@@ -459,7 +461,7 @@ func tower_at(cell: Vector2i) -> Tower:
 	return tower_views.get(rec.id) if rec else null
 
 
-## A creep of `kind` at the rift gate now (a scenario setter, logged for replays).
+## A creep of `kind` at the Welling now (a scenario setter, logged for replays).
 func spawn(kind: String) -> void:
 	Game.debug(SimTypes.DBG_SPAWN, 0, SimContent.CREEP_IDS.find(kind))
 
@@ -522,32 +524,34 @@ static func _parse_flags(args: PackedStringArray) -> Dictionary:
 # ── The world ──
 
 
+## The road's two ends: the Welling, where the Tide wells up and the creeps start, and the
+## Holdfast they walk to. Wickhollow's are the sunken field gate and the mill-house hearth.
 func _place_landmarks() -> void:
-	var gate := Models.instance("res://models/props/rift_gate.glb")
-	gate.name = "RiftGate"
-	gate.position = map.center(map.spawn)
-	gate.add_to_group("landmarks")
-	add_child(gate)
-	BlobShadow.under(gate, 0.75)
+	var welling := Models.instance("res://models/props/rift_gate.glb")
+	welling.name = "Welling"
+	welling.position = map.center(map.spawn)
+	welling.add_to_group("landmarks")
+	add_child(welling)
+	BlobShadow.under(welling, 0.75)
 	var glow := OmniLight3D.new()
 	glow.light_color = Color(0.7, 0.45, 1.0)
 	glow.light_energy = 1.6
 	glow.omni_range = 2.5
 	glow.position = Vector3(0, 0.6, 0)
-	gate.add_child(glow)
+	welling.add_child(glow)
 
-	var hearth := Models.instance("res://models/props/hearth.glb")
-	hearth.name = "Hearth"
-	hearth.position = map.center(map.hearth)
-	hearth.add_to_group("landmarks")
-	add_child(hearth)
-	BlobShadow.under(hearth, 0.8)
+	var holdfast := Models.instance("res://models/props/hearth.glb")
+	holdfast.name = "Holdfast"
+	holdfast.position = map.center(map.holdfast)
+	holdfast.add_to_group("landmarks")
+	add_child(holdfast)
+	BlobShadow.under(holdfast, 0.8)
 	var fire := OmniLight3D.new()
 	fire.light_color = Color(1.0, 0.7, 0.35)
 	fire.light_energy = 2.2
 	fire.omni_range = 3.5
 	fire.position = Vector3(0, 1.1, 0)
-	hearth.add_child(fire)
+	holdfast.add_child(fire)
 
 
 ## Late-afternoon light and a painterly frame: a low sun from the upper left lights

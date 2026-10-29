@@ -1,4 +1,4 @@
-"""Lantern Hollow's wire messages: big-endian records with a one-byte type.
+"""Groundhold's wire messages: big-endian records with a one-byte type.
 
 The layouts live in shared/net/protocol.json, the one contract the game's
 GDScript codec reads too (docs/design/core-loop.md §6.5); this module builds
@@ -8,7 +8,7 @@ bounds every field, and a bad message raises ProtocolError(reason, code).
 Adapted from Cyberworld Endless's server/cyberworld_server/protocol.py
 (MIT, Sascha Becker): the spec loaded from JSON as package data,
 `ProtocolError`, `hello_version()` read before anything else, the name rule
-and the maintenance line are its; the message set is Lantern Hollow's.
+and the maintenance line are its; the message set is Groundhold's.
 """
 
 import json

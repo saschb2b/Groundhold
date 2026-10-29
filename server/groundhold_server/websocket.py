@@ -1,9 +1,9 @@
-"""The RFC 6455 subset Lantern Hollow speaks: binary, unfragmented, masked,
+"""The RFC 6455 subset Groundhold speaks: binary, unfragmented, masked,
 at most protocol.json's max_message from a game.
 
 Reused from Cyberworld Endless's server/cyberworld_server/websocket.py (MIT,
 Sascha Becker) with the renames of docs/design/core-loop.md §6.10: the path
-/hollow, the subprotocol lantern-hollow.vN, max_message 1,100.
+/causeway, the subprotocol groundhold.vN, max_message 1,100.
 """
 
 import asyncio

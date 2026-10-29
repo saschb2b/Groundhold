@@ -2,7 +2,7 @@
 or a TLS endpoint behind its INI (server/README.md, Host your own).
 
 Reused from Cyberworld Endless's server/cyberworld_server/cli.py (MIT,
-Sascha Becker): the INI beside the program, LANTERN_SERVER_* environment
+Sascha Becker): the INI beside the program, GROUNDHOLD_SERVER_* environment
 overrides, the free_text refusal, TLS, the banner looked up off the loop and
 the signal handling. New: --dev-match and the `listening port=N` line.
 """
@@ -38,7 +38,7 @@ def config_path(args):
 
 def configured(args, environ=os.environ):
     """The [server] section, from the INI with the environment's
-    LANTERN_SERVER_* over it."""
+    GROUNDHOLD_SERVER_* over it."""
     config = configparser.ConfigParser()
     path = config_path(args)
     if path and not config.read(path):
@@ -73,7 +73,7 @@ async def run(args):
         tls.load_cert_chain(cert, key)
     with contextlib.ExitStack() as stack:
         events = stack.enter_context(open(args.event_log, "a", encoding="utf-8")) if args.event_log else None
-        server = Server(name=settings.get("name", "Lantern Hollow"), motd=settings.get("motd", "Hold the road together"),
+        server = Server(name=settings.get("name", "Groundhold"), motd=settings.get("motd", "Hold the road together"),
                         origins=tuple(settings.get("origins", ORIGINS).split()), event_log=events,
                         player_cap=settings.getint("player_cap", 64), maintenance=settings.get("maintenance", ""),
                         dev_match=dev, seed=seed, turn_ms=turn_ms)
@@ -117,7 +117,7 @@ async def announce(server, host, port, secure, config):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Lantern Hollow server: sequences the turns of multiplayer matches; "
+    parser = argparse.ArgumentParser(description="Groundhold server: sequences the turns of multiplayer matches; "
                                                  "it never runs one")
     parser.add_argument("--config", help="The INI to read (default: server.ini in this folder or beside the server, if there is one)")
     parser.add_argument("--host", help="Where to listen (default: every interface; 127.0.0.1 this computer alone)")

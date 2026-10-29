@@ -16,8 +16,8 @@ import time
 import unittest
 
 from support import RULES, Client, ManualClock, masked, server, start_match, until, upgrade_request
-from lantern_server import protocol
-from lantern_server.protocol import SPEC
+from groundhold_server import protocol
+from groundhold_server.protocol import SPEC
 
 ERRORS = SPEC["errors"]
 
@@ -63,7 +63,7 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(name, "WELCOME")
         self.assertEqual((welcome["session"], welcome["turn_ms"], welcome["turn_ticks"], welcome["hash_every"]),
                          (1, 50, 3, 60))
-        self.assertEqual((welcome["server_name"], welcome["motd"], welcome["flags"]), ("Test Hollow", "Hold the road", 0))
+        self.assertEqual((welcome["server_name"], welcome["motd"], welcome["flags"]), ("Test Shore", "Hold the road", 0))
         _, (_, again) = await self.connect(token=bytes(range(1, 17)))
         _, (_, other) = await self.connect(token=b"\x09" * 16)
         # (one token, one public identity on this server; another token, another)
@@ -75,8 +75,8 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         await self.start()
         # (another version's subprotocol is let in to hear which side is behind)
         for version, code in ((0, ERRORS["game_older"]), (2, ERRORS["server_older"]), (900, ERRORS["server_older"])):
-            client, (name, error) = await self.connect(version=version, subprotocol=f"lantern-hollow.v{version}")
-            self.assertEqual(client.protocol, f"lantern-hollow.v{version}")
+            client, (name, error) = await self.connect(version=version, subprotocol=f"groundhold.v{version}")
+            self.assertEqual(client.protocol, f"groundhold.v{version}")
             self.assertEqual((name, error["code"]), ("ERROR", code))
             self.assertEqual(await client.next(), ("CLOSE", None))
         self.assertFalse(self.server.players)
@@ -160,7 +160,7 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         for request in (upgrade_request(path="/presence"), upgrade_request(subprotocol=False),
                         upgrade_request(subprotocol="cyberworld.presence.v15"),
                         upgrade_request(origin="https://untrusted.invalid"),
-                        b"GET /hollow HTTP/1.1\r\nHost: x\r\n\r\n"):
+                        b"GET /causeway HTTP/1.1\r\nHost: x\r\n\r\n"):
             self.assertTrue((await self.raw_request(request)).startswith(b"HTTP/1.1 400"), request)
         # (a browser's page on the allowlist, and a native game with no Origin)
         for request in (upgrade_request(origin="https://saschb2b.github.io"), upgrade_request()):
@@ -171,13 +171,13 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         # (design 6.2: recorded from Godot 4.7.1's native WebSocketPeer, headers
         # in its order; it sends no Origin, so the allowlist never refuses it)
         await self.start()
-        native = ("GET /hollow HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nUpgrade: websocket\r\n"
+        native = ("GET /causeway HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nUpgrade: websocket\r\n"
                   "Connection: Upgrade\r\nSec-WebSocket-Key: MDEyMzQ1Njc4OWFiY2RlZg==\r\n"
-                  "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: lantern-hollow.v1\r\n\r\n")
+                  "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: groundhold.v1\r\n\r\n")
         self.assertTrue(self.server.origins)
         answer = await self.raw_request(native.format(port=self.port).encode(), whole=False)
         self.assertTrue(answer.startswith(b"HTTP/1.1 101"), answer)
-        self.assertIn(b"Sec-WebSocket-Protocol: lantern-hollow.v1", answer)
+        self.assertIn(b"Sec-WebSocket-Protocol: groundhold.v1", answer)
 
     async def test_health_answers_on_the_same_port(self):
         await self.start(dev_match="classic:2")
@@ -185,7 +185,7 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         response = await self.raw_request(b"GET /health HTTP/1.1\r\nHost: x\r\n\r\n")
         self.assertTrue(response.startswith(b"HTTP/1.1 200"))
         health = json.loads(response.split(b"\r\n\r\n", 1)[1])
-        self.assertEqual(health, {"status": "ok", "protocol": 1, "name": "Test Hollow", "motd": "Hold the road",
+        self.assertEqual(health, {"status": "ok", "protocol": 1, "name": "Test Shore", "motd": "Hold the road",
                                   "players": 1, "player_cap": 64, "matches": 0, "maintenance": None,
                                   "dev_match": "classic:2", "turn_ms": 50})
 
@@ -430,10 +430,17 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(SPEC["checkpoint_part"], 1024)
         self.assertEqual((SPEC["turn_ticks"] * 1000) // SPEC["tick_hz"], SPEC["turn_ms"])
         self.assertEqual(SPEC["hash_every"] % SPEC["turn_ticks"], 0)
-        self.assertEqual(SPEC["subprotocol"], f"lantern-hollow.v{SPEC['version']}")
+        self.assertEqual(SPEC["subprotocol"], f"groundhold.v{SPEC['version']}")
+        self.assertEqual(SPEC["path"], "/causeway")
         types = [spec["type"] for spec in list(SPEC["commands"].values()) + list(SPEC["system_commands"].values())]
         self.assertEqual(len(types), len(set(types)))
         self.assertTrue(all(0 < kind < 256 for kind in types))
+
+    def test_the_environment_sets_groundhold_server_keys(self):
+        from groundhold_server import hosting
+        environ = {"GROUNDHOLD_SERVER_PORT": "9000", "GROUNDHOLD_SERVER_NAME": "Flats 100%",
+                   "GROUNDHOLD_SERVER_": "no key", "OTHER_SERVER_PORT": "1"}
+        self.assertEqual(hosting.environment_settings(environ), {"port": "9000", "name": "Flats 100%%"})
 
     def test_codec_round_trips_and_refuses_bad_lengths(self):
         data = protocol.encode("PARTY", op="team", member=3, team=1)
@@ -455,10 +462,10 @@ class ContractTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 protocol.encode("ERROR", code=1, text=text)
         self.assertEqual(protocol.decode(protocol.encode("ERROR", code=1, text="a\ufeffb"))[1]["text"], "a\ufeffb")
-        hollow = server(name="\ufeffLantern\x00 Hollow\n", motd="Hold\tthe road")
-        self.assertEqual((hollow.name, hollow.motd), ("Lantern Hollow", "Holdthe road"))
+        named = server(name="\ufeffGround\x00hold\n", motd="Hold\tthe road")
+        self.assertEqual((named.name, named.motd), ("Groundhold", "Holdthe road"))
         protocol.encode("WELCOME", session=1, identity=bytes(16), turn_ms=50, turn_ticks=3, hash_every=60, flags=0,
-                        server_name=hollow.name, motd=hollow.motd)
+                        server_name=named.name, motd=named.motd)
 
     def test_the_readme_tables_are_current(self):
         import protocol_tables

@@ -47,7 +47,7 @@ FINISHED = ("won", "lost", "draw")
 class Smoke:
     def __init__(self, args):
         self.args = args
-        self.out = Path(args.out) if args.out else Path(tempfile.mkdtemp(prefix="lantern-smoke-"))
+        self.out = Path(args.out) if args.out else Path(tempfile.mkdtemp(prefix="groundhold-smoke-"))
         self.out.mkdir(parents=True, exist_ok=True)
         self.processes = []
 

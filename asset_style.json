@@ -191,7 +191,7 @@
       }
     },
     {
-      "match": "models/creeps/hollow_king.glb",
+      "match": "models/creeps/hollowtide_crest.glb",
       "model": {
         "max_tris": 7000,
         "max_size": [

@@ -1,5 +1,5 @@
 ## A hollow's ground as the simulation sees it: which cells take a tower, and the road
-## from the rift gate to the hearth as integer corner points (millimetres, at tile
+## from the Welling to the Holdfast as integer corner points (millimetres, at tile
 ## centres) with cumulative lengths in micrometres. Parsed from the same map text as the
 ## view's HollowMap, without leaving ints.
 ##
@@ -20,9 +20,9 @@ var depth := 0
 var tiles := PackedByteArray()
 var spawn_x := -1
 var spawn_z := -1
-var hearth_x := -1
-var hearth_z := -1
-## Cells from the gate to the hearth in walking order, as x and z.
+var holdfast_x := -1
+var holdfast_z := -1
+## Cells from the Welling to the Holdfast in walking order, as x and z.
 var path_x := PackedInt32Array()
 var path_z := PackedInt32Array()
 ## Corners of the road (millimetres) and the road distance at each (micrometres).
@@ -184,14 +184,14 @@ func _parse(text: String) -> void:
 					spawn_z = z
 				"E":
 					kind = TILE_ROAD
-					hearth_x = x
-					hearth_z = z
+					holdfast_x = x
+					holdfast_z = z
 			tiles[z * width + x] = kind
 	_trace()
 	_corners()
 
 
-## Walks the road from the gate, always to the one unvisited road neighbour, trying
+## Walks the road from the Welling, always to the one unvisited road neighbour, trying
 ## right, down, left and up in that order (the view's HollowMap walks the same way).
 func _trace() -> void:
 	if spawn_x < 0:
@@ -205,7 +205,7 @@ func _trace() -> void:
 	path_z.append(z)
 	var dx := [1, 0, -1, 0]
 	var dz := [0, 1, 0, -1]
-	while not (x == hearth_x and z == hearth_z):
+	while not (x == holdfast_x and z == holdfast_z):
 		var moved := false
 		for k in 4:
 			var nx: int = x + dx[k]
@@ -216,7 +216,7 @@ func _trace() -> void:
 				moved = true
 				break
 		if not moved:
-			push_error("road from the gate ends at %d,%d before the hearth" % [x, z])
+			push_error("road from the Welling ends at %d,%d before the Holdfast" % [x, z])
 			return
 		seen[z * width + x] = 1
 		path_x.append(x)

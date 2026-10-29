@@ -11,7 +11,7 @@
     {"repeat": 40, "steps": [{"eval": "scene.run_turns(200)"}], "until": "scene.phase() == 'ENDED'"},
     {"assert": "scene.seq.outcome == 'lost' and scene.seq.end_reason == 'result'", "msg": "the sequencer ended the match on the agreed result"},
     {"assert": "scene.client(1).outcome == 'lost' and scene.client(2).outcome == 'lost' and scene.client(2).end_reason == 'result'", "msg": "both clients were told"},
-    {"assert": "scene.client(1).sim.teams[0].lives == 0 and scene.client(1).sim.over", "msg": "the hearth fell"},
+    {"assert": "scene.client(1).sim.teams[0].lives == 0 and scene.client(1).sim.over", "msg": "the Holdfast fell"},
     {"assert": "scene.tick(1) == scene.tick(2) and scene.tick(1) == scene.client(1).final_tick and scene.seq.final_tick == scene.tick(1)", "msg": "both stopped on the final tick the server announced"},
     {"assert": "scene.hash_hex(1) == scene.hash_hex(2)", "msg": "in the same state"},
     {"assert": "scene.client(1).result_sent and scene.client(2).result_sent and scene.hashes_agree()", "msg": "each sent its RESULT, and every hash agreed"}

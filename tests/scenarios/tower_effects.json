@@ -53,7 +53,7 @@
     },
     {
       "assert": "clump.size() == 3",
-      "msg": "three thornbacks stand at the gate"
+      "msg": "three thornbacks stand at the Welling"
     },
     {
       "set": "clump[0].distance",

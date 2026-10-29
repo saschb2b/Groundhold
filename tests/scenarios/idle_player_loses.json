@@ -31,7 +31,7 @@
     },
     {
       "assert": "Game.wave < 8",
-      "msg": "the hearth falls before the last wave"
+      "msg": "the Holdfast falls before the last wave"
     }
   ]
 }

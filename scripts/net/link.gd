@@ -1,6 +1,6 @@
 ## The client's socket (design 6.2): Godot's WebSocketPeer, one message per binary frame.
 ##
-## The subprotocol is lantern-hollow.v1; text frames are refused both ways. The inbound
+## The subprotocol is groundhold.v1; text frames are refused both ways. The inbound
 ## buffer is raised to 1 MiB so a hidden browser tab can hold far more turns than it will
 ## ever be sent while its loop sleeps. There are no custom handshake headers and no
 ## heartbeat (neither works in web exports): liveness is the game's own PING.

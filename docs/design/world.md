@@ -2,8 +2,7 @@
 
 The game is **Groundhold**. Chosen on 2026-10-29 from four finalists (Groundhold, Crosshold, Frayward, Stonesworn);
 the other three packages and the naming research are not kept in the repository. This file is the umbrella every Builder, map and
-mode hangs from. [`core-loop.md`](core-loop.md) still uses the old names until the rename pass; where they differ, this
-file wins.
+mode hangs from. [`core-loop.md`](core-loop.md) uses these names; where the two differ, this file wins.
 
 **Pitch.** Every land was raised out of the Tide, and the Tide wants it back; Builders from every shore hold one
 another's ground.
@@ -137,8 +136,9 @@ These follow from the brief:
 1. **Lanterns, gourds and night stay in the autumn map and on Tamsin Wick.** They leave the logo, the hub, the
    menus and every system that runs on every map: the sealed-lantern send, the "lantern colours" cosmetics (now
    pennant colours), and the Warden role icon, a "lantern on a pole", which becomes a wall-stone or an open gate.
-2. **The hub's backdrop changes.** Today "the hollow at dusk" stays behind every screen (`core-loop.md` §5.1).
-   Each package names its own hub place, and later the backdrop can show the selected Builder's home.
+2. **The hub's backdrop changes.** Before the rename, "the hollow at dusk" stayed behind every screen
+   (`core-loop.md` §5.1). Each package names its own hub place, and later the backdrop can show the selected
+   Builder's home.
 3. **Check icons stop being creep faces.** "The Gourdling's icon is the Swarm icon" only works on one map. Each
    package gives four glyphs (tide forms, plant forms, knots, mason's marks), with the local creep's portrait beside
    them.
@@ -164,8 +164,9 @@ These follow from the brief:
   search in classes 9, 28 and 41, and a check of the .com, .net and .de domains, which nobody has done yet.
 - **Search the co-op mode name.** The in-world words in this note (modes, hub, places, creatures) are not brands
   and were not vetted, but the co-op mode name will appear on store pages and deserves a quick store search.
-- **Rename in a fixed order:**
+- **Rename in a fixed order.** Done for the design docs: `core-loop.md` uses the names above. The code rename lands
+  in the same change, in this order:
   1. display names, so players see the change;
-  2. protocol and server ids, together with the M1 server work, because `lantern-hollow.v1` already appears in
-     `shared/net/protocol.json` on the multiplayer worktree;
+  2. protocol and server ids, together with the M1 server work, whose `shared/net/protocol.json` already named
+     the old protocol id;
   3. asset ids last, since they touch `asset_manifest.json`.

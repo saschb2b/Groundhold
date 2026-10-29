@@ -1,7 +1,7 @@
 """The test harness: a minimal game-side client over real sockets and the
 clocks the tests drive the turns with. Adapted from Cyberworld Endless's
 server/tests/test_server.py (MIT, Sascha Becker): a real server on port 0
-and a minimal client, now speaking Lantern Hollow's protocol.
+and a minimal client, now speaking Groundhold's protocol.
 """
 
 import asyncio
@@ -17,9 +17,9 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "server"))
 
-from lantern_server import protocol, websocket   # noqa: E402
-from lantern_server.app import Server            # noqa: E402
-from lantern_server.protocol import SPEC         # noqa: E402
+from groundhold_server import protocol, websocket   # noqa: E402
+from groundhold_server.app import Server            # noqa: E402
+from groundhold_server.protocol import SPEC         # noqa: E402
 
 MS = 1_000_000
 RULES = bytes.fromhex("1a2b3c4d5e6f7081")
@@ -203,6 +203,6 @@ async def until(condition, timeout=2.0):
 
 def server(**options):
     """A server as the tests want it: no browser origins, a fixed key, seed and names."""
-    defaults = dict(name="Test Hollow", motd="Hold the road", origins=("https://saschb2b.github.io",),
+    defaults = dict(name="Test Shore", motd="Hold the road", origins=("https://saschb2b.github.io",),
                     identity_key=b"k" * 32, seed=20261029)
     return Server(**dict(defaults, **options))

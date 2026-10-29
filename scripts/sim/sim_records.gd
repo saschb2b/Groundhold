@@ -10,9 +10,9 @@ class SimTeam:
 	var id := 0
 	var lives := 0
 	var kills := 0
-	## Hollows this team defends (one in the Vigil and in each Race team).
+	## Hollows this team defends (one in High Water and in each Tide Race team).
 	var hollows := PackedInt32Array()
-	## Race (M6): the tick the team cleared its last wave, -1 until then.
+	## Tide Race (M6): the tick the team cleared its last wave, -1 until then.
 	var clear_tick := -1
 
 
@@ -120,7 +120,7 @@ class SimCreep:
 	var mark_seat := 0
 	var crack_c := 0
 	var crack_seat := 0
-	## Duel (M7): the seat that loosed this creep, 0 for the wave's own.
+	## Undertow (M7): the seat that uncorked this creep, 0 for the wave's own.
 	var sent_by := 0
 	## False once it died or leaked; views keep the record after the match drops it.
 	var alive := true

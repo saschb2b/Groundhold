@@ -46,7 +46,7 @@ func start(cfg := {}) -> void:
 		client.timed = false
 		client.player_name = str(names[k]) if k < names.size() else "Seat %d" % (k + 1)
 		client.token = PackedByteArray([k + 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-		client.connect_with(link, "ws://loopback/hollow")
+		client.connect_with(link, "ws://loopback/causeway")
 		clients.append(client)
 		links.append(link)
 

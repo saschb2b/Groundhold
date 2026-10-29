@@ -6,9 +6,9 @@ increase, and only well-shaped commands pass."""
 import unittest
 
 from support import RULES, TICK0, Client, ManualClock, server
-from lantern_server import protocol
-from lantern_server.match import Sequencer
-from lantern_server.protocol import SPEC
+from groundhold_server import protocol
+from groundhold_server.match import Sequencer
+from groundhold_server.protocol import SPEC
 
 BUILD, FORK, SELL, READY, SIGNAL = (SPEC["commands"][name]["type"] for name in ("BUILD", "FORK", "SELL", "READY", "SIGNAL"))
 AWAY, BACK, LEFT, TIMEOUT = (SPEC["system_commands"][name]["type"] for name in ("AWAY", "BACK", "LEFT", "TIMEOUT"))

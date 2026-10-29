@@ -1,8 +1,8 @@
-# Lantern Hollow's wire protocol, version 1
+# Groundhold's wire protocol, version 1
 
 `protocol.json` is the contract between the game and the server
 (`docs/design/core-loop.md` §6.5). The server loads it as package data
-(`server/lantern_server/protocol.py` builds its codec from the layouts); the
+(`server/groundhold_server/protocol.py` builds its codec from the layouts); the
 game reads it at runtime with `FileAccess.get_file_as_string("res://shared/net/protocol.json")`,
 so a desktop or web export must include `shared/net/*.json` in its include filter.
 The byte tables below are written from it by `python3 server/tools/protocol_tables.py`;
@@ -10,12 +10,12 @@ a server test fails when they are stale.
 
 ## Transport
 
-- One WebSocket port: **8766**, path **`/hollow`**, subprotocol **`lantern-hollow.v1`**.
+- One WebSocket port: **8766**, path **`/causeway`**, subprotocol **`groundhold.v1`**.
   Desktop on a LAN uses `ws://`; online, desktop and browser use `wss://` (TLS at the proxy).
 - **One message per binary frame.** A game's frames are masked, unfragmented and at most
   **1,100 bytes** (`max_message`); a larger one, a fragment, a text frame or an unmasked frame ends
   the connection with `ERROR`. Server messages are at most 65,535 bytes.
-- The upgrade also accepts another version's `lantern-hollow.vN`, so an older or newer game can say
+- The upgrade also accepts another version's `groundhold.vN`, so an older or newer game can say
   its `HELLO` and hear which side is behind (`ERROR` 2 or 17) rather than see the upgrade refused.
 - A browser's `Origin` must be on the server's allowlist (default `https://saschb2b.github.io`);
   a native game sends none and passes. This is not player authentication.
@@ -208,9 +208,9 @@ it on disk), and one profile may connect twice, because two windows on one compu
 | 3 | `SELL` | 1 to 2147483647 | 0 | 0 |
 | 4 | `READY` | 0 to 1 | 0 | 0 |
 | 5 | `SIGNAL` | -262144 to 262144 | -262144 to 262144 | 0 to 2147483647 |
-| 6 | `ROUSE` | 0 to 15 | -2147483648 to 2147483647 | -2147483648 to 2147483647 |
-| 7 | `LOOSE` | 0 to 15 | -2147483648 to 2147483647 | -2147483648 to 2147483647 |
-| 8 | `FLARE` | 0 | 0 | 0 |
+| 6 | `CORK` | 0 to 15 | -2147483648 to 2147483647 | -2147483648 to 2147483647 |
+| 7 | `UNCORK` | 0 to 15 | -2147483648 to 2147483647 | -2147483648 to 2147483647 |
+| 8 | `SEAWALL` | 0 | 0 | 0 |
 
 #### System commands (seat 255 in `TURN`; a game never sends them)
 
@@ -242,8 +242,8 @@ it on disk), and one profile may connect twice, because two windows on one compu
 | `link_flags` | hidden 1, silent 2 |
 | `party_flags` | open 1, lan 2 |
 | `maps` | hollow 0 |
-| `builders` | lamplighter 0, owlwatch 1, bellfounder 2, beekeeper 3 |
-| `modes` | classic 0 (1 team, 1 to 4 seats), vigil 1 (1 team, 1 to 4 seats), race 2 (2 teams, 2 to 4 seats), duel 3 (2 teams, 2 to 2 seats) |
+| `builders` | lamplighter 0, lookout 1, bellfounder 2, beekeeper 3 |
+| `modes` | classic 0 (1 team, 1 to 4 seats), high_water 1 (1 team, 1 to 4 seats), tide_race 2 (2 teams, 2 to 4 seats), undertow 3 (2 teams, 2 to 2 seats) |
 
 <!-- protocol.json tables: end -->
 
@@ -260,7 +260,7 @@ produce (`protocol_golden_m1`), and encoding those values must give the same byt
 | `m1_dev_match` | a whole `--dev-match classic:2`: `MATCH_CONFIG`, every `LOAD_STATE` of the barrier, `START`, turns with every command type and both rotations, `PONG`, `TURN_REQUEST`, `HASH`, `LINKS`, `AWAY`, `BACK`, `LEFT`, `TIMEOUT`, `RESULT`, `MATCH_END`, `BYE` |
 | `m1_codec` | every message of `protocol.json` once with canonical values: each `PARTY` op, each command type, every system command in one `TURN`, a 1,024-byte `CHECKPOINT_PART`, UTF-8 beyond ASCII in a `motd` |
 
-The `.bin` layout, big-endian: `"LHTX"`, u8 format (1), u16 protocol version, u8 clients, u32
+The `.bin` layout, big-endian: `"GHTX"`, u8 format (1), u16 protocol version, u8 clients, u32
 records; then per record u8 direction (0 game to server, 1 server to game), u8 client, u16 length and
 the message itself (no WebSocket framing). In the `.json`, fixed bytes and blobs are lowercase hex,
 lists are arrays of objects and `PARTY`'s `op` is its name.

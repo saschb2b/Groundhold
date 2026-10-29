@@ -1,7 +1,19 @@
-# Working on Lantern Hollow
+# Working on Groundhold
 
-Godot 4.7.1, GDScript. The game runs from `scenes/main.tscn`; `scripts/main.gd` builds the hollow from
-`data/hollow.txt`, starts the match and shows it. The design for multiplayer is `docs/design/core-loop.md`.
+Godot 4.7.1, GDScript. The game runs from `scenes/main.tscn`; `scripts/main.gd` builds the map, Wickhollow,
+from `data/hollow.txt`, starts the match and shows it. The design for multiplayer is `docs/design/core-loop.md`;
+the world and every name are `docs/design/world.md`, which wins where the two differ.
+
+The game is Groundhold. Every map's road runs from the Welling, where the Tide wells up, to the Holdfast the
+players keep; on Wickhollow, the one map so far, they are the sunken field gate and the mill-house hearth, whose
+models keep their file names (`models/props/rift_gate.glb`, `hearth.glb`), as do `data/hollow.txt` and
+`palettes/hollow.gpl`. Lanterns, gourds, autumn and night are Wickhollow's and Tamsin Wick's own flavour: keep
+them out of the game's name, the site, the server, the protocol, mode names and anything that runs on every map.
+On the wire the server (`server/groundhold_server`, set from `GROUNDHOLD_SERVER_*`) speaks `groundhold.v1` at
+`/causeway`; the modes are `classic`, `high_water`, `tide_race` and `undertow`, the Builders `lamplighter`,
+`lookout`, `bellfounder` and `beekeeper`, and the boss is `hollowtide_crest`. `python3 tools/names_check.py`
+fails, with file and line, on a retired name anywhere in the tracked tree (CI runs it); its allowlist is short
+and says why each entry is there.
 
 The rules run in an integer simulation, `scripts/sim/` (design §6.4): `SimMatch` steps 60 ticks a second from
 (rules, seats, seed, turns), and nothing else decides what happens. Its tables, in integer units (ticks,
@@ -47,6 +59,7 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
 
 - `godot-agent check .` after editing scripts; `--resources` after editing scenes or `.tres` files;
   `--sim-lint scripts/sim` after touching the simulation.
+- `python3 tools/names_check.py` after renaming anything or writing copy: no retired name in the tracked tree.
 - `godot-agent scenario . --headless` runs every gameplay test in about fifteen seconds. Add a scenario in
   `tests/scenarios/` for each behaviour you change, and make sure it fails without your change.
 - `godot-agent scenario . --determinism` before a release: every scenario twice, state and pixels compared.

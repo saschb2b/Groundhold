@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "subprotocol": "lantern-hollow.v1",
-  "subprotocol_pattern": "lantern-hollow\\.v[0-9]{1,4}",
-  "path": "/hollow",
+  "subprotocol": "groundhold.v1",
+  "subprotocol_pattern": "groundhold\\.v[0-9]{1,4}",
+  "path": "/causeway",
   "port": 8766,
   "beacon_port": 8767,
   "max_message": 1100,
@@ -58,12 +58,12 @@
 
   "modes": {
     "classic": {"id": 0, "teams": 1, "seats": [1, 4]},
-    "vigil": {"id": 1, "teams": 1, "seats": [1, 4]},
-    "race": {"id": 2, "teams": 2, "seats": [2, 4]},
-    "duel": {"id": 3, "teams": 2, "seats": [2, 2]}
+    "high_water": {"id": 1, "teams": 1, "seats": [1, 4]},
+    "tide_race": {"id": 2, "teams": 2, "seats": [2, 4]},
+    "undertow": {"id": 3, "teams": 2, "seats": [2, 2]}
   },
   "maps": {"hollow": 0},
-  "builders": {"lamplighter": 0, "owlwatch": 1, "bellfounder": 2, "beekeeper": 3},
+  "builders": {"lamplighter": 0, "lookout": 1, "bellfounder": 2, "beekeeper": 3},
 
   "errors": {
     "protocol": 1,
@@ -115,9 +115,9 @@
     "SELL": {"type": 3, "args": [[1, 2147483647], [0, 0], [0, 0]]},
     "READY": {"type": 4, "args": [[0, 1], [0, 0], [0, 0]]},
     "SIGNAL": {"type": 5, "args": [[-262144, 262144], [-262144, 262144], [0, 2147483647]]},
-    "ROUSE": {"type": 6, "args": [[0, 15], [-2147483648, 2147483647], [-2147483648, 2147483647]]},
-    "LOOSE": {"type": 7, "args": [[0, 15], [-2147483648, 2147483647], [-2147483648, 2147483647]]},
-    "FLARE": {"type": 8, "args": [[0, 0], [0, 0], [0, 0]]}
+    "CORK": {"type": 6, "args": [[0, 15], [-2147483648, 2147483647], [-2147483648, 2147483647]]},
+    "UNCORK": {"type": 7, "args": [[0, 15], [-2147483648, 2147483647], [-2147483648, 2147483647]]},
+    "SEAWALL": {"type": 8, "args": [[0, 0], [0, 0], [0, 0]]}
   },
   "system_commands": {
     "AWAY": {"type": 64, "args": [[0, 3], [0, 0], [0, 0]]},

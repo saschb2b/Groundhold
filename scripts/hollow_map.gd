@@ -7,7 +7,7 @@ extends RefCounted
 const GRASS := "."
 const ROAD := "#"
 const SPAWN := "S"
-const HEARTH := "E"
+const HOLDFAST := "E"
 const HIGH := "^"
 const WOODS := "T"
 const WATER := "~"
@@ -21,8 +21,8 @@ var width := 0
 var depth := 0
 var rows: PackedStringArray = []
 var spawn := Vector2i(-1, -1)
-var hearth := Vector2i(-1, -1)
-## Cells from spawn to hearth, in walking order.
+var holdfast := Vector2i(-1, -1)
+## Cells from spawn (the Welling) to the Holdfast, in walking order.
 var path_cells: Array[Vector2i] = []
 
 
@@ -46,8 +46,8 @@ func parse(text: String) -> void:
 			match tile(Vector2i(x, z)):
 				SPAWN:
 					spawn = Vector2i(x, z)
-				HEARTH:
-					hearth = Vector2i(x, z)
+				HOLDFAST:
+					holdfast = Vector2i(x, z)
 	path_cells = _trace_road()
 
 
@@ -63,7 +63,7 @@ func tile(cell: Vector2i) -> String:
 
 
 func is_road(cell: Vector2i) -> bool:
-	return tile(cell) in [ROAD, SPAWN, HEARTH]
+	return tile(cell) in [ROAD, SPAWN, HOLDFAST]
 
 
 func buildable(cell: Vector2i) -> bool:
@@ -74,7 +74,7 @@ func height(cell: Vector2i) -> float:
 	match tile(cell):
 		HIGH:
 			return HIGH_HEIGHT
-		ROAD, SPAWN, HEARTH:
+		ROAD, SPAWN, HOLDFAST:
 			return ROAD_HEIGHT
 	return 0.0
 
@@ -110,7 +110,7 @@ func _trace_road() -> Array[Vector2i]:
 	var seen := {spawn: true}
 	var current := spawn
 	result.append(current)
-	while current != hearth:
+	while current != holdfast:
 		var next := Vector2i(-1, -1)
 		for step: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]:
 			var candidate := current + step
@@ -118,7 +118,7 @@ func _trace_road() -> Array[Vector2i]:
 				next = candidate
 				break
 		if next.x < 0:
-			push_error("road from %s ends at %s before reaching the hearth" % [spawn, current])
+			push_error("road from %s ends at %s before reaching the Holdfast" % [spawn, current])
 			break
 		seen[next] = true
 		result.append(next)

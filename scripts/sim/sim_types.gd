@@ -23,9 +23,9 @@ const CMD_FORK := 2  # a tower id, b branch 0 (A) or 1 (B)
 const CMD_SELL := 3  # a tower id
 const CMD_READY := 4  # a 1 ready, 0 not ready
 const CMD_SIGNAL := 5  # a x mm, b z mm, c target id (0 for the ground)
-const CMD_ROUSE := 6  # M7: a tier, b and c the commit's two 32-bit halves
-const CMD_LOOSE := 7  # M7: a pack, b and c the salt's two 32-bit halves
-const CMD_FLARE := 8  # M7
+const CMD_CORK := 6  # M7: a tier, b and c the commit's two 32-bit halves
+const CMD_UNCORK := 7  # M7: a pack, b and c the salt's two 32-bit halves
+const CMD_SEAWALL := 8  # M7
 # ── System commands, stamped with SYSTEM_SEAT ──
 const SYS_AWAY := 64  # a seat
 const SYS_BACK := 65  # a seat
@@ -38,9 +38,9 @@ const COMMAND_NAMES := {
 	CMD_SELL: "SELL",
 	CMD_READY: "READY",
 	CMD_SIGNAL: "SIGNAL",
-	CMD_ROUSE: "ROUSE",
-	CMD_LOOSE: "LOOSE",
-	CMD_FLARE: "FLARE",
+	CMD_CORK: "CORK",
+	CMD_UNCORK: "UNCORK",
+	CMD_SEAWALL: "SEAWALL",
 	SYS_AWAY: "AWAY",
 	SYS_BACK: "BACK",
 	SYS_LEFT: "LEFT",
@@ -52,9 +52,9 @@ const COMMAND_TYPES := {
 	"SELL": CMD_SELL,
 	"READY": CMD_READY,
 	"SIGNAL": CMD_SIGNAL,
-	"ROUSE": CMD_ROUSE,
-	"LOOSE": CMD_LOOSE,
-	"FLARE": CMD_FLARE,
+	"CORK": CMD_CORK,
+	"UNCORK": CMD_UNCORK,
+	"SEAWALL": CMD_SEAWALL,
 	"AWAY": SYS_AWAY,
 	"BACK": SYS_BACK,
 	"LEFT": SYS_LEFT,
@@ -68,12 +68,12 @@ const REFUSE_WRONG_PHASE := 3
 const REFUSE_NOT_YOURS := 4
 const REFUSE_ALREADY_FORKED := 5
 const REFUSE_RATE_LIMITED := 6
-const REFUSE_NO_ROUSINGS_LEFT := 7
+const REFUSE_NO_CORKS_LEFT := 7
 const REFUSE_TOO_EARLY := 8
-const REFUSE_NOTHING_SEALED := 9
+const REFUSE_NOTHING_CORKED := 9
 const REFUSE_BAD_REVEAL := 10
 const REFUSE_NO_CHARGE := 11
-const REFUSE_ALREADY_FLARING := 12
+const REFUSE_SEAWALL_STANDING := 12
 ## The tower named by a FORK or SELL does not exist (sold, or never built).
 const REFUSE_NO_SUCH_TOWER := 13
 ## Arguments out of range: a slot past the kit, a branch the tower does not have.
@@ -89,12 +89,12 @@ const REFUSAL_NAMES := [
 	"NOT_YOURS",
 	"ALREADY_FORKED",
 	"RATE_LIMITED",
-	"NO_ROUSINGS_LEFT",
+	"NO_CORKS_LEFT",
 	"TOO_EARLY",
-	"NOTHING_SEALED",
+	"NOTHING_CORKED",
 	"BAD_REVEAL",
 	"NO_CHARGE",
-	"ALREADY_FLARING",
+	"SEAWALL_STANDING",
 	"NO_SUCH_TOWER",
 	"BAD_COMMAND",
 	"CARETAKEN",

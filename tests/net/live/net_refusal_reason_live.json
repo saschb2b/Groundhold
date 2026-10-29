@@ -61,7 +61,7 @@
           },
           {
             "assert": "scene.sim.tick > tick_a",
-            "msg": "and the hollow runs on"
+            "msg": "and the match runs on"
           },
           {
             "repeat": 16,

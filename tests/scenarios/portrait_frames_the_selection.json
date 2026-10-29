@@ -19,7 +19,7 @@
     },
     {
       "assert": "node('Portrait')._camera.position.length() < 2.5",
-      "msg": "the portrait frames the creep, not the hearth it replaced"
+      "msg": "the portrait frames the creep, not the Holdfast it replaced"
     }
   ]
 }

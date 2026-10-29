@@ -1,0 +1,54 @@
+{
+  "name": "match_opens_on_wickhollow",
+  "description": "A match opens with the map's name, Wickhollow, not the game's; with nothing selected the info names the road's end the Holdfast. A networked window walks out while it loads, says the tide turns as the server starts the match, and announces it at Wickhollow.",
+  "seed": 1,
+  "timeout_frames": 1200,
+  "watch": {
+    "phase": "scene.client.phase_name() if scene.client else ''"
+  },
+  "steps": [
+    {
+      "wait": 2
+    },
+    {
+      "assert": "node('Banner').visible and node('BannerTitle').text == 'Wickhollow'",
+      "msg": "the match opens with the map's name"
+    },
+    {
+      "assert": "node('Title').text == 'The Holdfast'",
+      "msg": "with nothing selected the info shows the Holdfast"
+    },
+    {
+      "eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"
+    },
+    {
+      "eval": "node('LoopbackMain').start({'seed': 3, 'partner_after': 0})"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'LOADING'",
+      "timeout": 200
+    },
+    {
+      "wait": 1
+    },
+    {
+      "assert": "node('NetStatusText').text == 'Walking out · everyone\\'s land checked against yours'",
+      "msg": "loading, the strip says the window walks out"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'STARTING'",
+      "timeout": 600
+    },
+    {
+      "wait": 1
+    },
+    {
+      "assert": "node('NetStatusText').text == 'The tide turns ...'",
+      "msg": "the strip says the tide turns until turn 0"
+    },
+    {
+      "assert": "node('BannerTitle').text == 'The tide turns at Wickhollow'",
+      "msg": "the networked match is announced at the map"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-"""The Lantern Hollow server: one bounded asyncio WebSocket port for the
+"""The Groundhold server: one bounded asyncio WebSocket port for the
 hub's connections and the matches' turn clocks. It never runs a match:
 every game simulates it from the turns the server seals (match.py).
 
@@ -27,7 +27,7 @@ from . import protocol, websocket
 from .match import Match, MonotonicClock
 from .protocol import ProtocolError, SPEC
 
-LOG = logging.getLogger("lantern.server")
+LOG = logging.getLogger("groundhold.server")
 # (fields the console's log never shows: they name a player)
 PERSONAL = ("identity", "name")
 # (messages a seat sends its match; any other from a game outside one is out of order)
@@ -78,7 +78,7 @@ def dev_match_spec(text):
 
 
 class Server:
-    def __init__(self, name="Lantern Hollow", motd="", origins=(), event_log=None, player_cap=64,
+    def __init__(self, name="Groundhold", motd="", origins=(), event_log=None, player_cap=64,
                  pending_cap=SPEC["pending_cap"], handshake_timeout=SPEC["handshake_ms"] / 1000,
                  silence_timeout=SPEC["silence_ms"] / 1000, maintenance="", dev_match=None, seed=None,
                  identity_key=None, clock=None, start_delay_ms=SPEC["start_delay_ms"],

@@ -1,5 +1,5 @@
-## The minimap: the hollow seen from straight above, towers, creeps, the rift gate and
-## the hearth as marks, and the camera's view as an outline. Click or drag on it to move
+## The minimap: the map seen from straight above, towers, creeps, the Welling and
+## the Holdfast as marks, and the camera's view as an outline. Click or drag on it to move
 ## the camera there. The picture is the real terrain and woods, rendered once by an
 ## orthographic camera when the hollow is built (towers come later, so they are marks);
 ## a flat colour map of the tiles lies under it for runs that render nothing (headless).
@@ -79,7 +79,7 @@ func _draw() -> void:
 	draw_texture_rect(_photo.get_texture(), area, false)
 	var cell := area.size.x / map.width
 	_mark(_to_mini(map.center(map.spawn)), cell * 0.5, Color("#c58cff"))
-	_mark(_to_mini(map.center(map.hearth)), cell * 0.5, Color("#ffbf4a"))
+	_mark(_to_mini(map.center(map.holdfast)), cell * 0.5, Color("#ffbf4a"))
 	for tower in get_tree().get_nodes_in_group("towers"):
 		_mark(_to_mini((tower as Node3D).global_position), cell * 0.34, Color("#9cc4ff"))
 	for creep in get_tree().get_nodes_in_group("creeps"):

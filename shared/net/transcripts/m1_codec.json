@@ -3,7 +3,7 @@
  "format": 1,
  "protocol": 1,
  "clients": 1,
- "note": "Every message once with canonical values, as server/lantern_server/protocol.py encodes it.",
+ "note": "Every message once with canonical values, as server/groundhold_server/protocol.py encodes it.",
  "records": [
   {
    "dir": "c2s",
@@ -12,7 +12,7 @@
    "fields": {
     "version": 1,
     "build_seq": 4294967295,
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
     "flags": 3,
     "name": "Tamsin Wick"
@@ -29,8 +29,8 @@
     "turn_ticks": 3,
     "hash_every": 60,
     "flags": 2,
-    "server_name": "Lantern Hollow",
-    "motd": "Hüte die Straße bis zum Herd"
+    "server_name": "Groundhold",
+    "motd": "Hüte den Grund bis zur Ebbe"
    }
   },
   {
@@ -199,7 +199,7 @@
       "state": 1,
       "rtt_ms": 38,
       "build_seq": 7,
-      "rules_hash": "4c616e7465726e31",
+      "rules_hash": "47726f756e646831",
       "name": "Tamsin"
      },
      {
@@ -280,7 +280,7 @@
     "mode": 2,
     "map": 0,
     "seed": 3735928559,
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "your_seat": 2,
     "seats": [
      {
@@ -309,7 +309,7 @@
       "team": 1,
       "builder": 3,
       "flags": 1,
-      "name": "Hessel"
+      "name": "Sefa"
      }
     ]
    }
@@ -357,7 +357,7 @@
    "client": 0,
    "type": "LOADED",
    "fields": {
-    "rules_hash": "4c616e7465726e31",
+    "rules_hash": "47726f756e646831",
     "tick0_hash": "9e3779b97f4a7c15"
    }
   },

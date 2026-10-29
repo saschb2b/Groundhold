@@ -506,7 +506,7 @@ class _Relief:
         pits = _noise(w, h, max(2, round(1.5 * _S)), self.seed + 23, self.period_x)
         flat = 0.36 + 1.1 * _L[2]  # how the light shades a flat face: the stone's colours are what shows
 
-        glow = [0.0] * n  # warm light from a lantern gem
+        glow = [0.0] * n  # warm light from an amber gem
         for gx, gy, gr in self.gems:
             for y in range(h):
                 for x in range(w):

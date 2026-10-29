@@ -1,4 +1,4 @@
-"""Pine: a tall, narrow, tiered evergreen for Lantern Hollow's forests and high ground.
+"""Pine: a tall, narrow, tiered evergreen for Wickhollow's forests and high ground.
 
 Build (seeds 1, 2, 3 are the three shipped variants):
     godot-agent asset blender . art_src/blender/pine.py --to res://models/vegetation/tree_pine_1.glb \

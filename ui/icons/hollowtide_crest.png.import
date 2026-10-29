@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://codyqd5r1dcps"
-path="res://.godot/imported/hollow_king.png-77f8068a7f08c3c1c0dbe19ca37e53a3.ctex"
+path="res://.godot/imported/hollowtide_crest.png-31ed92dee7a6b3d5576618a6e17ad0a7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://ui/icons/hollow_king.png"
-dest_files=["res://.godot/imported/hollow_king.png-77f8068a7f08c3c1c0dbe19ca37e53a3.ctex"]
+source_file="res://ui/icons/hollowtide_crest.png"
+dest_files=["res://.godot/imported/hollowtide_crest.png-31ed92dee7a6b3d5576618a6e17ad0a7.ctex"]
 
 [params]
 

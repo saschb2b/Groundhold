@@ -51,6 +51,8 @@ jobs:
         run: |
           export GODOT_PATH="$HOME/godot/godot"
           python3 .kit/bin/godot-agent check . --sim-lint scripts/sim
+      - name: Guard the retired names
+        run: python3 tools/names_check.py
       - name: Run every scenario (headless)
         run: |
           export GODOT_PATH="$HOME/godot/godot"

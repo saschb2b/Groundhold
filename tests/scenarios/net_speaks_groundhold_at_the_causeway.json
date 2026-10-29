@@ -1,0 +1,21 @@
+{
+  "name": "net_speaks_groundhold_at_the_causeway",
+  "description": "The game asks for the subprotocol groundhold.v1 at the path /causeway: a typed LAN address, an online name and a bare ws:// URL all end at /causeway, and the wire's mode and Builder ids are the world's (high_water, tide_race, undertow; lookout) with their old numbers; a send is corked and uncorked and the comeback is the Seawall, in the contract and in the simulation's refusals, with the old numbers too.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://scripts/net/protocol.gd')", "as": "codec"},
+    {"eval": "resource('res://scripts/net/address.gd')", "as": "address"},
+    {"eval": "resource('res://scripts/sim/sim_types.gd')", "as": "types"},
+    {"assert": "codec.spec()['subprotocol'] == 'groundhold.v1' and codec.spec()['path'] == '/causeway'", "msg": "the contract names groundhold.v1 at /causeway"},
+    {"assert": "address.url('127.0.0.1') == 'ws://127.0.0.1:8766/causeway'", "msg": "a LAN address gets the port and the path"},
+    {"assert": "address.url('play.example.com') == 'wss://play.example.com/causeway'", "msg": "an online name gets wss and the path"},
+    {"assert": "address.url('ws://192.168.1.20:9000') == 'ws://192.168.1.20:9000/causeway'", "msg": "a URL without a path gets the path"},
+    {"assert": "codec.spec()['modes']['classic']['id'] == 0 and codec.spec()['modes']['high_water']['id'] == 1 and codec.spec()['modes']['tide_race']['id'] == 2 and codec.spec()['modes']['undertow']['id'] == 3", "msg": "the modes keep their numbers under the new ids"},
+    {"assert": "codec.spec()['modes'].size() == 4 and codec.spec()['builders']['lookout'] == 1 and codec.spec()['builders'].size() == 4", "msg": "the Lookout keeps Builder id 1"},
+    {"assert": "codec.spec()['commands']['CORK']['type'] == 6 and codec.spec()['commands']['UNCORK']['type'] == 7", "msg": "a send is corked and uncorked"},
+    {"assert": "codec.spec()['commands']['SEAWALL']['type'] == 8 and codec.spec()['commands'].size() == 8", "msg": "the comeback is the Seawall"},
+    {"assert": "types.refusal_name(7) == 'NO_CORKS_LEFT' and types.refusal_name(9) == 'NOTHING_CORKED' and types.refusal_name(12) == 'SEAWALL_STANDING'", "msg": "the refusals say cork and Seawall: NO_CORKS_LEFT (7), NOTHING_CORKED (9), SEAWALL_STANDING (12)"}
+  ]
+}

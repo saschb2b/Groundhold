@@ -14,8 +14,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "server"))
 
-from lantern_server import protocol          # noqa: E402
-from lantern_server.protocol import SPEC     # noqa: E402
+from groundhold_server import protocol          # noqa: E402
+from groundhold_server.protocol import SPEC     # noqa: E402
 
 README = ROOT / "shared" / "net" / "README.md"
 BEGIN = "<!-- protocol.json tables: begin (server/tools/protocol_tables.py writes them) -->"

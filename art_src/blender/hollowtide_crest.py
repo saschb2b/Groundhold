@@ -1,4 +1,4 @@
-"""The Hollow King: the final boss of Lantern Hollow.
+"""The Hollowtide Crest: the final boss of Wickhollow.
 
 A crowned pumpkin lord, built to read from the strategy camera as a broad, regal
 triangle rather than a pumpkin with a hat:
@@ -25,8 +25,8 @@ sceptre and lantern held steady in world space (their parents' rotations are
 cancelled every frame).
 
 Blender Z-up, front faces -Y, pivot between the feet. Build:
-  godot-agent asset blender . art_src/blender/hollow_king.py \
-      --to res://models/creeps/hollow_king.glb --seed 1 --review --no-import
+  godot-agent asset blender . art_src/blender/hollowtide_crest.py \
+      --to res://models/creeps/hollowtide_crest.glb --seed 1 --review --no-import
 
 Params:
   leaves=1   add two modelled pumpkin leaves on the stem (off by default: they read as
@@ -83,7 +83,7 @@ def smoothstep(e0, e1, x):
 
 
 # ══ Proportions ══
-# Round 2 re-proportions the king for the 56-degree camera: a smaller head sunk between
+# Round 2 re-proportions the Crest for the 56-degree camera: a smaller head sunk between
 # broad pauldrons, the body 5 cm higher on longer legs.
 UP = 0.05
 HX, HY, HZ = 0.0, -0.025, 0.625     # pumpkin head centre
@@ -141,11 +141,11 @@ def face_spill(c, co, strength=0.35):
 # ── Materials ──
 
 PAINTED = gab.painted()
-FACE = gab.glow("creep_face_king", "#ffef7a", 2.4)
+FACE = gab.glow("creep_face_crest", "#ffef7a", 2.4)
 # Blue clips first under filmic tonemapping and the hue slides to lilac, so the core
 # glows at a strength that keeps the violet (measured in Godot: 1.6 renders as
 # (225, 160, 255), 0.6 as about (185, 120, 245), close to glow_purple itself).
-CORE = gab.glow("creep_lantern_king", "#b070ff", gab.param("core", 0.6))
+CORE = gab.glow("creep_lantern_crest", "#b070ff", gab.param("core", 0.6))
 WALL_TMP = gab.material("cutwall_tmp")
 
 
@@ -733,7 +733,7 @@ def head_parts():
     bpy.data.objects.remove(cutter)
     canonical_order(head)
     names = [m.name for m in head.data.materials]
-    i_wall, i_glow = names.index("cutwall_tmp"), names.index("creep_face_king")
+    i_wall, i_glow = names.index("cutwall_tmp"), names.index("creep_face_crest")
     i_paint = names.index("painted")
     walls = [p.index for p in head.data.polygons if p.material_index == i_wall]
     glows = [p.index for p in head.data.polygons if p.material_index == i_glow]
@@ -783,7 +783,7 @@ STEM_PTS = []
 
 def stem():
     """A thick stalk rising through the crown's velvet cap and arches, curling into a
-    spiral hook: the king's silhouette hook, tallest point of the model."""
+    spiral hook: the Crest's silhouette hook, tallest point of the model."""
     top = HZ + HH - 0.07
     d = Vector((0.8, 0.6, 0.0)).normalized()
 
@@ -1878,17 +1878,17 @@ for o in PARTS:
     counts[key] = counts.get(key, 0) + gab.triangles(o)
 print("godot-agent: parts " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items(), key=lambda kv: -kv[1])))
 
-king = gab.join(PARTS, "hollow_king")
-king.data.name = "hollow_king"
-gab.select_only(king)
+crest = gab.join(PARTS, "hollowtide_crest")
+crest.data.name = "hollowtide_crest"
+gab.select_only(crest)
 bpy.ops.object.material_slot_remove_unused()
-zmin = min(v.co.z for v in king.data.vertices)
+zmin = min(v.co.z for v in crest.data.vertices)
 print(f"godot-agent: lowest point {zmin:.4f}")
 
 arm = gab.armature("rig", bones())
-mod = king.modifiers.new("Armature", "ARMATURE")
+mod = crest.modifiers.new("Armature", "ARMATURE")
 mod.object = arm
-king.parent = arm
+crest.parent = arm
 act(arm, "walk", 30, walk)
 print(f"godot-agent: stride {STRIDE:.4f} model units per cycle = {STRIDE * 1.6:.3f} game units/s at 1.6x; "
       f"leg reach max {max(REACH):.3f}")
@@ -1898,9 +1898,9 @@ if POSE >= 0:
     # Review only: bake one walk frame into the mesh and drop the rig.
     arm.animation_data.action = bpy.data.actions["walk"]
     bpy.context.scene.frame_set(POSE)
-    gab.select_only(king)
+    gab.select_only(crest)
     bpy.ops.object.convert(target="MESH")
-    king = bpy.context.active_object
-    king.parent = None
-    king.matrix_world = Matrix.Identity(4)
+    crest = bpy.context.active_object
+    crest.parent = None
+    crest.matrix_world = Matrix.Identity(4)
     bpy.data.objects.remove(arm)

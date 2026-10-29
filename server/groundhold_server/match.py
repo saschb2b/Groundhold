@@ -29,7 +29,7 @@ import time
 from . import protocol, websocket
 from .protocol import ProtocolError, SPEC
 
-LOG = logging.getLogger("lantern.server")
+LOG = logging.getLogger("groundhold.server")
 MS = 1_000_000
 TURN_NS = SPEC["turn_ms"] * MS
 TURN_TICKS = SPEC["turn_ticks"]

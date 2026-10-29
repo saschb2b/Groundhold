@@ -1,4 +1,4 @@
-# Lantern Hollow server
+# Groundhold server
 
 The multiplayer server. It never runs a match: every 50 ms it closes a turn and sends every seat the
 commands that arrived, each stamped with its sender's seat, and every game simulates the same match
@@ -19,10 +19,10 @@ godot --path . -- --join=127.0.0.1        # twice, one window per player
 The first line on standard output is for scripts and harnesses, the rest is for people:
 
 ```text
-listening port=8766 host=* path=/hollow
-The Lantern Hollow server "Lantern Hollow" is open on port 8766.
-Players type this in Lantern Hollow's Join panel, on this network:
-  192.168.1.20    (ws://192.168.1.20:8766/hollow)
+listening port=8766 host=* path=/causeway
+The Groundhold server "Groundhold" is open on port 8766.
+Players type this in Groundhold's Join panel, on this network:
+  192.168.1.20    (ws://192.168.1.20:8766/causeway)
   127.0.0.1    (a game on this computer)
 ...
 Dev match: the first 2 players to connect play classic together (start each game with -- --join=ADDRESS).
@@ -44,7 +44,7 @@ maintenance line and the dev match.
 
 None are needed. A `server.ini` in the folder the server starts in or beside the program (or
 `--config FILE`) changes them; `server.example.ini` lists each with its default. Any key can be set
-in the environment instead, which wins: `LANTERN_SERVER_PORT=9000`. `free_text = true` refuses to
+in the environment instead, which wins: `GROUNDHOLD_SERVER_PORT=9000`. `free_text = true` refuses to
 start: there is no chat, only names and in-game signals.
 
 ## What exists and what comes
@@ -70,7 +70,7 @@ client (`tests/support.py`); the turns run on a clock the test moves by hand, so
 | `test_turn_clock.py` | deadlines in integer nanoseconds; no drift over ten minutes of late wake-ups (and that Cyberworld's relative sleep drifts under the same clock); a stalled loop seals the missed turns in a burst; a real server keeps pace with the wall clock |
 | `test_turn_stamping.py` | the seat comes from the connection; the open turn lists the command; rotation from `turn mod seats`; system commands first; increasing sequence numbers; command shapes; a full turn carries over |
 | `test_dev_match.py` | matches from the first `HELLO`s, pooled by rules hash; the barrier and its 4 s minimum; tick-0 mismatch; hashes agreed or apart; the result referee (a lone early `RESULT` against a seat that hashes past it ends "desynced"; a slow seat is waited for while it hashes; a seat that talks but stops hashing holds the end up 10 s at most; a majority of three; one modified or desynced seat of three is outvoted while the others play on; an away seat's result does not count; results bounded like hashes); silence, `AWAY` and `BACK`; leaving; the hard cap; the golden transcripts are current and round-trip; the real program on `--port 0` |
-| `test_hardening.py` | `WELCOME` and identities; version refusals through another version's subprotocol; `HELLO`'s token, name and shape; full and maintenance; unmasked, fragmented, text and oversized frames; path, subprotocol and origin, and Godot's native handshake; `/health`; idle sockets; silence; each rate bucket; a refused game reads `ERROR` before the close, and one that keeps sending is read a hub burst at most; a burst of `TURN_REQUEST`s costs one window of turns; `HASH` flags; the output cap; NUL and BOM strings; the contract's sizes and the README's tables |
+| `test_hardening.py` | `WELCOME` and identities; version refusals through another version's subprotocol; `HELLO`'s token, name and shape; full and maintenance; unmasked, fragmented, text and oversized frames; path, subprotocol and origin, and Godot's native handshake; `/health`; idle sockets; silence; each rate bucket; a refused game reads `ERROR` before the close, and one that keeps sending is read a hub burst at most; a burst of `TURN_REQUEST`s costs one window of turns; `HASH` flags; the output cap; NUL and BOM strings; the contract's sizes, its path and subprotocol, and the README's tables; the `GROUNDHOLD_SERVER_*` environment |
 
 `python3 server/tools/record_transcripts.py` re-records `shared/net/transcripts/` (a deliberate step,
 reviewed like any change; `--check` says whether it would change anything).
@@ -80,10 +80,10 @@ edit to `protocol.json`.
 ## Build
 
 ```text
-python3 server/build.py      # build/server/lantern-hollow-server.pyz, then: python3 lantern-hollow-server.pyz
+python3 server/build.py      # build/server/groundhold-server.pyz, then: python3 groundhold-server.pyz
 ```
 
-The zipapp is deterministic (fixed entry order, times and modes) and holds only `lantern_server/*.py`,
+The zipapp is deterministic (fixed entry order, times and modes) and holds only `groundhold_server/*.py`,
 `protocol.json` and the licence.
 
 ### Origins
@@ -91,7 +91,7 @@ The zipapp is deterministic (fixed entry order, times and modes) and holds only 
 `origins` in `server.ini` is the allowlist of browser pages (the game's web build). Only a request
 that carries an `Origin` header is checked against it. Godot 4.7.1's native WebSocket client sends
 none: its upgrade is exactly `Host`, `Upgrade`, `Connection`, `Sec-WebSocket-Key`,
-`Sec-WebSocket-Version` and `Sec-WebSocket-Protocol: lantern-hollow.v1` (recorded for design §6.2;
+`Sec-WebSocket-Version` and `Sec-WebSocket-Protocol: groundhold.v1` (recorded for design §6.2;
 `test_godot_native_handshake_is_accepted_with_origins_set` replays it). So desktop games are never
 refused by the allowlist, and the allowlist is no player authentication.
 
@@ -113,12 +113,12 @@ or adapted module says what it took in its docstring.
 
 | Here | From Cyberworld | How |
 |---|---|---|
-| `lantern_server/websocket.py` | `websocket.py` | reused: path `/hollow`, subprotocol `lantern-hollow.vN`, `max_message` 1,100; frames over 125 bytes from the server |
-| `lantern_server/hosting.py` | `hosting.py` | reused: `LANTERN_SERVER_` environment, the banner's words |
-| `lantern_server/cli.py` | `cli.py` | reused: INI, TLS, banner, signals; new `--dev-match` and the `listening port=N` line; no admin or backups yet |
+| `groundhold_server/websocket.py` | `websocket.py` | reused: path `/causeway`, subprotocol `groundhold.vN`, `max_message` 1,100; frames over 125 bytes from the server |
+| `groundhold_server/hosting.py` | `hosting.py` | reused: `GROUNDHOLD_SERVER_` environment, the banner's words |
+| `groundhold_server/cli.py` | `cli.py` | reused: INI, TLS, banner, signals; new `--dev-match` and the `listening port=N` line; no admin or backups yet |
 | `build.py`, `main.py` | `build.py`, `main.py` | reused with the renames |
-| `lantern_server/protocol.py` | `protocol.py` | adapted: the spec from JSON, `ProtocolError`, `hello_version`, the name rule and the maintenance line kept; a codec built from `protocol.json`'s layouts replaces the hand-written `struct`s |
-| `lantern_server/app.py` | `app.py` | adapted: the handshake cap and deadline, refusals, token buckets, silence, output cap, `/health`, the event log; channels, snapshots, cards, trades and the Arena removed |
-| `lantern_server/match.py` | `arena.py` | adapted: a match formed by the server with seats; the relay became the sequencer; the server compares hashes and results itself. The tick loop's `asyncio.sleep(1 / tick_hz)` was not copied: it drifts |
+| `groundhold_server/protocol.py` | `protocol.py` | adapted: the spec from JSON, `ProtocolError`, `hello_version`, the name rule and the maintenance line kept; a codec built from `protocol.json`'s layouts replaces the hand-written `struct`s |
+| `groundhold_server/app.py` | `app.py` | adapted: the handshake cap and deadline, refusals, token buckets, silence, output cap, `/health`, the event log; channels, snapshots, cards, trades and the Arena removed |
+| `groundhold_server/match.py` | `arena.py` | adapted: a match formed by the server with seats; the relay became the sequencer; the server compares hashes and results itself. The tick loop's `asyncio.sleep(1 / tick_hz)` was not copied: it drifts |
 | `tests/support.py`, `tests/test_hardening.py` | `tests/test_server.py`, `tests/test_hardening.py` | adapted: a real server on port 0 and a minimal client; moderation cases return with `identity.py` |
 | `tests/test_turn_clock.py`, `test_turn_stamping.py`, `test_dev_match.py`, `tools/` | | new |

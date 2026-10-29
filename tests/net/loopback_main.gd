@@ -92,7 +92,7 @@ func _client(player: String, number: int) -> MatchClient:
 func _open(c: MatchClient) -> void:
 	var link := FakeLink.new(self, _latency, 0, 1000 + links.size())
 	links.append(link)
-	c.connect_with(link, "ws://loopback/hollow")
+	c.connect_with(link, "ws://loopback/causeway")
 
 
 func _exit_tree() -> void:

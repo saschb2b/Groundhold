@@ -6,7 +6,8 @@
 ##
 ## M1 carries the `classic` preset: today's solo game (eight waves, the three towers, and
 ## today's upgrade standing in for fork branch A), playable by one to four seats on one
-## shared hollow. M2 replaces it with the Vigil and `vigil12`.
+## shared hollow. M2 replaces it with High Water and `hollow12` (a wave list is named
+## after its map, not its mode).
 class_name SimContent
 extends RefCounted
 
@@ -86,7 +87,7 @@ const CREEPS := {
 	"gourdling": {"hp_c": 2400, "speed_um_t": 21667, "armor_c": 0, "bounty": 3, "toll": 1},
 	"scuttler": {"hp_c": 1600, "speed_um_t": 33333, "armor_c": 0, "bounty": 2, "toll": 1},
 	"thornback": {"hp_c": 8000, "speed_um_t": 14167, "armor_c": 400, "bounty": 6, "toll": 2},
-	"hollow_king":
+	"hollowtide_crest":
 	{
 		"hp_c": 70000,
 		"speed_um_t": 10000,
@@ -118,7 +119,7 @@ const WAVES := {
 		],
 		[
 			{"creep": "thornback", "count": 5, "interval_t": 60},
-			{"creep": "hollow_king", "count": 1, "interval_t": 180},
+			{"creep": "hollowtide_crest", "count": 1, "interval_t": 180},
 		],
 	],
 }
@@ -129,7 +130,7 @@ const BUILDERS := {
 
 ## Stable orders for the codec: a kind is stored as its index here. Append only.
 const TOWER_IDS := ["arrow", "cannon", "frost"]
-const CREEP_IDS := ["gourdling", "scuttler", "thornback", "hollow_king"]
+const CREEP_IDS := ["gourdling", "scuttler", "thornback", "hollowtide_crest"]
 const BUILDER_IDS := ["lamplighter"]
 const MODE_IDS := ["classic"]
 

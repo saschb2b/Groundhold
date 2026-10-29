@@ -9,8 +9,8 @@ import time
 import unittest
 
 from support import MS, RULES, TICK0, Client, ManualClock, server
-from lantern_server.match import TURN_NS, TurnClock, TurnLoop
-from lantern_server.protocol import SPEC
+from groundhold_server.match import TURN_NS, TurnClock, TurnLoop
+from groundhold_server.protocol import SPEC
 
 TEN_MINUTES = 600_000 * MS
 

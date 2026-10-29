@@ -1,6 +1,6 @@
 """What a host needs to know as the server starts (server/README.md, Host
 your own): the configuration it read, the addresses players type into
-Lantern Hollow's Join panel, read from this computer's own interfaces, and
+Groundhold's Join panel, read from this computer's own interfaces, and
 the lines that say them on the console.
 
 Nothing here sends a packet. The default route's address is read from a UDP
@@ -10,7 +10,7 @@ addresses.
 
 Reused from Cyberworld Endless's server/cyberworld_server/hosting.py (MIT,
 Sascha Becker) with the renames of docs/design/core-loop.md §6.10 and the
-banner's words rewritten for Lantern Hollow.
+banner's words rewritten for Groundhold.
 """
 
 import contextlib
@@ -22,7 +22,7 @@ import sys
 from .protocol import SPEC
 
 CONFIG = "server.ini"
-ENVIRONMENT = "LANTERN_SERVER_"     # LANTERN_SERVER_PORT=9000: the INI's port
+ENVIRONMENT = "GROUNDHOLD_SERVER_"  # GROUNDHOLD_SERVER_PORT=9000: the INI's port
 PROBE = "192.0.2.1"
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 SHOWN = 4   # addresses at most: a computer with many adapters names its likeliest
@@ -46,7 +46,7 @@ def find_config(folders):
 
 
 def environment_settings(environ):
-    """The [server] keys the environment sets, LANTERN_SERVER_NAME as name;
+    """The [server] keys the environment sets, GROUNDHOLD_SERVER_NAME as name;
     '%' kept as typed (the INI's interpolation would read it)."""
     return {key[len(ENVIRONMENT):].lower(): value.replace("%", "%%")
             for key, value in environ.items() if key.startswith(ENVIRONMENT) and len(key) > len(ENVIRONMENT)}
@@ -92,7 +92,7 @@ def contained():
 
 def typed(address, port):
     """What a player types for `address`: the port only where it is not the
-    game's default (the Join panel adds :8766 and /hollow itself); `port`
+    game's default (the Join panel adds :8766 and /causeway itself); `port`
     None, the address alone (bracketed if IPv6)."""
     shown = f"[{address}]" if ":" in address else address
     return shown if port in (None, SPEC["port"]) else f"{shown}:{port}"
@@ -102,13 +102,13 @@ def banner(name, host, port, secure, addresses, config=None, container=False, wi
     """The lines the console shows as the server opens."""
     scheme = "wss" if secure else "ws"
     path = SPEC["path"]
-    lines = [f'The Lantern Hollow server "{name}" is open on port {port}.']
+    lines = [f'The Groundhold server "{name}" is open on port {port}.']
     if host in LOOPBACK:
         lines += ["Only games on this computer can come in. They type into the Join panel:",
                   f"  {typed('127.0.0.1', port)}    ({scheme}://127.0.0.1:{port}{path})",
                   "(host = 127.0.0.1: leave host empty in server.ini to let other computers in.)"]
     elif secure:
-        lines += ["Players type into Lantern Hollow's Join panel the domain its certificate names:",
+        lines += ["Players type into Groundhold's Join panel the domain its certificate names:",
                   f"  {scheme}://YOUR-DOMAIN:{port}{path}"]
     elif container:
         lines += ["In a container: players type the address of the computer it runs on, with the",
@@ -116,7 +116,7 @@ def banner(name, host, port, secure, addresses, config=None, container=False, wi
     else:
         shown = [host] if host and host not in ("0.0.0.0", "::") else addresses
         if shown:
-            lines.append("Players type this in Lantern Hollow's Join panel, on this network:")
+            lines.append("Players type this in Groundhold's Join panel, on this network:")
             lines += [f"  {typed(address, port)}    ({scheme}://{typed(address, None)}:{port}{path})" for address in shown]
         else:
             lines.append("This computer has no network now: players reach it at its address, port " + str(port) + ".")

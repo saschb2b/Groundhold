@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://da3572h1c6exw"
-path="res://.godot/imported/hollow_king.glb-fdb40ed55c2f11d6be4729ed6d0658a9.scn"
+path="res://.godot/imported/hollowtide_crest.glb-a9ee5d35a98d1f9a0339d43d994ad197.scn"
 
 [deps]
 
-source_file="res://models/creeps/hollow_king.glb"
-dest_files=["res://.godot/imported/hollow_king.glb-fdb40ed55c2f11d6be4729ed6d0658a9.scn"]
+source_file="res://models/creeps/hollowtide_crest.glb"
+dest_files=["res://.godot/imported/hollowtide_crest.glb-a9ee5d35a98d1f9a0339d43d994ad197.scn"]
 
 [params]
 

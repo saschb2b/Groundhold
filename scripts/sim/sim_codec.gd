@@ -5,7 +5,7 @@
 class_name SimCodec
 extends RefCounted
 
-const MAGIC := 0x4C485331  # "LHS1"
+const MAGIC := 0x47485331  # "GHS1"
 
 
 static func encode(m: SimMatch) -> PackedByteArray:

@@ -1,4 +1,4 @@
-"""Scuttler: a fast beetle creep for Lantern Hollow.
+"""Scuttler: a fast beetle creep for Wickhollow.
 
     godot-agent asset blender . art_src/blender/scuttler.py --to res://models/creeps/scuttler.glb \
         --seed 1 --review --no-import

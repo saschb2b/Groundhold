@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+The game is called Groundhold now, after its world (`docs/design/world.md`).
+
+- The game, the site and the server are called Groundhold. The map it plays on is Wickhollow, whose road runs
+  from the Welling to the Holdfast, and its last wave brings the Hollowtide Crest. Lanterns, gourds and the
+  autumn night stay Wickhollow's own.
+- Ids and the protocol follow the name: the server is `server/groundhold_server` (set from
+  `GROUNDHOLD_SERVER_*`, built as `groundhold-server.pyz`) and speaks `groundhold.v1` at `/causeway`. On the wire
+  the modes are `classic`, `high_water`, `tide_race` and `undertow`, the second Builder is the `lookout`, a
+  send is corked and uncorked (`CORK`, `UNCORK`, refused with `NO_CORKS_LEFT` and `NOTHING_CORKED`), and the
+  comeback is the `SEAWALL` (`SEAWALL_STANDING`); every id keeps its number. The boss's id is `hollowtide_crest`.
+- `tools/names_check.py` fails on a retired name anywhere in the tracked tree, and CI runs it next to the
+  simulation lint.
+
 The same game on a new engine room: the first step towards playing together (design M1a).
 
 - Every rule now runs in an integer simulation (`scripts/sim/`) that steps 60 ticks a second from the match's
@@ -20,7 +33,7 @@ The same game on a new engine room: the first step towards playing together (des
 - Tests fast-forward tick-exactly with `ticks_per_frame`; new scenarios check tick exactness, replays,
   checkpoints, range by road intervals, the co-op rules and the turn order.
 
-Two lanterns on one road: two players over a server (design M1b).
+One road, two players: a match over a server (design M1b).
 
 - `server/` is the multiplayer server, forked from Cyberworld Endless's: a turn sequencer that never simulates.
   `python3 server/main.py --dev-match classic:2` forms a match from the first two games that join.
@@ -50,7 +63,7 @@ Two lanterns on one road: two players over a server (design M1b).
   so mashing <kbd>N</kbd> no longer costs the connection; any other order past the limit says "Not so fast".
   When the server does refuse a game, the game now reads why before the connection closes.
 - Upgrade and Sell grey out for a partner's tower; my plate on the party strip shows my gold less what my
-  orders on their way will spend, and keeps its width when the Ready mark goes; the hearth counts every
+  orders on their way will spend, and keeps its width when the Ready mark goes; the Holdfast counts every
   tower standing, a partner's too.
 - The caretaker acts on the first tick of a build window, not up to half a second later; a portrait turns
   from its subject's front when something new is selected.

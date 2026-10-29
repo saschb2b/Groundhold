@@ -87,7 +87,7 @@ static func _spawns(m: SimMatch, h: SimRecords.SimHollow) -> void:
 		h.spawn_wait_t -= 1
 
 
-## A creep of kind index `kind` at the rift gate, with this wave's and this team's health.
+## A creep of kind index `kind` at the Welling, with this wave's and this team's health.
 static func spawn(m: SimMatch, h: SimRecords.SimHollow, kind: int) -> SimRecords.SimCreep:
 	var kind_id: String = SimContent.CREEP_IDS[kind]
 	var data: Dictionary = SimContent.CREEPS[kind_id]

@@ -97,7 +97,7 @@
   },
   {
    "assert": "node('Stats').get_meta('cells')[2] == ['Towers', '2']",
-   "msg": "the hearth counts every tower standing, the partner's too, as soon as each stands"
+   "msg": "the Holdfast counts every tower standing, the partner's too, as soon as each stands"
   },
   {
    "eval": "node('BuildController').select(scene.tower_at(Vector2i(10, 8)))"
