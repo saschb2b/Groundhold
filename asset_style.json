@@ -24,12 +24,12 @@
     {
       "match": "models/vegetation/*.glb",
       "model": {
-        "max_tris": 700,
+        "max_tris": 2600,
         "origin": "bottom-center",
         "max_size": [
-          1.4,
-          2.4,
-          1.4
+          1.8,
+          2.8,
+          1.8
         ],
         "colors": {
           "bark": "#5b3a29",
@@ -48,7 +48,8 @@
           "wood": "#a0784a",
           "petal": "#e8c04a",
           "center": "#7a4a20"
-        }
+        },
+        "max_materials": 4
       }
     },
     {
@@ -72,12 +73,16 @@
     {
       "match": "models/creeps/*.glb",
       "model": {
-        "max_tris": 900,
+        "max_tris": 4000,
         "origin": "bottom-center",
         "max_size": [
           1.1,
-          1.2,
+          1.3,
           1.1
+        ],
+        "max_materials": 4,
+        "animations": [
+          "walk"
         ]
       }
     },
@@ -146,6 +151,26 @@
     },
     {
       "match": "textures/*.png",
+      "image": {
+        "size": [
+          256,
+          256
+        ]
+      }
+    },
+    {
+      "match": "models/creeps/hollow_king.glb",
+      "model": {
+        "max_tris": 7000,
+        "max_size": [
+          1.3,
+          1.6,
+          1.3
+        ]
+      }
+    },
+    {
+      "match": "textures/foliage_*.png",
       "image": {
         "size": [
           256,

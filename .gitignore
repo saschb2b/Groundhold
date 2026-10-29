@@ -5,3 +5,5 @@ build/
 site/
 *.tmp
 __pycache__/
+# Lock taken while asset builds record their recipes
+.asset_manifest.json.lock

@@ -1,0 +1,22 @@
+{
+  "name": "creeps_walk_cycle",
+  "description": "Creeps play their model's walk cycle at their walking speed, and frost slows the cycle with them.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "count('creeps') > 0", "timeout": 120},
+    {"eval": "first('creeps')", "as": "c"},
+    {"assert": "c._anim != null and c._anim.current_animation == 'walk'", "msg": "the imported walk plays"},
+    {"assert": "c._anim.get_animation('walk').loop_mode == 1", "msg": "and loops (Animation.LOOP_LINEAR)"},
+    {"eval": "c._anim.current_animation_position", "as": "p0"},
+    {"wait": 6},
+    {"assert": "c._anim.current_animation_position != p0", "msg": "the cycle advances with the physics step"},
+    {"assert": "absf(c._anim.speed_scale - c.speed / float(Game.CREEPS[c.kind]['stride'])) < 0.001",
+     "msg": "feet keep pace: the cycle runs at speed / stride"},
+    {"eval": "c.apply_slow(0.5, 3.0)"},
+    {"wait": 2},
+    {"assert": "absf(c._anim.speed_scale - 0.5 * c.speed / float(Game.CREEPS[c.kind]['stride'])) < 0.001",
+     "msg": "frost halves the cycle with the creep"}
+  ]
+}

@@ -93,7 +93,9 @@ can be rebuilt from its recipe (`asset_manifest.json` records how):
 | Path | What |
 |---|---|
 | `data/hollow.txt` | The map, one character per tile. The road is traced from `S` to `E`; edit it to redesign the level |
-| `art_src/models/` | Recipes for the low-poly towers, creeps, props and projectiles: parts with sizes, bevels, colours and painted patterns |
+| `art_src/models/` | Recipes for the low-poly towers, props and projectiles: parts with sizes, bevels, colours and painted patterns |
+| `art_src/blender/` | Blender build scripts for the trees, plants, rocks and the four rigged, animated creeps |
+| `textures/foliage_*.png`, `materials/foliage.gdshader` | Painted needle, leaf, grass and fern cards, tinted per plant and swaying in the wind |
 | `materials/painted.gdshader` | Paints bricks, stone, planks, shingles, metal and cloth onto every model, with lit edges and dark grout |
 | `textures/`, `shaders/terrain.gdshader`, `shaders/water.gdshader` | Painted grass, meadow, path, sand, mud and rock textures, blended across the tiles with ragged edges; the pond's depth, foam and ripples |
 | `models/`, `ui/icons/`, `ui/frames/`, `sfx/` | The generated models, framed command icons, nine-slice console frames and synthesized sounds |

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 · 2026-10-29
+
+Hand-modelled plants and creatures, built in Blender.
+
+- Pines with tiers of drooping needle boughs, dark blue-green inside and lit at the tips, and broadleaf
+  trees with gnarled trunks and lumpy, layered crowns in green, amber and red. Foliage is painted cards that
+  sway in the wind.
+- New bushes, ferns, grass tufts, reeds, flowers, mushrooms, mossy rocks, a cut stump, lobed pumpkins and
+  lily pads. Ferns now grow in the woods.
+- The creeps are rebuilt as rigged models with walk cycles that keep pace with the ground and slow down
+  under frost. The gourdling is a jack-o'-lantern goblin on root legs, the scuttler a glossy purple beetle
+  with glowing eyes, the thornback a quilled boar, and the Hollow King a crowned pumpkin lord in a cloak
+  who carries a lantern sceptre.
+- Every model is a Blender build script in `art_src/blender/`, rebuilt with `godot-agent asset blender`.
+
 ## 0.3.0 · 2026-10-28
 
 Richer light and forests.

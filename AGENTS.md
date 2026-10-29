@@ -14,5 +14,8 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
 - `godot-agent run . --renderer gl_compatibility` shows the scene as the browser build draws it.
 
 Assets are generated, never hand-edited: change the recipe in `art_src/models/` and rebuild with
-`godot-agent asset mesh`, or `godot-agent asset regen . <path>` for anything listed in `asset_manifest.json`.
+`godot-agent asset mesh`, or the Blender build script in `art_src/blender/` (plants, rocks, creeps) and rebuild
+with `godot-agent asset blender`; `godot-agent asset regen . <path>` rebuilds anything listed in
+`asset_manifest.json`. A creep's `stride` in `Game.CREEPS` is the walking speed its walk cycle was made for;
+its build script prints the value.
 `godot-agent asset check .` must stay clean. `godot-agent scenario . tools/media` re-renders the README's shots.

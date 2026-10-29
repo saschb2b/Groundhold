@@ -41,6 +41,11 @@ materials/extract_format=0
 materials/extract_path=""
 _subresources={
 "materials": {
+"foliage_pine": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://materials/foliage_pine.tres",
+"use_external/path": "res://materials/foliage_pine.tres"
+},
 "painted": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://materials/painted.tres",

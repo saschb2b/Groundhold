@@ -21,7 +21,10 @@ const FLOWERS := [
 ]
 const PUMPKINS := ["pumpkin_1", "pumpkin_2", "pumpkin_3"]
 const SMALL := ["mushroom_1", "mushroom_2", "stump"]
+const FERNS := ["fern_1", "fern_2"]
 const REEDS := ["reeds_1", "reeds_2", "reeds_3"]
+## Broadleaf crowns are wide; scaled down so the woods stay off the road.
+const CROWN_SCALE := 0.8
 const LILIES := ["lily_pad_1", "lily_pad_2", "lily_pad_3"]
 
 var map: HollowMap
@@ -115,6 +118,8 @@ func _dress(cell: Vector2i) -> void:
 			_put(_pick(BUSHES), cell, 0.4, 0.8, 1.2)
 			if _rng.randf() < 0.3:
 				_put("stump", cell, 0.42, 0.9, 1.3)
+			if _rng.randf() < 0.6:
+				_put(_pick(FERNS), cell, 0.42, 0.9, 1.3)
 			_scatter(TUFTS, cell, 2, 0.45)
 		HollowMap.HIGH:
 			if _rng.randf() < 0.7:
@@ -199,6 +204,8 @@ func _put(
 	if map.tile(cell) != HollowMap.HIGH:
 		pos.y = terrain.height_at(Vector2(pos.x, pos.z)) + offset.y
 	var s := _rng.randf_range(min_scale, max_scale)
+	if name in TREES_GREEN or name in TREES_AUTUMN:
+		s *= CROWN_SCALE
 	var basis := Basis(Vector3.UP, _rng.randf_range(0, TAU)).scaled(Vector3(s, s, s))
 	_add(name, cell, Transform3D(basis, pos))
 

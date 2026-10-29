@@ -10,6 +10,9 @@ signal leaked(creep: Creep)
 
 const BAR_WIDTH := 0.5
 
+## Creeps spawned so far, to start each walk cycle at its own phase.
+static var _spawned := 0
+
 var kind := ""
 var max_hp := 1.0
 var hp := 1.0
@@ -33,6 +36,8 @@ var _flash := 0.0
 var _clock := 0.0
 var _height := 0.4
 var _model_scale := 1.0
+## The model's own walk cycle, when it has one; otherwise the creep waddles.
+var _anim: AnimationPlayer
 
 
 func setup(creep_kind: String, points: PackedVector3Array, hp_multiplier: float) -> void:
@@ -55,6 +60,7 @@ func setup(creep_kind: String, points: PackedVector3Array, hp_multiplier: float)
 	_model_scale = float(data.get("scale", 1.0))
 	_body.scale = Vector3.ONE * _model_scale
 	add_child(_body)
+	_start_walk()
 	BlobShadow.under(self, 0.24 * _model_scale)
 	_height = _model_height(_body) * _model_scale
 	_build_bar()
@@ -75,10 +81,16 @@ func _physics_process(delta: float) -> void:
 		_leak()
 		return
 	_place(distance)
-	# A waddle: lean side to side and bob, faster when walking faster.
-	var step := _clock * speed * slow_factor * 9.0
-	_body.rotation.z = sin(step) * 0.12
-	_body.position.y = absf(sin(step)) * 0.035
+	if _anim:
+		# Feet keep pace with the ground: frost slows the cycle with the creep.
+		# "stride" is the walking speed the authored cycle matches.
+		_anim.speed_scale = speed * slow_factor / float(Game.CREEPS[kind].get("stride", 1.0))
+		_anim.advance(delta)
+	else:
+		# A waddle: lean side to side and bob, faster when walking faster.
+		var step := _clock * speed * slow_factor * 9.0
+		_body.rotation.z = sin(step) * 0.12
+		_body.position.y = absf(sin(step)) * 0.035
 	if _flash > 0.0:
 		_flash -= delta
 		_body.scale = Vector3.ONE * _model_scale * (1.0 + 0.12 * maxf(_flash, 0.0) / 0.12)
@@ -168,6 +180,24 @@ func _point_at(at: float) -> Vector3:
 			var f := (at - _lengths[i - 1]) / span if span > 0.0 else 0.0
 			return _points[i - 1].lerp(_points[i], f)
 	return _points[_points.size() - 1]
+
+
+## Loops the model's "walk" action. The player is advanced by hand from
+## _physics_process so the pose at a given frame is exact and repeatable.
+func _start_walk() -> void:
+	var players := _body.find_children("*", "AnimationPlayer", true, false)
+	if players.is_empty():
+		return
+	var player := players[0] as AnimationPlayer
+	if not player.has_animation("walk"):
+		return
+	_anim = player
+	_anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	_anim.get_animation("walk").loop_mode = Animation.LOOP_LINEAR
+	_anim.play("walk")
+	# Creeps of a wave spawn in step; start each one somewhere else in its cycle.
+	_spawned += 1
+	_anim.seek(fmod(_spawned * 0.37, _anim.current_animation_length), true)
 
 
 func _model_height(node: Node3D) -> float:
