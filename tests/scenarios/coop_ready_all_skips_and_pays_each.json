@@ -1,0 +1,97 @@
+{
+  "name": "coop_ready_all_skips_and_pays_each",
+  "description": "The horn sounds only when every present seat is Ready; then each seat is paid a gold per whole second left. A caretaken seat counts as Ready.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 400,
+  "watch": {
+    "hash1": "scene.client(1).state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.start({'seats': 2, 'clients': 2})"
+    },
+    {
+      "assert": "scene.client(1).hollows[0].countdown_t == 1500",
+      "msg": "two seats get the 25 s first window"
+    },
+    {
+      "eval": "scene.run_ticks(300)"
+    },
+    {
+      "eval": "scene.cmd(1, 'READY', 1)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.client(1).hollows[0].wave == 0 and scene.client(1).ready_count(0) == [1, 2]",
+      "msg": "one seat Ready is not enough"
+    },
+    {
+      "eval": "scene.cmd(1, 'READY', 0)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.client(1).ready_count(0) == [0, 2]",
+      "msg": "Ready toggles off"
+    },
+    {
+      "eval": "scene.cmd(1, 'READY', 1)"
+    },
+    {
+      "eval": "scene.cmd(2, 'READY', 1)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.client(1).hollows[0].wave == 1 and scene.client(1).hollows[0].phase == 1",
+      "msg": "both Ready: the horn sounds at once"
+    },
+    {
+      "eval": "scene.events_of('WAVE')[0]",
+      "as": "horn"
+    },
+    {
+      "assert": "horn['early'] == (1500 - horn['tick']) / 60 and horn['early'] >= 19",
+      "msg": "the horn pays one gold per whole second left"
+    },
+    {
+      "assert": "scene.gold(1) == 120 + horn['early'] and scene.gold(2) == 120 + horn['early']",
+      "msg": "to each seat"
+    },
+    {
+      "assert": "scene.client(1).ready_count(0) == [0, 2]",
+      "msg": "and clears Ready for the next window"
+    },
+    {
+      "repeat": 400,
+      "steps": [
+        {
+          "eval": "scene.run_ticks(15)"
+        }
+      ],
+      "until": "scene.client(1).hollows[0].phase == 0"
+    },
+    {
+      "eval": "scene.system('AWAY', 2)"
+    },
+    {
+      "eval": "scene.cmd(1, 'READY', 1)"
+    },
+    {
+      "eval": "scene.run_ticks(6)"
+    },
+    {
+      "assert": "scene.client(1).seat(2).state == 1 and scene.client(1).hollows[0].wave == 2",
+      "msg": "with seat 2 away, its caretaker counts as Ready and seat 1 alone sounds the horn"
+    },
+    {
+      "assert": "scene.hashes_agree() and scene.client(1).state_hash_hex() == scene.client(2).state_hash_hex()",
+      "msg": "both clients agree"
+    }
+  ]
+}

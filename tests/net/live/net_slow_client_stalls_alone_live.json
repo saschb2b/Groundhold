@@ -1,0 +1,51 @@
+{
+  "name": "net_slow_client_stalls_alone_live",
+  "description": "Against the real server, client 2 stalls for 3 s (it neither reads its socket nor steps): client 1 keeps playing at full pace, client 2 stands still, then catches up at up to 8 ticks a frame without being marked away, and the two hash streams are equal at every tick.",
+  "seed": 1,
+  "compare_hashes": true,
+  "topology": {
+    "server": {
+      "cmd": ["{python}", "server/main.py", "--port", "0", "--host", "127.0.0.1", "--dev-match", "classic:2", "--seed", "3"],
+      "cwd": ".",
+      "ready": "listening.*port\\D*(?P<port>\\d+)"
+    },
+    "clients": [
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Steady", "--hash-log"],
+        "steps": [
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 900},
+          {"wait_until": "scene.sim.tick >= 600", "timeout": 900},
+          {"eval": "scene.sim.tick", "as": "before"},
+          {"wait": 180},
+          {"assert": "scene.sim.tick - before >= 160", "msg": "client 1 played on at full pace while client 2 stalled"},
+          {"assert": "not scene.client.playout.catching_up", "msg": "and never fell behind itself"},
+          {"wait_until": "scene.sim.tick >= 1500", "timeout": 900},
+          {"assert": "scene.sim.seat(2).state == 0 and scene.sim.seat(1).state == 0", "msg": "nobody was marked away: 3 s is under the 5 s of silence"},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH'", "msg": "no desync ended the match"}
+        ]
+      },
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Stalled", "--hash-log"],
+        "steps": [
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 900},
+          {"wait_until": "scene.sim.tick >= 600", "timeout": 900},
+          {"eval": "scene.sim.tick", "as": "before"},
+          {"set": "scene.client.stalled_frames", "value": 180},
+          {"wait": 179},
+          {"assert": "scene.sim.tick == before", "msg": "client 2 stood still for 3 s"},
+          {"wait_until": "scene.client.playout.catching_up", "timeout": 30},
+          {"eval": "frame", "as": "resumed"},
+          {"wait_until": "not scene.client.playout.catching_up", "timeout": 120},
+          {"eval": "frame - resumed", "as": "catch_up_frames"},
+          {"assert": "catch_up_frames <= 45", "msg": "it caught up within 45 frames, 8 ticks a frame"},
+          {"assert": "scene.sim.tick - before >= 160", "msg": "and is back at the others' tick"},
+          {"wait_until": "scene.sim.tick >= 1500", "timeout": 900},
+          {"assert": "scene.sim.seat(2).state == 0", "msg": "it was never marked away"},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH'", "msg": "no desync ended the match"}
+        ]
+      }
+    ],
+    "timeout": 150
+  },
+  "steps": []
+}

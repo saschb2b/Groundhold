@@ -1,0 +1,18 @@
+{
+  "name": "sim_caretaker_acts_at_window_start",
+  "description": "The caretaker thinks at the build window's first tick as well as every 30 ticks (design 6.4 step 3): when a wave's clear bonus makes its next plan step affordable, the caretaken seat builds on the tick after the stage that opened the window, not up to 29 ticks later on the 30-tick grid.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 300,
+  "watch": {"hash1": "scene.client(1).state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.start({'seats': 2, 'caretakers': [2], 'seed': 1})"},
+    {"eval": "scene.run_to(1600)"},
+    {"repeat": 100, "steps": [{"eval": "scene.run_ticks(30)"}], "until": "scene.client(1).hollows[0].window_tick > 0"},
+    {"eval": "scene.client(1).hollows[0].window_tick", "as": "window"},
+    {"assert": "window % 30 != 0", "msg": "the window opened off the 30-tick grid, so the grid alone would wait"},
+    {"eval": "scene.run_ticks(60)"},
+    {"eval": "scene.ticks_of('BUILT', 2)", "as": "built"},
+    {"assert": "built.has(window)", "msg": "the caretaker built on the window's first tick, with the clear bonus"}
+  ]
+}

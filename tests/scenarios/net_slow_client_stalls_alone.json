@@ -1,0 +1,30 @@
+{
+  "name": "net_slow_client_stalls_alone",
+  "description": "Client 2 stalls for 3 s (it neither reads its link nor steps): client 1's world keeps running, client 2's stands still, then it catches up at up to 8 ticks a frame, no AWAY is sent, and the hashes agree.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 3,
+  "timeout_frames": 1500,
+  "watch": {"tick1": "scene.tick(1)", "tick2": "scene.tick(2)", "hash1": "scene.hash_hex(1)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 3, 'latency_turns': 1})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.client(1).cmd('BUILD', 0, 8, 3)"},
+    {"eval": "scene.client(2).cmd('BUILD', 2, 10, 8)"},
+    {"eval": "scene.run_turns(40)"},
+    {"eval": "scene.tick(1)", "as": "before1"},
+    {"eval": "scene.tick(2)", "as": "before2"},
+    {"eval": "scene.stall(2, 60)"},
+    {"eval": "scene.run_turns(60)"},
+    {"assert": "scene.tick(1) - before1 >= 175", "msg": "client 1 kept playing through client 2's stall (about 180 ticks in 3 s)"},
+    {"assert": "scene.tick(2) == before2", "msg": "client 2 stood still"},
+    {"assert": "scene.links[1].backlog() >= 55", "msg": "while about 60 turns waited on its link"},
+    {"eval": "scene.frame", "as": "resumed"},
+    {"wait_until": "scene.tick(1) - scene.tick(2) <= 3 * scene.client(2).playout.target_turns + 6", "timeout": 120},
+    {"eval": "scene.frame - resumed", "as": "catch_up_frames"},
+    {"assert": "catch_up_frames <= 40", "msg": "it caught up within 40 frames (8 ticks a frame)"},
+    {"assert": "scene.client(1).playout.catching_up == false and scene.seq.system_log == []", "msg": "client 1 never had to catch up, and nobody was marked AWAY"},
+    {"eval": "scene.run_turns(120)"},
+    {"assert": "scene.hashes_agree() and scene.sent_hashes_agree()", "msg": "every hash agreed, the stalled stretch included"},
+    {"assert": "scene.client(2).sent_hashes.has(before2 - before2 % 60 + 120)", "msg": "client 2 sent the hashes of the ticks it caught up through"}
+  ]
+}

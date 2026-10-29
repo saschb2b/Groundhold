@@ -1,0 +1,26 @@
+{
+  "builder": "lamplighter",
+  "about": "The classic balance plan: arrows and cannons along the first stretches, frost at the long bend, then fork branch A (the old upgrade) as gold allows.",
+  "steps": [
+    {"build": "arrow", "cell": [8, 3]},
+    {"build": "arrow", "cell": [10, 8]},
+    {"build": "cannon", "cell": [8, 11]},
+    {"build": "frost", "cell": [13, 8]},
+    {"build": "arrow", "cell": [12, 12]},
+    {"build": "cannon", "cell": [5, 12]},
+    {"fork": "a", "cell": [10, 8]},
+    {"fork": "a", "cell": [8, 11]},
+    {"build": "arrow", "cell": [14, 7]},
+    {"build": "cannon", "cell": [11, 8]},
+    {"fork": "a", "cell": [8, 3]},
+    {"fork": "a", "cell": [12, 12]},
+    {"fork": "a", "cell": [5, 12]},
+    {"build": "arrow", "cell": [4, 11]},
+    {"fork": "a", "cell": [11, 8]},
+    {"fork": "a", "cell": [13, 8]},
+    {"build": "cannon", "cell": [15, 12]},
+    {"fork": "a", "cell": [14, 7]},
+    {"fork": "a", "cell": [15, 12]},
+    {"fork": "a", "cell": [4, 11]}
+  ]
+}

@@ -6,3 +6,5 @@
 *.glb binary
 *.wav binary
 *.ttf binary
+# The protocol's golden transcripts are recorded bytes (shared/net/README.md).
+*.bin binary

@@ -1,0 +1,29 @@
+{
+  "name": "sim_lint_clean",
+  "description": "No forbidden token in scripts/sim (design 7.5 #2, the M1 acceptance): the kit's list and what it misses, dictionary iteration, float rounding, Engine., a vector's length(), sort_custom without a stated tie-break, .hash(), RandomNumberGenerator, await and call_deferred; TAU, PI, INF and NAN, sort() on records, get_instance_id, to_float and iterating what a function typed -> Dictionary returns. The lint itself catches each of them in a fixture and lets strings, comments, ints and allowed lines pass.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 30,
+  "steps": [
+    {
+      "eval": "resource('res://tests/sim/sim_lint.gd')",
+      "as": "lint"
+    },
+    {
+      "eval": "lint.scan('res://scripts/sim')",
+      "as": "found"
+    },
+    {
+      "assert": "found == []",
+      "msg": "scripts/sim is clean"
+    },
+    {
+      "eval": "lint.scan_file_lines('res://tests/sim/lint_fixture/forbidden.txt')",
+      "as": "lines"
+    },
+    {
+      "assert": "lines == [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]",
+      "msg": "every forbidden line of the fixture is caught once, and nothing after them"
+    }
+  ]
+}

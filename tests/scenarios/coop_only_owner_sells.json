@@ -1,0 +1,64 @@
+{
+  "name": "coop_only_owner_sells",
+  "description": "Only the seat that built a tower can upgrade or sell it, and the refund is the owner's.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "watch": {
+    "hash1": "scene.client(1).state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.start({'seats': 2, 'clients': 2})"
+    },
+    {
+      "eval": "scene.cmd(1, 'BUILD', 0, 8, 3)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "eval": "scene.tower_at(8, 3).id",
+      "as": "tid"
+    },
+    {
+      "assert": "scene.tower_at(8, 3).owner == 1",
+      "msg": "the tower is seat 1's"
+    },
+    {
+      "eval": "scene.cmd(2, 'SELL', tid)"
+    },
+    {
+      "eval": "scene.cmd(2, 'FORK', tid, 0)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.refusals(2) == ['NOT_YOURS', 'NOT_YOURS'] and scene.refusals(2, 2) == ['NOT_YOURS', 'NOT_YOURS']",
+      "msg": "seat 2's sell and upgrade are refused on both clients"
+    },
+    {
+      "assert": "scene.tower_at(8, 3) != null and scene.tower_at(8, 3).branch == -1 and scene.gold(1) == 80 and scene.gold(2) == 120",
+      "msg": "and change nothing"
+    },
+    {
+      "eval": "scene.cmd(1, 'SELL', tid)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.tower_at(8, 3) == null and scene.tower_at(8, 3, 2) == null",
+      "msg": "the owner's sell goes through"
+    },
+    {
+      "assert": "scene.gold(1) == 80 + 28 and scene.gold(2) == 120",
+      "msg": "and its 70% refund goes to the owner alone"
+    },
+    {
+      "assert": "scene.client(1).state_hash_hex() == scene.client(2).state_hash_hex()",
+      "msg": "both clients agree"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "net_playout_paces_turns",
+  "description": "The playout (design 6.3): the first tick waits for B turns; B comes from the pings (2 to 6 turns); it plays 60 ticks a second, 5% slower below B and 5% faster above B + 1; more than 20 turns behind it catches up at 8 ticks a frame; with nothing buffered it waits.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/net/playout_probe.gd')", "as": "probe"},
+    {"eval": "resource('res://scripts/net/playout.gd').new()", "as": "p"},
+    {"assert": "p.ticks_for_frame(3) == 0 and not p.started", "msg": "one turn at hand is less than B = 2: the first tick waits"},
+    {"assert": "p.ticks_for_frame(6) == 1 and p.started", "msg": "two turns: it starts, one tick a frame"},
+    {"assert": "probe.run(p, 9, 60) == 60", "msg": "near B it plays 60 ticks in 60 frames"},
+    {"assert": "probe.run(p, 3, 100) == 95", "msg": "below B, 5% slower"},
+    {"assert": "probe.run(p, 12, 100) == 105", "msg": "above B + 1, 5% faster"},
+    {"assert": "p.ticks_for_frame(0) == 0", "msg": "nothing at hand: it waits"},
+    {"assert": "p.ticks_for_frame(66) == 8 and p.catching_up", "msg": "22 turns behind: it catches up at 8 ticks a frame"},
+    {"assert": "p.ticks_for_frame(9) == 1 and not p.catching_up", "msg": "back near B it plays at the normal pace again"},
+    {"assert": "probe.buffer(20, 0) == 2 and probe.buffer(120, 0) == 3 and probe.buffer(100, 80) == 5 and probe.buffer(900, 0) == 6", "msg": "B = ceil((mean + 2 spread) / 50 ms), from 2 to 6 turns"},
+    {"eval": "p.add_sample(240)"},
+    {"assert": "p.target_turns == 5", "msg": "a 240 ms round trip asks for 5 turns"},
+    {"eval": "resource('res://scripts/net/playout.gd').new()", "as": "fast"},
+    {"set": "fast.turn_ms", "value": 10},
+    {"assert": "fast.nominal_pm() == 5000 and probe.run(fast, 9, 10) == 50", "msg": "a dev server's 10 ms turns play 5 ticks a frame"}
+  ]
+}

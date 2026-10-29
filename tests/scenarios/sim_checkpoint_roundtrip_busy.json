@@ -1,0 +1,19 @@
+{
+  "name": "sim_checkpoint_roundtrip_busy",
+  "description": "A busy three-seat match (a caretaker from tick 0, AWAY, BACK and LEFT, contested cells, a sale, signals, Ready presses and refused orders) replayed into a simulation replaced by deserialize(serialize()) every 7 ticks, and every 61 with events on: every tick's hash equals the uninterrupted run's. Every record's field takes a non-default value somewhere in this match, so a codec that drops one is caught (review M1 determinism 2; sim_checkpoint_roundtrip checks one moment).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/sim/busy_match.gd')", "as": "B"},
+    {"eval": "B.busy_log(7)", "as": "rec"},
+    {"eval": "[rec['final_tick'], rec['over'], rec['wave'], rec['towers'], rec['seat_states'], rec['plan_cursors']]", "as": "summary"},
+    {"assert": "rec['over'] and rec['wave'] >= 3", "msg": "the busy match ran to its end through several waves"},
+    {"assert": "rec['away_seen'] and rec['left_seen'] and rec['plan_cursors'][1] > 0", "msg": "a seat was away and back, one left, and the caretaker worked its plan"},
+    {"assert": "rec['sold'] and rec['signals'] > 10", "msg": "a tower was sold and signals were sent"},
+    {"eval": "B.roundtrip_chain(rec, 7, 3, false)", "as": "every7"},
+    {"assert": "every7['first_bad'] == -1 and every7['final'] == rec['final_tick'] and every7['trips'] > 1000", "msg": "a round trip every 7 ticks keeps every tick's hash"},
+    {"eval": "B.roundtrip_chain(rec, 61, 59, true)", "as": "every61"},
+    {"assert": "every61['first_bad'] == -1 and every61['final'] == rec['final_tick']", "msg": "and every 61 ticks with events on"}
+  ]
+}

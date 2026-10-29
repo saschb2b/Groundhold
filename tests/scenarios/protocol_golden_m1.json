@@ -1,0 +1,21 @@
+{
+  "name": "protocol_golden_m1",
+  "description": "The GDScript codec decodes every message of the M1 golden transcripts (recorded from the Python server) into the listed values, and encodes each back to the same bytes.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://scripts/net/protocol.gd')", "as": "codec"},
+    {"eval": "resource('res://tests/net/golden.gd').check(['m1_handshake', 'm1_dev_match', 'm1_codec'])", "as": "report"},
+    {"assert": "report['mismatches'] == []", "msg": "no record differs"},
+    {"assert": "report['records'] == 381 and report['decoded'] == 381 and report['reencoded'] == 381", "msg": "all 381 records decode and re-encode byte for byte"},
+    {"assert": "report['version'] == codec.number('version')", "msg": "the transcripts speak this game's protocol version"},
+    {"assert": "report['types'].size() == codec.spec()['messages'].size()", "msg": "every message of protocol.json is covered"},
+    {"assert": "report['types']['TURN'] > 50 and report['types']['PARTY'] == 11", "msg": "turns and every PARTY op are in"},
+    {"eval": "codec.decode(codec.encode('PING', {'client_ms': 5, 'rtt_ms': 20}).slice(0, 4))", "as": "short"},
+    {"assert": "short.has('error')", "msg": "a cut-off message is refused, not read past its end"},
+    {"eval": "codec.decode(codec.encode('BYE') + PackedByteArray([0]))", "as": "long"},
+    {"assert": "long.has('error')", "msg": "a message with bytes left over is refused"},
+    {"assert": "codec.encode('CMD', {'seq': 70000, 'type': 1, 'a': 0, 'b': 0, 'c': 0}).is_empty()", "msg": "a value that does not fit its field is not sent"}
+  ]
+}

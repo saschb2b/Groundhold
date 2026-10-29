@@ -1,7 +1,7 @@
 {
   "name": "boss",
   "seed": 3,
-  "time_scale": 2,
+  "ticks_per_frame": 2,
   "timeout_frames": 2400,
   "steps": [
     {
@@ -13,7 +13,16 @@
       "as": "bot"
     },
     {
-      "eval": "bot.step(scene)"
+      "repeat": 20,
+      "steps": [
+        {
+          "eval": "bot.step(scene)"
+        },
+        {
+          "wait": 2
+        }
+      ],
+      "until": "bot.done == 20 and scene.settled()"
     },
     {
       "set": "Game.wave",
@@ -24,7 +33,7 @@
       "value": 0.1
     },
     {
-      "wait_until": "Game.wave == 8 and node('WaveDirector')._queue.is_empty()",
+      "wait_until": "Game.wave == 8 and Game.spawns_left() == 0",
       "timeout": 900
     },
     {

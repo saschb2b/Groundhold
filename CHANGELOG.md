@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased
+
+The same game on a new engine room: the first step towards playing together (design M1a).
+
+- Every rule now runs in an integer simulation (`scripts/sim/`) that steps 60 ticks a second from the match's
+  seed and its turns, with no floats, clocks or scene tree. The same orders give the same match on any machine
+  and at any speed; a state hash every second and a checkpoint prove it.
+- Solo plays as before: the same eight waves, towers, prices and bounties. Orders go through an in-process turn
+  source and land within 50 ms; a tower you place shows as a pulsing ghost, its cost greyed out of your gold,
+  until then.
+- Next Wave is now **Ready** (still <kbd>N</kbd>, still the war horn): when everyone is Ready the horn sounds at
+  once and each second left pays a gold. With company the strip shows how many are Ready.
+- Two to four seats already work in the simulation: shared lives, own gold, every kill's full bounty to every
+  seat, only the owner upgrades or sells, and contested cells go to each seat in turn.
+- Creeps, towers, shells and effects are views of the simulation; a cannon's barrel no longer decides where its
+  shell lands.
+- Boot flags `--seed`, `--bot`, `--hash-log`, `--quit-after-match` and `--ticks-per-frame` for headless runs.
+- Tests fast-forward tick-exactly with `ticks_per_frame`; new scenarios check tick exactness, replays,
+  checkpoints, range by road intervals, the co-op rules and the turn order.
+
+Two lanterns on one road: two players over a server (design M1b).
+
+- `server/` is the multiplayer server, forked from Cyberworld Endless's: a turn sequencer that never simulates.
+  `python3 server/main.py --dev-match classic:2` forms a match from the first two games that join.
+- `--join=127.0.0.1` joins it. The game says HELLO, builds the match the server describes, checks its tick-0
+  state against everyone's, and plays the server's turns at 60 ticks a second behind a small buffer sized from
+  its ping. A stalled game stalls alone and catches up at up to 8 ticks a frame; a state hash goes up every
+  second, and two games that part end the match "desynced".
+- A party strip at the top left shows each player's glyph in their seat colour, name, gold, link and Ready mark;
+  "away", "caretaker" and "left" replace the gold while the caretaker holds a seat. Before the match it says
+  where the link stands.
+- `--name`, and `--shot-at`/`--shot-dir` to save the window at given ticks. The plan bot plays any seat; seat 2
+  builds on its own cells.
+- The wire contract (`shared/net/protocol.json`) is read by the game at runtime; a scenario decodes the server's
+  recorded transcripts byte for byte. Loopback scenarios run two clients against a fake sequencer in one
+  process; `tests/net/live/` runs them against the real server; `tools/net/smoke.py` plays a whole match with
+  two headless games and compares their hash streams.
+- The server ends a match only on a result most of the present players agree on; with two, both. A player
+  still on the way is waited for, and one whose game has played past someone's claimed end disagrees, so the
+  match ends "desynced" rather than on one player's word. A result, like a hash, is bounded by the turns
+  sealed.
+- Asking the server for missing turns costs it at most 100 turns per request and one answer per quarter
+  second, so no game can stall everyone else's turns by asking.
+- Orders wait for the match: before it starts, and after the link is lost, the commands are greyed, the
+  countdown and the horn's early gold are hidden, and a key or click says why ("The match has not started",
+  "No link to the server"). Orders that will never land drop their ghosts.
+- The game keeps to the server's command rate itself. Ready goes out one at a time and the last press counts,
+  so mashing <kbd>N</kbd> no longer costs the connection; any other order past the limit says "Not so fast".
+  When the server does refuse a game, the game now reads why before the connection closes.
+- Upgrade and Sell grey out for a partner's tower; my plate on the party strip shows my gold less what my
+  orders on their way will spend, and keeps its width when the Ready mark goes; the hearth counts every
+  tower standing, a partner's too.
+- The caretaker acts on the first tick of a build window, not up to half a second later; a portrait turns
+  from its subject's front when something new is selected.
+
 ## 0.5.0 · 2026-10-29
 
 A smaller, crafted console.

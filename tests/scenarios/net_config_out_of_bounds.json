@@ -1,0 +1,23 @@
+{
+  "name": "net_config_out_of_bounds",
+  "description": "A MATCH_CONFIG that puts a seat on a team the mode does not have (team 7 in classic), or gives a seat flags no version knows, fails the link with the reason, as an out-of-range your_seat does: the client never half-builds a simulation from it (review M1 protocol 2: team 7 raised an out-of-bounds SCRIPT ERROR in SimMatch.add_seat and the client went on into LOADING).",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 8,
+  "timeout_frames": 600,
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 8, 'latency_turns': [1, 1]})"},
+    {"eval": "scene.seq.set('seat_override', {'team': 7})"},
+    {"eval": "scene.run_turns(20)"},
+    {"assert": "scene.client(1).phase_name() == 'FAILED' and scene.client(2).phase_name() == 'FAILED'", "msg": "a seat on team 7 of a one-team mode fails both links"},
+    {"assert": "scene.client(1).error_text == 'MATCH_CONFIG puts a seat on team 7, outside the mode'", "msg": "with the reason"},
+    {"assert": "scene.client(1).sim == null and scene.client(2).sim == null", "msg": "and no simulation was built from it"},
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 8, 'latency_turns': [1, 1]})"},
+    {"eval": "scene.seq.set('seat_override', {'flags': 128})"},
+    {"eval": "scene.run_turns(20)"},
+    {"assert": "scene.client(1).phase_name() == 'FAILED' and scene.client(1).error_text == 'MATCH_CONFIG gives a seat flags this game does not know' and scene.client(1).sim == null", "msg": "unknown seat flags fail the link too"},
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 8, 'latency_turns': [1, 1]})"},
+    {"eval": "scene.seq.set('seat_override', {'flags': 1})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"assert": "scene.client(1).sim.seat(1).state == 3 and scene.client(2).sim.seat(2).state == 3", "msg": "a known flag is taken: both seats start caretaken (SimTypes.SEAT_CARETAKER, 3)"}
+  ]
+}

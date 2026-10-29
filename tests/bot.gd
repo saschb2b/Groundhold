@@ -1,57 +1,60 @@
-## A scripted player for balance tests: works down a fixed build order, buying
-## each step as soon as it can afford it. Use from a scenario:
+## A scripted player for balance tests and the --bot flag: works down the Lamplighter's
+## plan (data/plans/lamplighter.json, the same plan the caretaker follows) and sends each
+## step through the game's own input route, the build controller, as soon as it can pay.
+## Use from a scenario:
 ##   {"eval": "resource('res://tests/bot.gd').new()", "as": "bot"}
-##   {"repeat": 400, "steps": [{"eval": "bot.step(scene)"}, {"wait": 30}],
+##   {"repeat": 400, "steps": [{"eval": "bot.step(scene)"}, {"wait": 15}],
 ##    "until": "Game.state >= 2"}
 extends RefCounted
 
-const PLAN := [
-	["build", "arrow", Vector2i(8, 3)],
-	["build", "arrow", Vector2i(10, 8)],
-	["build", "cannon", Vector2i(8, 11)],
-	["build", "frost", Vector2i(13, 8)],
-	["build", "arrow", Vector2i(12, 12)],
-	["build", "cannon", Vector2i(5, 12)],
-	["upgrade", "", Vector2i(10, 8)],
-	["upgrade", "", Vector2i(8, 11)],
-	["build", "arrow", Vector2i(14, 7)],
-	["build", "cannon", Vector2i(11, 8)],
-	["upgrade", "", Vector2i(8, 3)],
-	["upgrade", "", Vector2i(12, 12)],
-	["upgrade", "", Vector2i(5, 12)],
-	["build", "arrow", Vector2i(4, 11)],
-	["upgrade", "", Vector2i(11, 8)],
-	["upgrade", "", Vector2i(13, 8)],
-	["build", "cannon", Vector2i(15, 12)],
-	["upgrade", "", Vector2i(14, 7)],
-	["upgrade", "", Vector2i(15, 12)],
-	["upgrade", "", Vector2i(4, 11)],
-]
+const BUILDER := "lamplighter"
+## A second seat's plan, on other cells (a party of bots holds one road together).
+const SEAT_PLANS := "res://tests/plans/lamplighter_seat%d.json"
 
+var plan: Array = SimContent.plan(BUILDER)
 var done := 0
 var log: Array[String] = []
+var _seat := 1
 
 
-## Takes the next step of the plan if affordable. Returns how many steps are done.
+## Takes the next steps of the plan it can afford. Returns how many steps are done.
+## A step waits while an earlier order of its own is still on its way.
 func step(main: Node) -> int:
-	while done < PLAN.size():
-		var entry: Array = PLAN[done]
-		var cell: Vector2i = entry[2]
-		if entry[0] == "build":
-			if not Game.can_afford(int(Game.TOWERS[entry[1]]["cost"])):
+	if Game.seat != _seat:
+		_seat = Game.seat
+		plan = plan_for(_seat)
+	while done < plan.size():
+		var entry: Dictionary = plan[done]
+		var at: Array = entry["cell"]
+		var cell := Vector2i(int(at[0]), int(at[1]))
+		var what := "build %s" % entry["build"] if entry.has("build") else "upgrade"
+		if entry.has("build"):
+			var kind := str(entry["build"])
+			if not Game.can_afford(Game.tower_cost(kind)):
 				return done
-			if not main.build(entry[1], cell):
-				log.append("could not build %s at %s" % [entry[1], cell])
+			if main.tower_at(cell) != null or not main.build(kind, cell):
+				log.append("could not build %s at %s" % [kind, cell])
 		else:
 			var tower: Tower = main.tower_at(cell)
-			if tower == null or tower.upgrade_cost() < 0:
+			if tower == null and not main.settled():
+				return done  # its build has not landed yet
+			if tower == null or tower.upgrade_cost() < 0 or tower.owner_seat != Game.seat:
 				log.append("nothing to upgrade at %s" % cell)
 			elif not Game.can_afford(tower.upgrade_cost()):
 				return done
-			else:
-				main.controller.select(tower)
-				main.controller.upgrade_selected()
-				main.controller.select(null)
-		log.append("wave %d: %s %s at %s" % [Game.wave, entry[0], entry[1], cell])
+			elif not main.fork(cell):
+				log.append("could not upgrade at %s" % cell)
+		log.append("wave %d: %s at %s" % [Game.wave, what, cell])
 		done += 1
 	return done
+
+
+## Seat 1 plays the Builder's own plan; seat k > 1 its own plan from tests/plans/ if one
+## is there.
+static func plan_for(seat: int) -> Array:
+	var path := SEAT_PLANS % seat
+	if seat > 1 and FileAccess.file_exists(path):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if parsed is Dictionary:
+			return (parsed as Dictionary).get("steps", [])
+	return SimContent.plan(BUILDER)

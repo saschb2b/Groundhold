@@ -1,0 +1,27 @@
+{
+  "name": "net_gap_repair",
+  "description": "Client 1 hangs while 1,220 turns pile up on its link, and the link loses 1,200 of them, as a full browser buffer does. TURN_REQUEST repairs the gap a window of 100 turns at a time; the client waits half of turn_request_ms and a turn between requests, so the sequencer (which answers a seat at most once per half of turn_request_ms, as the server does) ignores none of them, and the gap closes in about 3.6 s, not 6.7 s (review M1 protocol 2). Afterwards both clients hash alike.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 3,
+  "timeout_frames": 900,
+  "watch": {"tick1": "scene.tick(1)", "gap": "scene.client(1).source.first_gap()"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 3, 'latency_turns': [1, 1]})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_turns(20)"},
+    {"eval": "scene.stall(1, 1240)"},
+    {"eval": "scene.run_turns(1220)"},
+    {"eval": "scene.lose_turns(1, 1200)", "as": "lost"},
+    {"assert": "lost == 1200", "msg": "1,200 turns were lost on the way"},
+    {"repeat": 600, "steps": [{"eval": "scene.run_frames(1)"}], "until": "scene.client(1).source.first_gap() >= 0"},
+    {"assert": "scene.client(1).source.first_gap() >= 0 and scene.client(1).source.highest > scene.client(1).source.complete_upto + 1000", "msg": "the hung client reads on and sees its gap of 1,200 turns"},
+    {"eval": "scene.frame", "as": "began"},
+    {"repeat": 600, "steps": [{"eval": "scene.run_frames(1)"}], "until": "scene.client(1).source.first_gap() < 0"},
+    {"eval": "scene.frame - began", "as": "repair_frames"},
+    {"assert": "scene.client(1).source.first_gap() < 0 and scene.client(1).phase_name() == 'IN_MATCH'", "msg": "the gap was repaired and the client plays on"},
+    {"assert": "scene.seq.resends_ignored == 0 and scene.seq.resends >= 12", "msg": "a window an answer, and no request came too soon to be answered"},
+    {"assert": "repair_frames <= 240", "msg": "1,200 turns in at most 4 s (twelve windows, one each 300 ms)"},
+    {"eval": "scene.run_turns(200)"},
+    {"assert": "scene.sent_hashes_agree() and scene.hashes_agree()", "msg": "and both clients hash alike afterwards"}
+  ]
+}

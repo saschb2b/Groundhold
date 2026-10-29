@@ -63,12 +63,12 @@ three towers with an upgrade each, and creeps that walk one road. About six minu
 | <kbd>A</kbd> <kbd>C</kbd> <kbd>F</kbd> | Choose Arrow Tower, Cannon Tower or Frost Spire, then left-click a grass tile. The ghost turns red where you cannot build; hold <kbd>Shift</kbd> to keep placing |
 | Click a tower | Select it and see its range. <kbd>U</kbd> upgrades, <kbd>S</kbd> sells for 70% of what you paid |
 | Click a creep | Its health, speed, bounty and toll (the lives it would take) in the console |
-| <kbd>N</kbd> | Call the next wave early; the seconds left are paid as gold |
+| <kbd>N</kbd> | Ready: the war horn calls the next wave now; the seconds left are paid as gold |
 | Arrow keys, wheel, middle-drag, minimap | Move and zoom the view; <kbd>Home</kbd> shows the whole hollow |
 | Right click, <kbd>Esc</kbd> | Cancel building or the selection |
 
 You start with 120 gold and 20 lives. A creep that reaches the hearth costs lives (the Hollow King costs ten).
-Clearing a wave pays a bonus, and the next wave starts after ten seconds unless you call it sooner.
+Clearing a wave pays a bonus, and the next wave starts after ten seconds unless you are Ready sooner.
 
 ## Run it yourself
 
@@ -84,6 +84,22 @@ The browser build is what [Pages](.github/workflows/pages.yml) publishes: the `W
 ```bash
 godot --headless --path . --export-release "Web" build/web/index.html
 ```
+
+### Two players on one computer
+
+The multiplayer server is in `server/` (Python 3.11 or newer, nothing else). Milestone 1 has no lobby yet: the
+server's dev match seats the first two games that join.
+
+```bash
+python3 server/main.py --dev-match classic:2 --host 127.0.0.1
+godot --path . -- --join=127.0.0.1 --name=Tamsin     # first window
+godot --path . -- --join=127.0.0.1 --name=Edda       # second window
+```
+
+Each window plays its own seat on the shared hollow: one pool of lives, your own gold, every kill's full bounty
+to both, and the wave comes early only when both are Ready. Add `--bot` to a window to let the plan bot play
+that seat. Another computer on your network joins with the address the server's banner prints (leave out
+`--host 127.0.0.1` so it can come in).
 
 ## How it is made
 
@@ -102,8 +118,10 @@ can be rebuilt from its recipe (`asset_manifest.json` records how):
 | `art_src/ui/icons.py`, `icons.json` | Frames the command icons as buttons from the model renders in `art_src/ui/renders/` (made with `godot-agent asset icon --size 216`), at twice their size on screen: `python3 art_src/ui/icons.py` |
 | `models/`, `ui/icons/`, `ui/console/`, `sfx/` | The generated models, icons, painted console pieces and synthesized sounds |
 | `asset_style.json`, `palettes/hollow.gpl` | The style every asset is checked against: triangle budgets, sizes, origins, palette, loudness |
-| `scripts/` | The game: rules and tables in `game.gd`, waves, building, towers, creeps, projectiles, terrain, the console |
-| `tests/scenarios/`, `tests/bot.gd` | Deterministic gameplay tests; a scripted player must win all eight waves and an idle one must lose |
+| `scripts/` | The game: the rules as an integer simulation in `sim/` (tables in `sim/content.gd`), stepped from turns so every machine plays the same match; building, towers, creeps, projectiles, terrain and the console as its views |
+| `server/`, `shared/net/` | The multiplayer server, a turn sequencer that never simulates, and the wire contract both sides read |
+| `tests/scenarios/`, `tests/bot.gd` | Deterministic gameplay tests; a scripted player must win all eight waves and an idle one must lose; two networked clients must stay in step |
+| `tools/net/smoke.py` | A whole match against the real server by two headless games, their state hashes compared |
 | `tools/media/` | The scenarios that stage the screenshots and the clip above |
 
 The models, textures, icon renders and sounds were made with [godot-agent-kit](https://github.com/saschb2b/godot-agent-kit),

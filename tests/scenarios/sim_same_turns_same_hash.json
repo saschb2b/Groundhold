@@ -1,0 +1,43 @@
+{
+  "name": "sim_same_turns_same_hash",
+  "description": "Two simulations fed one turn log agree at every 60-tick hash, through contested cells, forks, Ready and two seats' plans.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 400,
+  "watch": {
+    "hash1": "scene.client(1).state_hash_hex()",
+    "hash2": "scene.client(2).state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.start({'seats': 2, 'clients': 2, 'seed': 7})"
+    },
+    {
+      "repeat": 100,
+      "steps": [
+        {
+          "eval": "scene.plan_step(1)"
+        },
+        {
+          "eval": "scene.plan_step(2)"
+        },
+        {
+          "eval": "scene.run_ticks(60)"
+        }
+      ],
+      "until": "scene.client(1).tick >= 6000"
+    },
+    {
+      "assert": "scene.hashes[1].size() >= 100",
+      "msg": "the second simulation hashed every 60 ticks"
+    },
+    {
+      "assert": "scene.hashes_agree()",
+      "msg": "both simulations agree at every hash tick"
+    },
+    {
+      "assert": "scene.client(1).towers.size() >= 4 and scene.events_of('REJECTED').size() >= 1",
+      "msg": "the seats built, and contested cells were refused"
+    }
+  ]
+}

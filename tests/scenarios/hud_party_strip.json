@@ -1,0 +1,149 @@
+{
+ "name": "hud_party_strip",
+ "description": "With company the party strip shows a plate per seat (glyph, name, gold, Ready mark during the build window); my plate shows my gold less what my orders on their way will spend, greyed; the caretaker's states replace the gold; a plate keeps its width when the Ready mark goes. Solo it stays hidden.",
+ "seed": 1,
+ "timeout_frames": 600,
+ "watch": {
+  "hash": "scene.state_hash_hex()"
+ },
+ "steps": [
+  {
+   "wait": 2
+  },
+  {
+   "assert": "not node('PartyStrip').visible",
+   "msg": "solo there is no party strip"
+  },
+  {
+   "eval": "scene.begin('classic', [{'team': 0}, {'team': 0}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"
+  },
+  {
+   "wait": 2
+  },
+  {
+   "assert": "node('PartyStrip').visible and node('PartyStrip').lines() == ['Seat 1 120', 'Seat 2 120']",
+   "msg": "a plate per seat with its gold"
+  },
+  {
+   "assert": "node('Seat1').get_node('Row/Ready').visible",
+   "msg": "the Ready mark shows during the build window"
+  },
+  {
+   "key": "N"
+  },
+  {
+   "wait_until": "Game.is_ready()",
+   "timeout": 10
+  },
+  {
+   "wait": 1
+  },
+  {
+   "assert": "node('PartyStrip').lines() == ['Seat 1 120 ready', 'Seat 2 120']",
+   "msg": "my Ready lights my plate's mark"
+  },
+  {
+   "eval": "scene.source.submit_as(2, 1, 0, 10, 8)"
+  },
+  {
+   "wait_until": "scene.sim.seat(2).gold == 80",
+   "timeout": 10
+  },
+  {
+   "wait": 1
+  },
+  {
+   "assert": "node('PartyStrip').lines()[1] == 'Seat 2 80'",
+   "msg": "the partner's gold follows the simulation"
+  },
+  {
+   "capture": "two_seats"
+  },
+  {
+   "eval": "node('Seat1').size.x",
+   "as": "plate_width"
+  },
+  {
+   "set_ticks_per_frame": 0
+  },
+  {
+   "assert": "node('BuildController').build('arrow', Vector2i(8, 3))",
+   "msg": "an order goes out"
+  },
+  {
+   "wait_until": "node('PartyStrip').lines()[0] == 'Seat 1 80 ready'",
+   "timeout": 10
+  },
+  {
+   "assert": "node('PartyStrip').lines()[0] == 'Seat 1 80 ready' and node('Seat1').get_node('Row/Gold').get_theme_color('font_color') == Color('#a3957d')",
+   "msg": "while it waits for its turn my plate shows its cost as spent, greyed, as the resource strip does"
+  },
+  {
+   "capture": "pending_gold"
+  },
+  {
+   "set_ticks_per_frame": 1
+  },
+  {
+   "wait_until": "scene.settled()",
+   "timeout": 12
+  },
+  {
+   "wait": 1
+  },
+  {
+   "assert": "node('PartyStrip').lines()[0] == 'Seat 1 80 ready' and node('Seat1').get_node('Row/Gold').get_theme_color('font_color') == Color('#f6d06a')",
+   "msg": "once it is built the gold is spent and golden again"
+  },
+  {
+   "assert": "node('Stats').get_meta('cells')[2] == ['Towers', '2']",
+   "msg": "the hearth counts every tower standing, the partner's too, as soon as each stands"
+  },
+  {
+   "eval": "node('BuildController').select(scene.tower_at(Vector2i(10, 8)))"
+  },
+  {
+   "assert": "node('Upgrade').disabled and node('Sell').disabled",
+   "msg": "the partner's tower: Upgrade and Sell are greyed, only its builder may"
+  },
+  {
+   "eval": "node('BuildController').select(scene.tower_at(Vector2i(8, 3)))"
+  },
+  {
+   "assert": "not node('Upgrade').disabled and not node('Sell').disabled",
+   "msg": "my own tower: both are lit"
+  },
+  {
+   "eval": "node('BuildController').select(null)"
+  },
+  {
+   "eval": "scene.source.system(64, 2)"
+  },
+  {
+   "wait_until": "scene.sim.seat(2).state == 1",
+   "timeout": 10
+  },
+  {
+   "wait": 1
+  },
+  {
+   "assert": "node('PartyStrip').lines()[1] == 'Seat 2 away'",
+   "msg": "away replaces the gold while the caretaker plays the seat"
+  },
+  {
+   "assert": "Game.wave == 1 and node('PartyStrip').lines()[0] == 'Seat 1 %d' % Game.gold and Game.gold > 80",
+   "msg": "an away seat counts as Ready: the horn sounded and paid me"
+  },
+  {
+   "assert": "not node('Seat1').get_node('Row/Ready').visible",
+   "msg": "and the Ready marks go once the wave runs"
+  },
+  {
+   "wait": 2
+  },
+  {
+   "assert": "node('Seat1').size.x == plate_width",
+   "msg": "and the plate keeps its width without it"
+  }
+ ]
+}

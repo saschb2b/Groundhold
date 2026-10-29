@@ -1,0 +1,80 @@
+{
+  "name": "sim_checkpoint_roundtrip",
+  "description": "A simulation loaded from a checkpoint taken at tick 2000 or just after, with a cannon shell in the air, reaches the same hash at tick 6000 as the one that kept running, and every hash between: nothing in flight is lost by the codec.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 400,
+  "watch": {
+    "hash1": "scene.client(1).state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.start({'seats': 2})"
+    },
+    {
+      "eval": "scene.cmd(1, 'BUILD', 2, 6, 3)"
+    },
+    {
+      "eval": "[scene.cmd(1, 'BUILD', 0, 14, 7), scene.cmd(2, 'BUILD', 1, 10, 8)]"
+    },
+    {
+      "eval": "scene.run_ticks(2000)"
+    },
+    {
+      "repeat": 300,
+      "steps": [
+        {
+          "eval": "scene.run_ticks(1)"
+        }
+      ],
+      "until": "scene.shells_in_flight(1) > 0"
+    },
+    {
+      "assert": "scene.client(1).tick > 2000 and scene.client(1).tick < 2300 and scene.shells_in_flight(1) > 0 and scene.client(1).creeps.size() > 0 and scene.client(1).towers.size() == 3",
+      "msg": "a frost spire, an arrow tower and a partner's cannon fight a wave on the road, and a cannon shell is in the air"
+    },
+    {
+      "eval": "scene.client(1).tick",
+      "as": "at"
+    },
+    {
+      "eval": "scene.checkpoint(1)",
+      "as": "bytes"
+    },
+    {
+      "eval": "scene.join_from(bytes)"
+    },
+    {
+      "assert": "scene.checkpoint(2) == bytes",
+      "msg": "deserialize(serialize()) gives back the same bytes"
+    },
+    {
+      "assert": "scene.record_differences(1, 2) == []",
+      "msg": "and every field of every record, the shell's burst point too: nothing the codec leaves out on both sides"
+    },
+    {
+      "assert": "scene.client(2).state_hash_hex() == scene.client(1).state_hash_hex()",
+      "msg": "and the same hash"
+    },
+    {
+      "repeat": 100,
+      "steps": [
+        {
+          "eval": "scene.plan_step(1)"
+        },
+        {
+          "eval": "scene.run_ticks(40)"
+        }
+      ],
+      "until": "scene.client(1).tick >= 6000"
+    },
+    {
+      "assert": "scene.hash_at(6000, 1) != '' and scene.hash_at(6000, 1) == scene.hash_at(6000, 2)",
+      "msg": "both reach the same hash at tick 6000"
+    },
+    {
+      "assert": "scene.hashes_agree()",
+      "msg": "and at every hash tick between"
+    }
+  ]
+}

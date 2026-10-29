@@ -1,0 +1,41 @@
+{
+  "name": "sim_ignores_views",
+  "description": "A match played with every view, effect and the HUD reaches the same hashes as its turn log replayed in a bare simulation.",
+  "seed": 1,
+  "ticks_per_frame": 8,
+  "timeout_frames": 2000,
+  "watch": {
+    "tick": "scene.sim.tick",
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "resource('res://tests/bot.gd').new()",
+      "as": "bot"
+    },
+    {
+      "repeat": 200,
+      "steps": [
+        {
+          "eval": "bot.step(scene)"
+        },
+        {
+          "wait": 15
+        }
+      ],
+      "until": "scene.sim.tick >= 6000"
+    },
+    {
+      "assert": "count('towers') >= 4 and scene.sim.hollows[0].wave >= 3",
+      "msg": "towers fired at several waves on the way"
+    },
+    {
+      "assert": "scene.hashes.size() >= 100",
+      "msg": "the match hashed every 60 ticks"
+    },
+    {
+      "assert": "scene.replay_matches()",
+      "msg": "views on and views off: the same hash at every hash tick"
+    }
+  ]
+}

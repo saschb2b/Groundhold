@@ -1,0 +1,21 @@
+{
+  "name": "sim_range_intervals_match_distance",
+  "description": "A tower's range as stretches of road equals the brute-force test d^2 <= r^2, for every buildable cell and every range.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "steps": [
+    {
+      "eval": "scene.check_ranges()",
+      "as": "mismatches"
+    },
+    {
+      "assert": "mismatches.is_empty()",
+      "msg": "interval membership equals brute force"
+    },
+    {
+      "assert": "scene.config['range_points_checked'] > 100000",
+      "msg": "over every buildable cell, near every stretch's ends and along the road"
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "name": "net_two_clients_converge_live",
+  "description": "The real server (--dev-match classic:2 on port 0) and two headless games that join it: each pays for its own tower, only the owner may sell, and their hash streams are equal at every tick both printed.",
+  "seed": 1,
+  "compare_hashes": true,
+  "topology": {
+    "server": {
+      "cmd": [
+        "{python}",
+        "server/main.py",
+        "--port",
+        "0",
+        "--host",
+        "127.0.0.1",
+        "--dev-match",
+        "classic:2",
+        "--seed",
+        "7"
+      ],
+      "cwd": ".",
+      "ready": "listening.*port\\D*(?P<port>\\d+)"
+    },
+    "clients": [
+      {
+        "args": [
+          "--",
+          "--join=127.0.0.1:{port}",
+          "--name=Tamsin",
+          "--hash-log"
+        ],
+        "steps": [
+          {
+            "wait_until": "scene.client.phase_name() == 'IN_MATCH'",
+            "timeout": 900
+          },
+          {
+            "assert": "scene.client.names[scene.client.seat - 1] == 'Tamsin' and scene.client.names.has('Edda') and scene.sim.match_seed == 7",
+            "msg": "a seat of the match the server formed (seats follow the HELLOs' order, which the two processes race for)"
+          },
+          {
+            "assert": "scene.build('arrow', Vector2i(8, 3))",
+            "msg": "the build is sent"
+          },
+          {
+            "wait_until": "scene.settled()",
+            "timeout": 120
+          },
+          {
+            "wait_until": "scene.sim.towers.size() == 2",
+            "timeout": 300
+          },
+          {
+            "assert": "scene.sim.tower_at(0, 8, 3).owner == scene.client.seat and scene.sim.tower_at(0, 10, 8).owner == 3 - scene.client.seat",
+            "msg": "each tower belongs to the seat that sent it"
+          },
+          {
+            "assert": "scene.sim.seat(scene.client.seat).gold == 80 and scene.sim.seat(3 - scene.client.seat).gold == 50",
+            "msg": "each paid for their own tower"
+          },
+          {
+            "assert": "scene.client.last_refusal() == ''",
+            "msg": "nothing of mine was refused"
+          },
+          {
+            "wait_until": "scene.sim.tick >= 1500",
+            "timeout": 1800
+          },
+          {
+            "assert": "scene.client.hashes_sent >= 24 and scene.client.phase_name() == 'IN_MATCH'",
+            "msg": "my hashes went to the server and the match runs on"
+          }
+        ]
+      },
+      {
+        "args": [
+          "--",
+          "--join=127.0.0.1:{port}",
+          "--name=Edda",
+          "--hash-log"
+        ],
+        "steps": [
+          {
+            "wait_until": "scene.client.phase_name() == 'IN_MATCH'",
+            "timeout": 900
+          },
+          {
+            "assert": "scene.client.names[scene.client.seat - 1] == 'Edda'",
+            "msg": "the other seat"
+          },
+          {
+            "assert": "scene.build('cannon', Vector2i(10, 8))",
+            "msg": "the build is sent"
+          },
+          {
+            "wait_until": "scene.settled()",
+            "timeout": 120
+          },
+          {
+            "wait_until": "scene.sim.towers.size() == 2",
+            "timeout": 300
+          },
+          {
+            "assert": "scene.sim.seat(3 - scene.client.seat).gold == 80 and scene.sim.seat(scene.client.seat).gold == 50",
+            "msg": "each paid for their own tower"
+          },
+          {
+            "eval": "scene.client.cmd('SELL', scene.sim.tower_at(0, 8, 3).id)"
+          },
+          {
+            "wait_until": "scene.client.last_refusal() != ''",
+            "timeout": 120
+          },
+          {
+            "assert": "scene.client.last_refusal() == 'NOT_YOURS' and scene.sim.towers.size() == 2",
+            "msg": "the simulation refuses my sale of the partner's tower"
+          },
+          {
+            "wait_until": "scene.sim.tick >= 1500",
+            "timeout": 1800
+          },
+          {
+            "assert": "scene.client.hashes_sent >= 24 and scene.client.phase_name() == 'IN_MATCH'",
+            "msg": "no desync ended the match"
+          }
+        ]
+      }
+    ],
+    "timeout": 150
+  },
+  "steps": []
+}

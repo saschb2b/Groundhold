@@ -1,0 +1,11 @@
+{
+  "name": "protocol_agrees_with_sim_types",
+  "description": "The command and system types, the server's seat, the turn length and the hash interval are the same numbers in shared/net/protocol.json and scripts/sim/sim_types.gd.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/net/golden.gd').sim_type_mismatches()", "as": "differ"},
+    {"assert": "differ == []", "msg": "the wire and the simulation agree on every number"}
+  ]
+}

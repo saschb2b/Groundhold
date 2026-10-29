@@ -1,0 +1,46 @@
+{
+  "name": "net_lone_result_does_not_decide",
+  "description": "A modified client claims the match won early while its partner plays on and keeps hashing: the partner's simulation runs past the claimed tick, so with two seats the match ends \"desynced\" at that tick, never \"won\" on one seat's word (design 6.1, 6.10).",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 5,
+  "timeout_frames": 600,
+  "watch": {
+    "tick1": "scene.tick(1)",
+    "hash1": "scene.hash_hex(1)"
+  },
+  "steps": [
+    {
+      "eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 5, 'latency_turns': [1, 2]})"
+    },
+    {
+      "wait_until": "scene.phase() == 'IN_MATCH'",
+      "timeout": 600
+    },
+    {
+      "eval": "scene.run_turns(100)"
+    },
+    {
+      "eval": "scene.claim_result(2, 0)",
+      "as": "claimed"
+    },
+    {
+      "eval": "scene.run_turns(400)"
+    },
+    {
+      "assert": "scene.seq.outcome == 'desynced' and scene.seq.end_reason == 'desync' and scene.seq.final_tick == claimed",
+      "msg": "client 1 hashed past the claimed end: the referee ends the match desynced at the claimed tick"
+    },
+    {
+      "assert": "scene.client(1).outcome == 'desynced' and scene.client(2).outcome == 'desynced'",
+      "msg": "and tells both, not 'won'"
+    },
+    {
+      "assert": "scene.client(1).sent_hashes.keys().max() > claimed and scene.tick(1) > claimed",
+      "msg": "the honest client was present and hashing past the claim"
+    },
+    {
+      "assert": "scene.seq.seat_conn(1)['result'][0] == claimed and scene.client(2).phase_name() == 'ENDED'",
+      "msg": "the claim was taken (inside its limits), and still decided nothing alone"
+    }
+  ]
+}

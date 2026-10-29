@@ -82,6 +82,8 @@ func show_model(
 	if key == _shown:
 		return
 	_shown = key
+	# (a new subject turns from its front, whatever the last one's turn had reached)
+	_holder.rotation.y = 0.0
 	# Out of the holder now, not at the end of the frame: the framing below measures it.
 	for child in _holder.get_children():
 		_holder.remove_child(child)

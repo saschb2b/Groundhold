@@ -13,6 +13,9 @@
     "shots",
     "kills"
   ],
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
   "steps": [
     {
       "set": "Game.gold",
@@ -25,10 +28,14 @@
       "eval": "scene.build('frost', Vector2i(8, 4))"
     },
     {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
       "repeat": 3,
       "steps": [
         {
-          "eval": "node('WaveDirector')._spawn('thornback')"
+          "eval": "scene.spawn('thornback')"
         }
       ]
     },
@@ -43,6 +50,10 @@
     {
       "eval": "group('creeps')",
       "as": "clump"
+    },
+    {
+      "assert": "clump.size() == 3",
+      "msg": "three thornbacks stand at the gate"
     },
     {
       "set": "clump[0].distance",

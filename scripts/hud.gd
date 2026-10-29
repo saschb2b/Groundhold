@@ -36,7 +36,6 @@ const NOTICE_HOLD := 0.9
 const BANNER_TOP := 24
 
 var controller: BuildController
-var waves: WaveDirector
 
 var _layout: Dictionary
 ## Texels of console art per layout pixel.
@@ -45,7 +44,7 @@ var _gold: Label
 var _lives: Label
 var _wave: Label
 var _countdown: Label
-var _next_button: Button
+var _ready_button: Button
 var _banner: TitleBanner
 var _notice: Label
 var _notice_tween: Tween
@@ -66,11 +65,12 @@ var _hovered := ""
 var _end_panel: Control
 var _end_label: Label
 var _end_detail: Label
+## Whether orders go out (Game.accepts_commands) as the HUD last showed it.
+var _live := true
 
 
 func setup(main: Node) -> void:
 	controller = main.controller
-	waves = main.waves
 	_layout = (load(ART + "layout.json") as JSON).data
 	_k = float(_layout.get("scale", 1))
 	_build(main)
@@ -80,6 +80,8 @@ func setup(main: Node) -> void:
 	Game.state_changed.connect(_on_state)
 	Game.announced.connect(show_banner)
 	Game.noticed.connect(show_notice)
+	Game.ready_changed.connect(_refresh)
+	Game.towers_changed.connect(_refresh)
 	controller.selection_changed.connect(func(_t: Tower) -> void: _refresh())
 	controller.creep_selected.connect(func(_c: Creep) -> void: _refresh())
 	controller.mode_changed.connect(func(_k2: String) -> void: _refresh())
@@ -87,21 +89,38 @@ func setup(main: Node) -> void:
 
 
 func _process(_delta: float) -> void:
-	var next_cost := ""
-	if Game.state == Game.State.PREP:
+	var live := Game.accepts_commands()
+	if live != _live:
+		_live = live
+		_refresh()  # (the match started, or its link went)
+	var ready_cost := ""
+	if Game.sim == null or not live:
+		# (networked, before START or after the link went: the world stands still, and
+		# the party strip says why)
+		_countdown.text = ""
+	elif Game.state == Game.State.PREP:
 		var seconds := ceili(Game.countdown)
 		if Game.wave == 0:
 			_countdown.text = "First wave in %d s" % seconds
 		else:
 			_countdown.text = "· next in %d s" % seconds
-		if int(Game.countdown) > 0 and Game.wave < Game.total_waves():
-			next_cost = "+%d" % int(Game.countdown)  # the gold an early call pays
+		if Game.seat_count() > 1:
+			# Ready pips: how many of the party are Ready for the horn.
+			var count := Game.ready_count()
+			# (my own Ready as my last press asked for it, as the horn and my bead show it,
+			# before the turn that carries it runs)
+			var mine := Game.sim.seat(Game.seat)
+			if mine.state == SimTypes.SEAT_PRESENT and controller.wants_ready() != mine.ready:
+				count[0] += 1 if controller.wants_ready() else -1
+			_countdown.text += " · Ready %d/%d" % [count[0], count[1]]
+		if Game.early_gold() > 0 and Game.wave < Game.total_waves():
+			ready_cost = "+%d" % Game.early_gold()  # the gold an early horn pays
 	elif Game.state == Game.State.WAVE:
-		var left := waves.remaining()
+		var left := Game.creeps_left()
 		_countdown.text = "· %d %s left" % [left, "creep" if left == 1 else "creeps"]
 	else:
 		_countdown.text = ""
-	_set_cost(_next_button, next_cost)
+	_set_cost(_ready_button, ready_cost)
 	var creep := controller.selected_creep
 	if creep and is_instance_valid(creep) and not creep.dead:
 		# Only when what it shows changes, not every frame.
@@ -150,6 +169,7 @@ func _build(main: Node) -> void:
 	add_child(root)
 	_build_console(root, main)
 	_build_strip(root)
+	_build_party(root, main)
 	_build_banner(root)
 	_build_notice(root)
 	_build_tooltip(root)
@@ -234,9 +254,10 @@ func _build_console(root: Control, main: Node) -> void:
 	var sell := _card_button("Sell", "S", ICONS + "sell.png")
 	sell.pressed.connect(controller.sell_selected)
 	commands.append([sell, "sell"])
-	_next_button = _card_button("NextWave", "N", ICONS + "next_wave.png")
-	_next_button.pressed.connect(func() -> void: waves.start_next_wave())
-	commands.append([_next_button, "next"])
+	# The war horn: Ready. When every seat is Ready the next wave comes at once.
+	_ready_button = _card_button("Ready", "N", ICONS + "next_wave.png")
+	_ready_button.pressed.connect(func() -> void: controller.toggle_ready())
+	commands.append([_ready_button, "ready"])
 	var socket := _vec("socket")
 	var gap := _vec("gap")
 	for i in commands.size():
@@ -304,6 +325,24 @@ func _build_strip(root: Control) -> void:
 	_countdown.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_countdown.custom_minimum_size.x = 98
 	row.add_child(_countdown)
+
+
+## The party strip, top left: a plate per player while more than one seat plays, and
+## the link's state before a networked match starts (scripts/ui/party_strip.gd).
+func _build_party(root: Control, main: Node) -> void:
+	var source: StyleBoxTexture = load(ART + "tooltip.tres")
+	var plate := HdStyleBox.new(source, _k)
+	var bright := source.duplicate() as StyleBoxTexture
+	bright.modulate_color = Color(1.7, 1.4, 0.95)
+	var mine := HdStyleBox.new(bright, _k)
+	for box: StyleBox in [plate, mine]:
+		box.content_margin_left = 10
+		box.content_margin_right = 12
+		box.content_margin_top = 5
+		box.content_margin_bottom = 6
+	var party := PartyStrip.new()
+	root.add_child(party)
+	party.setup(main, BOLD_FONT, BODY_FONT, _tight(ICONS + "res_gold.png"), plate, mine)
 
 
 ## Titles stand high over the hollow, above the first row of towers.
@@ -433,31 +472,42 @@ func _build_end_panel(root: Control) -> void:
 
 
 func _refresh() -> void:
-	_gold.text = str(Game.gold)
+	# Gold my orders still on their way will spend shows as already gone, greyed.
+	_gold.text = str(Game.gold - Game.pending_gold)
+	_gold.add_theme_color_override("font_color", DIM if Game.pending_gold > 0 else COIN)
 	_lives.text = str(Game.lives)
-	_lives.add_theme_color_override("font_color", _health_tone(Game.lives, Game.START_LIVES))
+	_lives.add_theme_color_override("font_color", _health_tone(Game.lives, Game.max_lives()))
 	_wave.text = "Wave %d/%d" % [Game.wave, Game.total_waves()]
 	_wave.visible = Game.wave > 0  # before the first, the countdown says it all
 	var over := _over()
+	# (networked, orders go nowhere before START or after the link went: every command
+	# greys, as it does once the match is over)
+	var live := Game.accepts_commands()
+	_live = live
 	for kind: String in ["arrow", "cannon", "frost"]:
-		var cost := int(Game.TOWERS[kind]["cost"])
-		_command(_card[kind], not over, Game.can_afford(cost), str(cost))
+		var cost := Game.tower_cost(kind)
+		_command(_card[kind], not over and live, Game.can_afford(cost), str(cost))
 		_set_active(_card[kind], controller.mode == kind)
 	var tower := controller.selected
 	var has_tower := tower != null and is_instance_valid(tower)
+	# (only a tower's builder upgrades or sells it)
+	var mine := has_tower and tower.owner_seat == Game.seat
 	var upgrade_cost := tower.upgrade_cost() if has_tower else -1
 	if has_tower and upgrade_cost < 0:
 		_command(_card["upgrade"], false, true, "Max")
 	else:
 		_command(
 			_card["upgrade"],
-			upgrade_cost > 0,
+			upgrade_cost > 0 and mine and live,
 			Game.can_afford(upgrade_cost),
 			str(upgrade_cost) if upgrade_cost > 0 else ""
 		)
-	_command(_card["sell"], has_tower, true, "+%d" % tower.sell_value() if has_tower else "")
-	var can_call := Game.state == Game.State.PREP and Game.wave < Game.total_waves()
-	_command(_next_button, can_call, true, (_next_button.get_node("Cost") as Label).text)
+	_command(
+		_card["sell"], mine and live, true, "+%d" % tower.sell_value() if has_tower else ""
+	)
+	var can_call := Game.state == Game.State.PREP and Game.wave < Game.total_waves() and live
+	_command(_ready_button, can_call, true, (_ready_button.get_node("Cost") as Label).text)
+	_set_active(_ready_button, can_call and controller.wants_ready())
 	var creep := controller.selected_creep
 	var has_creep := creep != null and is_instance_valid(creep) and not creep.dead
 	if has_creep:
@@ -489,11 +539,11 @@ func _describe_hearth() -> void:
 		[
 			[
 				"Lives",
-				"%d/%d" % [Game.lives, Game.START_LIVES],
-				_health_tone(Game.lives, Game.START_LIVES)
+				"%d/%d" % [Game.lives, Game.max_lives()],
+				_health_tone(Game.lives, Game.max_lives())
 			],
 			["Kills", str(Game.kills)],
-			["Towers", str(get_tree().get_node_count_in_group("towers"))],
+			["Towers", str(Game.tower_count())],
 		]
 	)
 
@@ -501,7 +551,7 @@ func _describe_hearth() -> void:
 ## What wave `index` (0-based) sends: "8 Gourdlings", "5 Thornbacks and The Hollow King".
 func _wave_brings(index: int) -> String:
 	var parts := PackedStringArray()
-	for group: Dictionary in Game.WAVES[index]:
+	for group: Dictionary in Game.wave_groups(index):
 		var count := int(group["count"])
 		var creep_name := str(Game.CREEPS[group["creep"]]["name"])
 		if count == 1:
@@ -512,7 +562,7 @@ func _wave_brings(index: int) -> String:
 
 
 func _describe_build(kind: String) -> void:
-	var data: Dictionary = Game.TOWERS[kind]
+	var data: Dictionary = Game.tower_stats(kind, 1)
 	var cost := int(data["cost"])
 	_show_tower_portrait(kind, 1)
 	_head(str(data["name"]), "%d gold" % cost, DIM if Game.can_afford(cost) else SHORT)
@@ -631,7 +681,7 @@ func _show_tooltip(what: String) -> void:
 		var data: Dictionary = Game.TOWERS[what]
 		_tooltip_title.text = str(data["name"])
 		_tooltip_key.text = "(%s)" % data["hotkey"]
-		cost = int(data["cost"])
+		cost = Game.tower_cost(what)
 		_tooltip_body.text = str(data["description"])
 	elif what == "upgrade":
 		_tooltip_title.text = "Upgrade"
@@ -643,6 +693,8 @@ func _show_tooltip(what: String) -> void:
 			if can
 			else ("Fully upgraded." if has_tower else "Select a tower to upgrade it.")
 		)
+		if can and tower.owner_seat != Game.seat:
+			_tooltip_body.text = "Only the one who built it can upgrade it."
 	elif what == "sell":
 		_tooltip_title.text = "Sell"
 		_tooltip_key.text = "(S)"
@@ -650,15 +702,25 @@ func _show_tooltip(what: String) -> void:
 		_tooltip_body.text = (
 			"Returns most of what the tower cost." if has_tower else "Select a tower to sell it."
 		)
+		if has_tower and tower.owner_seat != Game.seat:
+			_tooltip_body.text = "Only the one who built it can sell it."
 	else:
-		_tooltip_title.text = "Next Wave"
+		_tooltip_title.text = "Ready"
 		_tooltip_key.text = "(N)"
-		var bonus := int(Game.countdown) if Game.state == Game.State.PREP else 0
-		_tooltip_cost.text = "+%d" % bonus if bonus > 0 and not _next_button.disabled else ""
+		var bonus := Game.early_gold()
+		_tooltip_cost.text = "+%d" % bonus if bonus > 0 and not _ready_button.disabled else ""
+		var everyone := "you are" if Game.seat_count() == 1 else "everyone is"
 		_tooltip_body.text = (
-			"Calls the next wave now. Each second left on the countdown pays one gold."
-			if not _next_button.disabled
-			else "The horn waits until this wave is cleared."
+			(
+				"Sounds the horn when %s Ready: the next wave comes at once, and each second left on the countdown pays one gold."
+				% everyone
+			)
+			if not _ready_button.disabled
+			else (
+				"The horn waits until this wave is cleared."
+				if Game.accepts_commands()
+				else Game.command_refusal() + "."
+			)
 		)
 	if cost > 0:
 		_tooltip_cost.text = str(cost)

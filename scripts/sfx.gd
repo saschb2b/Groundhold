@@ -30,7 +30,7 @@ var _streams := {}
 var _players: Array[AudioStreamPlayer] = []
 var _next := 0
 var _last_played := {}
-## Separate from Game.rng so sound choices never change gameplay randomness.
+## Its own generator, apart from the simulation's, so sound choices never touch the rules.
 var _rng := RandomNumberGenerator.new()
 
 

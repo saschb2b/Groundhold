@@ -1,0 +1,109 @@
+{
+  "name": "net_ready_mash_keeps_the_link",
+  "description": "Mashing N (Ready) 40 times at 30 a second keeps the link: one READY is on its way at a time and the last press wins, so far fewer than the server's 10-command burst go out. Orders beyond the mirrored command bucket are refused here with 'Not so fast', not by the server. A game that sends around the bucket is refused by the server with ERROR 8, and the strip gives the server's reason.",
+  "seed": 1,
+  "timeout_frames": 2400,
+  "watch": {
+    "phase": "scene.client.phase_name() if scene.client else ''"
+  },
+  "steps": [
+    {
+      "wait": 2
+    },
+    {
+      "eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"
+    },
+    {
+      "eval": "node('LoopbackMain').start({'seed': 3})"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'IN_MATCH'",
+      "timeout": 600
+    },
+    {
+      "wait": 5
+    },
+    {
+      "repeat": 40,
+      "steps": [
+        {
+          "key": "N"
+        },
+        {
+          "wait": 2
+        }
+      ]
+    },
+    {
+      "wait_until": "node('BuildController').settled()",
+      "timeout": 120
+    },
+    {
+      "wait": 10
+    },
+    {
+      "assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.error_text == ''",
+      "msg": "the link held through the mashing"
+    },
+    {
+      "assert": "not Game.is_ready() and not node('BuildController').wants_ready() and node('PartyStrip').lines()[0] == 'Tamsin 120'",
+      "msg": "40 presses end where they began: not Ready, as the last press asked"
+    },
+    {
+      "eval": "node('LoopbackMain').sealed('READY')",
+      "as": "readies"
+    },
+    {
+      "assert": "readies >= 2 and readies <= 14",
+      "msg": "the presses are coalesced under the mirrored bucket: at most 8 at once and 5 a second (14 in 80 frames) went out for 40 presses, none refused"
+    },
+    {
+      "repeat": 12,
+      "steps": [
+        {
+          "eval": "scene.client.cmd('READY', 0)"
+        }
+      ]
+    },
+    {
+      "assert": "not Game.can_command() and Game.command_refusal() == 'Not so fast'",
+      "msg": "the client's mirror of the command bucket ran dry, with tokens kept back"
+    },
+    {
+      "assert": "not node('BuildController').build('arrow', Vector2i(8, 3)) and node('Notice').text == 'Not so fast' and node('Pending_8_3') == null",
+      "msg": "an order now is refused here, and says why"
+    },
+    {
+      "wait": 60
+    },
+    {
+      "assert": "node('BuildController').build('arrow', Vector2i(8, 3))",
+      "msg": "a moment later it goes out"
+    },
+    {
+      "wait_until": "node('BuildController').settled()",
+      "timeout": 120
+    },
+    {
+      "assert": "scene.client.phase_name() == 'IN_MATCH' and scene.tower_at(Vector2i(8, 3)) != null",
+      "msg": "and the link held"
+    },
+    {
+      "eval": "node('LoopbackMain').flood(12)"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'FAILED'",
+      "timeout": 60
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "scene.client.error_text == 'Message rate exceeded' and node('NetStatusText').text == 'Link lost \u00b7 Message rate exceeded'",
+      "msg": "around the bucket the server refuses the connection, and the strip gives its reason"
+    },
+    {
+      "capture": "refused_reason"
+    }
+  ]
+}

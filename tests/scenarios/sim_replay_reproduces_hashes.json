@@ -1,0 +1,69 @@
+{
+  "name": "sim_replay_reproduces_hashes",
+  "description": "A recorded turn log, scenario setters included, replayed into a fresh simulation reproduces every hash.",
+  "seed": 1,
+  "ticks_per_frame": 8,
+  "timeout_frames": 2000,
+  "watch": {
+    "tick": "scene.sim.tick",
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {
+      "set": "Game.gold",
+      "value": 300
+    },
+    {
+      "eval": "resource('res://tests/bot.gd').new()",
+      "as": "bot"
+    },
+    {
+      "eval": "bot.step(scene)"
+    },
+    {
+      "wait": 30
+    },
+    {
+      "set": "Game.countdown",
+      "value": 0.5
+    },
+    {
+      "wait_until": "Game.state == 1",
+      "timeout": 60
+    },
+    {
+      "eval": "scene.spawn('thornback')"
+    },
+    {
+      "wait": 4
+    },
+    {
+      "set": "first('creeps').distance",
+      "value": 9.5
+    },
+    {
+      "repeat": 200,
+      "steps": [
+        {
+          "eval": "bot.step(scene)"
+        },
+        {
+          "wait": 15
+        }
+      ],
+      "until": "scene.sim.tick >= 6000"
+    },
+    {
+      "assert": "scene.record()['debug'].size() >= 4",
+      "msg": "the setters were logged with their ticks"
+    },
+    {
+      "assert": "scene.record()['turns'].size() >= 1999",
+      "msg": "every turn is in the log"
+    },
+    {
+      "assert": "scene.replay_matches()",
+      "msg": "the replay reproduces every hash"
+    }
+  ]
+}

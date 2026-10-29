@@ -1,0 +1,84 @@
+{
+  "name": "ready_starts_next_wave",
+  "description": "Ready sounds the horn at once and pays a gold for each whole second left; after a clear a fresh window opens and runs out by itself.",
+  "seed": 1,
+  "ticks_per_frame": 8,
+  "timeout_frames": 3000,
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {
+      "set": "Game.gold",
+      "value": 400
+    },
+    {
+      "eval": "scene.build('arrow', Vector2i(8, 3))"
+    },
+    {
+      "eval": "scene.build('arrow', Vector2i(6, 3))"
+    },
+    {
+      "eval": "scene.build('cannon', Vector2i(8, 5))"
+    },
+    {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
+      "eval": "Game.gold",
+      "as": "gold_before"
+    },
+    {
+      "key": "N"
+    },
+    {
+      "wait_until": "Game.state == 1 and Game.wave == 1",
+      "timeout": 10
+    },
+    {
+      "assert": "scene.sim.tick < 900",
+      "msg": "Ready brought wave 1 before the 15 s window ran out"
+    },
+    {
+      "assert": "Game.gold - gold_before >= 13 and Game.gold - gold_before <= 15",
+      "msg": "and paid a gold for each whole second left"
+    },
+    {
+      "assert": "not Game.is_ready()",
+      "msg": "the horn clears Ready for the next window"
+    },
+    {
+      "wait_until": "Game.state == 0",
+      "timeout": 1500
+    },
+    {
+      "assert": "Game.wave == 1 and Game.lives == 20",
+      "msg": "wave 1 is cleared without leaks"
+    },
+    {
+      "assert": "absf(Game.countdown - 10.0) < 0.5",
+      "msg": "a fresh 10 s build window opens"
+    },
+    {
+      "assert": "screen_has('Wave 1 cleared')",
+      "msg": "the clear is announced"
+    },
+    {
+      "wait_until": "Game.state == 1",
+      "timeout": 200
+    },
+    {
+      "assert": "Game.wave == 2",
+      "msg": "the window runs out and wave 2 starts by itself"
+    },
+    {
+      "wait_until": "count('creeps') > 0",
+      "timeout": 60
+    },
+    {
+      "assert": "screen_has('Wave 2')",
+      "msg": "the new wave is announced"
+    }
+  ]
+}

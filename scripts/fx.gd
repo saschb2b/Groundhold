@@ -1,17 +1,34 @@
 ## One-shot visual effects: particle bursts, blast rings, flashes and floating text.
 ##
-## Particles use fixed seeds from Game.rng, so effects look the same on every run
-## and captures stay comparable.
+## Particles take fixed seeds from the effects' own random number generator, never the
+## match's, so effects look the same on every run, captures stay comparable, and no
+## effect can change what happens in the simulation.
 class_name Fx
 extends RefCounted
 
 static var _particle_material: StandardMaterial3D
 static var _ring_mesh: TorusMesh
+## State of the particle seeds' xorshift; a plain int, so nothing outlives the scene.
+static var _seed_state := 1
 
 
 static func clear_cache() -> void:
 	_particle_material = null
 	_ring_mesh = null
+
+
+## Starts the particle seeds over; the scene calls it when a match begins.
+static func reset(seed_value := 1) -> void:
+	_seed_state = maxi(1, seed_value & 0xFFFFFFFF)
+
+
+static func _next_seed() -> int:
+	var x := _seed_state
+	x ^= (x << 13) & 0xFFFFFFFF
+	x ^= x >> 17
+	x ^= (x << 5) & 0xFFFFFFFF
+	_seed_state = x
+	return x
 
 
 static func layer(tree: SceneTree) -> Node3D:
@@ -37,7 +54,7 @@ static func burst(
 	p.amount = amount
 	p.lifetime = lifetime
 	p.use_fixed_seed = true
-	p.seed = Game.rng.randi()
+	p.seed = _next_seed()
 	p.direction = Vector3.UP
 	p.spread = 80.0
 	p.initial_velocity_min = speed * 0.5

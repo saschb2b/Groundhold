@@ -1,15 +1,38 @@
 {
   "name": "leak_costs_a_life",
   "seed": 1,
-  "time_scale": 8,
+  "ticks_per_frame": 8,
   "timeout_frames": 2000,
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
   "steps": [
-    {"set": "Game.countdown", "value": 0.1},
-    {"wait_until": "Game.state == 1", "timeout": 60},
-    {"assert": "Game.lives == 20"},
-    {"wait_until": "Game.lives < 20", "timeout": 1500},
-    {"assert": "Game.lives == 19", "msg": "the first gourdling to reach the hearth costs one life"},
-    {"assert": "Game.kills == 0", "msg": "nothing killed it"},
-    {"assert": "text('Lives') == '19'", "msg": "the HUD shows it"}
+    {
+      "set": "Game.countdown",
+      "value": 0.1
+    },
+    {
+      "wait_until": "Game.state == 1",
+      "timeout": 60
+    },
+    {
+      "assert": "Game.lives == 20"
+    },
+    {
+      "wait_until": "Game.lives < 20",
+      "timeout": 1500
+    },
+    {
+      "assert": "Game.lives == 19",
+      "msg": "the first gourdling to reach the hearth costs one life"
+    },
+    {
+      "assert": "Game.kills == 0",
+      "msg": "nothing killed it"
+    },
+    {
+      "assert": "text('Lives') == '19'",
+      "msg": "the HUD shows it"
+    }
   ]
 }

@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "subprotocol": "lantern-hollow.v1",
+  "subprotocol_pattern": "lantern-hollow\\.v[0-9]{1,4}",
+  "path": "/hollow",
+  "port": 8766,
+  "beacon_port": 8767,
+  "max_message": 1100,
+  "max_server_message": 65535,
+  "tick_hz": 60,
+  "turn_ticks": 3,
+  "turn_ms": 50,
+  "hash_every": 60,
+  "checkpoint_part": 1024,
+  "name_pattern": "[A-Za-z0-9][A-Za-z0-9 _-]{0,15}",
+  "name_bytes": 16,
+  "text_bytes": 120,
+  "server_name_bytes": 64,
+  "motd_bytes": 160,
+  "maintenance_bytes": 40,
+  "token_bytes": 16,
+  "identity_bytes": 16,
+  "hash_bytes": 8,
+  "party_code_bytes": 5,
+  "max_seats": 4,
+  "max_teams": 2,
+  "max_turn_commands": 255,
+  "system_seat": 255,
+
+  "ping_ms": 2000,
+  "away_ms": 5000,
+  "silence_ms": 15000,
+  "handshake_ms": 5000,
+  "linger_ms": 1000,
+  "pending_cap": 16,
+  "output_cap": 65536,
+  "start_delay_ms": 1500,
+  "loading_min_ms": 4000,
+  "links_ms": 2000,
+  "hash_wait_ms": 2000,
+  "result_wait_ms": 10000,
+  "turn_request_ms": 500,
+  "turn_request_turns": 100,
+  "match_cap_ms": 3600000,
+
+  "buckets": {
+    "hub": {"burst": 40, "refill": 30},
+    "cmd": {"burst": 10, "refill": 5},
+    "net": {"burst": 150, "refill": 120}
+  },
+
+  "hello_flags": {"resume": 1, "web": 2},
+  "welcome_flags": {"maintenance": 1, "dev_match": 2},
+  "seat_flags": {"caretaker": 1},
+  "hash_flags": {"checkpoint": 1},
+  "link_flags": {"hidden": 1, "silent": 2},
+  "party_flags": {"open": 1, "lan": 2},
+
+  "modes": {
+    "classic": {"id": 0, "teams": 1, "seats": [1, 4]},
+    "vigil": {"id": 1, "teams": 1, "seats": [1, 4]},
+    "race": {"id": 2, "teams": 2, "seats": [2, 4]},
+    "duel": {"id": 3, "teams": 2, "seats": [2, 2]}
+  },
+  "maps": {"hollow": 0},
+  "builders": {"lamplighter": 0, "owlwatch": 1, "bellfounder": 2, "beekeeper": 3},
+
+  "errors": {
+    "protocol": 1,
+    "game_older": 2,
+    "bad_name": 5,
+    "out_of_limits": 6,
+    "full": 7,
+    "rate": 8,
+    "bad_token": 9,
+    "banned": 10,
+    "allowlist": 11,
+    "replaced": 12,
+    "kicked": 14,
+    "maintenance": 16,
+    "server_older": 17
+  },
+  "notices": {
+    "party_full": 1,
+    "no_such_party": 2,
+    "removed": 3,
+    "match_dissolved": 4,
+    "needs_reload": 5,
+    "caretakers_offered": 6,
+    "tick0_mismatch": 7
+  },
+  "outcomes": {"won": 0, "lost": 1, "draw": 2, "desynced": 3, "aborted": 4},
+  "end_reasons": {
+    "result": 0,
+    "desync": 1,
+    "tick0_mismatch": 2,
+    "rules_mismatch": 3,
+    "everyone_left": 4,
+    "timeout": 5,
+    "server_closing": 6
+  },
+  "load_states": {"connecting": 0, "loading": 1, "checking": 2, "ready": 3, "slow": 4, "gone": 5},
+  "member_states": {"here": 0, "ready": 1, "away": 2, "needs_reload": 3, "in_match": 4},
+  "party_phases": {"forming": 0, "countdown": 1, "queued": 2, "loading": 3, "in_match": 4, "results": 5},
+  "party_ops": {
+    "create": 1, "join": 2, "leave": 3, "remove": 4, "mode": 5, "builders": 6,
+    "ready": 7, "team": 8, "open": 9, "start": 10, "cancel": 11
+  },
+  "queue_ops": {"enter": 1, "leave": 2, "start_with_caretakers": 3},
+  "queue_states": {"idle": 0, "entering": 1, "queued": 2, "leaving": 3},
+
+  "commands": {
+    "BUILD": {"type": 1, "args": [[0, 2], [0, 255], [0, 255]]},
+    "FORK": {"type": 2, "args": [[1, 2147483647], [0, 1], [0, 0]]},
+    "SELL": {"type": 3, "args": [[1, 2147483647], [0, 0], [0, 0]]},
+    "READY": {"type": 4, "args": [[0, 1], [0, 0], [0, 0]]},
+    "SIGNAL": {"type": 5, "args": [[-262144, 262144], [-262144, 262144], [0, 2147483647]]},
+    "ROUSE": {"type": 6, "args": [[0, 15], [-2147483648, 2147483647], [-2147483648, 2147483647]]},
+    "LOOSE": {"type": 7, "args": [[0, 15], [-2147483648, 2147483647], [-2147483648, 2147483647]]},
+    "FLARE": {"type": 8, "args": [[0, 0], [0, 0], [0, 0]]}
+  },
+  "system_commands": {
+    "AWAY": {"type": 64, "args": [[0, 3], [0, 0], [0, 0]]},
+    "BACK": {"type": 65, "args": [[0, 3], [0, 0], [0, 0]]},
+    "LEFT": {"type": 66, "args": [[0, 3], [0, 0], [0, 0]]},
+    "TIMEOUT": {"type": 67, "args": [[0, 0], [0, 0], [0, 0]]}
+  },
+
+  "messages": {
+    "HELLO": {"id": 1, "dir": "c2s", "bucket": "hub", "fields": [
+      ["version", "u16"], ["build_seq", "u32"], ["rules_hash", "b8"], ["token", "b16"], ["flags", "u8"],
+      ["name", "s8", 16]]},
+    "WELCOME": {"id": 2, "dir": "s2c", "fields": [
+      ["session", "u32"], ["identity", "b16"], ["turn_ms", "u16"], ["turn_ticks", "u8"], ["hash_every", "u16"],
+      ["flags", "u8"], ["server_name", "s8", 64], ["motd", "s8", 160]]},
+    "ERROR": {"id": 5, "dir": "s2c", "fields": [["code", "u8"], ["text", "s8", 120]]},
+    "PING": {"id": 6, "dir": "c2s", "bucket": "net", "fields": [["client_ms", "u32"], ["rtt_ms", "u16"]]},
+    "PONG": {"id": 7, "dir": "s2c", "fields": [["client_ms", "u32"], ["turn", "u32"]]},
+    "NOTICE": {"id": 14, "dir": "s2c", "fields": [["code", "u8"], ["argument", "u32"]]},
+    "BYE": {"id": 15, "dir": "both", "bucket": "hub", "fields": []},
+
+    "PARTY": {"id": 20, "dir": "c2s", "bucket": "hub", "fields": [["op", "u8"]],
+      "switch": {"field": "op", "enum": "party_ops", "cases": {
+        "create": [["mode", "u8"]],
+        "join": [["code", "b5"]],
+        "leave": [],
+        "remove": [["member", "u8"]],
+        "mode": [["mode", "u8"]],
+        "builders": [["main", "u8"], ["backup", "u8"]],
+        "ready": [["on", "u8"]],
+        "team": [["member", "u8"], ["team", "u8"]],
+        "open": [["on", "u8"]],
+        "start": [],
+        "cancel": []}}},
+    "PARTY_STATE": {"id": 21, "dir": "s2c", "fields": [
+      ["code", "b5"], ["mode", "u8"], ["flags", "u8"], ["leader", "u8"], ["phase", "u8"], ["countdown_ms", "u32"],
+      ["members", "l8", [
+        ["member", "u8"], ["team", "u8"], ["main", "u8"], ["backup", "u8"], ["state", "u8"], ["rtt_ms", "u16"],
+        ["build_seq", "u32"], ["rules_hash", "b8"], ["name", "s8", 16]], 4]]},
+    "QUEUE": {"id": 22, "dir": "c2s", "bucket": "hub", "fields": [["op", "u8"]]},
+    "QUEUE_STATE": {"id": 23, "dir": "s2c", "fields": [["state", "u8"], ["elapsed_ms", "u32"], ["caretaker_offer", "u8"]]},
+    "MATCH_FOUND": {"id": 24, "dir": "s2c", "fields": [
+      ["match", "u32"], ["mode", "u8"], ["seats", "u8"], ["accepted", "u8"], ["ms_left", "u32"]]},
+    "ACCEPT": {"id": 25, "dir": "c2s", "bucket": "hub", "fields": [["match", "u32"], ["yes", "u8"]]},
+
+    "MATCH_CONFIG": {"id": 30, "dir": "s2c", "fields": [
+      ["match", "u32"], ["mode", "u8"], ["map", "u8"], ["seed", "u32"], ["rules_hash", "b8"], ["your_seat", "u8"],
+      ["seats", "l8", [["seat", "u8"], ["team", "u8"], ["builder", "u8"], ["flags", "u8"], ["name", "s8", 16]], 4]]},
+    "LOADING": {"id": 31, "dir": "c2s", "bucket": "net", "fields": [["per_mille", "u16"]]},
+    "LOAD_STATE": {"id": 32, "dir": "s2c", "fields": [
+      ["seats", "l8", [["seat", "u8"], ["per_mille", "u16"], ["state", "u8"]], 4], ["seconds", "u16"]]},
+    "LOADED": {"id": 33, "dir": "c2s", "bucket": "hub", "fields": [["rules_hash", "b8"], ["tick0_hash", "b8"]]},
+    "START": {"id": 34, "dir": "s2c", "fields": [["ms_until_turn0", "u16"]]},
+
+    "CMD": {"id": 40, "dir": "c2s", "bucket": "cmd", "fields": [
+      ["seq", "u16"], ["type", "u8"], ["a", "i32"], ["b", "i32"], ["c", "i32"]]},
+    "TURN": {"id": 41, "dir": "s2c", "fields": [
+      ["turn", "u32"],
+      ["commands", "l8", [["seat", "u8"], ["seq", "u16"], ["type", "u8"], ["a", "i32"], ["b", "i32"], ["c", "i32"]], 255]]},
+    "HASH": {"id": 42, "dir": "c2s", "bucket": "net", "fields": [["tick", "u32"], ["hash", "b8"], ["flags", "u8"]]},
+    "CHECKPOINT_ASK": {"id": 43, "dir": "s2c", "fields": [["tick", "u32"]]},
+    "CHECKPOINT_PART": {"id": 44, "dir": "both", "bucket": "net", "fields": [
+      ["tick", "u32"], ["part", "u16"], ["parts", "u16"], ["data", "d16", 1024]]},
+    "RESYNC": {"id": 45, "dir": "s2c", "fields": [["checkpoint_tick", "u32"], ["first_turn", "u32"]]},
+    "TURN_REQUEST": {"id": 46, "dir": "c2s", "bucket": "net", "fields": [["first_missing", "u32"]]},
+    "VISIBILITY": {"id": 47, "dir": "c2s", "bucket": "net", "fields": [["hidden", "u8"]]},
+    "RESULT": {"id": 48, "dir": "c2s", "bucket": "hub", "fields": [
+      ["tick", "u32"], ["hash", "b8"], ["outcomes", "l8", [["outcome", "u8"]], 2]]},
+    "MATCH_END": {"id": 49, "dir": "s2c", "fields": [["outcome", "u8"], ["reason", "u8"], ["final_tick", "u32"]]},
+    "LEAVE_MATCH": {"id": 50, "dir": "c2s", "bucket": "hub", "fields": []},
+    "LINKS": {"id": 52, "dir": "s2c", "fields": [
+      ["seats", "l8", [["seat", "u8"], ["rtt_ms", "u16"], ["flags", "u8"]], 4]]}
+  }
+}

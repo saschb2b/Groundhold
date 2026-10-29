@@ -1,0 +1,157 @@
+{
+ "transcript": "m1_handshake",
+ "format": 1,
+ "protocol": 1,
+ "clients": 5,
+ "note": "One game's HELLO, WELCOME, PING, PONG, VISIBILITY and BYE; then four refused HELLOs: an older game (ERROR 2), a newer one (17), a bad name (5), a zero token (9).",
+ "records": [
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 7,
+    "rules_hash": "4c616e7465726e31",
+    "token": "0102030405060708090a0b0c0d0e0f10",
+    "flags": 0,
+    "name": "Tamsin"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "WELCOME",
+   "fields": {
+    "session": 1,
+    "identity": "9452a3fceb7783a14b25458ff0c7b1ed",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Lantern Hollow",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PING",
+   "fields": {
+    "client_ms": 1000,
+    "rtt_ms": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PONG",
+   "fields": {
+    "client_ms": 1000,
+    "turn": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "VISIBILITY",
+   "fields": {
+    "hidden": 1
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "HELLO",
+   "fields": {
+    "version": 0,
+    "build_seq": 7,
+    "rules_hash": "4c616e7465726e31",
+    "token": "01010101010101010101010101010101",
+    "flags": 0,
+    "name": "Old"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "ERROR",
+   "fields": {
+    "code": 2,
+    "text": "A newer version is out: reload"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "HELLO",
+   "fields": {
+    "version": 2,
+    "build_seq": 7,
+    "rules_hash": "4c616e7465726e31",
+    "token": "02020202020202020202020202020202",
+    "flags": 0,
+    "name": "New"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "ERROR",
+   "fields": {
+    "code": 17,
+    "text": "This server is older than the game"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 7,
+    "rules_hash": "4c616e7465726e31",
+    "token": "03030303030303030303030303030303",
+    "flags": 0,
+    "name": "bad<name>"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "ERROR",
+   "fields": {
+    "code": 5,
+    "text": "Use 1-16 ASCII letters, digits, spaces, _ or -"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 4,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 7,
+    "rules_hash": "4c616e7465726e31",
+    "token": "00000000000000000000000000000000",
+    "flags": 0,
+    "name": "Zero"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 4,
+   "type": "ERROR",
+   "fields": {
+    "code": 9,
+    "text": "A random token is required"
+   }
+  }
+ ]
+}

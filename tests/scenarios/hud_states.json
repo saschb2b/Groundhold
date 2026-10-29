@@ -1,53 +1,187 @@
 {
   "name": "hud_states",
   "seed": 1,
-  "time_scale": 2,
+  "ticks_per_frame": 2,
   "timeout_frames": 1200,
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
   "steps": [
-    {"wait": 2},
-    {"assert": "screen_has('The Hearth') and screen_has('Next: 8 Gourdlings') and screen_has('20/20')", "msg": "with nothing selected the info shows the hearth's lives and what the next wave brings, not prose"},
-    {"assert": "node('Countdown').text.begins_with('First wave in') and not node('Wave').visible", "msg": "before the first wave the strip says when it comes, not 'Wave 0/8'"},
-    {"assert": "not node('TopBar')._has_point(Vector2(3, 40)) and node('TopBar')._has_point(Vector2(node('TopBar').size.x - 30, 12))", "msg": "the strip stops clicks only where it is painted, not under its cap's curl"},
-    {"assert": "node('WingRight').get_child(0).texel == 2.0 and node('WingRight').get_child(0).texture.get_width() == 2 * int(node('WingRight').get_child(0).size.x)", "msg": "the console art carries twice the texels it is drawn with"},
-    {"assert": "node('NextWave').get_node('Cost').text == '+%d' % int(Game.countdown)", "msg": "the horn shows the gold an early call pays, not a second countdown"},
-    {"assert": "node('Upgrade').get_meta('state') == 'idle' and node('Upgrade').get_node('Cost').text == ''", "msg": "upgrade does not apply with nothing selected"},
-    {"eval": "Game.spend(70)"},
-    {"assert": "node('BuildCannon').get_meta('state') == 'poor' and node('BuildCannon').get_node('Cost').get_theme_color('font_color') == Color('#ff6a50')", "msg": "a command the gold cannot pay for greys and shows its cost in red"},
-    {"key": "C"},
-    {"assert": "node('Notice').visible and node('Notice').text == 'Not enough gold' and node('BannerTitle').text != 'Not enough gold'", "msg": "a rejected order is a small notice, not a banner"},
-    {"assert": "absf(node('Notice').get_global_rect().get_center().x - node('Info').get_global_rect().get_center().x) < 1.0 and node('Notice').get_global_rect().end.y < node('Info').get_global_rect().position.y", "msg": "the notice sits over the column that names the selection and its cost, not at the screen's centre"},
-    {"assert": "node('BuildArrow').get_meta('state') == 'ok'", "msg": "an affordable one stays lit"},
-    {"eval": "Game.earn(200)"},
-    {"eval": "scene.build('arrow', Vector2i(8, 3))"},
-    {"click": "scene.cell_center(Vector2i(8, 3))"},
-    {"assert": "screen_has('Level 1 · 0 kills') and screen_has('COOLDOWN') and not screen_has('EVERY')", "msg": "a tower shows its level and kills under its name, and its cooldown by that name"},
-    {"set": "scene.tower_at(Vector2i(8, 3)).kills", "value": 1},
-    {"eval": "node('BuildController').upgrade_selected()"},
-    {"assert": "screen_has('Level 2 · 1 kill') and not screen_has('1 kills')", "msg": "one kill, not one kills"},
-    {"assert": "node('Upgrade').get_meta('state') == 'idle' and node('Upgrade').get_node('Cost').text == 'Max'", "msg": "a fully upgraded tower's upgrade reads Max"},
-    {"eval": "node('TopBar').size.x", "as": "strip_width"},
-    {"eval": "Game.earn(1234567)"},
-    {"wait": 1},
-    {"assert": "node('TopBar').size.x > strip_width + 30 and is_equal_approx(node('TopBar').get_global_rect().end.x, scene.get_viewport().get_visible_rect().size.x)", "msg": "big gold widens the strip leftwards, flush with the right edge"},
-    {"assert": "not node('WingRight').get_child(0)._has_point(Vector2(12, 40)) and node('WingRight').get_child(0)._has_point(Vector2(120, 100))", "msg": "the console stops clicks only where it is painted"},
-    {"assert": "node('Minimap').size == Vector2(168, 112)", "msg": "the wells come from the painter's layout.json"},
-    {"eval": "scene.get_window().set('size', Vector2i(1920, 1080))"},
-    {"wait": 2},
-    {"assert": "node('Portrait')._viewport.size == Vector2i(186, 192)", "msg": "on a 1.5x screen the portrait renders at the screen's resolution, not the layout's"},
-    {"eval": "scene.get_window().set('size', Vector2i(1280, 720))"},
-    {"wait": 1},
-    {"hover": "node('NextWave')"},
-    {"wait": 1},
-    {"assert": "node('Tooltip').visible", "msg": "the horn has a tooltip"},
-    {"key": "N"},
-    {"wait": 1},
-    {"assert": "node('Banner').visible and node('BannerTitle').text.begins_with('Wave 1') and node('Banner').size.x < 480 and node('Banner').get_global_rect().end.y <= 92", "msg": "a title's band and rule fit the title and stay above the first row of towers"},
-    {"eval": "node('BuildController').select(null)"},
-    {"eval": "Game.lose_lives(30)"},
-    {"wait": 2},
-    {"assert": "not node('Tooltip').visible", "msg": "no stale tooltip over the end plate"},
-    {"assert": "screen_has('The hearth has gone dark') and screen_has('Fell in wave 1 of 8')", "msg": "the end plate says how far the hollow held"},
-    {"assert": "(node('Subtitle').text == '') and not node('Notice').visible", "msg": "at the end the hearth's line leaves the telling to the plate"},
-    {"assert": "not node('Subtitle').visible", "msg": "and its empty line takes no room, so the numbers sit under the title"}
+    {
+      "wait": 2
+    },
+    {
+      "assert": "screen_has('The Hearth') and screen_has('Next: 8 Gourdlings') and screen_has('20/20')",
+      "msg": "with nothing selected the info shows the hearth's lives and what the next wave brings, not prose"
+    },
+    {
+      "assert": "node('Countdown').text.begins_with('First wave in') and not node('Wave').visible",
+      "msg": "before the first wave the strip says when it comes, not 'Wave 0/8'"
+    },
+    {
+      "assert": "not node('Countdown').text.contains('Ready')",
+      "msg": "alone, the strip shows no Ready pips"
+    },
+    {
+      "assert": "not node('TopBar')._has_point(Vector2(3, 40)) and node('TopBar')._has_point(Vector2(node('TopBar').size.x - 30, 12))",
+      "msg": "the strip stops clicks only where it is painted, not under its cap's curl"
+    },
+    {
+      "assert": "node('WingRight').get_child(0).texel == 2.0 and node('WingRight').get_child(0).texture.get_width() == 2 * int(node('WingRight').get_child(0).size.x)",
+      "msg": "the console art carries twice the texels it is drawn with"
+    },
+    {
+      "assert": "node('Ready').get_node('Cost').text == '+%d' % int(Game.countdown)",
+      "msg": "the horn shows the gold an early Ready pays, not a second countdown"
+    },
+    {
+      "assert": "node('Upgrade').get_meta('state') == 'idle' and node('Upgrade').get_node('Cost').text == ''",
+      "msg": "upgrade does not apply with nothing selected"
+    },
+    {
+      "eval": "Game.spend(70)"
+    },
+    {
+      "assert": "node('BuildCannon').get_meta('state') == 'poor' and node('BuildCannon').get_node('Cost').get_theme_color('font_color') == Color('#ff6a50')",
+      "msg": "a command the gold cannot pay for greys and shows its cost in red"
+    },
+    {
+      "key": "C"
+    },
+    {
+      "assert": "node('Notice').visible and node('Notice').text == 'Not enough gold' and node('BannerTitle').text != 'Not enough gold'",
+      "msg": "a rejected order is a small notice, not a banner"
+    },
+    {
+      "assert": "absf(node('Notice').get_global_rect().get_center().x - node('Info').get_global_rect().get_center().x) < 1.0 and node('Notice').get_global_rect().end.y < node('Info').get_global_rect().position.y",
+      "msg": "the notice sits over the column that names the selection and its cost, not at the screen's centre"
+    },
+    {
+      "assert": "node('BuildArrow').get_meta('state') == 'ok'",
+      "msg": "an affordable one stays lit"
+    },
+    {
+      "eval": "Game.earn(200)"
+    },
+    {
+      "eval": "scene.build('arrow', Vector2i(8, 3))"
+    },
+    {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
+      "click": "scene.cell_center(Vector2i(8, 3))"
+    },
+    {
+      "assert": "screen_has('Level 1 · 0 kills') and screen_has('COOLDOWN') and not screen_has('EVERY')",
+      "msg": "a tower shows its level and kills under its name, and its cooldown by that name"
+    },
+    {
+      "set": "scene.tower_at(Vector2i(8, 3)).kills",
+      "value": 1
+    },
+    {
+      "eval": "node('BuildController').upgrade_selected()"
+    },
+    {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
+      "assert": "screen_has('Level 2 · 1 kill') and not screen_has('1 kills')",
+      "msg": "one kill, not one kills"
+    },
+    {
+      "assert": "node('Upgrade').get_meta('state') == 'idle' and node('Upgrade').get_node('Cost').text == 'Max'",
+      "msg": "a fully upgraded tower's upgrade reads Max"
+    },
+    {
+      "eval": "node('TopBar').size.x",
+      "as": "strip_width"
+    },
+    {
+      "eval": "Game.earn(1234567)"
+    },
+    {
+      "wait": 1
+    },
+    {
+      "assert": "node('TopBar').size.x > strip_width + 30 and is_equal_approx(node('TopBar').get_global_rect().end.x, scene.get_viewport().get_visible_rect().size.x)",
+      "msg": "big gold widens the strip leftwards, flush with the right edge"
+    },
+    {
+      "assert": "not node('WingRight').get_child(0)._has_point(Vector2(12, 40)) and node('WingRight').get_child(0)._has_point(Vector2(120, 100))",
+      "msg": "the console stops clicks only where it is painted"
+    },
+    {
+      "assert": "node('Minimap').size == Vector2(168, 112)",
+      "msg": "the wells come from the painter's layout.json"
+    },
+    {
+      "eval": "scene.get_window().set('size', Vector2i(1920, 1080))"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "node('Portrait')._viewport.size == Vector2i(186, 192)",
+      "msg": "on a 1.5x screen the portrait renders at the screen's resolution, not the layout's"
+    },
+    {
+      "eval": "scene.get_window().set('size', Vector2i(1280, 720))"
+    },
+    {
+      "wait": 1
+    },
+    {
+      "hover": "node('Ready')"
+    },
+    {
+      "wait": 1
+    },
+    {
+      "assert": "node('Tooltip').visible and screen_has('Ready') and screen_has('(N)')",
+      "msg": "the horn has a tooltip, named Ready"
+    },
+    {
+      "key": "N"
+    },
+    {
+      "wait_until": "Game.wave == 1",
+      "timeout": 10
+    },
+    {
+      "wait": 1
+    },
+    {
+      "assert": "node('Banner').visible and node('BannerTitle').text.begins_with('Wave 1') and node('Banner').size.x < 480 and node('Banner').get_global_rect().end.y <= 92",
+      "msg": "a title's band and rule fit the title and stay above the first row of towers"
+    },
+    {
+      "eval": "node('BuildController').select(null)"
+    },
+    {
+      "eval": "Game.lose_lives(30)"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "not node('Tooltip').visible",
+      "msg": "no stale tooltip over the end plate"
+    },
+    {
+      "assert": "screen_has('The hearth has gone dark') and screen_has('Fell in wave 1 of 8')",
+      "msg": "the end plate says how far the hollow held"
+    },
+    {
+      "assert": "(node('Subtitle').text == '') and not node('Notice').visible",
+      "msg": "at the end the hearth's line leaves the telling to the plate"
+    },
+    {
+      "assert": "not node('Subtitle').visible",
+      "msg": "and its empty line takes no room, so the numbers sit under the title"
+    }
   ]
 }

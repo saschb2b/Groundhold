@@ -1,0 +1,70 @@
+{
+  "name": "coop_bounty_to_every_seat",
+  "description": "Every kill pays its full bounty to every seat on the team, and the clear bonus goes to each seat.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 400,
+  "watch": {
+    "hash1": "scene.client(1).state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.start({'seats': 2, 'clients': 2})"
+    },
+    {
+      "eval": "scene.cmd(1, 'BUILD', 0, 8, 3)"
+    },
+    {
+      "eval": "scene.cmd(1, 'BUILD', 0, 6, 3)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.gold(1) == 40 and scene.gold(2) == 120",
+      "msg": "only the builder pays"
+    },
+    {
+      "repeat": 200,
+      "steps": [
+        {
+          "eval": "scene.run_ticks(15)"
+        }
+      ],
+      "until": "scene.events_of('DIE').size() >= 2"
+    },
+    {
+      "eval": "scene.events_of('DIE').size()",
+      "as": "kills"
+    },
+    {
+      "assert": "scene.gold(1) - 40 == 3 * kills and scene.gold(2) - 120 == 3 * kills",
+      "msg": "each gourdling seat 1's towers kill pays 3 to seat 1 and 3 to seat 2"
+    },
+    {
+      "assert": "scene.client(1).seat(1).kills == kills and scene.client(1).seat(2).kills == 0",
+      "msg": "the kills are credited to seat 1"
+    },
+    {
+      "repeat": 400,
+      "steps": [
+        {
+          "eval": "scene.run_ticks(15)"
+        }
+      ],
+      "until": "scene.client(1).hollows[0].phase == 0"
+    },
+    {
+      "eval": "scene.events_of('DIE').size()",
+      "as": "kills_at_clear"
+    },
+    {
+      "assert": "scene.gold(1) - 40 == 3 * kills_at_clear + 10 and scene.gold(2) - 120 == 3 * kills_at_clear + 10",
+      "msg": "the wave 1 clear bonus (8 + 2) goes to each seat"
+    },
+    {
+      "assert": "scene.gold(1, 2) == scene.gold(1) and scene.gold(2, 2) == scene.gold(2) and scene.hashes_agree()",
+      "msg": "both clients agree"
+    }
+  ]
+}

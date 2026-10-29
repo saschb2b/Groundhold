@@ -1,0 +1,23 @@
+{
+  "name": "net_desync_ends_match",
+  "description": "A bug writes into client 2's simulation: its next HASH differs, the sequencer's referee ends the match \"desynced\" with the tick, and both clients stop with MATCH_END.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 2,
+  "timeout_frames": 1200,
+  "watch": {"tick1": "scene.tick(1)", "tick2": "scene.tick(2)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 2, 'latency_turns': [1, 2]})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_turns(60)"},
+    {"assert": "scene.hashes_agree()", "msg": "in step so far"},
+    {"eval": "scene.corrupt(2, 'gold', 999)"},
+    {"eval": "scene.run_turns(60)"},
+    {"assert": "scene.seq.outcome == 'desynced' and scene.seq.disagreements.size() == 1", "msg": "the referee saw the hashes part"},
+    {"assert": "scene.client(1).phase_name() == 'ENDED' and scene.client(2).phase_name() == 'ENDED'", "msg": "both clients got MATCH_END"},
+    {"assert": "scene.client(1).outcome == 'desynced' and scene.client(1).end_reason == 'desync'", "msg": "named as a desync"},
+    {"assert": "scene.client(1).final_tick == scene.seq.disagreements[0][0] and scene.client(1).final_tick >= 180", "msg": "at the first hash tick after the write"},
+    {"eval": "scene.tick(1)", "as": "stopped"},
+    {"eval": "scene.run_turns(20)"},
+    {"assert": "scene.tick(1) == stopped", "msg": "and nobody plays on after it"}
+  ]
+}

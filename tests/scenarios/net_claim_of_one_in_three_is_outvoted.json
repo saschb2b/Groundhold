@@ -1,0 +1,23 @@
+{
+  "name": "net_claim_of_one_in_three_is_outvoted",
+  "description": "Three seats. A modified client 2 claims the match won early while its own simulation plays on; clients 1 and 3 run past the claimed tick, are two of three and may agree on an end of their own, so the claim is outvoted and the match plays on (design 6.1, 6.7). Their agreed RESULT at the real end decides for all three.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 6,
+  "timeout_frames": 900,
+  "watch": {"tick1": "scene.tick(1)", "tick3": "scene.tick(3)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 3, 'seed': 6, 'latency_turns': [1, 2, 3]})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_turns(100)"},
+    {"eval": "scene.claim_result(2, 0)", "as": "claimed"},
+    {"eval": "scene.run_turns(400)"},
+    {"assert": "scene.client(1).sent_hashes.keys().max() > claimed and scene.client(3).sent_hashes.keys().max() > claimed", "msg": "clients 1 and 3 hashed past the claimed end"},
+    {"assert": "scene.seq.phase == 'playing' and scene.client(1).phase_name() == 'IN_MATCH'", "msg": "and the match plays on: one claim of three is outvoted, not the end"},
+    {"assert": "scene.seq.seat_conn(1)['result'][0] == claimed", "msg": "the claim was taken (inside its limits)"},
+    {"repeat": 40, "steps": [{"eval": "scene.run_turns(200)"}], "until": "scene.phase() == 'ENDED'"},
+    {"assert": "scene.seq.outcome == 'lost' and scene.seq.end_reason == 'result' and scene.seq.final_tick > claimed", "msg": "the idle hollow fell, and the majority's RESULT ended the match"},
+    {"assert": "scene.client(1).outcome == 'lost' and scene.client(2).outcome == 'lost' and scene.client(3).outcome == 'lost'", "msg": "every seat was told the majority's outcome, the claimer too"},
+    {"assert": "scene.tick(1) == scene.tick(3) and scene.seq.final_tick == scene.tick(1) and scene.hash_hex(1) == scene.hash_hex(3)", "msg": "the majority stopped on the final tick in the same state"},
+    {"assert": "scene.hashes_agree()", "msg": "every hash agreed: the claimer's simulation never left the others"}
+  ]
+}

@@ -1,29 +1,47 @@
-## A creep walking the road from the rift gate to the hearth.
+## A creep's view: the model walking the road where the simulation says, its walk cycle
+## at its walking speed, a health bar, frost's tint, and the hit, death and leak effects.
 ##
-## Movement is distance along a polyline, advanced in _physics_process, so a
-## creep's position at a given frame is exact and repeatable.
+## It reads its SimCreep record after every step and decides nothing. Between steps it
+## is drawn between the last two ticks' positions. Keyed by the record's id.
 class_name Creep
 extends Node3D
 
-signal died(creep: Creep)
-signal leaked(creep: Creep)
-
 const BAR_WIDTH := 0.5
 
-## Creeps spawned so far, to start each walk cycle at its own phase.
-static var _spawned := 0
-
+var rec: SimRecords.SimCreep
+var id := 0
 var kind := ""
-var max_hp := 1.0
-var hp := 1.0
-var speed := 1.0
-var bounty := 0
-var lives_cost := 1
-## Metres walked along the road; towers target the creep furthest along.
-var distance := 0.0
-var slow_factor := 1.0
-var slow_left := 0.0
 var dead := false
+
+## Health in the HUD's units (the simulation counts hundredths).
+var hp: float:
+	get:
+		return rec.hp_c / 100.0
+var max_hp: float:
+	get:
+		return rec.max_hp_c / 100.0
+## Walking speed in metres per second, before frost. Setting it is a scenario setter.
+var speed: float:
+	get:
+		return rec.speed_um_t * SimTypes.TICKS_PER_SECOND / 1000000.0
+	set(value):
+		Game.debug(SimTypes.DBG_CREEP_SPEED, id, roundi(value * 1000000.0 / SimTypes.TICKS_PER_SECOND))
+## Metres walked along the road. Setting it is a scenario setter.
+var distance: float:
+	get:
+		return rec.dist_um / 1000000.0
+	set(value):
+		Game.debug(SimTypes.DBG_CREEP_DIST, id, roundi(value * 1000000.0))
+## 1 when walking freely, 0.55 under a 45% slow.
+var slow_factor: float:
+	get:
+		return 1.0 - _slow_pm() / 1000.0
+var bounty: int:
+	get:
+		return rec.bounty
+var lives_cost: int:
+	get:
+		return rec.toll
 
 var _points := PackedVector3Array()
 var _lengths := PackedFloat32Array()
@@ -36,18 +54,20 @@ var _flash := 0.0
 var _clock := 0.0
 var _height := 0.4
 var _model_scale := 1.0
+var _shown_hp := -1
+var _slowed := false
+## Road distance (metres) at the previous and the latest tick, drawn between.
+var _from := 0.0
+var _to := 0.0
 ## The model's own walk cycle, when it has one; otherwise the creep waddles.
 var _anim: AnimationPlayer
 
 
-func setup(creep_kind: String, points: PackedVector3Array, hp_multiplier: float) -> void:
-	kind = creep_kind
+func setup(record: SimRecords.SimCreep, points: PackedVector3Array) -> void:
+	rec = record
+	id = record.id
+	kind = record.kind
 	var data: Dictionary = Game.CREEPS[kind]
-	max_hp = float(data["hp"]) * hp_multiplier
-	hp = max_hp
-	speed = float(data["speed"])
-	bounty = int(data["bounty"])
-	lives_cost = int(data["lives"])
 	_points = points
 	_lengths.resize(points.size())
 	_total = 0.0
@@ -64,36 +84,46 @@ func setup(creep_kind: String, points: PackedVector3Array, hp_multiplier: float)
 	BlobShadow.under(self, 0.24 * _model_scale)
 	_height = _model_height(_body) * _model_scale
 	_build_bar()
-	_place(0.0)
+	_from = distance
+	_to = _from
+	_place(_to, true)
 
 
-func _physics_process(delta: float) -> void:
+## After the simulation stepped `ticks` ticks: where it is now, how it walks, its bar.
+func sync(ticks: int) -> void:
 	if dead:
 		return
-	_clock += delta
-	if slow_left > 0.0:
-		slow_left -= delta
-		if slow_left <= 0.0:
-			slow_factor = 1.0
-			_tint(Color.WHITE)
-	distance += speed * slow_factor * delta
-	if distance >= _total:
-		_leak()
-		return
-	_place(distance)
+	_from = _to
+	_to = distance
+	var seconds := ticks / float(SimTypes.TICKS_PER_SECOND)
+	_clock += seconds
+	var slowed := _slow_pm() > 0
+	if slowed != _slowed:
+		_slowed = slowed
+		_tint(Color(0.6, 0.85, 1.0) if slowed else Color.WHITE)
+	if rec.hp_c != _shown_hp:
+		_update_bar()
+	var pace := speed * slow_factor
 	if _anim:
 		# Feet keep pace with the ground: frost slows the cycle with the creep.
 		# "stride" is the walking speed the authored cycle matches.
-		_anim.speed_scale = speed * slow_factor / float(Game.CREEPS[kind].get("stride", 1.0))
-		_anim.advance(delta)
+		_anim.speed_scale = pace / float(Game.CREEPS[kind].get("stride", 1.0))
+		_anim.advance(seconds)
 	else:
 		# A waddle: lean side to side and bob, faster when walking faster.
-		var step := _clock * speed * slow_factor * 9.0
+		var step := _clock * pace * 9.0
 		_body.rotation.z = sin(step) * 0.12
 		_body.position.y = absf(sin(step)) * 0.035
 	if _flash > 0.0:
-		_flash -= delta
+		_flash -= seconds
 		_body.scale = Vector3.ONE * _model_scale * (1.0 + 0.12 * maxf(_flash, 0.0) / 0.12)
+	_turn(ticks)
+
+
+func _process(_delta: float) -> void:
+	if dead:
+		return
+	_place(lerpf(_from, _to, Engine.get_physics_interpolation_fraction()))
 
 
 ## Point on the road where hits land.
@@ -101,36 +131,27 @@ func aim_point() -> Vector3:
 	return global_position + Vector3(0, _height * 0.55, 0)
 
 
-## Where this creep will be after `seconds`, assuming it keeps walking.
-func predict(seconds: float) -> Vector3:
-	return (
-		_point_at(minf(distance + speed * slow_factor * seconds, _total))
-		+ Vector3(0, _height * 0.4, 0)
+## A hit landed: the model flinches and the bar shows what is left.
+func hit() -> void:
+	if dead:
+		return
+	_flash = 0.12
+	_update_bar()
+
+
+## Frost on this creep (a scenario setter): `factor` 0.45 slows it by 45%.
+func apply_slow(factor: float, seconds: float) -> void:
+	Game.debug(
+		SimTypes.DBG_SLOW,
+		id,
+		roundi(factor * 1000.0),
+		roundi(seconds * SimTypes.TICKS_PER_SECOND)
 	)
 
 
-## Returns true when this hit killed the creep.
-func take_damage(amount: float) -> bool:
-	if dead:
-		return false
-	hp -= amount
-	_flash = 0.12
-	_update_bar()
-	if hp <= 0.0:
-		_die()
-		return true
-	return false
-
-
-func apply_slow(factor: float, seconds: float) -> void:
+func die() -> void:
 	if dead:
 		return
-	slow_factor = minf(slow_factor, 1.0 - factor)
-	slow_left = maxf(slow_left, seconds)
-	_tint(Color(0.6, 0.85, 1.0))
-
-
-func _die() -> void:
 	dead = true
 	remove_from_group("creeps")
 	var at := global_position + Vector3(0, _height * 0.5, 0)
@@ -138,16 +159,19 @@ func _die() -> void:
 	Fx.burst(get_tree(), at, color, 16, 2.6, 0.07, 0.6)
 	Fx.floating_text(get_tree(), at, "+%d" % bounty, Color(1.0, 0.85, 0.3))
 	Sfx.play("creep_death", -4.0)
-	died.emit(self)
+	Sfx.play("coin", -8.0)
 	var tween := create_tween()
 	tween.tween_property(_body, "scale", Vector3(1.3, 0.1, 1.3) * _model_scale, 0.15)
 	tween.tween_callback(queue_free)
 	_bar_root.visible = false
 
 
-func _leak() -> void:
+func leak() -> void:
+	if dead:
+		return
 	dead = true
 	remove_from_group("creeps")
+	_place(_total, false)
 	Fx.burst(
 		get_tree(),
 		global_position + Vector3(0, 0.6, 0),
@@ -159,18 +183,29 @@ func _leak() -> void:
 		1.0
 	)
 	Sfx.play("leak")
-	leaked.emit(self)
 	queue_free()
 
 
-func _place(at: float) -> void:
-	var p := _point_at(at)
-	var ahead := _point_at(minf(at + 0.25, _total))
-	position = p
-	var dir := ahead - p
+## The slow that holds for the coming tick, per mille.
+func _slow_pm() -> int:
+	return rec.slow_pm if Game.sim and rec.slow_until > Game.sim.tick else 0
+
+
+## Faces along the road, easing round the bends.
+func _turn(ticks: int) -> void:
+	var ahead := _point_at(minf(_to + 0.25, _total))
+	var dir := ahead - _point_at(_to)
 	if dir.length_squared() > 1e-6:
-		var target_yaw := atan2(dir.x, dir.z)
-		rotation.y = lerp_angle(rotation.y, target_yaw, 0.25) if at > 0.0 else target_yaw
+		var weight := 1.0 - pow(0.75, ticks)
+		rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), weight)
+
+
+func _place(at: float, face := false) -> void:
+	position = _point_at(at)
+	if face:
+		var dir := _point_at(minf(at + 0.25, _total)) - position
+		if dir.length_squared() > 1e-6:
+			rotation.y = atan2(dir.x, dir.z)
 
 
 func _point_at(at: float) -> Vector3:
@@ -182,8 +217,8 @@ func _point_at(at: float) -> Vector3:
 	return _points[_points.size() - 1]
 
 
-## Loops the model's "walk" action. The player is advanced by hand from
-## _physics_process so the pose at a given frame is exact and repeatable.
+## Loops the model's "walk" action. It is advanced by hand from sync() so the pose at a
+## given tick is exact and repeatable.
 func _start_walk() -> void:
 	var players := _body.find_children("*", "AnimationPlayer", true, false)
 	if players.is_empty():
@@ -195,9 +230,9 @@ func _start_walk() -> void:
 	_anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	_anim.get_animation("walk").loop_mode = Animation.LOOP_LINEAR
 	_anim.play("walk")
-	# Creeps of a wave spawn in step; start each one somewhere else in its cycle.
-	_spawned += 1
-	_anim.seek(fmod(_spawned * 0.37, _anim.current_animation_length), true)
+	# Creeps of a wave spawn in step; start each one somewhere else in its cycle,
+	# chosen by its id so the same creep always walks the same way.
+	_anim.seek(fmod(id * 0.37, _anim.current_animation_length), true)
 
 
 func _model_height(node: Node3D) -> float:
@@ -241,7 +276,8 @@ func _bar_mat(color: Color, priority: int) -> StandardMaterial3D:
 
 
 func _update_bar() -> void:
-	var ratio := clampf(hp / max_hp, 0.0, 1.0)
+	_shown_hp = rec.hp_c
+	var ratio := clampf(hp / max_hp, 0.0, 1.0) if rec.max_hp_c > 0 else 0.0
 	_bar_root.visible = ratio < 1.0
 	# The quad is centred, so shrink it and slide it left to keep its left edge fixed.
 	_bar_fill.scale.x = maxf(ratio, 0.001)

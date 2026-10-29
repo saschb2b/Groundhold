@@ -1,0 +1,24 @@
+{
+  "name": "protocol_strings_as_python_reads_them",
+  "description": "The GDScript codec reads strings as protocol.py does: strict UTF-8, no NUL, no leading byte-order mark; anything else is refused without an engine error per bad byte, and good text (accents, a mid-string U+FEFF, the most a field holds) reads back whole. The encoder refuses the same, so this side never builds a frame the server or its own decoder refuses.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://scripts/net/protocol.gd')", "as": "codec"},
+    {"eval": "codec.message_id('ERROR')", "as": "error_id"},
+    {"assert": "codec.decode(PackedByteArray([error_id, 1, 2, 0xC3, 0x28])).has('error')", "msg": "a broken two-byte sequence is refused"},
+    {"assert": "codec.decode(PackedByteArray([error_id, 1, 2, 0xC0, 0xAF])).has('error')", "msg": "an overlong form is refused"},
+    {"assert": "codec.decode(PackedByteArray([error_id, 1, 3, 0xED, 0xA0, 0x80])).has('error')", "msg": "a surrogate is refused"},
+    {"assert": "codec.decode(PackedByteArray([error_id, 1, 4, 0xF4, 0x90, 0x80, 0x80])).has('error')", "msg": "a code point past U+10FFFF is refused"},
+    {"assert": "codec.decode(PackedByteArray([error_id, 1, 2, 0xE2, 0x82])).has('error')", "msg": "a sequence cut short is refused"},
+    {"assert": "codec.decode(PackedByteArray([error_id, 1, 3, 0x61, 0x00, 0x62])).has('error')", "msg": "a NUL is refused"},
+    {"assert": "codec.decode(PackedByteArray([error_id, 1, 4, 0xEF, 0xBB, 0xBF, 0x61])).has('error')", "msg": "a leading byte-order mark is refused"},
+    {"eval": "codec.decode(PackedByteArray([error_id, 1, 10, 0x61, 0xEF, 0xBB, 0xBF, 0xC3, 0xA9, 0xF0, 0x9F, 0x8C]) + PackedByteArray([0xB0]))", "as": "good"},
+    {"assert": "not good.has('error') and good['fields']['text'].to_utf8_buffer() == PackedByteArray([0x61, 0xEF, 0xBB, 0xBF, 0xC3, 0xA9, 0xF0, 0x9F, 0x8C, 0xB0])", "msg": "accents, a mid-string U+FEFF and a four-byte character read back whole"},
+    {"eval": "codec.encode('ERROR', {'code': 1, 'text': '\\uFEFFHi'})", "as": "bom"},
+    {"assert": "bom.is_empty() and codec.last_error.ends_with('starts with a byte-order mark')", "msg": "and the encoder refuses what the decoder (and protocol.py) refuse: a leading byte-order mark (review M1 protocol 2)"},
+    {"eval": "codec.encode('ERROR', {'code': 1, 'text': good['fields']['text']})", "as": "again"},
+    {"assert": "not again.is_empty() and codec.decode(again)['fields']['text'] == good['fields']['text']", "msg": "while good text, a mid-string U+FEFF too, encodes and reads back"}
+  ]
+}

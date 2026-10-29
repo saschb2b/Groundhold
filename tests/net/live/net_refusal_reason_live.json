@@ -1,0 +1,122 @@
+{
+  "name": "net_refusal_reason_live",
+  "description": "The real server (--dev-match classic:2) refuses a game that sends commands around its command bucket with ERROR 8, and the game reads that ERROR before the connection closes: the strip gives the server's reason, not 'The connection closed'. The partner sees the seat go away. A game that keeps to its own bucket while its player mashes N keeps its link.",
+  "seed": 1,
+  "topology": {
+    "server": {
+      "cmd": [
+        "{python}",
+        "server/main.py",
+        "--port",
+        "0",
+        "--host",
+        "127.0.0.1",
+        "--dev-match",
+        "classic:2",
+        "--seed",
+        "7"
+      ],
+      "cwd": ".",
+      "ready": "listening.*port\\D*(?P<port>\\d+)"
+    },
+    "clients": [
+      {
+        "args": [
+          "--",
+          "--join=127.0.0.1:{port}",
+          "--name=Tamsin"
+        ],
+        "steps": [
+          {
+            "wait_until": "scene.client.phase_name() == 'IN_MATCH'",
+            "timeout": 900
+          },
+          {
+            "wait": 30
+          },
+          {
+            "repeat": 36,
+            "steps": [
+              {
+                "key": "N"
+              },
+              {
+                "wait": 4
+              }
+            ]
+          },
+          {
+            "wait": 60
+          },
+          {
+            "assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.error_text == ''",
+            "msg": "mashing N at 15 a second keeps the link"
+          },
+          {
+            "eval": "scene.sim.tick",
+            "as": "tick_a"
+          },
+          {
+            "wait": 60
+          },
+          {
+            "assert": "scene.sim.tick > tick_a",
+            "msg": "and the hollow runs on"
+          },
+          {
+            "repeat": 16,
+            "steps": [
+              {
+                "eval": "scene.client.source.set('_seq', scene.client.source._seq + 1)"
+              },
+              {
+                "eval": "scene.client._send_command(scene.client.source._seq, 4, 0, 0, 0)"
+              }
+            ]
+          },
+          {
+            "wait_until": "scene.client.phase_name() == 'FAILED'",
+            "timeout": 300
+          },
+          {
+            "wait": 2
+          },
+          {
+            "eval": "scene.client.error_text",
+            "as": "reason"
+          },
+          {
+            "assert": "scene.client.error_text == 'Message rate exceeded' and node('NetStatusText').text == 'Link lost \u00b7 Message rate exceeded'",
+            "msg": "around its bucket the server refuses the game, and the game read why"
+          }
+        ]
+      },
+      {
+        "args": [
+          "--",
+          "--join=127.0.0.1:{port}",
+          "--name=Edda"
+        ],
+        "steps": [
+          {
+            "wait_until": "scene.client.phase_name() == 'IN_MATCH'",
+            "timeout": 900
+          },
+          {
+            "wait_until": "scene.sim.seat(3 - scene.client.seat).state != 0",
+            "timeout": 1800
+          },
+          {
+            "wait": 2
+          },
+          {
+            "assert": "node('PartyStrip').lines()[2 - scene.client.seat].begins_with('Tamsin away')",
+            "msg": "the partner sees the refused seat go away"
+          }
+        ]
+      }
+    ],
+    "timeout": 90
+  },
+  "steps": []
+}

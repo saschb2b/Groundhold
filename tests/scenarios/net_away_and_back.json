@@ -1,0 +1,27 @@
+{
+  "name": "net_away_and_back",
+  "description": "Client 2 goes silent for 6 s: the sequencer's AWAY (wire seat 1) marks simulation seat 2 away on both clients and the caretaker counts it Ready; when it speaks again BACK hands it back at the next window, and the hashes agree throughout.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 5,
+  "timeout_frames": 1500,
+  "watch": {"tick1": "scene.tick(1)", "tick2": "scene.tick(2)", "hash1": "scene.hash_hex(1)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 5, 'latency_turns': 1})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_turns(20)"},
+    {"eval": "scene.stall(2, 120)"},
+    {"eval": "scene.run_turns(110)"},
+    {"assert": "scene.seq.system_log.size() == 1 and scene.seq.system_log[0][1] == 'AWAY' and scene.seq.system_log[0][2] == 1", "msg": "after 5 s of silence the sequencer sent AWAY for wire seat 1"},
+    {"assert": "scene.client(1).sim.seat(2).state == 1 and scene.client(1).sim.seat(1).state == 0", "msg": "client 1's simulation marks seat 2 away, not seat 1"},
+    {"assert": "scene.client(1).sim.ready_count(0) == [1, 2]", "msg": "the caretaker's seat counts as Ready"},
+    {"eval": "scene.run_turns(30)"},
+    {"assert": "scene.seq.system_log.size() == 2 and scene.seq.system_log[1][1] == 'BACK'", "msg": "its first message after the stall sent BACK"},
+    {"wait_until": "scene.tick(2) >= scene.tick(1) - 12", "timeout": 120},
+    {"assert": "scene.client(2).sim.seat(2).state == 2 and scene.client(1).sim.seat(2).state == 2", "msg": "both simulations hold the seat for the caretaker until the next window"},
+    {"eval": "scene.client(2).cmd('BUILD', 0, 8, 3)"},
+    {"eval": "scene.run_turns(20)"},
+    {"assert": "scene.client(2).last_refusal() == 'CARETAKEN'", "msg": "a command before the hand-back is refused"},
+    {"eval": "scene.run_turns(400)"},
+    {"assert": "scene.hashes_agree() and scene.sent_hashes_agree()", "msg": "every hash agreed through away and back"}
+  ]
+}

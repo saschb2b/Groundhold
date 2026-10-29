@@ -1,19 +1,54 @@
 {
   "name": "creeps_leak_and_hearth_falls",
   "seed": 1,
-  "time_scale": 8,
+  "ticks_per_frame": 8,
   "timeout_frames": 6000,
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
   "steps": [
-    {"key": "N"},
-    {"wait_until": "Game.state == 0", "timeout": 3000},
-    {"assert": "Game.lives == 20 - 8", "msg": "each of the 8 undefended gourdlings costs a life"},
-    {"assert": "Game.wave == 1"},
-    {"set": "Game.lives", "value": 3},
-    {"key": "N"},
-    {"wait_until": "Game.state == 3", "timeout": 3000},
-    {"assert": "Game.lives == 0"},
-    {"assert": "screen_has('The hearth has gone dark')", "msg": "the defeat panel shows"},
-    {"key": "A"},
-    {"assert": "node('BuildController').mode == ''", "msg": "no building after defeat"}
+    {
+      "key": "N"
+    },
+    {
+      "wait_until": "Game.wave == 1",
+      "timeout": 10
+    },
+    {
+      "wait_until": "Game.state == 0",
+      "timeout": 3000
+    },
+    {
+      "assert": "Game.lives == 20 - 8",
+      "msg": "each of the 8 undefended gourdlings costs a life"
+    },
+    {
+      "assert": "Game.wave == 1"
+    },
+    {
+      "set": "Game.lives",
+      "value": 3
+    },
+    {
+      "key": "N"
+    },
+    {
+      "wait_until": "Game.state == 3",
+      "timeout": 3000
+    },
+    {
+      "assert": "Game.lives == 0"
+    },
+    {
+      "assert": "screen_has('The hearth has gone dark')",
+      "msg": "the defeat panel shows"
+    },
+    {
+      "key": "A"
+    },
+    {
+      "assert": "node('BuildController').mode == ''",
+      "msg": "no building after defeat"
+    }
   ]
 }

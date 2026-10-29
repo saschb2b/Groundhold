@@ -1,7 +1,7 @@
 {
   "name": "hero",
   "seed": 4,
-  "time_scale": 2,
+  "ticks_per_frame": 2,
   "timeout_frames": 2400,
   "steps": [
     {
@@ -13,7 +13,16 @@
       "as": "bot"
     },
     {
-      "eval": "bot.step(scene)"
+      "repeat": 20,
+      "steps": [
+        {
+          "eval": "bot.step(scene)"
+        },
+        {
+          "wait": 2
+        }
+      ],
+      "until": "bot.done == 20 and scene.settled()"
     },
     {
       "set": "Game.gold",

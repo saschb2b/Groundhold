@@ -1,0 +1,27 @@
+{
+  "name": "net_two_clients_converge",
+  "description": "Two MatchClients joined to the fake sequencer over links of 2 and 4 turns with jitter play one classic match: each pays for its own tower, only the owner sells, and every hash they send matches.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 7,
+  "timeout_frames": 1200,
+  "watch": {"turn": "scene.seq.turn if scene.seq else 0", "hash1": "scene.hash_hex(1)", "hash2": "scene.hash_hex(2)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 7, 'latency_turns': [2, 4], 'jitter_turns': 1, 'names': ['Tamsin', 'Edda']})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"assert": "scene.client(1).seat == 1 and scene.client(2).seat == 2", "msg": "the server's seats 0 and 1 are the simulation's 1 and 2"},
+    {"assert": "scene.client(2).names == ['Tamsin', 'Edda'] and scene.client(1).sim.match_seed == 7", "msg": "both clients built the match MATCH_CONFIG describes"},
+    {"eval": "scene.client(1).cmd('BUILD', 0, 8, 3)"},
+    {"eval": "scene.client(2).cmd('BUILD', 1, 10, 8)"},
+    {"wait_until": "scene.client(1).sim.towers.size() == 2 and scene.client(2).sim.towers.size() == 2", "timeout": 120},
+    {"assert": "scene.client(1).sim.seats[0].gold == 80 and scene.client(1).sim.seats[1].gold == 50", "msg": "each paid for their own tower (arrow 40, cannon 70)"},
+    {"assert": "scene.client(2).sim.tower_at(0, 8, 3).owner == 1 and scene.client(1).sim.tower_at(0, 10, 8).owner == 2", "msg": "each tower belongs to the seat that sent its command, on both clients"},
+    {"eval": "scene.client(2).cmd('SELL', scene.client(2).sim.tower_at(0, 8, 3).id, 0, 0)"},
+    {"wait_until": "scene.client(2).last_refusal() != ''", "timeout": 120},
+    {"assert": "scene.client(2).last_refusal() == 'NOT_YOURS' and scene.client(1).last_refusal() == ''", "msg": "only the owner sells, and only the sender hears the refusal"},
+    {"eval": "scene.run_turns(600)"},
+    {"assert": "scene.seq.compared >= 20", "msg": "the referee compared both clients' hashes at least 20 times"},
+    {"assert": "scene.hashes_agree()", "msg": "every hash both clients sent matched"},
+    {"assert": "scene.common_hash_ticks().size() >= 20 and scene.sent_hashes_agree()", "msg": "and the hash streams both clients sent are equal tick for tick"},
+    {"assert": "scene.client(1).hashes_sent >= 20 and scene.client(1).phase_name() == 'IN_MATCH'", "msg": "the match runs on"}
+  ]
+}

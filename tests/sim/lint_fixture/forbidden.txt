@@ -1,0 +1,41 @@
+# One forbidden token a line, then lines the lint must let pass. (A .txt, so Godot never
+# compiles it; sim_lint_clean scans it as text.)
+var a := 1.5
+var b: float = 2
+var c := sqrt(4)
+var d := lerp(0, 1, 0)
+var e := randi()
+var f := Vector3(0, 0, 0)
+var g := Time.get_ticks_msec()
+var h := Engine.get_physics_frames()
+var i := ceil(7 / 2)
+var j := Vector2i(3, 4).length()
+var k := table.keys()
+var l := table.values()
+for key in table:
+for name in SimContent.TOWERS:
+list.sort_custom(func(x, y): return x < y)
+var m := table.hash()
+var n := RandomNumberGenerator.new()
+await done
+var o := .5
+var p := 1e3
+var q := floori(3)
+call_deferred("go")
+var v := TAU / 4
+var w := INF
+towers.sort()
+var x := tower.get_instance_id()
+for key in SimContent.rules("classic"):
+var y := "1.5".to_float()
+var table := {}
+# Passes: strings and comments are not code, ints and Vector2i are fine, and an
+# allowed token says why.
+var r := "1.5 sqrt( Engine. Vector3"  # ceil( keys() 2.5
+var s := Vector2i(1, 2)
+var t := 0x1E5 + 10 / 3
+for x in items:
+var u := a.length()  # sim-lint: allow length() a String's
+ids.sort()  # sim-lint: allow sort() ints only
+var SPINE := PIPE + TAUT
+for plan_step in SimContent.plan("lamplighter"):

@@ -1,5 +1,7 @@
-## Arrows and frost shards home in on their creep; cannon shells fly a fixed arc
-## to where the creep is predicted to be and burst on landing.
+## A shot's model in flight. The simulation scheduled the shot and decides what it
+## hits; this only flies the model over exactly the shot's flight ticks: arrows and
+## frost shards home in on their creep, cannon shells fly an arc to where the simulation
+## said they burst. It leaves when the shot has landed.
 class_name Projectile
 extends Node3D
 
@@ -11,65 +13,58 @@ const MODELS := {
 const ARC_HEIGHT := 1.1
 
 var kind := ""
-var damage := 0.0
-var speed := 10.0
-var splash := 0.0
-var slow := 0.0
-var slow_time := 0.0
-var tower: Tower
+var shot := 0
 var target: Creep
 var target_pos := Vector3.ZERO
 
 var _start := Vector3.ZERO
-var _flight := 0.0
-var _t := 0.0
-var _done := false
+var _fire_tick := 0
+var _flight := 1
+var _arc := false
 
 
-func launch(from_tower: Tower, at: Creep, muzzle: Vector3) -> void:
-	tower = from_tower
-	target = at
-	var s: Dictionary = from_tower.stats
-	kind = str(s["projectile"])
-	damage = float(s["damage"])
-	speed = float(s["speed"])
-	splash = float(s.get("splash", 0.0))
-	slow = float(s.get("slow", 0.0))
-	slow_time = float(s.get("slow_time", 0.0))
+## `event` is the simulation's FIRE event; `burst_at` the road point a shell bursts on.
+func launch(
+	event: Dictionary, model: String, muzzle: Vector3, aim: Creep, burst_at: Vector3
+) -> void:
+	kind = model
+	shot = int(event["shot"])
+	_fire_tick = int(event["tick"])
+	_flight = maxi(1, int(event["flight"]))
+	_arc = int(event["land"]) >= 0
+	target = aim
 	position = muzzle
 	_start = muzzle
 	add_to_group("projectiles")
 	add_child(Models.instance(MODELS[kind]))
-	if kind == "cannonball":
-		# Lead the target: fly time from the current distance, then aim where it will be.
-		_flight = maxf(0.35, muzzle.distance_to(at.aim_point()) / speed)
-		target_pos = at.predict(_flight)
-	else:
-		target_pos = at.aim_point()
+	if _arc:
+		target_pos = burst_at + Vector3(0, 0.15, 0)
+	elif aim:
+		target_pos = aim.aim_point()
+	_place(0.0)
 
 
-func _physics_process(delta: float) -> void:
-	if _done:
+func _physics_process(_delta: float) -> void:
+	# The shot resolved during its landing tick; the simulation has moved past it.
+	if Game.sim == null or Game.sim.tick > _fire_tick + _flight:
+		queue_free()
+
+
+func _process(_delta: float) -> void:
+	if Game.sim == null:
 		return
-	if kind == "cannonball":
-		_t += delta
-		var f := minf(_t / _flight, 1.0)
-		var p := _start.lerp(target_pos, f) + Vector3.UP * ARC_HEIGHT * 4.0 * f * (1.0 - f)
-		_face(p - position)
-		position = p
-		if f >= 1.0:
-			_burst()
-		return
-	if is_instance_valid(target) and not target.dead:
+	var now := Game.sim.tick - 1 + Engine.get_physics_interpolation_fraction()
+	_place(clampf((now - _fire_tick) / _flight, 0.0, 1.0))
+
+
+func _place(f: float) -> void:
+	if not _arc and is_instance_valid(target) and not target.dead:
 		target_pos = target.aim_point()
-	var to := target_pos - position
-	var step := speed * delta
-	if to.length() <= step + 0.05:
-		position = target_pos
-		_hit()
-		return
-	_face(to)
-	position += to.normalized() * step
+	var p := _start.lerp(target_pos, f)
+	if _arc:
+		p += Vector3.UP * ARC_HEIGHT * 4.0 * f * (1.0 - f)
+	_face(p - position)
+	position = p
 
 
 func _face(direction: Vector3) -> void:
@@ -79,39 +74,3 @@ func _face(direction: Vector3) -> void:
 			position - direction,
 			Vector3.UP if absf(direction.normalized().y) < 0.99 else Vector3.RIGHT
 		)
-
-
-func _hit() -> void:
-	_done = true
-	if is_instance_valid(target) and not target.dead:
-		if slow > 0.0:
-			target.apply_slow(slow, slow_time)
-			Fx.burst(get_tree(), position, Color(0.6, 0.9, 1.0), 10, 1.6, 0.05, 0.45, -2.0)
-		else:
-			Fx.burst(get_tree(), position, Color(0.95, 0.85, 0.6), 5, 1.4, 0.04, 0.3)
-		Sfx.play("hit", -10.0)
-		if target.take_damage(damage):
-			_credit_kill()
-	queue_free()
-
-
-func _burst() -> void:
-	_done = true
-	var ground := Vector3(position.x, 0.0, position.z)
-	Fx.explosion(get_tree(), ground, splash)
-	Sfx.play("explosion", -4.0)
-	for node in get_tree().get_nodes_in_group("creeps"):
-		var creep := node as Creep
-		var d := (
-			Vector2(creep.global_position.x - ground.x, creep.global_position.z - ground.z).length()
-		)
-		if d <= splash:
-			# Full damage at the centre, half at the edge.
-			if creep.take_damage(damage * lerpf(1.0, 0.5, d / splash)):
-				_credit_kill()
-	queue_free()
-
-
-func _credit_kill() -> void:
-	if is_instance_valid(tower):
-		tower.kills += 1

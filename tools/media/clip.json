@@ -3,14 +3,46 @@
   "seed": 5,
   "timeout_frames": 1500,
   "steps": [
-    {"set": "Game.gold", "value": 1000},
-    {"eval": "scene.build('arrow', Vector2i(8, 3))"},
-    {"eval": "scene.build('cannon', Vector2i(6, 3))"},
-    {"eval": "scene.build('frost', Vector2i(8, 5))"},
-    {"eval": "scene.build('arrow', Vector2i(5, 3))"},
-    {"eval": "scene.camera.look_from(Vector3(6.6, 0, 4.2), 8.0)"},
-    {"key": "N"},
-    {"wait_until": "count('creeps') >= 2", "timeout": 300},
-    {"repeat": 100, "steps": [{"capture": "f"}, {"wait": 2}]}
+    {
+      "set": "Game.gold",
+      "value": 1000
+    },
+    {
+      "eval": "scene.build('arrow', Vector2i(8, 3))"
+    },
+    {
+      "eval": "scene.build('cannon', Vector2i(6, 3))"
+    },
+    {
+      "eval": "scene.build('frost', Vector2i(8, 5))"
+    },
+    {
+      "eval": "scene.build('arrow', Vector2i(5, 3))"
+    },
+    {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
+      "eval": "scene.camera.look_from(Vector3(6.6, 0, 4.2), 8.0)"
+    },
+    {
+      "key": "N"
+    },
+    {
+      "wait_until": "count('creeps') >= 2",
+      "timeout": 300
+    },
+    {
+      "repeat": 100,
+      "steps": [
+        {
+          "capture": "f"
+        },
+        {
+          "wait": 2
+        }
+      ]
+    }
   ]
 }

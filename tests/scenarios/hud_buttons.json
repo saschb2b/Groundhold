@@ -1,6 +1,9 @@
 {
   "name": "hud_buttons",
   "seed": 1,
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
   "steps": [
     {
       "wait": 2
@@ -24,6 +27,10 @@
       "click": "scene.cell_center(Vector2i(6, 4))"
     },
     {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
       "assert": "scene.tower_at(Vector2i(6, 4)) != null",
       "msg": "a click on the map places it"
     },
@@ -35,21 +42,26 @@
       "msg": "upgrade is offered for the selected tower"
     },
     {
-      "click": "node('NextWave')"
+      "click": "node('Ready')"
+    },
+    {
+      "wait_until": "Game.state == 1",
+      "timeout": 10
     },
     {
       "assert": "Game.wave == 1 and Game.state == 1",
-      "msg": "Next wave starts wave 1"
+      "msg": "Ready (the war horn) starts wave 1"
     },
     {
-      "assert": "node('NextWave').disabled",
-      "msg": "and is disabled while the wave runs"
+      "assert": "node('Ready').disabled and node('Ready').get_meta('state') == 'idle'",
+      "msg": "and is idle while the wave runs"
     },
     {
       "click": "node('Sell')"
     },
     {
-      "wait": 2
+      "wait_until": "count('towers') == 0",
+      "timeout": 12
     },
     {
       "assert": "count('towers') == 0",

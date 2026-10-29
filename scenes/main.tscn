@@ -1,9 +1,8 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/terrain.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/decor.gd" id="3"]
-[ext_resource type="Script" path="res://scripts/wave_director.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/build_controller.gd" id="5"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="6"]
 [ext_resource type="Script" path="res://scripts/camera_rig.gd" id="7"]
@@ -75,9 +74,6 @@ script = ExtResource("3")
 [node name="Towers" type="Node3D" parent="."]
 
 [node name="Effects" type="Node3D" parent="."]
-
-[node name="WaveDirector" type="Node" parent="."]
-script = ExtResource("4")
 
 [node name="BuildController" type="Node3D" parent="."]
 script = ExtResource("5")

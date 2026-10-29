@@ -1,0 +1,29 @@
+{
+  "name": "hud_ready_pips",
+  "description": "With company the war horn is Ready: it lights while you are Ready, the strip counts who is, and the wave comes only when everyone is.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('classic', [{'team': 0}, {'team': 0}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"assert": "node('Countdown').text.begins_with('First wave in') and node('Countdown').text.ends_with('Ready 0/2')", "msg": "the strip counts who is Ready"},
+    {"assert": "absf(Game.countdown - 25.0) < 0.2", "msg": "two seats get the 25 s first window"},
+    {"assert": "not node('Ready').get_node('Ring').visible", "msg": "the horn is dark while you are not Ready"},
+    {"key": "N"},
+    {"wait_until": "node('Countdown').text.ends_with('Ready 1/2')", "timeout": 10},
+    {"assert": "Game.is_ready() and Game.wave == 0", "msg": "one of two Ready: no horn yet"},
+    {"assert": "node('Ready').get_node('Ring').visible", "msg": "the horn glows while you are Ready"},
+    {"key": "N"},
+    {"wait_until": "node('Countdown').text.ends_with('Ready 0/2')", "timeout": 10},
+    {"assert": "not Game.is_ready() and not node('Ready').get_node('Ring').visible", "msg": "N again takes Ready back"},
+    {"key": "N"},
+    {"wait_until": "Game.is_ready()", "timeout": 10},
+    {"eval": "Game.early_gold()", "as": "early_now"},
+    {"eval": "scene.source.submit_as(2, 4, 1)"},
+    {"wait_until": "Game.wave == 1", "timeout": 10},
+    {"wait": 1},
+    {"assert": "Game.state == 1 and not node('Countdown').text.contains('Ready')", "msg": "the partner's Ready sounds the horn at once"},
+    {"assert": "Game.gold == scene.sim.seat(2).gold and Game.gold > 120 and Game.gold <= 120 + early_now", "msg": "and each seat is paid the seconds left"}
+  ]
+}

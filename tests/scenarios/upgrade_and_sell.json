@@ -1,24 +1,88 @@
 {
   "name": "upgrade_and_sell",
   "seed": 1,
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
   "steps": [
-    {"set": "Game.gold", "value": 200},
-    {"eval": "scene.build('cannon', Vector2i(6, 4))"},
-    {"click": "scene.cell_center(Vector2i(6, 4))"},
-    {"assert": "node('BuildController').selected == scene.tower_at(Vector2i(6, 4))", "msg": "clicking a tower selects it"},
-    {"assert": "screen_has('Cannon Tower')", "msg": "the info panel names the selected tower"},
-    {"key": "U"},
-    {"assert": "scene.tower_at(Vector2i(6, 4)).level == 2", "msg": "U upgrades the selected tower"},
-    {"assert": "Game.gold == 200 - 70 - 80", "msg": "the upgrade costs 80"},
-    {"assert": "scene.tower_at(Vector2i(6, 4)).stats.damage == 40.0", "msg": "level 2 uses the upgrade stats"},
-    {"key": "U"},
-    {"assert": "Game.gold == 50", "msg": "a second upgrade is not possible"},
-    {"key": "S"},
-    {"wait": 2},
-    {"assert": "scene.tower_at(Vector2i(6, 4)) == null", "msg": "S sells the tower"},
-    {"assert": "Game.gold == 50 + 105", "msg": "selling refunds 70% of the 150 invested"},
-    {"assert": "count('towers') == 0"},
-    {"eval": "scene.build('arrow', Vector2i(6, 4))"},
-    {"assert": "scene.tower_at(Vector2i(6, 4)) != null", "msg": "the cell is free again after selling"}
+    {
+      "set": "Game.gold",
+      "value": 200
+    },
+    {
+      "eval": "scene.build('cannon', Vector2i(6, 4))"
+    },
+    {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
+      "click": "scene.cell_center(Vector2i(6, 4))"
+    },
+    {
+      "assert": "node('BuildController').selected == scene.tower_at(Vector2i(6, 4))",
+      "msg": "clicking a tower selects it"
+    },
+    {
+      "assert": "screen_has('Cannon Tower')",
+      "msg": "the info panel names the selected tower"
+    },
+    {
+      "key": "U"
+    },
+    {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(6, 4)).level == 2",
+      "msg": "U upgrades the selected tower (fork branch A)"
+    },
+    {
+      "assert": "Game.gold == 200 - 70 - 80",
+      "msg": "the upgrade costs 80"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(6, 4)).stats.damage == 40.0",
+      "msg": "level 2 uses the upgrade stats"
+    },
+    {
+      "key": "U"
+    },
+    {
+      "wait": 4
+    },
+    {
+      "assert": "Game.gold == 50",
+      "msg": "a second upgrade is not possible"
+    },
+    {
+      "key": "S"
+    },
+    {
+      "wait_until": "scene.tower_at(Vector2i(6, 4)) == null",
+      "timeout": 12
+    },
+    {
+      "assert": "Game.gold == 50 + 105",
+      "msg": "selling refunds 70% of the 150 invested"
+    },
+    {
+      "wait": 1
+    },
+    {
+      "assert": "count('towers') == 0"
+    },
+    {
+      "eval": "scene.build('arrow', Vector2i(6, 4))"
+    },
+    {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(6, 4)) != null",
+      "msg": "the cell is free again after selling"
+    }
   ]
 }

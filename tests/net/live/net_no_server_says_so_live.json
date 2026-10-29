@@ -1,0 +1,19 @@
+{
+  "name": "net_no_server_says_so_live",
+  "description": "A game told to join an address where nothing listens says so on the party strip instead of waiting forever, and starts no match.",
+  "seed": 1,
+  "topology": {
+    "clients": [
+      {
+        "args": ["--", "--join=127.0.0.1:9", "--name=Alone"],
+        "steps": [
+          {"wait_until": "scene.client.phase_name() == 'FAILED'", "timeout": 600},
+          {"assert": "node('NetStatusText').text == 'Link lost · No server answers at ws://127.0.0.1:9/hollow'", "msg": "the strip names the address that did not answer"},
+          {"assert": "scene.sim == null and node('PartyStrip').visible", "msg": "no match started, and the strip stays up"}
+        ]
+      }
+    ],
+    "timeout": 60
+  },
+  "steps": []
+}

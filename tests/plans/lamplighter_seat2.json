@@ -1,0 +1,24 @@
+{
+  "builder": "lamplighter",
+  "about": "The test bot's plan for a second seat (tests/bot.gd with --bot on seat 2): the same build order as data/plans/lamplighter.json on cells the first seat's plan leaves free, so two bots hold one road together instead of racing for the same tiles. Not part of the rules hash: the caretaker keeps the Builder's own plan.",
+  "steps": [
+    {"build": "arrow", "cell": [6, 3]},
+    {"build": "arrow", "cell": [16, 8]},
+    {"build": "cannon", "cell": [9, 11]},
+    {"build": "frost", "cell": [8, 5]},
+    {"build": "arrow", "cell": [11, 12]},
+    {"build": "cannon", "cell": [13, 9]},
+    {"fork": "a", "cell": [16, 8]},
+    {"fork": "a", "cell": [9, 11]},
+    {"build": "arrow", "cell": [6, 9]},
+    {"build": "cannon", "cell": [16, 12]},
+    {"fork": "a", "cell": [6, 3]},
+    {"fork": "a", "cell": [11, 12]},
+    {"fork": "a", "cell": [13, 9]},
+    {"build": "arrow", "cell": [2, 12]},
+    {"fork": "a", "cell": [16, 12]},
+    {"fork": "a", "cell": [8, 5]},
+    {"fork": "a", "cell": [6, 9]},
+    {"fork": "a", "cell": [2, 12]}
+  ]
+}

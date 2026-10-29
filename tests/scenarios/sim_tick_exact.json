@@ -1,0 +1,86 @@
+{
+  "name": "sim_tick_exact",
+  "description": "The same orders on the same ticks give the same state at 1 and at 8 ticks per frame: nothing in the match depends on frames.",
+  "seed": 1,
+  "timeout_frames": 5000,
+  "watch": {
+    "tick": "scene.sim.tick",
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.schedule(12, 'BUILD', 0, 8, 3)"
+    },
+    {
+      "eval": "scene.schedule(30, 'BUILD', 1, 8, 11)"
+    },
+    {
+      "eval": "scene.schedule(300, 'READY', 1)"
+    },
+    {
+      "eval": "scene.schedule(1200, 'BUILD', 2, 13, 8)"
+    },
+    {
+      "eval": "scene.schedule(1800, 'FORK', 1, 0)"
+    },
+    {
+      "eval": "scene.schedule(2400, 'BUILD', 0, 10, 8)"
+    },
+    {
+      "wait_until": "scene.sim.tick >= 3000",
+      "timeout": 3200
+    },
+    {
+      "eval": "scene.hash_at(3000)",
+      "as": "at_one"
+    },
+    {
+      "assert": "scene.sim.towers.size() >= 3 and scene.sim.hollows[0].wave >= 2",
+      "msg": "the scripted orders built towers and the waves came"
+    },
+    {
+      "assert": "at_one.length() == 16",
+      "msg": "tick 3000 was hashed"
+    },
+    {
+      "scene": "res://scenes/main.tscn"
+    },
+    {
+      "eval": "scene.schedule(12, 'BUILD', 0, 8, 3)"
+    },
+    {
+      "eval": "scene.schedule(30, 'BUILD', 1, 8, 11)"
+    },
+    {
+      "eval": "scene.schedule(300, 'READY', 1)"
+    },
+    {
+      "eval": "scene.schedule(1200, 'BUILD', 2, 13, 8)"
+    },
+    {
+      "eval": "scene.schedule(1800, 'FORK', 1, 0)"
+    },
+    {
+      "eval": "scene.schedule(2400, 'BUILD', 0, 10, 8)"
+    },
+    {
+      "eval": "frame",
+      "as": "second_start"
+    },
+    {
+      "set_ticks_per_frame": 8
+    },
+    {
+      "wait_until": "scene.sim.tick >= 3000",
+      "timeout": 500
+    },
+    {
+      "assert": "frame - second_start < 400",
+      "msg": "the second run went 8 ticks a frame"
+    },
+    {
+      "assert": "scene.hash_at(3000) == at_one",
+      "msg": "the hash at tick 3000 is the same at 1 and at 8 ticks per frame"
+    }
+  ]
+}

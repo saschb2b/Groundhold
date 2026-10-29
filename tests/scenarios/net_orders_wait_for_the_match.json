@@ -1,0 +1,195 @@
+{
+  "name": "net_orders_wait_for_the_match",
+  "description": "A networked window takes no orders before START or after its link is lost, and says so: while it waits for the partner and while it loads, A and N are refused with 'The match has not started', the commands are greyed, the countdown and the horn's early gold are hidden, and a click builds nothing; once the match runs they work; after the link goes they are refused again with 'No link to the server', the placement mode drops, and the party strip's link bars go dark and its Ready marks hide. My own Ready mark lights from my press at once.",
+  "seed": 1,
+  "timeout_frames": 2400,
+  "watch": {
+    "phase": "scene.client.phase_name() if scene.client else ''"
+  },
+  "steps": [
+    {
+      "wait": 2
+    },
+    {
+      "eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"
+    },
+    {
+      "eval": "node('LoopbackMain').start({'seed': 3, 'partner_after': 150})"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'WAITING'",
+      "timeout": 30
+    },
+    {
+      "wait": 2
+    },
+    {
+      "key": "A"
+    },
+    {
+      "assert": "node('BuildController').mode == '' and node('Notice').visible and node('Notice').text == 'The match has not started'",
+      "msg": "A is refused, and says why"
+    },
+    {
+      "assert": "node('BuildArrow').disabled and node('BuildCannon').disabled and node('Ready').disabled",
+      "msg": "the commands are greyed"
+    },
+    {
+      "click": "scene.cell_center(Vector2i(8, 3))"
+    },
+    {
+      "assert": "node('BuildController').settled() and node('Pending_8_3') == null",
+      "msg": "a click on the field orders nothing"
+    },
+    {
+      "assert": "not Game.accepts_commands() and Game.command_refusal() == 'The match has not started'",
+      "msg": "waiting for the partner, orders go nowhere"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'LOADING'",
+      "timeout": 200
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "Game.sim != null and not node('BuildController').can_build('arrow', Vector2i(8, 3))",
+      "msg": "loading, the hollow stands but a free cell is not offered"
+    },
+    {
+      "assert": "node('Countdown').text == '' and node('Ready').get_node('Cost').text == '' and node('Ready').disabled",
+      "msg": "the frozen countdown and the horn's early gold are hidden"
+    },
+    {
+      "key": "N"
+    },
+    {
+      "assert": "not node('BuildController').wants_ready() and node('BuildController').settled() and node('Notice').text == 'The match has not started'",
+      "msg": "N is refused too"
+    },
+    {
+      "assert": "not node('BuildController').build('arrow', Vector2i(8, 3)) and node('Pending_8_3') == null",
+      "msg": "and so is a build"
+    },
+    {
+      "capture": "loading_refused"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'IN_MATCH'",
+      "timeout": 600
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "Game.accepts_commands() and not node('BuildArrow').disabled and not node('Ready').disabled",
+      "msg": "the match runs: the commands light"
+    },
+    {
+      "assert": "node('Countdown').text.begins_with('First wave in') and node('Countdown').text.ends_with('Ready 0/2')",
+      "msg": "and the countdown shows"
+    },
+    {
+      "key": "A"
+    },
+    {
+      "assert": "node('BuildController').mode == 'arrow'",
+      "msg": "A picks the arrow tower now"
+    },
+    {
+      "hover": "scene.cell_center(Vector2i(8, 3))"
+    },
+    {
+      "click": "scene.cell_center(Vector2i(8, 3))"
+    },
+    {
+      "wait_until": "node('BuildController').settled()",
+      "timeout": 120
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(8, 3)) != null and scene.sim.seat(1).gold == 80",
+      "msg": "a click builds once the turn comes"
+    },
+    {
+      "assert": "node('PartyStrip').ready_marks_shown() == 2 and node('PartyStrip').link_bars() == [3, 3]",
+      "msg": "the strip shows both seats' Ready marks and link bars"
+    },
+    {
+      "key": "N"
+    },
+    {
+      "wait": 1
+    },
+    {
+      "assert": "node('PartyStrip').lines()[0].ends_with(' ready') and node('Countdown').text.ends_with('Ready 1/2') and not Game.is_ready()",
+      "msg": "my own Ready mark and the count light at once from my press, as the horn does, before the turn comes"
+    },
+    {
+      "capture": "ready_mine_at_once"
+    },
+    {
+      "wait_until": "Game.is_ready()",
+      "timeout": 60
+    },
+    {
+      "assert": "node('PartyStrip').lines()[0].ends_with(' ready') and not node('PartyStrip').lines()[1].ends_with(' ready')",
+      "msg": "and stays lit once the simulation has it; the partner's is not"
+    },
+    {
+      "key": "A"
+    },
+    {
+      "eval": "node('LoopbackMain').cut()"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'FAILED'",
+      "timeout": 30
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "not Game.accepts_commands() and Game.command_refusal() == 'No link to the server'",
+      "msg": "the link is gone: orders go nowhere"
+    },
+    {
+      "assert": "node('BuildController').mode == '' and not node('BuildController').can_build('arrow', Vector2i(9, 5))",
+      "msg": "the placement mode goes with the link: no grid, no ghost, no lit slot"
+    },
+    {
+      "assert": "node('PartyStrip').link_bars() == [0, 0] and node('PartyStrip').ready_marks_shown() == 0",
+      "msg": "the strip's link bars go dark and its Ready marks hide"
+    },
+    {
+      "key": "A"
+    },
+    {
+      "assert": "node('BuildController').mode == '' and node('Notice').text == 'No link to the server'",
+      "msg": "A is refused, and says why"
+    },
+    {
+      "click": "scene.cell_center(Vector2i(9, 5))"
+    },
+    {
+      "assert": "node('Pending_9_5') == null and node('BuildController').settled()",
+      "msg": "a click orders nothing"
+    },
+    {
+      "key": "Escape"
+    },
+    {
+      "key": "C"
+    },
+    {
+      "assert": "node('BuildController').mode == '' and node('BuildCannon').disabled and node('Ready').disabled and node('Countdown').text == ''",
+      "msg": "C is refused; the commands and the countdown stay dark"
+    },
+    {
+      "assert": "node('NetStatusText').text == 'Link lost \u00b7 The connection closed'",
+      "msg": "the strip says the link is lost"
+    },
+    {
+      "capture": "link_lost"
+    }
+  ]
+}

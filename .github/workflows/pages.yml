@@ -47,10 +47,63 @@ jobs:
           curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt -d templates
           rm templates.tpz
+      - name: Lint the simulation for non-determinism
+        run: |
+          export GODOT_PATH="$HOME/godot/godot"
+          python3 .kit/bin/godot-agent check . --sim-lint scripts/sim
       - name: Run every scenario (headless)
         run: |
           export GODOT_PATH="$HOME/godot/godot"
           python3 .kit/bin/godot-agent scenario . --headless --timeout 300
+
+  net-smoke:
+    name: Networked match smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: saschb2b/godot-agent-kit
+          path: .kit
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v6
+        id: godot
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot and its web template
+        if: steps.godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/godot && cd ~/godot
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && rm godot.zip
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt -d templates
+          rm templates.tpz
+      - name: The server's unit tests
+        run: python3 -m unittest discover -s server/tests -t server/tests
+      - name: Import the project
+        run: ~/godot/godot --headless --path . --import
+      # The real server and two headless games play a whole classic match (turns of
+      # 10 ms: five times faster); their hash streams must be equal at every tick.
+      - name: Two clients finish a match against the real server
+        run: |
+          export GODOT_PATH="$HOME/godot/godot"
+          python3 tools/net/smoke.py --mode classic --clients 2 --turn-ms 10 --timeout 600 --out smoke
+      - name: Real-socket scenarios (convergence, a stalled client)
+        run: |
+          export GODOT_PATH="$HOME/godot/godot"
+          python3 .kit/bin/godot-agent scenario . tests/net/live --headless --timeout 300
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: net-smoke
+          path: smoke
+          retention-days: 14
 
   build:
     name: Export for the browser

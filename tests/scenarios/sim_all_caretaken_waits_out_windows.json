@@ -1,0 +1,19 @@
+{
+  "name": "sim_all_caretaken_waits_out_windows",
+  "description": "Every seat of a hollow caretaken (both players away, or a balance run where the bots are the caretaker): the early horn is the players' call, so the hollow waits out each build window and its caretakers build in it, as they would beside a player. Before, the horn sounded on each window's first tick, before the caretakers could think, so every build fell in a wave and full early gold went to nobody present (review M1 determinism 2).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 300,
+  "watch": {"hash1": "scene.client(1).state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.start({'seats': 2, 'caretakers': [1, 2], 'seed': 1})"},
+    {"eval": "scene.run_to(1400)"},
+    {"assert": "scene.client(1).hollows[0].wave == 0", "msg": "no horn before the first window runs out"},
+    {"assert": "scene.ticks_of('BUILT', 1).size() > 0 and scene.ticks_of('BUILT', 2).size() > 0", "msg": "both caretakers built in the first window"},
+    {"eval": "scene.run_to(1600)"},
+    {"assert": "scene.client(1).hollows[0].wave == 1", "msg": "the first wave came when the countdown ran out"},
+    {"assert": "scene.gold_paid('ready') == 0", "msg": "and no early gold was paid"},
+    {"eval": "scene.run_until_over(60000)"},
+    {"assert": "scene.client(1).over", "msg": "the caretakers play the match to its end"}
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "name": "turn_order_rotates",
+  "description": "Two BUILDs on one cell in one turn: the rotation decides, starting with seat (turn mod seats) + 1, and the other is refused, identically on both clients.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "watch": {
+    "hash1": "scene.client(1).state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.start({'seats': 2, 'clients': 2})"
+    },
+    {
+      "eval": "scene.cmd(2, 'BUILD', 0, 8, 3)"
+    },
+    {
+      "eval": "scene.cmd(1, 'BUILD', 0, 8, 3)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.seq.turns[0][0]['seat'] == 1",
+      "msg": "turn 0 lists seat 1 first"
+    },
+    {
+      "assert": "scene.tower_at(8, 3).owner == 1 and scene.tower_at(8, 3, 2).owner == 1",
+      "msg": "seat 1 gets the cell in turn 0, on both clients"
+    },
+    {
+      "assert": "scene.refusals(2) == ['CANNOT_BUILD_THERE'] and scene.refusals(2, 2) == ['CANNOT_BUILD_THERE']",
+      "msg": "seat 2 is told it cannot build there"
+    },
+    {
+      "assert": "scene.gold(1) == 80 and scene.gold(2) == 120",
+      "msg": "and pays nothing"
+    },
+    {
+      "eval": "scene.cmd(1, 'BUILD', 0, 10, 8)"
+    },
+    {
+      "eval": "scene.cmd(2, 'BUILD', 0, 10, 8)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.seq.turns[1][0]['seat'] == 2",
+      "msg": "turn 1 lists seat 2 first"
+    },
+    {
+      "assert": "scene.tower_at(10, 8).owner == 2 and scene.tower_at(10, 8, 2).owner == 2",
+      "msg": "seat 2 gets the cell in turn 1"
+    },
+    {
+      "assert": "scene.refusals(1) == ['CANNOT_BUILD_THERE'] and scene.refusals(1, 2) == ['CANNOT_BUILD_THERE']",
+      "msg": "and seat 1 is refused, on both clients"
+    },
+    {
+      "assert": "scene.client(1).state_hash_hex() == scene.client(2).state_hash_hex()",
+      "msg": "both clients agree"
+    }
+  ]
+}
