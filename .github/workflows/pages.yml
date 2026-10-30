@@ -57,6 +57,13 @@ jobs:
         run: |
           export GODOT_PATH="$HOME/godot/godot"
           python3 .kit/bin/godot-agent scenario . --headless --timeout 300
+      # High Water's balance gates (design 4.4): written by the generator, so a stale
+      # file fails before the gates run.
+      - name: Balance gates
+        run: |
+          export GODOT_PATH="$HOME/godot/godot"
+          python3 tools/gen_balance_scenarios.py --check
+          python3 .kit/bin/godot-agent scenario . tests/balance --headless --timeout 300
 
   net-smoke:
     name: Networked match smoke
@@ -96,15 +103,24 @@ jobs:
         run: |
           export GODOT_PATH="$HOME/godot/godot"
           python3 tools/net/smoke.py --mode classic --clients 2 --turn-ms 10 --timeout 600 --out smoke
-      - name: Real-socket scenarios (convergence, a stalled client)
+      - name: Real-socket scenarios (convergence, a stalled client, a party by code)
         run: |
           export GODOT_PATH="$HOME/godot/godot"
           python3 .kit/bin/godot-agent scenario . tests/net/live --headless --timeout 300
+      # Two games boot into the hub against the real server's lobby: a party by code,
+      # Ready and Start, loading, a High Water match (called wave by wave), the results,
+      # and both back in the party.
+      - name: The loop around a match against the real server
+        run: |
+          export GODOT_PATH="$HOME/godot/godot"
+          python3 tools/net/smoke.py --flow --no-bot --timeout 600 --out smoke-flow
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: net-smoke
-          path: smoke
+          path: |
+            smoke
+            smoke-flow
           retention-days: 14
 
   build:

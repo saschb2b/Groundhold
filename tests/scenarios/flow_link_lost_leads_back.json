@@ -1,0 +1,31 @@
+{
+  "name": "flow_link_lost_leads_back",
+  "description": "When the server's link goes during a party match, the match ends on the results (the match was called off) instead of leaving the player in a hollow that no longer moves, and the way back is to the hub, offline, with the reason said.",
+  "seed": 1,
+  "timeout_frames": 2400,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.create_party()"},
+    {"wait_until": "Session.party_code() == 'K7Q4M'", "timeout": 120},
+    {"eval": "Session.get_node('LoopbackHub').member('Ana')"},
+    {"eval": "Session.get_node('LoopbackHub').set_member('Ana', 'ready', true)"},
+    {"wait_until": "(Session.party_size() == 2) and (not node('Primary').disabled) and (node('HubPanel').primary_text() == 'Start')", "timeout": 120},
+    {"click": "node('Primary')"},
+    {"wait_until": "scene_path() == 'res://scenes/main.tscn'", "timeout": 400},
+    {"eval": "Session.get_node('LoopbackHub').load_member('Ana', 1000, true)"},
+    {"wait_until": "Session.state_name() == 'IN_MATCH'", "timeout": 600},
+    {"wait": 20},
+    {"eval": "Session.client.link.drop('The connection closed', 1006)"},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 120},
+    {"assert": "(node('ResultsTitle').text == 'THE MATCH WAS CALLED OFF') and (Session.state_name() == 'RESULTS')", "msg": "the match ends on the results, called off"},
+    {"click": "node('ResultsPlayAgain')"},
+    {"wait_until": "scene_path() == 'res://scenes/hub.tscn'", "timeout": 60},
+    {"wait": 2},
+    {"assert": "(Session.state_name() == 'OFFLINE') and (Session.client == null) and (Session.party_size() == 1)", "msg": "back in the hub, offline, a party of one"},
+    {"assert": "(node('Place').text == 'Offline') and (Session.last_notice == 'The connection closed')", "msg": "and the reason was said"}
+  ]
+}

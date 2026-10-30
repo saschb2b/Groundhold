@@ -1,0 +1,24 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_ready_on_d_and_space",
+  "description": "Ready sits on the card's D (design 5.7), and N and Space toggle it too: each press flips my Ready, the horn lights while I am Ready and the strip counts it.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}, {'team': 0, 'builder': 'lookout'}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"assert": "node('Ready').get_node('KeyTab/Hotkey').text == 'D' and node('Countdown').text.ends_with('Ready 0/2')", "msg": "the horn sits on D"},
+    {"key": "D"},
+    {"wait_until": "Game.is_ready()", "timeout": 10},
+    {"wait": 1},
+    {"assert": "node('Countdown').text.ends_with('Ready 1/2') and node('Ready').get_node('Ring').visible", "msg": "D sounds Ready: the horn lights and the strip counts it"},
+    {"key": "Space"},
+    {"wait_until": "not Game.is_ready()", "timeout": 10},
+    {"wait": 1},
+    {"assert": "node('Countdown').text.ends_with('Ready 0/2') and not node('Ready').get_node('Ring').visible", "msg": "Space takes it back"},
+    {"key": "N"},
+    {"wait_until": "Game.is_ready()", "timeout": 10},
+    {"assert": "Game.wave == 0", "msg": "and N sounds it again; alone of two, no wave yet"}
+  ]
+}

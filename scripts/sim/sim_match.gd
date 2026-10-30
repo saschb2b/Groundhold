@@ -81,7 +81,7 @@ func setup(match_rules: Dictionary, start_seed: int, text: String) -> void:
 	map_text = text if text != "" else SimContent.map_text(str(rules["map"]))
 	waves = SimContent.WAVES[rules["waves"]]
 	for builder: String in SimContent.BUILDER_IDS:
-		plans[builder] = SimContent.plan_steps(builder)
+		plans[builder] = SimContent.plan_steps(builder, mode)
 	for t in int(rules["teams"]):
 		var team := SimRecords.SimTeam.new()
 		team.id = t
@@ -223,6 +223,29 @@ func early_gold(hollow: int) -> int:
 	return h.countdown_t / SimTypes.TICKS_PER_SECOND
 
 
+## The share of what was put into a tower its owner gets back for selling it, per mille:
+## the rules' sell_pm, or the Thrifty perk's where perks are on (design 4.1).
+func sell_pm(seat_no: int) -> int:
+	var base := int(rules["sell_pm"])
+	var s := seat(seat_no)
+	if s == null or not bool(rules.get("perks", true)):
+		return base
+	return SimContent.perk_value(s.builder, "thrifty", "sell_pm", base)
+
+
+## What selling tower `t` would pay its owner now.
+func refund(t: SimRecords.SimTower) -> int:
+	return SimMath.per_mille(t.invested, sell_pm(t.owner))
+
+
+## Extra reach every tower of seat `seat_no` gets: the Keen Sight perk's, where perks are on.
+func range_bonus(seat_no: int) -> int:
+	var s := seat(seat_no)
+	if s == null or not bool(rules.get("perks", true)):
+		return 0
+	return SimContent.perk_value(s.builder, "keen_sight", "range_mm", 0)
+
+
 ## Effective speed this tick: stunned creeps stand, slowed ones walk slower.
 func speed_now(c: SimRecords.SimCreep) -> int:
 	if c.stun_until > tick:
@@ -354,7 +377,8 @@ func _fork(s: SimRecords.SimSeat, cmd: Dictionary) -> void:
 			"id": t.id,
 			"seat": s.seat,
 			"seq": cmd["seq"],
-			"branch": branch
+			"branch": branch,
+			"form": SimContent.tower_form(t.kind, branch)
 		}
 	)
 	add_gold(s, -cost, "fork")
@@ -368,7 +392,7 @@ func _sell(s: SimRecords.SimSeat, cmd: Dictionary) -> void:
 	if t.owner != s.seat:
 		_reject(s, cmd, SimTypes.REFUSE_NOT_YOURS)
 		return
-	var refund := SimMath.per_mille(t.invested, int(rules["sell_pm"]))
+	var refund := SimMath.per_mille(t.invested, sell_pm(s.seat))
 	var h := hollows[t.hollow]
 	h.occupied[t.z * h.road.width + t.x] = 0
 	towers.erase(t)
@@ -542,33 +566,35 @@ func add_creep(c: SimRecords.SimCreep) -> void:
 	_creep_by_id[c.id] = c
 
 
-## Sets a tower's numbers from its kind and branch, and its road stretches in range.
+## Sets a tower's numbers from its kind, its branch and its owner's perk, and its road
+## stretches in range.
 func resolve_tower(t: SimRecords.SimTower) -> void:
 	var stats := SimContent.tower_stats(t.kind, t.branch)
 	t.dmg_c = int(stats["dmg_c"])
 	t.cd_t = maxi(1, int(stats["cd_t"]))
-	t.range_mm = int(stats["range_mm"])
+	t.range_mm = int(stats["range_mm"]) + range_bonus(t.owner)
 	t.air = bool(stats.get("air", false))
-	t.shot_um_t = maxi(1, int(stats["shot_um_t"]))
+	t.shot_um_t = maxi(0, int(stats["shot_um_t"]))  # 0: no shot (content.gd)
 	t.min_flight_t = maxi(1, int(stats.get("min_flight_t", 1)))
 	t.splash_mm = int(stats.get("splash_mm", 0))
 	t.slow_pm = int(stats.get("slow_pm", 0))
 	t.slow_t = int(stats.get("slow_t", 0))
 	t.pierce_c = int(stats.get("pierce_c", 0))
+	t.aim = SimTargeting.aim_code(str(stats.get("aim", "first")))
+	t.bounces = maxi(0, int(stats.get("bounces", 0)))
+	t.bounce_mm = maxi(0, int(stats.get("bounce_mm", 0)))
+	t.team = SimTypes.effect(str(stats.get("team", "")))
+	t.mark_pm = int(stats.get("mark_pm", 0))
+	t.marks = int(stats.get("marks", 0))
+	t.mark_t = int(stats.get("mark_t", 0))
 	var road := hollows[t.hollow].road
 	t.intervals = road.intervals(SimRoad.centre_mm(t.x), SimRoad.centre_mm(t.z), t.range_mm)
 
 
-## The strongest slow applies and the longest lasts (design 3.2).
-func apply_slow(c: SimRecords.SimCreep, pm: int, ticks: int, from_seat: int) -> void:
-	var strength := pm
-	if c.boss and bool(rules.get("control_resist", true)):
-		strength = strength * (1000 - c.control_resist_pm) / 1000
-	var current := c.slow_pm if c.slow_until > tick else 0
-	if strength >= current:
-		c.slow_pm = strength
-		c.slow_seat = from_seat
-	c.slow_until = maxi(c.slow_until, tick + ticks)
+## The strongest slow applies, for its own time; a weaker one waits under it (design 3.2;
+## SimEffects).
+func apply_slow(c: SimRecords.SimCreep, pm: int, ticks: int, from_seat: int, from_tower := 0) -> void:
+	SimEffects.apply_slow(self, c, pm, ticks, from_seat, from_tower)
 
 
 # ── The tick's stages ──
@@ -589,8 +615,8 @@ func _move_creeps() -> void:
 	var i := 0
 	while i < creeps.size():
 		var c := creeps[i]
-		if c.slow_until <= tick:
-			c.slow_pm = 0
+		SimEffects.lapse_slow(self, c)
+		SimEffects.expire(self, c)
 		var road := hollows[c.hollow].road
 		c.dist_um += speed_now(c)
 		if c.dist_um >= road.length_um:
@@ -637,26 +663,18 @@ func _fall(team: SimRecords.SimTeam) -> void:
 		)
 
 
+## Stage 5, in id order. A tower that fires no shot (shot_um_t 0) works by its team
+## effect alone (SimEffects.team_tower: the Owl's Eye's marks); the others keep or pick a
+## target by their aim (SimTargeting) and fire when cooled down.
 func _fire_towers() -> void:
 	for t in towers:
-		if t.target != 0:
-			var held := creep(t.target)
-			if held == null or not in_range(t, held):
-				t.target = 0
-		if t.target == 0:
-			t.target = _find_target(t)
+		if t.shot_um_t == 0:
+			SimEffects.team_tower(self, t)
+			continue
+		t.target = SimTargeting.target_for(self, t)
 		if t.target != 0 and tick >= t.cooldown_until:
 			_fire(t, creep(t.target))
 			t.cooldown_until = tick + _cooldown(t)
-
-
-## The creep furthest along the road in range; ties go to the lower id.
-func _find_target(t: SimRecords.SimTower) -> int:
-	var best: SimRecords.SimCreep = null
-	for c in creeps:
-		if in_range(t, c) and (best == null or c.dist_um > best.dist_um):
-			best = c
-	return best.id if best else 0
 
 
 func _cooldown(t: SimRecords.SimTower) -> int:
@@ -689,6 +707,8 @@ func _fire(t: SimRecords.SimTower, c: SimRecords.SimCreep) -> void:
 	shot.slow_pm = t.slow_pm
 	shot.slow_t = t.slow_t
 	shot.pierce_c = t.pierce_c
+	shot.bounces = t.bounces
+	shot.bounce_mm = t.bounce_mm if t.bounces > 0 else 0
 	if t.splash_mm > 0:
 		shot.land_dist_um = mini(c.dist_um + speed_now(c) * flight, road.length_um)
 	shots.append(shot)
@@ -700,7 +720,61 @@ func _fire(t: SimRecords.SimTower, c: SimRecords.SimCreep) -> void:
 			"target": c.id,
 			"kind": t.kind,
 			"flight": flight,
-			"land": shot.land_dist_um
+			"land": shot.land_dist_um,
+			"from": 0,
+			"form": SimContent.tower_form(t.kind, t.branch)
+		}
+	)
+
+
+## A bouncing strike that struck `c` flies on to the nearest creep within its reach the
+## chain has not struck, from where `c` stands (design 3.4, the Kestrel Flock).
+func _bounce(shot: SimRecords.SimShot, c: SimRecords.SimCreep) -> void:
+	if shot.bounces <= 0:
+		return
+	var t := tower(shot.tower)
+	var base: Dictionary = SimContent.TOWERS[shot.kind]
+	var air := t.air if t else bool(base.get("air", false))
+	var speed := t.shot_um_t if t else int(base["shot_um_t"])
+	var struck := shot.struck.duplicate()
+	struck.append(c.id)
+	var next := creep(SimTargeting.bounce_target(self, c, shot.bounce_mm, air, struck))
+	if next == null or speed <= 0:
+		return
+	var road := hollows[c.hollow].road
+	var dx := road.x_at(next.dist_um) - road.x_at(c.dist_um)
+	var dz := road.z_at(next.dist_um) - road.z_at(c.dist_um)
+	var flight := maxi(1, SimMath.ceil_div(SimMath.isqrt(dx * dx + dz * dz) * 1000, speed))
+	var hop := SimRecords.SimShot.new()
+	hop.id = _new_id()
+	hop.tower = shot.tower
+	hop.seat = shot.seat
+	hop.hollow = shot.hollow
+	hop.kind = shot.kind
+	hop.target = next.id
+	hop.fire_tick = tick
+	hop.land_tick = tick + flight
+	hop.dmg_c = shot.dmg_c
+	hop.slow_pm = shot.slow_pm
+	hop.slow_t = shot.slow_t
+	hop.pierce_c = shot.pierce_c
+	hop.bounce = shot.bounce + 1
+	hop.bounces = shot.bounces - 1
+	hop.bounce_mm = shot.bounce_mm
+	hop.from_creep = c.id
+	hop.struck = struck
+	shots.append(hop)
+	_emit(
+		{
+			"type": SimTypes.EV_FIRE,
+			"tower": hop.tower,
+			"shot": hop.id,
+			"target": next.id,
+			"kind": hop.kind,
+			"flight": flight,
+			"land": -1,
+			"from": c.id,
+			"form": SimContent.tower_form(hop.kind, t.branch if t else -1)
 		}
 	)
 
@@ -719,12 +793,14 @@ func _land_shots() -> void:
 			_strike(shot)
 
 
-## A homing shot hits its target if it still lives; otherwise it is spent.
+## A homing shot hits its target if it still lives, then bounces if it can; otherwise it
+## is spent.
 func _strike(shot: SimRecords.SimShot) -> void:
 	var c := creep(shot.target)
 	if c == null:
 		return
 	_hurt(c, shot, shot.dmg_c, false)
+	_bounce(shot, c)
 
 
 ## A shell bursts on the road: every ground creep within the splash radius takes the
@@ -762,17 +838,22 @@ func _burst(shot: SimRecords.SimShot) -> void:
 		_hurt(hit[k], shot, shot.dmg_c * (2 * r - d) / (2 * r), true)
 
 
-## Damage by the armour rule (design 3.2), then the shot's effect; a death pays.
+## Damage by the armour rule (design 3.2), in hundredths: the mark amplifies the hit,
+## `raw = hit × (1000 + mark) / 1000`; armour less pierce and crack takes off a flat
+## amount, but never more than three quarters, `dealt = max(raw − armour_left, raw / 4)`.
+## Then the shot's effect, Help for the seats whose effects were on the creep, and a
+## death pays.
 func _hurt(c: SimRecords.SimCreep, shot: SimRecords.SimShot, raw_c: int, splash: bool) -> void:
 	if not c.alive:
 		return
+	var helped := SimEffects.helpers(self, c, shot.seat)
 	var mark := c.mark_pm if c.mark_until > tick else 0
 	var raw := raw_c * (1000 + mark) / 1000
 	var crack := c.crack_c
 	var armor_left := maxi(0, c.armor_c - shot.pierce_c - crack)
 	var dealt := maxi(raw - armor_left, raw / 4)
 	if shot.slow_pm > 0:
-		apply_slow(c, shot.slow_pm, shot.slow_t, shot.seat)
+		apply_slow(c, shot.slow_pm, shot.slow_t, shot.seat, shot.tower)
 	c.hp_c -= dealt
 	var s := seat(shot.seat)
 	if s:
@@ -786,9 +867,13 @@ func _hurt(c: SimRecords.SimCreep, shot: SimRecords.SimShot, raw_c: int, splash:
 			"seat": shot.seat,
 			"kind": shot.kind,
 			"dmg": dealt,
-			"splash": splash
+			"splash": splash,
+			"raw": raw,
+			"armor": raw - dealt,
+			"bounce": shot.bounce
 		}
 	)
+	SimEffects.credit(self, c, shot.seat, helped, dealt)
 	if c.hp_c <= 0:
 		_die(c, shot)
 

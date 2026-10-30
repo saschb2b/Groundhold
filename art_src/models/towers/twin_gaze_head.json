@@ -1,0 +1,27 @@
+{
+  "note": "The twin gaze's telescope on its turning yoke, lens toward +Z; the view seats it on the drum's deck and turns it to the marked creep.",
+  "colors": {"rock": "#8a8580", "rock_dark": "#5e5a56", "rock_pale": "#c9c3b8", "fog_lit": "#c9d0d4", "slate": "#7a7e88", "slate_dark": "#4a4d55", "fog": "#aeb5ba", "weathered": "#9a948a", "timber": "#4e3423", "wood": "#7a5534", "brass": "#b07a3a", "gold": "#e0b040", "iron": "#3a3c42", "flag_blue": "#2f58a8", "flag_red": "#b8432f", "flag_white": "#efe6d6", "flag_yellow": "#e8c04a", "lens": "#ffd860", "rope": "#e6dcc3", "slit": "#1a1410", "feather": "#6b4a34", "feather_dark": "#4a3324", "feather_pale": "#d8c8a8", "rufous": "#a8521e"},
+  "ground_ao": 0.0,
+  "parts": [
+    {"shape": "cylinder", "radius": 0.13, "height": 0.04, "sides": 10, "bevel": 0.01, "at": [0.0, 0.0, 0.0], "color": "timber", "cap_color": "weathered", "pattern": "planks"},
+    {"shape": "cylinder", "radius": 0.035, "radius_top": 0.03, "height": 0.15, "sides": 6, "at": [0.0, 0.04, 0.0], "color": "iron", "pattern": "metal"},
+    {"shape": "box", "size": [0.27, 0.03, 0.07], "bevel": 0.008, "at": [0.0, 0.17, 0.0], "color": "brass", "pattern": "gold"},
+    {"shape": "box", "size": [0.024, 0.13, 0.05], "at": [-0.125, 0.19, 0.0], "color": "brass", "pattern": "gold"},
+    {"shape": "cone", "radius": 0.022, "height": 0.08, "sides": 4, "rotate": [-10.0, 0.0, 22.0], "at": [-0.125, 0.315, 0.0], "color": "feather_dark"},
+    {"shape": "box", "size": [0.024, 0.13, 0.05], "at": [0.125, 0.19, 0.0], "color": "brass", "pattern": "gold"},
+    {"shape": "cone", "radius": 0.022, "height": 0.08, "sides": 4, "rotate": [-10.0, 0.0, -22.0], "at": [0.125, 0.315, 0.0], "color": "feather_dark"},
+    {"shape": "cylinder", "radius": 0.042, "radius_top": 0.03444, "height": 0.4019950248448356, "sides": 8, "rotate": [84.2894, 0.0, 0.0], "at": [-0.06, 0.27, -0.18], "color": "brass", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.0189, "height": 0.07017834423809098, "sides": 6, "rotate": [85.9144, 0.0, 0.0], "at": [-0.06, 0.265, -0.25], "color": "iron", "pattern": "metal"},
+    {"shape": "cylinder", "radius": 0.047040000000000005, "height": 0.02009975124224177, "sides": 8, "rotate": [84.2894, 0.0, 0.0], "at": [-0.06, 0.28, -0.08], "color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.047040000000000005, "height": 0.0200997512422418, "sides": 8, "rotate": [84.2894, 0.0, 0.0], "at": [-0.06, 0.2948, 0.068], "color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.04956, "height": 0.07006425622241344, "sides": 8, "rotate": [87.546, 0.0, 0.0], "at": [-0.06, 0.31, 0.21], "color": "iron", "pattern": "metal"},
+    {"shape": "cylinder", "radius": 0.042, "height": 0.01200000000000001, "sides": 8, "rotate": [90.0, 0.0, 0.0], "at": [-0.06, 0.313, 0.28], "color": "lens", "emit": 1.6},
+    {"shape": "cylinder", "radius": 0.042, "radius_top": 0.03444, "height": 0.4019950248448356, "sides": 8, "rotate": [84.2894, 0.0, 0.0], "at": [0.06, 0.27, -0.18], "color": "brass", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.0189, "height": 0.07017834423809098, "sides": 6, "rotate": [85.9144, 0.0, 0.0], "at": [0.06, 0.265, -0.25], "color": "iron", "pattern": "metal"},
+    {"shape": "cylinder", "radius": 0.047040000000000005, "height": 0.02009975124224177, "sides": 8, "rotate": [84.2894, 0.0, 0.0], "at": [0.06, 0.28, -0.08], "color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.047040000000000005, "height": 0.0200997512422418, "sides": 8, "rotate": [84.2894, 0.0, 0.0], "at": [0.06, 0.2948, 0.068], "color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.04956, "height": 0.07006425622241344, "sides": 8, "rotate": [87.546, 0.0, 0.0], "at": [0.06, 0.31, 0.21], "color": "iron", "pattern": "metal"},
+    {"shape": "cylinder", "radius": 0.042, "height": 0.01200000000000001, "sides": 8, "rotate": [90.0, 0.0, 0.0], "at": [0.06, 0.313, 0.28], "color": "lens", "emit": 1.6},
+    {"shape": "box", "size": [0.12, 0.03, 0.05], "at": [0.0, 0.27, 0.0], "color": "brass", "pattern": "gold"}
+  ]
+}

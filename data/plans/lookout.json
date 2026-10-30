@@ -1,0 +1,30 @@
+{
+  "builder": "lookout",
+  "about": "The Lookout on Wickhollow (High Water): hawks and ballistas on the long sight lines above the middle stretch, where her Keen Sight reaches three stretches of road, and an Owl's Eye over them; Kestrel Flocks for swarms and a Pinning Ballista for swift creeps while the team lacks them (patch), Falcon Roosts and Siege Perches otherwise. Alt cells let a second Lookout play beside the first.",
+  "steps": [
+    {"build": "hawk_roost", "cell": [12, 8], "alt": [[12, 7]]},
+    {"build": "hawk_roost", "cell": [6, 12], "alt": [[5, 11]]},
+    {"fork": "b", "cell": [12, 8], "alt": [[12, 7]], "patch": "swarm"},
+    {"build": "perch_ballista", "cell": [11, 9], "alt": [[10, 9]]},
+    {"fork": "b", "cell": [6, 12], "alt": [[5, 11]], "patch": "swarm"},
+    {"build": "owls_eye", "cell": [9, 8], "alt": [[10, 8]]},
+    {"fork": "b", "cell": [11, 9], "alt": [[10, 9]], "patch": "swift"},
+    {"build": "perch_ballista", "cell": [12, 9], "alt": [[13, 9]]},
+    {"build": "hawk_roost", "cell": [10, 11], "alt": [[11, 12]]},
+    {"fork": "a", "cell": [12, 9], "alt": [[13, 9]]},
+    {"fork": "a", "cell": [10, 11], "alt": [[11, 12]]},
+    {"build": "perch_ballista", "cell": [8, 12], "alt": [[7, 11]]},
+    {"fork": "a", "cell": [8, 12], "alt": [[7, 11]]},
+    {"fork": "a", "cell": [9, 8], "alt": [[10, 8]]},
+    {"build": "hawk_roost", "cell": [13, 12], "alt": [[12, 11]]},
+    {"fork": "b", "cell": [13, 12], "alt": [[12, 11]], "patch": "swarm"},
+    {"build": "perch_ballista", "cell": [13, 7], "alt": [[11, 7]]},
+    {"fork": "a", "cell": [13, 7], "alt": [[11, 7]]},
+    {"build": "hawk_roost", "cell": [4, 12], "alt": [[15, 11]]},
+    {"fork": "a", "cell": [4, 12], "alt": [[15, 11]]},
+    {"build": "owls_eye", "cell": [8, 9], "alt": [[9, 9]]},
+    {"fork": "b", "cell": [8, 9], "alt": [[9, 9]]},
+    {"build": "perch_ballista", "cell": [11, 8], "alt": [[10, 7]]},
+    {"fork": "a", "cell": [11, 8], "alt": [[10, 7]]}
+  ]
+}

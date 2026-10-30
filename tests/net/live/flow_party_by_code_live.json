@@ -1,0 +1,160 @@
+{
+  "name": "flow_party_by_code_live",
+  "description": "The real server with its hub (no --dev-match) and two headless games that boot into the hub (tests/net/flow_bot.gd at the controls): Tamsin's game makes a party and writes its code; Edda's joins by that code. Each finds its own row by PARTY_STATE's `you`, Edda says Ready, Tamsin starts, the 3-2-1 and the loading barrier run, and the server's MATCH_CONFIG opens High Water with each member's main: a Lamplighter and a Lookout. Each builds from her own kit (an Arrow Tower, a Perch Ballista), pays for it alone, and the two hash streams agree at every tick both printed.",
+  "seed": 1,
+  "compare_hashes": true,
+  "topology": {
+    "server": {
+      "cmd": [
+        "{python}",
+        "server/main.py",
+        "--port",
+        "0",
+        "--host",
+        "127.0.0.1",
+        "--seed",
+        "7",
+        "--state-dir",
+        "{out}/server-state"
+      ],
+      "cwd": ".",
+      "ready": "listening.*port\\D*(?P<port>\\d+)"
+    },
+    "clients": [
+      {
+        "args": [
+          "--",
+          "--server=127.0.0.1:{port}",
+          "--name=Tamsin",
+          "--main=lamplighter",
+          "--flow-bot",
+          "--party=2",
+          "--code-out={out}/party_code.txt",
+          "--hash-log"
+        ],
+        "steps": [
+          {
+            "wait_until": "(Session.party_size() == 2) and (Session.me >= 0)",
+            "timeout": 900
+          },
+          {
+            "assert": "Session.is_leader() and (Session.me == 0)",
+            "msg": "I made the party: row 0, and I lead"
+          },
+          {
+            "wait_until": "(Session.members().size() == 2) and (Session.members()[1]['name'] == 'Edda') and (Session.members()[1]['main'] == 'lookout')",
+            "timeout": 600
+          },
+          {
+            "assert": "Session.party_builders() == ['lamplighter', 'lookout']",
+            "msg": "Edda joined by the code and told the party her main, the Lookout (her game sends its Builders once it has its row)"
+          },
+          {
+            "assert": "(Session.place_text() == 'LAN · 127.0.0.1:{port}') and (Session.party_code().length() == 5)",
+            "msg": "the strip says where the party lives; the code is five symbols"
+          },
+          {
+            "wait_until": "(Session.state_name() == 'IN_MATCH') and (Session.match_host != null) and (Session.client.phase_name() == 'IN_MATCH')",
+            "timeout": 1200
+          },
+          {
+            "assert": "(Session.client.mode == 'high_water') and (Session.client.seat == 1)",
+            "msg": "High Water, the hub's mode; seat 1 is mine"
+          },
+          {
+            "assert": "(Session.match_host.sim.seat(1).builder == 'lamplighter') and (Session.match_host.sim.seat(2).builder == 'lookout')",
+            "msg": "each member's main: my Lamplighter on seat 1, Edda's Lookout on seat 2"
+          },
+          {
+            "assert": "(Session.match_host.sim.match_seed == 7) and (Session.client.names[0] == 'Tamsin') and (Session.client.names[1] == 'Edda')",
+            "msg": "the server's match: its seed, the seats in member order"
+          },
+          {
+            "assert": "Session.match_host.build('arrow', Vector2i(8, 3))",
+            "msg": "my Arrow Tower goes out (Q's tower)"
+          },
+          {
+            "wait_until": "Session.match_host.settled() and (Session.match_host.sim.towers.size() == 2)",
+            "timeout": 600
+          },
+          {
+            "assert": "(Session.match_host.sim.tower_at(0, 8, 3).kind == 'arrow') and (Session.match_host.sim.tower_at(0, 8, 3).owner == 1)",
+            "msg": "my Arrow Tower is mine"
+          },
+          {
+            "assert": "(Session.match_host.sim.tower_at(0, 10, 8).kind == 'perch_ballista') and (Session.match_host.sim.tower_at(0, 10, 8).owner == 2)",
+            "msg": "Edda's Perch Ballista is hers, from the Lookout's kit"
+          },
+          {
+            "assert": "(Session.match_host.sim.seat(1).gold == 80) and (Session.match_host.sim.seat(2).gold == 45)",
+            "msg": "each paid for her own: 40 for the Arrow Tower, 75 for the Perch Ballista"
+          },
+          {
+            "wait_until": "Session.match_host.sim.tick >= 1200",
+            "timeout": 1800
+          },
+          {
+            "assert": "(Session.client.hashes_sent >= 19) and (Session.client.phase_name() == 'IN_MATCH') and (Session.client.last_refusal() == '')",
+            "msg": "my hashes went to the server, nothing was refused, and the match plays on"
+          }
+        ]
+      },
+      {
+        "args": [
+          "--",
+          "--server=127.0.0.1:{port}",
+          "--name=Edda",
+          "--main=lookout",
+          "--flow-bot",
+          "--party=2",
+          "--code-in={out}/party_code.txt",
+          "--hash-log"
+        ],
+        "steps": [
+          {
+            "wait_until": "(Session.party_size() == 2) and (Session.me >= 0)",
+            "timeout": 900
+          },
+          {
+            "assert": "(not Session.is_leader()) and (Session.me == 1) and (Session.members()[0]['name'] == 'Tamsin')",
+            "msg": "I joined Tamsin's party by its code: row 1, a member"
+          },
+          {
+            "wait_until": "(Session.profile.main == 'lookout') and (Session.party_builders() == ['lamplighter', 'lookout'])",
+            "timeout": 600
+          },
+          {
+            "wait_until": "(Session.state_name() == 'IN_MATCH') and (Session.match_host != null) and (Session.client.phase_name() == 'IN_MATCH')",
+            "timeout": 1200
+          },
+          {
+            "assert": "(Session.client.seat == 2) and (Session.match_host.sim.seat(2).builder == 'lookout') and (Game.kit_tower(0) == 'perch_ballista')",
+            "msg": "seat 2 is mine, a Lookout: Q places a Perch Ballista"
+          },
+          {
+            "assert": "Session.match_host.build('perch_ballista', Vector2i(10, 8))",
+            "msg": "my Perch Ballista goes out"
+          },
+          {
+            "wait_until": "Session.match_host.settled() and (Session.match_host.sim.towers.size() == 2)",
+            "timeout": 600
+          },
+          {
+            "assert": "(Session.match_host.sim.seat(2).gold == 45) and (Session.match_host.sim.seat(1).gold == 80)",
+            "msg": "each paid for her own"
+          },
+          {
+            "wait_until": "Session.match_host.sim.tick >= 1200",
+            "timeout": 1800
+          },
+          {
+            "assert": "(Session.client.hashes_sent >= 19) and (Session.client.phase_name() == 'IN_MATCH')",
+            "msg": "no desync ended the match"
+          }
+        ]
+      }
+    ],
+    "timeout": 180
+  },
+  "steps": []
+}

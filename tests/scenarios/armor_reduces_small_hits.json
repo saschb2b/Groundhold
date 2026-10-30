@@ -1,0 +1,30 @@
+{
+  "name": "armor_reduces_small_hits",
+  "description": "Flat armour per hit (design 3.2), on in High Water: a Thornback (armour 4) takes 4 from an 8-damage arrow and 31 from the Lookout's 32-damage Perch Ballista, which pierces 3; each HIT says the raw damage and what armour took. Classic keeps M1's armourless creeps: the same arrow does 8.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'builders': ['lamplighter', 'lookout']})"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 5, 3), scene.cmd(2, 'BUILD', 0, 5, 1)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.tower_at(5, 3).kind == 'arrow' and scene.tower_at(5, 1).kind == 'perch_ballista'", "msg": "an Arrow Tower and a Perch Ballista stand by the Welling"},
+    {"eval": "scene.spawn('thornback', 3000000)", "as": "thornback"},
+    {"eval": "scene.hold(thornback)"},
+    {"eval": "scene.run_ticks(200)"},
+    {"assert": "scene.creep(thornback) != null and scene.creep(thornback).armor_c == 400", "msg": "the Thornback keeps its armour of 4 and lives through it"},
+    {"eval": "scene.hit_values('arrow', 'thornback')", "as": "arrow_hits"},
+    {"eval": "scene.hit_values('perch_ballista', 'thornback')", "as": "bolt_hits"},
+    {"assert": "arrow_hits == [[400, 800, 400]]", "msg": "every arrow does 4 of its 8 (dealt, raw, armour, in hundredths)"},
+    {"assert": "bolt_hits == [[3100, 3200, 100]]", "msg": "every bolt does 31 of its 32: it pierces 3 of the 4"},
+    {"eval": "scene.start({'mode': 'classic', 'seats': 2, 'builders': ['lamplighter', 'lookout']})"},
+    {"eval": "scene.debug(1, 1, 1000)"},
+    {"eval": "scene.cmd(1, 'BUILD', 0, 5, 3)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "scene.spawn('thornback', 3000000)", "as": "plain"},
+    {"eval": "scene.hold(plain)"},
+    {"eval": "scene.run_ticks(120)"},
+    {"assert": "scene.hit_values('arrow', 'thornback') == [[800, 800, 0]] and scene.creep(plain).armor_c == 0", "msg": "classic has no armour: the arrow does all 8"}
+  ]
+}

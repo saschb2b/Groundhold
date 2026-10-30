@@ -1,0 +1,16 @@
+{
+  "note": "A Pinning Ballista's barbed bolt trailing a tether.",
+  "origin": "authored",
+  "colors": {"shaft": "#9a948a", "iron": "#4a4d55", "fletch": "#efe6d6", "rope": "#e6dcc3", "band": "#b07a3a"},
+  "parts": [
+    {"shape": "cylinder", "radius": 0.016, "height": 0.38, "sides": 5, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, -0.2], "color": "shaft", "pattern": "planks"},
+    {"shape": "cone", "radius": 0.036, "height": 0.08, "sides": 4, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, 0.18], "color": "iron", "pattern": "metal"},
+    {"shape": "cylinder", "radius": 0.02, "height": 0.025, "sides": 5, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, 0.15], "color": "band", "pattern": "gold"},
+    {"shape": "box", "size": [0.075, 0.006, 0.08], "at": [0.0, -0.003, -0.2], "color": "fletch", "pattern": "cloth"},
+    {"shape": "box", "size": [0.006, 0.075, 0.08], "at": [0.0, -0.0375, -0.2], "color": "fletch", "pattern": "cloth"},
+    {"shape": "cone", "radius": 0.014, "height": 0.05, "sides": 3, "rotate": [-120.0, 0.0, 0.0], "at": [0.022, 0.0, 0.19], "color": "iron"},
+    {"shape": "cone", "radius": 0.014, "height": 0.05, "sides": 3, "rotate": [-120.0, 0.0, 180.0], "at": [-0.022, 0.0, 0.19], "color": "iron"},
+    {"shape": "cylinder", "radius": 0.008, "height": 0.18, "sides": 3, "rotate": [98.0, 0.0, 0.0], "at": [0.0, -0.01, -0.13], "color": "rope"},
+    {"shape": "cylinder", "radius": 0.022, "height": 0.02, "sides": 5, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, -0.14], "color": "rope"}
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "protocol_golden_m3",
+  "description": "The GDScript codec decodes every message of the M3 golden transcripts (the hub, the loading barrier and back to the party, recorded from the Python server) into the listed values, and encodes each back to the same bytes.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://scripts/net/protocol.gd')", "as": "codec"},
+    {"eval": "resource('res://tests/net/golden.gd').check(['m3_party', 'm3_barrier', 'm3_back'])", "as": "report"},
+    {"assert": "report['mismatches'] == []", "msg": "no record differs"},
+    {"assert": "report['records'] == 197 and report['decoded'] == 197 and report['reencoded'] == 197", "msg": "all 197 records decode and re-encode byte for byte"},
+    {"assert": "report['version'] == codec.number('version')", "msg": "the transcripts speak this game's protocol version"},
+    {"assert": "report['types']['PARTY_STATE'] > 60 and report['types']['PARTY'] > 20", "msg": "the hub's messages are in"},
+    {"assert": "report['types']['QUEUE_STATE'] == 1 and report['types']['LEAVE_MATCH'] == 1 and report['types']['NOTICE'] == 4", "msg": "the queue's idle answer, Play again and the notices are in"}
+  ]
+}

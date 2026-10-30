@@ -1,0 +1,101 @@
+{
+  "name": "builders_stand_on_the_board",
+  "description": "A Builder placed through BuilderFigure stands on its own contact shadow (so it does not look stuck on the grass), and the toon material is levelled per renderer: on the board under Compatibility (the browser build) the gamma and lift that keep the dark swatches and the lit side in step with the towers, under Forward+ neither; in the portrait under Compatibility its own copy with the gamma alone.",
+  "scene": "res://scenes/main.tscn",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {
+      "wait": 2
+    },
+    {
+      "eval": "resource('res://scripts/builder_figure.gd').spawn('lamplighter')",
+      "as": "tamsin"
+    },
+    {
+      "eval": "scene.add_child(tamsin)"
+    },
+    {
+      "eval": "tamsin.get_child(tamsin.get_child_count() - 1)",
+      "as": "tamsin_shadow"
+    },
+    {
+      "assert": "tamsin_shadow.get_script().resource_path == 'res://scripts/blob_shadow.gd'",
+      "msg": "Tamsin stands on a contact shadow"
+    },
+    {
+      "assert": "tamsin_shadow.scale.x > 0.5 and tamsin_shadow.scale.x < 0.7",
+      "msg": "a little wider than her coat's hem"
+    },
+    {
+      "assert": "tamsin.find_children('*', 'MeshInstance3D', true, false)[0].get_active_material(0).resource_path == 'res://materials/builder_toon.tres'",
+      "msg": "her figure wears the toon material"
+    },
+    {
+      "eval": "resource('res://scripts/builder_figure.gd').spawn('lookout')",
+      "as": "edda"
+    },
+    {
+      "eval": "scene.add_child(edda)"
+    },
+    {
+      "assert": "edda.get_child(edda.get_child_count() - 1).get_script().resource_path == 'res://scripts/blob_shadow.gd'",
+      "msg": "Edda stands on a contact shadow"
+    },
+    {
+      "eval": "resource('res://scripts/builder_figure.gd').tune_for_renderer('gl_compatibility')"
+    },
+    {
+      "assert": "resource('res://materials/builder_toon.tres').get_shader_parameter('compat_gamma') < 0.5",
+      "msg": "Compatibility lifts the dark swatches back from black"
+    },
+    {
+      "assert": "resource('res://materials/builder_toon.tres').get_shader_parameter('compat_lift') < 1.0",
+      "msg": "and sets the lit side level with the towers there"
+    },
+    {
+      "eval": "resource('res://scripts/builder_figure.gd').tune_for_renderer('forward_plus')"
+    },
+    {
+      "assert": "resource('res://materials/builder_toon.tres').get_shader_parameter('compat_gamma') == 1.0",
+      "msg": "Forward+ draws the swatches as they are"
+    },
+    {
+      "assert": "resource('res://materials/builder_toon.tres').get_shader_parameter('compat_lift') == 1.0",
+      "msg": "with no lift"
+    },
+    {
+      "eval": "resource('res://models/builders/lamplighter_bust.glb').instantiate()",
+      "as": "bust"
+    },
+    {
+      "eval": "bust.find_children('*', 'MeshInstance3D', true, false)[0]",
+      "as": "bust_mesh"
+    },
+    {
+      "eval": "resource('res://scripts/builder_figure.gd').dress_for_portrait(bust, 'forward_plus')"
+    },
+    {
+      "assert": "bust_mesh.get_active_material(0).resource_path == 'res://materials/builder_toon.tres'",
+      "msg": "under Forward+ the portrait keeps the shared material"
+    },
+    {
+      "eval": "resource('res://scripts/builder_figure.gd').dress_for_portrait(bust, 'gl_compatibility')"
+    },
+    {
+      "assert": "bust_mesh.get_active_material(0).resource_path == ''",
+      "msg": "under Compatibility the portrait wears its own copy"
+    },
+    {
+      "assert": "bust_mesh.get_active_material(0).get_shader_parameter('compat_gamma') < 1.0",
+      "msg": "which brings the dark swatches back"
+    },
+    {
+      "assert": "bust_mesh.get_active_material(1).resource_path != 'res://materials/builder_toon.tres'",
+      "msg": "and leaves the lantern's glow alone"
+    },
+    {
+      "eval": "scene.add_child(bust)"
+    }
+  ]
+}

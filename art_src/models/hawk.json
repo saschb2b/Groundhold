@@ -1,0 +1,13 @@
+{
+  "note": "A Hawk Roost's hawk in a stoop: brown back, pale chest, dark hood and wingtips, wings swept back.",
+  "origin": "authored",
+  "colors": {"back": "#6b4a34", "chest": "#d8c8a8", "dark": "#4a3324", "beak": "#e0b040"},
+  "parts": [
+    {"shape": "sphere", "radius": 0.0475, "segments": [6, 4], "at": [0.0, 0.0, 0.0], "scale": [0.8, 0.7, 2.0], "color": "chest", "color_top": "back"},
+    {"shape": "sphere", "radius": 0.0304, "segments": [5, 3], "at": [0.0, 0.0095, 0.095], "color": "dark"},
+    {"shape": "cone", "radius": 0.0114, "height": 0.03325, "sides": 3, "rotate": [100.0, 0.0, 0.0], "at": [0.0, 0.0038, 0.1187], "color": "beak"},
+    {"shape": "wedge", "size": [0.0855, 0.1045, 0.008], "rotate": [90.0, 0.0, 0.0], "at": [0.0, -0.004, -0.1615], "color": "dark"},
+    {"parts": [{"shape": "wedge", "size": [0.1045, 0.1615, 0.01], "rotate": [90.0, 0.0, 90.0], "at": [0.0, 0.0, 0.0], "color": "back"}], "at": [-0.0238, 0.0095, 0.0285], "rotate": [0.0, 18.0, -12.0]},
+    {"parts": [{"shape": "wedge", "size": [0.1045, 0.1615, 0.01], "rotate": [90.0, 0.0, -90.0], "at": [0.0, 0.0, 0.0], "color": "back"}], "at": [0.0238, 0.0095, 0.0285], "rotate": [0.0, -18.0, 12.0]}
+  ]
+}

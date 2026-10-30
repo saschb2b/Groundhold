@@ -1,0 +1,32 @@
+{
+  "name": "flow_builders_tip_is_the_cards",
+  "description": "The Builders screen's tower tooltip is the in-game command card's (design 5.4, one source of truth: Game.kit_tip): the Lookout's Q on the Builders screen and Q on her card in a Try both read the Perch Ballista's line, its numbers with Keen Sight's reach (High Water has perks: range 4.4, not 4), Hits fliers, and both branches with the fork's price and the check the Pinning Ballista lifts. A branch is marked with the fork's mark, never 'A' or 'B': the card's keys are positional and A is Signal.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 2},
+    {"key": "B"},
+    {"wait": 2},
+    {"key": "2"},
+    {"wait": 2},
+    {"hover": "node('Tower1')"},
+    {"wait": 3},
+    {"eval": "Game.kit_tip('lookout', 0, 400)", "as": "tip"},
+    {"assert": "node('TowerTip').visible and (node('TowerTipBody').text == tip)", "msg": "the Builders screen shows the card's body"},
+    {"assert": "tip.contains('Range 4.4') and tip.contains('Hits fliers') and tip.contains('› Pinning Ballista +90: every hit slows (Swift)')", "msg": "with Keen Sight's reach, the sky, and both branches"},
+    {"eval": "[Game.kit_tip('lamplighter', 0), Game.kit_tip('lamplighter', 1), Game.kit_tip('lamplighter', 2), Game.kit_tip('lookout', 0), Game.kit_tip('lookout', 1), Game.kit_tip('lookout', 2)]", "as": "tips"},
+    {"assert": "not ('\n'.join(tips) + '\n').contains('\nA ') and not ('\n'.join(tips) + '\n').contains('\nB ') and '\n'.join(tips).count('\n› ') == 12", "msg": "every branch line starts with the fork's mark, none with a bare A or B, which would read as the A key (Signal) on the positional card"},
+    {"assert": "[node('Kit').get_child(1).text, node('Kit').get_child(6).text, node('Kit').get_child(11).text] == ['›', '›', '›']", "msg": "the kit plate marks its forks the same way, not A and B"},
+    {"capture": "builders_tooltip_forks_marked_not_lettered"},
+    {"eval": "Session.try_builder('lookout')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 5},
+    {"hover": "node('CardQ')"},
+    {"wait": 3},
+    {"assert": "node('Tooltip').visible and (node('TooltipBody').text == tip)", "msg": "and Q on her card in the match says the same"},
+    {"capture": "match_q_tooltip_forks_marked_signal_painted"}
+  ]
+}

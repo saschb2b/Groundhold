@@ -1,0 +1,14 @@
+{
+  "note": "The Iron Mortar's shell: a heavy iron ball with a riveted band, short spikes and a lit fuse.",
+  "origin": "authored",
+  "colors": {"iron": "#3a3c42", "band": "#4a4d55", "fuse": "#ffb040"},
+  "parts": [
+    {"shape": "sphere", "radius": 0.085, "segments": [7, 5], "at": [0.0, 0.0, 0.0], "color": "iron", "pattern": "metal"},
+    {"shape": "cone", "radius": 0.016, "height": 0.04, "sides": 3, "at": [0.0, 0.075, 0.0], "color": "band"},
+    {"shape": "cone", "radius": 0.016, "height": 0.04, "sides": 3, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, 0.075], "color": "band"},
+    {"shape": "cone", "radius": 0.016, "height": 0.04, "sides": 3, "rotate": [-90.0, 0.0, 0.0], "at": [0.0, 0.0, -0.075], "color": "band"},
+    {"shape": "cone", "radius": 0.016, "height": 0.04, "sides": 3, "rotate": [0.0, 0.0, 90.0], "at": [-0.075, 0.0, 0.0], "color": "band"},
+    {"shape": "cone", "radius": 0.016, "height": 0.04, "sides": 3, "rotate": [0.0, 0.0, -90.0], "at": [0.075, 0.0, 0.0], "color": "band"},
+    {"shape": "cylinder", "radius": 0.008, "height": 0.035, "sides": 3, "rotate": [-40.0, 0.0, 0.0], "at": [0.0, 0.06, -0.05], "color": "fuse", "emit": 1.2}
+  ]
+}

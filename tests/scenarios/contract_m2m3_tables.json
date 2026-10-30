@@ -1,0 +1,13 @@
+{
+  "name": "contract_m2m3_tables",
+  "description": "The M2/M3 contract (docs/design/contract-m2m3.md) holds: the id lists start with the ids it fixed and a mode's and a Builder's index is its id on the wire; the Lamplighter's and the Lookout's BUILDERS entries have exactly the fixed fields, their kits and branches agree with TOWERS, their covers and patches name checks, their accents stay unsaturated; every tower form, check, role, Builder and perk has its display entry and icon path in Game, and a path whose art is not painted yet loads as the placeholder without an error; the rules hash leaves names out and keeps every BUILDERS field the simulation reads, through any SimContent helper it calls (the caretaker's forks follow covers); the coverage helpers and the new event and effect numbers are the contract's.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/sim/contract_m2m3.gd').sim_reads_of_builders()", "as": "sim_reads"},
+    {"eval": "resource('res://tests/sim/contract_m2m3.gd').problems()", "as": "found"},
+    {"assert": "found == []", "msg": "the tables keep the M2/M3 contract"},
+    {"assert": "sim_reads.has('covers') and sim_reads.has('towers') and sim_reads.has('perk') and sim_reads.has('plan')", "msg": "the simulation's reads of BUILDERS are all seen"}
+  ]
+}

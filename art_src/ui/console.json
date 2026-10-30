@@ -24,5 +24,16 @@
   "banner": {"band": [512, 64], "rule": [128, 4], "gem": 12},
   "stone": {"ramp": 96, "macro": 0.10, "meso": 0.12, "fine": 0.08, "pits": 0.35},
   "lip": {"catch": 0.25, "shade": 0.4, "shade_width": 2},
-  "cast": {"reach": 5, "dark": 0.45}
+  "cast": {"reach": 5, "dark": 0.45},
+  "panel": {"tile": [256, 128], "margin": 32, "inset": 8, "radius": 12, "content": [22, 20, 22, 20],
+            "stone_base": "#29241e",
+            "stone": {"ramp": 18, "macro": 0.055, "meso": 0.06, "fine": 0.045, "pits": 0.12, "macro_cell": 22,
+                      "meso_cell": 9}},
+  "jewel": {"size": [136, 64], "seat": 40},
+  "card_frame": {"size": [96, 96], "radius": 8, "rim": 4, "margin": 16, "content": [14, 12, 14, 12]},
+  "portrait_plate": {"window": [112, 120], "border": 18, "moulding": 8, "shadow": 6},
+  "field": {"size": [64, 40], "radius": 5, "rim": 3, "margin": 10, "content": [12, 6, 12, 6], "height": 30,
+            "code": {"cell": [30, 38], "gap": 5, "dash": 14}},
+  "bar": {"trough": [64, 18], "fill": [48, 10], "inset": [4, 4]},
+  "divider": [128, 6]
 }

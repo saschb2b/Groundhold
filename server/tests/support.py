@@ -206,3 +206,99 @@ def server(**options):
     defaults = dict(name="Test Shore", motd="Hold the road", origins=("https://saschb2b.github.io",),
                     identity_key=b"k" * 32, seed=20261029)
     return Server(**dict(defaults, **options))
+
+
+# -- the hub (M3): parties, the barrier, back to the party
+
+MODES = {name: spec["id"] for name, spec in SPEC["modes"].items()}
+BUILDERS = SPEC["builders"]
+PHASES = SPEC["party_phases"]
+MEMBER = SPEC["member_states"]
+NOTICES = SPEC["notices"]
+LOAD = SPEC["load_states"]
+
+
+def hub(**options):
+    """A server with a hub (no dev match), its party codes from a seeded
+    random, so a test knows the codes it will get."""
+    import random
+    options.setdefault("code_rng", random.Random(3))
+    return server(**options)
+
+
+class HubTest:
+    """A mixin for IsolatedAsyncioTestCase: a hub server on a ManualClock,
+    and games that join it."""
+
+    async def asyncSetUp(self):
+        self.clock = ManualClock()
+        self.clients = []
+        self.server = None
+
+    async def asyncTearDown(self):
+        for client in self.clients:
+            await client.drop()
+        if self.server:
+            await self.server.close()
+
+    async def start(self, **options):
+        options.setdefault("clock", self.clock)
+        self.server = hub(**options)
+        self.port = await self.server.start("127.0.0.1", 0)
+        return self.server
+
+    async def join(self, name, number, **options):
+        """A game in the hub: HELLO with token `number` × 16, WELCOME."""
+        client = Client()
+        self.clients.append(client)
+        answer = await client.hello(self.port, name, token=bytes((number,)) * 16, **options)
+        assert answer[0] == "WELCOME", answer
+        client.welcome = answer[1]
+        return client
+
+    async def party_of(self, *names, mode="high_water"):
+        """A party: the first creates it, the others join by its code; every
+        game has read every PARTY_STATE so far. Returns (clients, code)."""
+        clients = [await self.join(name, index + 1) for index, name in enumerate(names)]
+        await party(clients[0], "create", mode=MODES[mode])
+        code = (await state(clients[0]))["code"]
+        for index, client in enumerate(clients[1:], start=1):
+            await party(client, "join", code=code)
+            for earlier in clients[:index + 1]:
+                await state(earlier)
+        return clients, code
+
+    async def everyone(self, clients, name="PARTY_STATE", skip=("PONG",)):
+        return [await client.until(name, skip=skip) for client in clients]
+
+    async def ready_all(self, clients):
+        """Every member but the leader Ready, every state read."""
+        for client in clients[1:]:
+            await party(client, "ready", on=1)
+            await self.everyone(clients)
+
+    async def to_loading(self, clients):
+        """Start, the 3 s countdown, MATCH_CONFIG to each: their configs."""
+        await party(clients[0], "start")
+        await self.everyone(clients)
+        await self.clock.advance(3000)
+        loading = await self.everyone(clients)
+        assert loading[0]["phase"] == PHASES["loading"], loading[0]
+        return await self.everyone(clients, "MATCH_CONFIG")
+
+    def match(self):
+        return next(iter(self.server.matches.values()))
+
+
+async def party(client, op, **fields):
+    await client.send_message("PARTY", op=op, **fields)
+
+
+async def state(client, skip=("PONG",)):
+    """The next PARTY_STATE (PONGs let pass)."""
+    return await client.until("PARTY_STATE", skip=skip)
+
+
+def states(fields):
+    """A PARTY_STATE's members as {name: state number}."""
+    return {member["name"]: member["state"] for member in fields["members"]}

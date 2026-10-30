@@ -1,0 +1,215 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "view_every_tower_form",
+  "description": "Every tower form has its view (design 3.4 and 3.7): the Lamplighter's three bases and six branches and the Lookout's, each standing as its own model from Game.TOWERS with its turning head seated where it has one; a fork swaps the model and the head.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}, {'team': 0, 'builder': 'lookout'}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "set": "Game.countdown",
+      "value": 90
+    },
+    {
+      "set": "Game.gold",
+      "value": 3000
+    },
+    {
+      "eval": "Game.debug(1, 2, 3000)"
+    },
+    {
+      "eval": "scene.source.submit(1, 0, 6, 3)"
+    },
+    {
+      "eval": "scene.source.submit(1, 0, 8, 3)"
+    },
+    {
+      "eval": "scene.source.submit(1, 0, 8, 4)"
+    },
+    {
+      "eval": "scene.source.submit(1, 1, 6, 4)"
+    },
+    {
+      "eval": "scene.source.submit(1, 1, 6, 5)"
+    },
+    {
+      "eval": "scene.source.submit(1, 1, 8, 5)"
+    },
+    {
+      "eval": "scene.source.submit(1, 2, 9, 5)"
+    },
+    {
+      "eval": "scene.source.submit(1, 2, 10, 5)"
+    },
+    {
+      "eval": "scene.source.submit(1, 2, 10, 4)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 0, 10, 7)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 0, 12, 7)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 0, 14, 7)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 1, 16, 7)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 1, 14, 8)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 1, 16, 8)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 2, 13, 8)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 2, 12, 8)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 1, 2, 10, 8)"
+    },
+    {
+      "wait_until": "count('towers') == 18",
+      "timeout": 30
+    },
+    {
+      "eval": "scene.source.submit(2, scene.tower_at(Vector2i(8, 3)).id, 0)"
+    },
+    {
+      "eval": "scene.source.submit(2, scene.tower_at(Vector2i(8, 4)).id, 1)"
+    },
+    {
+      "eval": "scene.source.submit(2, scene.tower_at(Vector2i(6, 5)).id, 0)"
+    },
+    {
+      "eval": "scene.source.submit(2, scene.tower_at(Vector2i(8, 5)).id, 1)"
+    },
+    {
+      "eval": "scene.source.submit(2, scene.tower_at(Vector2i(10, 5)).id, 0)"
+    },
+    {
+      "eval": "scene.source.submit(2, scene.tower_at(Vector2i(10, 4)).id, 1)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 2, scene.tower_at(Vector2i(12, 7)).id, 0)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 2, scene.tower_at(Vector2i(14, 7)).id, 1)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 2, scene.tower_at(Vector2i(14, 8)).id, 0)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 2, scene.tower_at(Vector2i(16, 8)).id, 1)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 2, scene.tower_at(Vector2i(12, 8)).id, 0)"
+    },
+    {
+      "eval": "scene.source.submit_as(2, 2, scene.tower_at(Vector2i(10, 8)).id, 1)"
+    },
+    {
+      "wait_until": "scene.sim.seat(1).forks + scene.sim.seat(2).forks == 12",
+      "timeout": 30
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(6, 3)).form == 'arrow' and scene.tower_at(Vector2i(6, 3))._base.scene_file_path == Game.TOWERS['arrow'].model and scene.tower_at(Vector2i(6, 3))._head == null",
+      "msg": "the arrow stands as its own model, no head"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(8, 3)).form == 'longbow_loft' and scene.tower_at(Vector2i(8, 3))._base.scene_file_path == Game.TOWERS['longbow_loft'].model and scene.tower_at(Vector2i(8, 3))._head == null",
+      "msg": "the longbow loft stands as its own model, no head"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(8, 4)).form == 'skyward_loft' and scene.tower_at(Vector2i(8, 4))._base.scene_file_path == Game.TOWERS['skyward_loft'].model and scene.tower_at(Vector2i(8, 4))._head == null",
+      "msg": "the skyward loft stands as its own model, no head"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(6, 4)).form == 'cannon' and scene.tower_at(Vector2i(6, 4))._base.scene_file_path == Game.TOWERS['cannon'].model and scene.tower_at(Vector2i(6, 4))._head.scene_file_path == Game.TOWERS['cannon'].head",
+      "msg": "the cannon stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(6, 5)).form == 'great_cannon' and scene.tower_at(Vector2i(6, 5))._base.scene_file_path == Game.TOWERS['great_cannon'].model and scene.tower_at(Vector2i(6, 5))._head.scene_file_path == Game.TOWERS['great_cannon'].head",
+      "msg": "the great cannon stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(8, 5)).form == 'iron_mortar' and scene.tower_at(Vector2i(8, 5))._base.scene_file_path == Game.TOWERS['iron_mortar'].model and scene.tower_at(Vector2i(8, 5))._head.scene_file_path == Game.TOWERS['iron_mortar'].head",
+      "msg": "the iron mortar stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(9, 5)).form == 'frost' and scene.tower_at(Vector2i(9, 5))._base.scene_file_path == Game.TOWERS['frost'].model and scene.tower_at(Vector2i(9, 5))._head.scene_file_path == Game.TOWERS['frost'].head",
+      "msg": "the frost stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(10, 5)).form == 'deep_frost' and scene.tower_at(Vector2i(10, 5))._base.scene_file_path == Game.TOWERS['deep_frost'].model and scene.tower_at(Vector2i(10, 5))._head.scene_file_path == Game.TOWERS['deep_frost'].head",
+      "msg": "the deep frost stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(10, 4)).form == 'rime_spire' and scene.tower_at(Vector2i(10, 4))._base.scene_file_path == Game.TOWERS['rime_spire'].model and scene.tower_at(Vector2i(10, 4))._head.scene_file_path == Game.TOWERS['rime_spire'].head",
+      "msg": "the rime spire stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(10, 7)).form == 'perch_ballista' and scene.tower_at(Vector2i(10, 7))._base.scene_file_path == Game.TOWERS['perch_ballista'].model and scene.tower_at(Vector2i(10, 7))._head.scene_file_path == Game.TOWERS['perch_ballista'].head",
+      "msg": "the perch ballista stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(12, 7)).form == 'siege_perch' and scene.tower_at(Vector2i(12, 7))._base.scene_file_path == Game.TOWERS['siege_perch'].model and scene.tower_at(Vector2i(12, 7))._head.scene_file_path == Game.TOWERS['siege_perch'].head",
+      "msg": "the siege perch stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(14, 7)).form == 'pinning_ballista' and scene.tower_at(Vector2i(14, 7))._base.scene_file_path == Game.TOWERS['pinning_ballista'].model and scene.tower_at(Vector2i(14, 7))._head.scene_file_path == Game.TOWERS['pinning_ballista'].head",
+      "msg": "the pinning ballista stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(16, 7)).form == 'hawk_roost' and scene.tower_at(Vector2i(16, 7))._base.scene_file_path == Game.TOWERS['hawk_roost'].model and scene.tower_at(Vector2i(16, 7))._head == null",
+      "msg": "the hawk roost stands as its own model, no head"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(14, 8)).form == 'falcon_roost' and scene.tower_at(Vector2i(14, 8))._base.scene_file_path == Game.TOWERS['falcon_roost'].model and scene.tower_at(Vector2i(14, 8))._head == null",
+      "msg": "the falcon roost stands as its own model, no head"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(16, 8)).form == 'kestrel_flock' and scene.tower_at(Vector2i(16, 8))._base.scene_file_path == Game.TOWERS['kestrel_flock'].model and scene.tower_at(Vector2i(16, 8))._head == null",
+      "msg": "the kestrel flock stands as its own model, no head"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(13, 8)).form == 'owls_eye' and scene.tower_at(Vector2i(13, 8))._base.scene_file_path == Game.TOWERS['owls_eye'].model and scene.tower_at(Vector2i(13, 8))._head.scene_file_path == Game.TOWERS['owls_eye'].head",
+      "msg": "the owls eye stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(12, 8)).form == 'owls_glare' and scene.tower_at(Vector2i(12, 8))._base.scene_file_path == Game.TOWERS['owls_glare'].model and scene.tower_at(Vector2i(12, 8))._head.scene_file_path == Game.TOWERS['owls_glare'].head",
+      "msg": "the owls glare stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(10, 8)).form == 'twin_gaze' and scene.tower_at(Vector2i(10, 8))._base.scene_file_path == Game.TOWERS['twin_gaze'].model and scene.tower_at(Vector2i(10, 8))._head.scene_file_path == Game.TOWERS['twin_gaze'].head",
+      "msg": "the twin gaze stands as its own model, its head seated on it"
+    },
+    {
+      "assert": "scene.tower_at(Vector2i(10, 4))._shards.size() == 3 and scene.tower_at(Vector2i(10, 5))._shards.size() == 5 and scene.tower_at(Vector2i(10, 7))._head.position.y > 1.0",
+      "msg": "the Rime Spire's crystal keeps three shards, Deep Frost's five; the ballista sits on its deck"
+    },
+    {
+      "eval": "scene.camera.look_from(Vector3(11.0, 0, 6.0), 9.5)"
+    },
+    {
+      "wait": 30
+    },
+    {
+      "capture": "every_tower_form"
+    }
+  ]
+}

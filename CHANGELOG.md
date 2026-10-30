@@ -2,6 +2,91 @@
 
 ## Unreleased
 
+Builders and checks (M2): High Water is playable. Tamsin Wick, the Lamplighter, and Edda Greyplume, the Lookout,
+hold Wickhollow together through twelve waves.
+
+- High Water is a mode of its own on Wickhollow's twelve waves. Each early wave teaches one check: Swarm
+  (Gourdlings), Swift (Scuttlers), Armored (Thornbacks) and Winged (the new Duskmoths). The Bristlesow, a larger,
+  darker Thornback, comes at wave 6 and the Hollowtide Crest at wave 12. Creep health grows with every wave and
+  with the number of players. The classic match plays as before, down to its state hashes.
+- Armour takes a flat amount off every hit, never more than three quarters of it. Duskmoths fly: only towers that
+  reach the sky aim at them, and splash leaves them alone. Bosses shake off part of every slow.
+- Every tower forks once, for good, into one of two branches. The Lamplighter's second branches answer what she
+  lacks: the Skyward Loft and the Rime Spire reach the sky, the Iron Mortar pierces armour. The Lookout builds
+  Perch Ballistas, Hawk Roosts that hunt fliers first, Kestrel Flocks whose strikes fly on to two more creeps,
+  and the Owl's Eye, whose mark makes every tower hit the strongest creep 20% harder.
+- Slows and marks never stack; the strongest applies. A hit on a creep a teammate slowed or marked counts as that
+  teammate's Help. Perks: the Lamplighter's towers sell for 90%, the Lookout's reach 0.4 tiles farther.
+- The command card is the same for every Builder: Q, W and E place your three towers, or choose a branch on your
+  own tower; A signals, S sells, D is Ready (N and Space too). This replaces A, C, F, U, S and N. A teammate's
+  tower names its owner and cannot be sold. Tooltips say what a fork changes in numbers and which check it lifts.
+- The strip shows the next wave's checks, each beside the portrait of the creep that brings it; hovering the wave
+  lists every wave to come. Every tower form stands as its own model, Duskmoths hover and glow without lights,
+  marked creeps wear a gold rune, and the minimap shows towers in their owners' colours.
+- The caretaker plays either Builder and forks for what the team lacks. Balance gates (`tests/balance/`) check
+  each Builder alone, the pair, idle teams and the match's length. Tuned to pass them: health grows 25% a wave
+  (was 20%), two players face twice the health (was 1.85 times), the Bristlesow has 500 health (was 900), and
+  waves 3 and 5 come a little slower.
+
+The hub, parties and the way back (M3): the game opens on the Causeway at low water, where a party forms before a
+match and comes back to after it.
+
+- The hub shows your party, your Builder in the arch with the checks the party covers, the modes and one button.
+  Alone, Play starts an offline match at once. A first launch asks for the name the others see.
+- Builders (B) shows each Builder's role, perk and kit with both branches, with the command card's own tooltips;
+  there you set your main and backup, or Try one in a practice match.
+- Join (J) takes a party code in any case, with or without its hyphen, lists servers on the home network
+  (desktop only) and takes an address: `192.168.1.20` means the LAN, a name means online.
+- In a party the leader starts once everyone is Ready, and anyone can cancel the 3-2-1. Loading shows a card per
+  player (Connecting, a percentage, Checking, Ready, Slow from 15 s) and names whom everyone waits for. The results
+  give each player's numbers and one line of praise; Play again goes back to the hub with the party as it was.
+- A server started without `--dev-match` keeps parties by code: Ready and the countdown, the loading timers (4,
+  15, 30, 45 and 120 s), the results and the way back, and a dropped player's place held for 40 s. Servers on a
+  home network announce themselves. Identities need no accounts: stable on one server, unlinkable across servers.
+  Hosts get moderation, the day's totals at `/stats`, retention and daily backups.
+- Tamsin Wick and Edda Greyplume stand as figures: the hub's arch shows your main's head and shoulders, the
+  Builders screen the whole figure, and party rows, loading cards and the party strip show their faces. The
+  console gained the pieces these screens are drawn from, and the Causeway's props are modelled.
+
+M2 and M3 together.
+
+- From the hub, the Lamplighter and the Lookout play as themselves and High Water by its own rules; the stand-ins
+  (a Lamplighter for the Lookout, the classic match behind High Water) are gone.
+- A build now has one rules hash for every mode. Before, a game said hello with classic's hash, so a party's High
+  Water match on a real server could never match it.
+- The server tells each party member its own row (`you` in `PARTY_STATE`), and Play again tells it the player has
+  left the results. The protocol's transcripts were recorded again.
+- `python3 tools/net/smoke.py --flow` plays the loop with two headless games against the real server: a party by
+  code, Ready and Start, loading, a High Water match with a Lamplighter and a Lookout, the results, and both back
+  in the party with equal hash streams. `tests/net/live/flow_party_by_code_live.json` does the same up to the
+  match. CI runs both, and the balance gates.
+
+The Builders' new look: Tamsin and Edda are chibi toon figures now, after League's champions in spirit and The
+Wind Waker and A Hat in Time in style: about three heads tall, faces of a few flat shapes, one big hat or hood and
+one big tool each (Tamsin's lamp pole, Edda's spyglass), lit in two tones with a crisp edge so a Builder stands out
+from the painted towers. Their portraits, busts and icons are rebuilt from the same scripts, and the browser build
+lights them like the desktop one.
+
+Fixes from the first review of M2 and M3.
+
+- Two slows on one creep: the stronger one lasts only its own time, and a weaker slow with time left takes over
+  the moment it lapses, so a teammate's slow never leaves a creep walking free.
+- The rules hash covers the checks each Builder covers, which the caretaker's forks follow, so two builds that
+  differ there are never matched together.
+- The game never sends its device key: each server gets its own token, derived from the key and the server's
+  address, so no server can sign in as you elsewhere or link you across servers.
+- A Try, or Play alone, while in a party on a server keeps the connection and the party.
+- The server refuses party changes from a player whose match is running, a row held through a long match can
+  still be taken back after 40 s, and a LOADED that crosses the loading limit no longer costs the party row.
+- Esc in a match opens a small menu: Resume, Restart (offline) and Leave to hub. An offline match waits while it
+  is open. From 30 s of loading the leader can start without a stuck player.
+- A match opens with the camera on the Welling, the Holdfast and the band where both Builders build. The card's
+  Signal has its own icon, a pennant over the ring a signal draws. Tooltips mark fork branches with a sign
+  instead of "A" and "B", which read like the A key.
+- The hub stands on the Causeway at low water in 3D: the road, tide poles, cairns and wrack under a low sun,
+  with the camera drifting along the road. Text fields, rules, panels, loading cards and bars use the console's
+  painted pieces. Long names end in an ellipsis instead of being cut, and every perk shows in full.
+
 The game is called Groundhold now, after its world (`docs/design/world.md`).
 
 - The game, the site and the server are called Groundhold. The map it plays on is Wickhollow, whose road runs

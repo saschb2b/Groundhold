@@ -1,0 +1,27 @@
+{
+  "name": "view_strip_tiles_without_seams",
+  "description": "The resource strip (the hub's place strip, the match's top strip) repeats its bar tile by tile, and no tile's edge shows: Godot tiled the nine-patch's centre inside one quad, and where its texture coordinates wrapped the mipmapped art fell to its smallest mip and drew a dark hairline down the strip every 128 px, under the gilt edge and through the text (review round 2). HdStyleBox now draws each tile as a quad of its own. Rendered, the hub's strip over the plain sky has no column darker than its neighbours in the shadow below the gilt.",
+  "seed": 1,
+  "timeout_frames": 1500,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.create_party()"},
+    {"wait_until": "Session.party_code() == 'K7Q4M'", "timeout": 120},
+    {"wait": 10},
+    {"eval": "node('PlaceStrip').size.x * node('PlaceStrip').texel", "as": "strip_texels"},
+    {"assert": "strip_texels > 88 + 2 * 256", "msg": "online, the place strip is more than two tiles wide (an 88-texel cap, then 256-texel tiles)"},
+    {"assert": "node('PlaceStrip').get_theme_stylebox('panel').tiles_across(strip_texels)", "msg": "so its bar is drawn tile by tile, one quad each"},
+    {"eval": "resource('res://tests/ui/screen_probe.gd').dark_columns(node('PlaceStrip'), [35, 37, 40])", "as": "seams"},
+    {"capture": "hub_online_place_strip_no_seams"},
+    {"assert": "seams == []", "msg": "no hairline hangs below the strip's gilt edge (rendered runs; a headless run has no pixels)"},
+    {"eval": "Session.play_offline('lamplighter')"},
+    {"wait_until": "scene_path() == 'res://scenes/main.tscn' and Game.sim != null", "timeout": 300},
+    {"wait": 10},
+    {"assert": "node('TopBar').get_theme_stylebox('panel').tiles_across(node('TopBar').size.x * node('TopBar').texel)", "msg": "the match's top strip is drawn tile by tile too"},
+    {"capture": "match_top_strip_no_seams"}
+  ]
+}

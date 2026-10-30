@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "sim_ignores_views",
   "description": "A match played with every view, effect and the HUD reaches the same hashes as its turn log replayed in a bare simulation.",
   "seed": 1,

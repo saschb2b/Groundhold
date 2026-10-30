@@ -1,0 +1,29 @@
+{
+  "name": "keen_sight_range",
+  "description": "The Lookout's perk, Keen Sight (design 3.4): in High Water every tower she builds reaches 0.4 tiles farther (Perch Ballista 4.4, Hawk Roost 3.8, Owl's Eye 4.0), forked ones too, and her ballista fires at a creep only that extra reach covers; the Lamplighter's Arrow Tower keeps 3.2. Classic has no perks: the ballista reaches 4.0.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'builders': ['lamplighter', 'lookout']})"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"},
+    {"eval": "[scene.cmd(2, 'BUILD', 0, 12, 8), scene.cmd(2, 'BUILD', 1, 4, 3), scene.cmd(2, 'BUILD', 2, 5, 4), scene.cmd(2, 'BUILD', 0, 20, 5), scene.cmd(1, 'BUILD', 0, 5, 3)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "[scene.tower_at(12, 8), scene.tower_at(4, 3), scene.tower_at(5, 4), scene.tower_at(20, 5), scene.tower_at(5, 3)]", "as": "t"},
+    {"assert": "[t[0].range_mm, t[1].range_mm, t[2].range_mm, t[4].range_mm] == [4400, 3800, 4000, 3200]", "msg": "her towers reach 0.4 tiles farther; the Lamplighter's do not"},
+    {"eval": "scene.cmd(2, 'FORK', t[3].id, 0)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "t[3].branch == 0 and t[3].range_mm == 4400", "msg": "a Siege Perch keeps the extra reach"},
+    {"eval": "scene.reach_beyond(t[0], 4000)", "as": "far"},
+    {"assert": "far >= 0", "msg": "there is road only the extra 0.4 tiles reach"},
+    {"eval": "scene.spawn('thornback', far)", "as": "c"},
+    {"eval": "scene.hold(c)"},
+    {"eval": "scene.run_ticks(120)"},
+    {"assert": "t[0].target == c and t[0].shots > 0 and scene.events_where('HIT', {'tower': t[0].id, 'creep': c}).size() > 0", "msg": "the ballista fires at a creep there"},
+    {"eval": "scene.start({'mode': 'classic', 'seats': 2, 'builders': ['lamplighter', 'lookout']})"},
+    {"eval": "scene.debug(1, 2, 1000)"},
+    {"eval": "scene.cmd(2, 'BUILD', 0, 12, 8)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.tower_at(12, 8).range_mm == 4000", "msg": "classic has no perks: 4.0"}
+  ]
+}

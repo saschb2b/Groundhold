@@ -79,6 +79,9 @@ class SimTower:
 	## Team haste (M6): per mille and the seat whose hive gives it.
 	var haste_pm := 0
 	var haste_seat := 0
+	## A marking tower's (the Owl's Eye's) creeps, by id, as it last picked them; it keeps
+	## their marks fresh while they stay in its reach (SimEffects.mark_stage).
+	var marked := PackedInt32Array()
 	# Resolved from the content tables at build and fork; not part of the checkpoint.
 	var dmg_c := 0
 	var cd_t := 1
@@ -90,6 +93,16 @@ class SimTower:
 	var slow_pm := 0
 	var slow_t := 0
 	var pierce_c := 0
+	## Whom it picks: SimTargeting.AIM_FIRST, AIM_WINGED or AIM_MOST_HP.
+	var aim := 0
+	## Creeps each strike bounces on to, each within bounce_mm of the one before.
+	var bounces := 0
+	var bounce_mm := 0
+	## Its team effect (SimTypes.EFFECT_*, 0 for none) and, for a mark, its numbers.
+	var team := 0
+	var mark_pm := 0
+	var marks := 0
+	var mark_t := 0
 	## Road stretches in range: pairs of micrometre distances (SimRoad.intervals).
 	var intervals := PackedInt64Array()
 
@@ -112,6 +125,10 @@ class SimCreep:
 	var slow_pm := 0
 	var slow_until := 0
 	var slow_seat := 0
+	## Weaker slows that outlast the applying one, as [pm, until, seat] each, strongest
+	## first, each ending later than the one before; the first still running takes hold
+	## when the applying one lapses (SimEffects.lapse_slow).
+	var slow_next := PackedInt32Array()
 	var stun_until := 0
 	var stun_immune_until := 0
 	var stun_seat := 0
@@ -143,3 +160,11 @@ class SimShot:
 	var slow_pm := 0
 	var slow_t := 0
 	var pierce_c := 0
+	## A bouncing strike (the Kestrel Flock's): its number in the chain (0 for the one
+	## the tower loosed), the bounces still to come after it, how far each may reach, the
+	## creep it leaves from (0: the tower) and the creeps the chain has struck so far.
+	var bounce := 0
+	var bounces := 0
+	var bounce_mm := 0
+	var from_creep := 0
+	var struck := PackedInt32Array()

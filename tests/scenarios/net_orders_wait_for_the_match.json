@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "net_orders_wait_for_the_match",
   "description": "A networked window takes no orders before START or after its link is lost, and says so: while it waits for the partner and while it loads, A and N are refused with 'The match has not started', the commands are greyed, the countdown and the horn's early gold are hidden, and a click builds nothing; once the match runs they work; after the link goes they are refused again with 'No link to the server', the placement mode drops, and the party strip's link bars go dark and its Ready marks hide. My own Ready mark lights from my press at once.",
   "seed": 1,
@@ -24,14 +25,14 @@
       "wait": 2
     },
     {
-      "key": "A"
+      "key": "Q"
     },
     {
       "assert": "node('BuildController').mode == '' and node('Notice').visible and node('Notice').text == 'The match has not started'",
-      "msg": "A is refused, and says why"
+      "msg": "Q is refused, and says why"
     },
     {
-      "assert": "node('BuildArrow').disabled and node('BuildCannon').disabled and node('Ready').disabled",
+      "assert": "node('CardQ').disabled and node('CardW').disabled and node('Ready').disabled",
       "msg": "the commands are greyed"
     },
     {
@@ -82,7 +83,7 @@
       "wait": 2
     },
     {
-      "assert": "Game.accepts_commands() and not node('BuildArrow').disabled and not node('Ready').disabled",
+      "assert": "Game.accepts_commands() and not node('CardQ').disabled and not node('Ready').disabled",
       "msg": "the match runs: the commands light"
     },
     {
@@ -90,11 +91,11 @@
       "msg": "and the countdown shows"
     },
     {
-      "key": "A"
+      "key": "Q"
     },
     {
       "assert": "node('BuildController').mode == 'arrow'",
-      "msg": "A picks the arrow tower now"
+      "msg": "Q picks the arrow tower now"
     },
     {
       "hover": "scene.cell_center(Vector2i(8, 3))"
@@ -136,7 +137,7 @@
       "msg": "and stays lit once the simulation has it; the partner's is not"
     },
     {
-      "key": "A"
+      "key": "Q"
     },
     {
       "eval": "node('LoopbackMain').cut()"
@@ -161,11 +162,11 @@
       "msg": "the strip's link bars go dark and its Ready marks hide"
     },
     {
-      "key": "A"
+      "key": "Q"
     },
     {
       "assert": "node('BuildController').mode == '' and node('Notice').text == 'No link to the server'",
-      "msg": "A is refused, and says why"
+      "msg": "Q is refused, and says why"
     },
     {
       "click": "scene.cell_center(Vector2i(9, 5))"
@@ -178,11 +179,11 @@
       "key": "Escape"
     },
     {
-      "key": "C"
+      "key": "W"
     },
     {
-      "assert": "node('BuildController').mode == '' and node('BuildCannon').disabled and node('Ready').disabled and node('Countdown').text == ''",
-      "msg": "C is refused; the commands and the countdown stay dark"
+      "assert": "node('BuildController').mode == '' and node('CardW').disabled and node('Ready').disabled and node('Countdown').text == ''",
+      "msg": "W is refused; the commands and the countdown stay dark"
     },
     {
       "assert": "node('NetStatusText').text == 'Link lost \u00b7 The connection closed'",

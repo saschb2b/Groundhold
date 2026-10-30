@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "hud_states",
   "seed": 1,
   "ticks_per_frame": 2,
@@ -35,18 +36,18 @@
       "msg": "the horn shows the gold an early Ready pays, not a second countdown"
     },
     {
-      "assert": "node('Upgrade').get_meta('state') == 'idle' and node('Upgrade').get_node('Cost').text == ''",
-      "msg": "upgrade does not apply with nothing selected"
+      "assert": "node('Sell').get_meta('state') == 'idle' and node('Sell').get_node('Cost').text == '' and node('Signal').get_meta('state') == 'ok'",
+      "msg": "Sell does not apply with nothing selected; Signal always does"
     },
     {
       "eval": "Game.spend(70)"
     },
     {
-      "assert": "node('BuildCannon').get_meta('state') == 'poor' and node('BuildCannon').get_node('Cost').get_theme_color('font_color') == Color('#ff6a50')",
+      "assert": "node('CardW').get_meta('state') == 'poor' and node('CardW').get_node('Cost').get_theme_color('font_color') == Color('#ff6a50')",
       "msg": "a command the gold cannot pay for greys and shows its cost in red"
     },
     {
-      "key": "C"
+      "key": "W"
     },
     {
       "assert": "node('Notice').visible and node('Notice').text == 'Not enough gold' and node('BannerTitle').text != 'Not enough gold'",
@@ -57,7 +58,7 @@
       "msg": "the notice sits over the column that names the selection and its cost, not at the screen's centre"
     },
     {
-      "assert": "node('BuildArrow').get_meta('state') == 'ok'",
+      "assert": "node('CardQ').get_meta('state') == 'ok'",
       "msg": "an affordable one stays lit"
     },
     {
@@ -74,8 +75,8 @@
       "click": "scene.cell_center(Vector2i(8, 3))"
     },
     {
-      "assert": "screen_has('Level 1 · 0 kills') and screen_has('COOLDOWN') and not screen_has('EVERY')",
-      "msg": "a tower shows its level and kills under its name, and its cooldown by that name"
+      "assert": "node('Subtitle').text == '0 kills' and screen_has('COOLDOWN') and not screen_has('EVERY') and not screen_has('Level')",
+      "msg": "a tower shows its kills under its name (no levels: a fork's own name says which branch stands), and its cooldown by that name"
     },
     {
       "set": "scene.tower_at(Vector2i(8, 3)).kills",
@@ -89,12 +90,12 @@
       "timeout": 12
     },
     {
-      "assert": "screen_has('Level 2 · 1 kill') and not screen_has('1 kills')",
-      "msg": "one kill, not one kills"
+      "assert": "node('Title').text == 'Longbow Loft' and node('Subtitle').text == '1 kill' and not screen_has('1 kills')",
+      "msg": "the fork stands as its branch's name; one kill, not one kills"
     },
     {
-      "assert": "node('Upgrade').get_meta('state') == 'idle' and node('Upgrade').get_node('Cost').text == 'Max'",
-      "msg": "a fully upgraded tower's upgrade reads Max"
+      "assert": "node('CardQ').get_meta('state') == 'lit' and node('CardQ').get_node('Ring').visible and node('CardW').get_meta('state') == 'idle' and node('CardQ').get_node('Cost').text == '' and node('CardE').get_meta('what') == ''",
+      "msg": "a forked tower keeps the branch it took lit and greys the other; E stands empty"
     },
     {
       "eval": "node('TopBar').size.x",
@@ -141,7 +142,7 @@
       "wait": 1
     },
     {
-      "assert": "node('Tooltip').visible and screen_has('Ready') and screen_has('(N)')",
+      "assert": "node('Tooltip').visible and screen_has('Ready') and screen_has('(D)')",
       "msg": "the horn has a tooltip, named Ready"
     },
     {

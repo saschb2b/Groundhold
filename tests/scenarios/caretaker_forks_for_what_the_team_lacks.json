@@ -1,0 +1,24 @@
+{
+  "name": "caretaker_forks_for_what_the_team_lacks",
+  "description": "The caretaker plays any Builder (design 6.7): it works down the Builder's plan and takes a patching fork only while nobody on the team covers that check. A lone caretaken Lamplighter forks Skyward Lofts, a Rime Spire and an Iron Mortar; beside a Lookout (who covers Armored and Winged) the same plan deepens instead, and the Lookout, beside her, skips her Kestrel Flocks and Pinning Ballista. Two caretaken Lamplighters both play the whole plan, the second on the plan's alternative cells.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1, 'caretakers': [1], 'events': false})"},
+    {"eval": "scene.play_out([])"},
+    {"eval": "scene.forms(1)", "as": "alone"},
+    {"assert": "alone.has('skyward_loft') and alone.has('rime_spire') and alone.has('iron_mortar')", "msg": "alone, the Lamplighter patches the sky and armour"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'builders': ['lamplighter', 'lookout'], 'caretakers': [1, 2], 'events': false})"},
+    {"eval": "scene.play_out([])"},
+    {"eval": "[scene.forms(1), scene.forms(2)]", "as": "duo"},
+    {"assert": "duo[0].has('longbow_loft') and duo[0].has('great_cannon') and not (duo[0].has('skyward_loft') or duo[0].has('rime_spire') or duo[0].has('iron_mortar'))", "msg": "beside the Lookout she deepens instead"},
+    {"assert": "duo[1].has('falcon_roost') and duo[1].has('siege_perch') and not (duo[1].has('kestrel_flock') or duo[1].has('pinning_ballista'))", "msg": "and the Lookout beside her deepens too"},
+    {"assert": "scene.tower_at(12, 8).owner == 2 and scene.tower_at(8, 11).owner == 1", "msg": "each on her own plan's cells"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'caretakers': [1, 2], 'events': false})"},
+    {"eval": "scene.play_out([])"},
+    {"eval": "[scene.forms(1), scene.forms(2)]", "as": "twins"},
+    {"assert": "scene.tower_at(8, 11).owner == 1 and scene.tower_at(7, 11).owner == 2 and scene.tower_at(11, 11).owner == 1 and scene.tower_at(11, 12).owner == 2", "msg": "two Lamplighters: the second takes the alternative cells"},
+    {"assert": "twins[0].size() >= 6 and twins[1].size() >= 6 and twins[1].has('skyward_loft')", "msg": "and both play the plan, forking for the sky the team lacks"}
+  ]
+}

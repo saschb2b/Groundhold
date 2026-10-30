@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "sim_cannon_ignores_visual_aim",
   "description": "Spinning the cannon's barrel model while it fires changes no landing point: the shells land where the bare simulation lands them.",
   "seed": 1,

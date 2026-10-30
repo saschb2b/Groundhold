@@ -4,7 +4,8 @@
   "model_background": "#4a5a3a",
   "model_material": "res://materials/painted.tres",
   "palettes": {
-    "hollow": "palettes/hollow.gpl"
+    "hollow": "palettes/hollow.gpl",
+    "builders": "palettes/builders.gpl"
   },
   "ignore": [
     "docs/**",
@@ -133,6 +134,20 @@
       "note": "drawn only as icons, so they may carry more shape than world props"
     },
     {
+      "match": "models/ui/towers/*.glb",
+      "model": {
+        "max_tris": 3200,
+        "origin": "bottom-center",
+        "max_size": [
+          1.2,
+          2.4,
+          1.2
+        ],
+        "max_materials": null
+      },
+      "note": "a tower with its turning head seated, drawn only as its command icon"
+    },
+    {
       "match": "ui/icons/*.png",
       "image": {
         "size": [
@@ -148,7 +163,8 @@
         "ui/icons/frost_tower.png",
         "ui/icons/upgrade.png",
         "ui/icons/sell.png",
-        "ui/icons/next_wave.png"
+        "ui/icons/next_wave.png",
+        "ui/icons/signal.png"
       ],
       "image": {
         "size": [
@@ -157,6 +173,48 @@
         ]
       },
       "note": "command icons: twice the 54 px socket, drawn at half size"
+    },
+    {
+      "match": [
+        "ui/icons/longbow_loft.png",
+        "ui/icons/skyward_loft.png",
+        "ui/icons/great_cannon.png",
+        "ui/icons/iron_mortar.png",
+        "ui/icons/deep_frost.png",
+        "ui/icons/rime_spire.png",
+        "ui/icons/perch_ballista.png",
+        "ui/icons/siege_perch.png",
+        "ui/icons/pinning_ballista.png",
+        "ui/icons/hawk_roost.png",
+        "ui/icons/falcon_roost.png",
+        "ui/icons/kestrel_flock.png",
+        "ui/icons/owls_eye.png",
+        "ui/icons/owls_glare.png",
+        "ui/icons/twin_gaze.png",
+        "ui/icons/emblem_lamplighter.png",
+        "ui/icons/emblem_lookout.png"
+      ],
+      "image": {
+        "size": [
+          108,
+          108
+        ]
+      },
+      "note": "every tower form's command icon and the Builders' emblems (each one's signature prop, on the hub's Builders button): twice the 54 px socket, drawn at half size"
+    },
+    {
+      "match": [
+        "ui/icons/check_*.png",
+        "ui/icons/role_*.png"
+      ],
+      "image": {
+        "size": [
+          64,
+          64
+        ],
+        "min_silhouette_contrast": 1.5
+      },
+      "note": "marks painted by art_src/ui/icons.py: the check glyphs (tide forms, map-neutral) and the role icons; drawn at about 32 px, sharp at 2x"
     },
     {
       "match": [
@@ -219,6 +277,52 @@
         ]
       },
       "note": "raw model renders (godot-agent asset icon, no frame) that art_src/ui/icons.py frames"
+    },
+    {
+      "match": "models/builders/*.glb",
+      "model": {
+        "max_tris": 4000,
+        "origin": "bottom",
+        "max_materials": 2,
+        "palette": "builders",
+        "palette_tolerance": 6,
+        "max_size": [
+          1.0,
+          1.8,
+          1.0
+        ]
+      },
+      "note": "chibi Builders (art_src/blender/builders/): flat swatches lit by materials/builder_toon; feet on the origin, the prop reaches to one side"
+    },
+    {
+      "match": "models/builders/*_bust.glb",
+      "model": {
+        "max_tris": 3000
+      },
+      "note": "the portrait arch's and the icons' model"
+    },
+    {
+      "match": "ui/icons/builder_*.png",
+      "image": {
+        "size": [
+          128,
+          128
+        ]
+      },
+      "note": "Builder portraits: drawn at up to 64 px (the Builders grid, party rows, results), sharp at 2x"
+    },
+    {
+      "match": "models/causeway/*.glb",
+      "model": {
+        "max_tris": 2400,
+        "origin": "bottom-center",
+        "max_size": [
+          2.0,
+          1.6,
+          2.0
+        ]
+      },
+      "note": "the Causeway at low water, the hub's backdrop (art_src/blender/causeway/): weathered stone, sea timber and weed in the hollow palette's stones; the road is 2 units long and chains along +Z"
     }
   ]
 }

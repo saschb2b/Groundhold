@@ -1,0 +1,27 @@
+{
+  "name": "thrifty_sells_for_90",
+  "description": "The Lamplighter's perk, Thrifty (design 3.4 and 4.1): in High Water her towers sell for 90% of what was put in (an Arrow Tower 36 of 40, a forked one 90 of 100), while the Lookout's sell for the rules' 70% (a Perch Ballista 53 of 75, rounded half up). Classic has no perks: the Lamplighter's arrow sells for 28.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'builders': ['lamplighter', 'lookout']})"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 5, 3), scene.cmd(1, 'BUILD', 0, 4, 3), scene.cmd(2, 'BUILD', 0, 5, 1)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "scene.cmd(1, 'FORK', scene.tower_at(4, 3).id, 0)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "[scene.client(1).sell_pm(1), scene.client(1).sell_pm(2), scene.client(1).refund(scene.tower_at(4, 3))] == [900, 700, 90]", "msg": "the match tells the HUD each seat's share and a tower's refund"},
+    {"eval": "[scene.cmd(1, 'SELL', scene.tower_at(5, 3).id), scene.cmd(1, 'SELL', scene.tower_at(4, 3).id), scene.cmd(2, 'SELL', scene.tower_at(5, 1).id)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.refunds(1) == [36, 90]", "msg": "Thrifty: the Lamplighter gets 90% back"},
+    {"assert": "scene.refunds(2) == [53]", "msg": "the Lookout gets the rules' 70%"},
+    {"assert": "scene.gold(1) == 1000 - 40 - 40 - 60 + 36 + 90 and scene.gold(2) == 1000 - 75 + 53", "msg": "and the gold says so"},
+    {"eval": "scene.start({'mode': 'classic', 'seats': 1})"},
+    {"eval": "scene.cmd(1, 'BUILD', 0, 5, 3)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "scene.cmd(1, 'SELL', scene.tower_at(5, 3).id)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.refunds(1) == [28]", "msg": "classic has no perks: 70%"}
+  ]
+}

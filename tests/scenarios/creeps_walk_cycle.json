@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "creeps_walk_cycle",
   "description": "Creeps play their model's walk cycle at their walking speed, and frost slows the cycle with them.",
   "seed": 1,

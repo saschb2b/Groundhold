@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "net_slow_client_stalls_alone_live",
   "description": "Against the real server, client 2 stalls for 3 s (it neither reads its socket nor steps): client 1 keeps playing at full pace, client 2 stands still, then catches up at up to 8 ticks a frame without being marked away, and the two hash streams are equal at every tick.",
   "seed": 1,

@@ -1,0 +1,12 @@
+{
+  "name": "fork_branch_stats",
+  "description": "Every form of the Lamplighter's and the Lookout's kits (three bases each, both branches of every fork), built and forked by command in High Water, stands with design 3.4's numbers: damage, cooldown, reach (the Lookout's with Keen Sight), air, splash, pierce, slow, aim, bounces and marks (tests/sim/fork_branch_stats.gd holds the table).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/sim/fork_branch_stats.gd').problems(scene)", "as": "found"},
+    {"assert": "found == []", "msg": "all eighteen forms resolve to their numbers"},
+    {"assert": "scene.client(1).towers.size() == 18 and scene.refusals(1) == [] and scene.refusals(2) == []", "msg": "every base was built and every fork taken"}
+  ]
+}

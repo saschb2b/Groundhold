@@ -111,7 +111,91 @@ static func encode(m: SimMatch) -> PackedByteArray:
 		b.put_32(s.slow_pm)
 		b.put_32(s.slow_t)
 		b.put_32(s.pierce_c)
+	_encode_m2(b, m)
 	return b.data_array
+
+
+## M2's fields (an Owl's Eye's marked creeps, a bouncing strike's chain, the slows
+## waiting under a creep's applying one) follow in a block of their own, and only when
+## one of them is away from its default: a match without them, every classic match among
+## them, keeps the bytes and the state hashes it had in M1
+## (contract_ids_keep_state_hashes). Records are named by their index in their list,
+## which is in id order.
+static func _encode_m2(b: StreamPeerBuffer, m: SimMatch) -> void:
+	var eyes := PackedInt32Array()
+	for i in m.towers.size():
+		if not m.towers[i].marked.is_empty():
+			eyes.append(i)
+	var hops := PackedInt32Array()
+	for i in m.shots.size():
+		var s := m.shots[i]
+		if s.bounce != 0 or s.bounces != 0 or s.bounce_mm != 0 or s.from_creep != 0 or not s.struck.is_empty():
+			hops.append(i)
+	var slowed := PackedInt32Array()
+	for i in m.creeps.size():
+		if not m.creeps[i].slow_next.is_empty():
+			slowed.append(i)
+	if eyes.is_empty() and hops.is_empty() and slowed.is_empty():
+		return
+	b.put_u16(eyes.size())
+	for i in eyes:
+		var t := m.towers[i]
+		b.put_u16(i)
+		b.put_u8(t.marked.size())
+		for id in t.marked:
+			b.put_u32(id)
+	b.put_u16(hops.size())
+	for i in hops:
+		var s := m.shots[i]
+		b.put_u16(i)
+		b.put_u8(s.bounce)
+		b.put_u8(s.bounces)
+		b.put_32(s.bounce_mm)
+		b.put_u32(s.from_creep)
+		b.put_u8(s.struck.size())
+		for id in s.struck:
+			b.put_u32(id)
+	b.put_u16(slowed.size())
+	for i in slowed:
+		var c := m.creeps[i]
+		b.put_u16(i)
+		@warning_ignore("integer_division")
+		b.put_u8(c.slow_next.size() / 3)
+		var k := 0
+		while k < c.slow_next.size():
+			b.put_32(c.slow_next[k])
+			b.put_u32(c.slow_next[k + 1])
+			b.put_u8(c.slow_next[k + 2])
+			k += 3
+
+
+static func _decode_m2(b: StreamPeerBuffer, m: SimMatch) -> void:
+	if b.get_position() >= b.get_size():
+		return
+	var eye_count := b.get_u16()
+	for k in eye_count:
+		var t := m.towers[b.get_u16()]
+		var n := b.get_u8()
+		for j in n:
+			t.marked.append(b.get_u32())
+	var hop_count := b.get_u16()
+	for k in hop_count:
+		var s := m.shots[b.get_u16()]
+		s.bounce = b.get_u8()
+		s.bounces = b.get_u8()
+		s.bounce_mm = b.get_32()
+		s.from_creep = b.get_u32()
+		var n := b.get_u8()
+		for j in n:
+			s.struck.append(b.get_u32())
+	var slowed_count := b.get_u16()
+	for k in slowed_count:
+		var c := m.creeps[b.get_u16()]
+		var n := b.get_u8()
+		for j in n:
+			c.slow_next.append(b.get_32())
+			c.slow_next.append(b.get_u32())
+			c.slow_next.append(b.get_u8())
 
 
 ## A match from its bytes and the rules it was made with; null when the bytes are not a
@@ -238,5 +322,6 @@ static func decode(bytes: PackedByteArray, rules: Dictionary, text := "") -> Sim
 		s.slow_t = b.get_32()
 		s.pierce_c = b.get_32()
 		m.shots.append(s)
+	_decode_m2(b, m)
 	m.reindex()
 	return m

@@ -13,6 +13,14 @@ values back into the same bytes.
                  LEFT, TIMEOUT, RESULT, MATCH_END, BYE
   m1_codec       every message of protocol.json once (each PARTY op, each command type),
                  encoded by server/groundhold_server/protocol.py with canonical values
+  m3_party       the hub: a party created and joined by a lenient code, a wrong code, another
+                 rules hash, Builders, Ready, a refused start, a removal, mode and team, open
+                 seats, QUEUE answered idle, the countdown, its cancel, MATCH_CONFIG
+  m3_barrier     a party's loading barrier: progress, Slow at 15 s, the leader's start without
+                 the slow seat at 30 s, AWAY in turn 0 and BACK on its LOADED
+  m3_back        a party's match to its end and back: a member who left mid-match, RESULT,
+                 MATCH_END, the results plate, LEAVE_MATCH and Ready back to forming; a drop
+                 held and taken back by a resume HELLO; a hold that runs out after 40 s
 
 The .bin format (all big-endian): "GHTX", u8 format (1), u16 protocol version,
 u8 clients, u32 records; then each record: u8 direction (0 game to server,
@@ -28,6 +36,7 @@ import argparse
 import asyncio
 import json
 from pathlib import Path
+import random
 import struct
 import sys
 import tempfile
@@ -176,6 +185,204 @@ async def dev_match(record):
     return 2
 
 
+OTTILIE = bytes(range(33, 49))
+SEFA = bytes(range(49, 65))
+OLDER = bytes.fromhex("47726f756e646830")   # "Groundh0": an older build's rules
+MODE = {name: spec["id"] for name, spec in SPEC["modes"].items()}
+BUILDER = SPEC["builders"]
+
+
+def hub_options():
+    """A hub server (no dev match), its party codes from a seeded random."""
+    return dict(options(), code_rng=random.Random(20261030))
+
+
+async def each(name, clients, skip=()):
+    return [await client.until(name, skip=skip) for client in clients]
+
+
+async def party_flow(record):
+    clock = ManualClock()
+    game = server(clock=clock, **hub_options())
+    port = await game.start("127.0.0.1", 0)
+    tamsin, edda, ottilie = Client(record, 0), Client(record, 1), Client(record, 2)
+    both = (tamsin, edda)
+    try:
+        await tamsin.hello(port, "Tamsin", token=TAMSIN, build_seq=8, rules_hash=RULES)
+        await tamsin.send_message("PARTY", op="create", mode=MODE["high_water"])
+        code = (await tamsin.until("PARTY_STATE"))["code"]
+        await edda.hello(port, "Edda", token=EDDA, build_seq=8, rules_hash=RULES)
+        await edda.send_message("PARTY", op="join", code=b"ZZZZZ")
+        await edda.until("NOTICE")
+        # (typed in lower case: the server reads a code leniently)
+        await edda.send_message("PARTY", op="join", code=code.lower())
+        await each("PARTY_STATE", both)
+        await edda.send_message("PARTY", op="builders", main=BUILDER["lookout"], backup=BUILDER["lamplighter"])
+        await each("PARTY_STATE", both)
+        # (an older build: it needs to reload, and the party cannot start)
+        await ottilie.hello(port, "Ottilie", token=OTTILIE, build_seq=7, rules_hash=OLDER)
+        await ottilie.send_message("PARTY", op="join", code=code)
+        await ottilie.until("NOTICE")
+        await each("PARTY_STATE", (tamsin, edda, ottilie))
+        await edda.send_message("PARTY", op="ready", on=1)
+        await each("PARTY_STATE", (tamsin, edda, ottilie))
+        await tamsin.send_message("PARTY", op="start")
+        await tamsin.until("PARTY_STATE")
+        await tamsin.send_message("PARTY", op="remove", member=2)
+        await ottilie.until("NOTICE")
+        await ottilie.until("PARTY_STATE")
+        await each("PARTY_STATE", both)
+        await ottilie.send_message("PARTY", op="join", code=code)
+        await ottilie.until("NOTICE")
+        await ottilie.bye()
+        # (mode, then a Race's teams, then back: every change clears Ready)
+        await tamsin.send_message("PARTY", op="mode", mode=MODE["tide_race"])
+        await each("PARTY_STATE", both)
+        await tamsin.send_message("PARTY", op="team", member=1, team=0)
+        await each("PARTY_STATE", both)
+        await tamsin.send_message("PARTY", op="mode", mode=MODE["high_water"])
+        await each("PARTY_STATE", both)
+        await tamsin.send_message("PARTY", op="open", on=1)
+        await each("PARTY_STATE", both)
+        await tamsin.send_message("QUEUE", op=SPEC["queue_ops"]["enter"])
+        await tamsin.until("QUEUE_STATE")
+        await edda.send_message("PARTY", op="ready", on=1)
+        await each("PARTY_STATE", both)
+        await tamsin.send_message("PARTY", op="start")
+        await each("PARTY_STATE", both)
+        await clock.advance(1000)
+        await edda.send_message("PARTY", op="cancel")
+        await each("PARTY_STATE", both)
+        await tamsin.send_message("PARTY", op="start")
+        await each("PARTY_STATE", both)
+        await clock.advance(3000)
+        await each("PARTY_STATE", both)
+        await each("MATCH_CONFIG", both)
+        await each("LOAD_STATE", both)
+        await tamsin.bye()
+        await edda.bye()
+    finally:
+        await game.close()
+    return 3
+
+
+async def party_of_two(clock, port, tamsin, edda):
+    """Tamsin's party with Edda Ready, through the countdown to MATCH_CONFIG."""
+    both = (tamsin, edda)
+    await tamsin.hello(port, "Tamsin", token=TAMSIN, build_seq=8, rules_hash=RULES)
+    await tamsin.send_message("PARTY", op="create", mode=MODE["high_water"])
+    code = (await tamsin.until("PARTY_STATE"))["code"]
+    await edda.hello(port, "Edda", token=EDDA, build_seq=8, rules_hash=RULES)
+    await edda.send_message("PARTY", op="join", code=code)
+    await each("PARTY_STATE", both)
+    await edda.send_message("PARTY", op="builders", main=BUILDER["lookout"], backup=BUILDER["lamplighter"])
+    await each("PARTY_STATE", both)
+    await edda.send_message("PARTY", op="ready", on=1)
+    await each("PARTY_STATE", both)
+    await tamsin.send_message("PARTY", op="start")
+    await each("PARTY_STATE", both)
+    await clock.advance(3000)
+    await each("PARTY_STATE", both)
+    await each("MATCH_CONFIG", both)
+    await each("LOAD_STATE", both)
+    return code
+
+
+async def barrier(record):
+    clock = ManualClock()
+    game = server(clock=clock, **hub_options())
+    port = await game.start("127.0.0.1", 0)
+    tamsin, edda = Client(record, 0), Client(record, 1)
+    both = (tamsin, edda)
+    try:
+        await party_of_two(clock, port, tamsin, edda)
+        await tamsin.send_message("LOADING", per_mille=500)
+        await each("LOAD_STATE", both)
+        await tamsin.send_message("LOADED", rules_hash=RULES, tick0_hash=TICK0)
+        await each("LOAD_STATE", both)
+        await edda.send_message("LOADING", per_mille=250)
+        await each("LOAD_STATE", both)
+        # (15 s: Edda is slow; her progress keeps her slow)
+        await clock.advance(15_000)
+        await each("LOAD_STATE", both)
+        await edda.send_message("LOADING", per_mille=400)
+        await each("LOAD_STATE", both)
+        # (30 s: the leader may start without her)
+        await clock.advance(15_000)
+        await each("LOAD_STATE", both)
+        await tamsin.send_message("PARTY", op="start")
+        await each("LOAD_STATE", both)
+        await each("START", both)
+        await each("PARTY_STATE", both)
+        await clock.advance(SPEC["start_delay_ms"])
+        await clock.turns(1)
+        await each("TURN", both)
+        # (her LOADED, with the same hashes, hands her seat BACK)
+        await edda.send_message("LOADED", rules_hash=RULES, tick0_hash=TICK0)
+        match = next(iter(game.matches.values()))
+        await until(lambda: match.seats[1].state == "present")
+        await clock.turns(1)
+        await each("TURN", both)
+        await tamsin.bye()
+        await edda.bye()
+    finally:
+        await game.close()
+    return 2
+
+
+async def back_to_party(record):
+    clock = ManualClock()
+    game = server(clock=clock, **hub_options())
+    port = await game.start("127.0.0.1", 0)
+    tamsin, edda, ottilie, again = Client(record, 0), Client(record, 1), Client(record, 2), Client(record, 3)
+    three = (tamsin, edda, ottilie)
+    try:
+        code = await party_of_two(clock, port, tamsin, edda)
+        # (the two load; Ottilie joins the party while they play and waits in the hub)
+        for client in (tamsin, edda):
+            await client.send_message("LOADED", rules_hash=RULES, tick0_hash=TICK0)
+            await each("LOAD_STATE", (tamsin, edda))
+        await each("LOAD_STATE", (tamsin, edda))
+        await clock.advance(SPEC["loading_min_ms"])
+        await each("START", (tamsin, edda))
+        await each("PARTY_STATE", (tamsin, edda))
+        await ottilie.hello(port, "Ottilie", token=OTTILIE, build_seq=8, rules_hash=RULES)
+        await ottilie.send_message("PARTY", op="join", code=code)
+        await each("PARTY_STATE", three)
+        await clock.advance(SPEC["start_delay_ms"])
+        await clock.turns(2)
+        for client in (tamsin, edda):
+            await client.until("TURN")
+            await client.until("TURN")
+        # (both report the end: the match ends with their result, and the
+        # party shows the results plate)
+        for client in (tamsin, edda):
+            await client.send_message("RESULT", tick=6, hash=FINAL, outcomes=[dict(outcome=SPEC["outcomes"]["won"])])
+        await each("MATCH_END", (tamsin, edda))
+        await each("PARTY_STATE", three)
+        # (Play again: LEAVE_MATCH; a Ready from the plate brings its member back too)
+        await tamsin.send_message("LEAVE_MATCH")
+        await each("PARTY_STATE", three)
+        await edda.send_message("PARTY", op="ready", on=1)
+        await each("PARTY_STATE", three)
+        # (Edda's link drops: her row is held; her game comes back with the resume bit)
+        await edda.drop()
+        await each("PARTY_STATE", (tamsin, ottilie))
+        await clock.advance(20_000)
+        await again.hello(port, "Edda", token=EDDA, build_seq=8, rules_hash=RULES, flags=SPEC["hello_flags"]["resume"])
+        await each("PARTY_STATE", (tamsin, ottilie, again))
+        # (Ottilie's drops and stays gone: 40 s later her row is free)
+        await ottilie.drop()
+        await each("PARTY_STATE", (tamsin, again))
+        await clock.advance(40_000)
+        await each("PARTY_STATE", (tamsin, again))
+        await tamsin.bye()
+        await again.bye()
+    finally:
+        await game.close()
+    return 4
+
+
 def codec_records():
     """Every message once, with canonical values (and each PARTY op, each command type)."""
     rules, token, identity = RULES, TAMSIN, bytes(range(16, 32))
@@ -200,7 +407,7 @@ def codec_records():
         ("NOTICE", dict(code=7, argument=255)),
         ("BYE", {}),
         *[("PARTY", op) for op in party],
-        ("PARTY_STATE", dict(code=b"K7Q4M", mode=1, flags=1, leader=0, phase=1, countdown_ms=3000,
+        ("PARTY_STATE", dict(code=b"K7Q4M", mode=1, flags=1, leader=0, you=1, phase=1, countdown_ms=3000,
                              members=[member, dict(member, member=1, team=0, main=1, backup=0, state=3, rtt_ms=0,
                                                    build_seq=6, rules_hash=bytes(8), name="Edda")])),
         *[("QUEUE", dict(op=value)) for value in SPEC["queue_ops"].values()],
@@ -290,6 +497,22 @@ async def record_all(directory):
           "A whole --dev-match classic:2 on a hand-moved clock (seed 20261029, match_cap_ms 6500).")
     write(directory, "m1_codec", codec_records(), 1,
           "Every message once with canonical values, as server/groundhold_server/protocol.py encodes it.")
+    for name, script, note in (
+            ("m3_party", party_flow,
+             "The hub on a hand-moved clock (party codes from random.Random(20261030)): Tamsin creates a High "
+             "Water party; Edda tries a wrong code, then joins in lower case; Ottilie's older build needs to "
+             "reload, the start is refused and she is removed; mode, team, open seats, QUEUE (idle before M6), "
+             "Ready, the 3 s countdown, its cancel, and MATCH_CONFIG."),
+            ("m3_barrier", barrier,
+             "A party's loading barrier: Tamsin loads, Edda is Slow at 15 s, the leader starts without her at "
+             "30 s; turn 0 has AWAY for her seat, and her LOADED brings BACK."),
+            ("m3_back", back_to_party,
+             "A party's match and back: Ottilie waits in the hub, the two players' RESULT ends it, the results "
+             "plate, LEAVE_MATCH (Play again) and a Ready back to forming; Edda's link drops and her resume "
+             "HELLO takes her row back; Ottilie's drops and her row is freed 40 s later.")):
+        records = []
+        clients = await script(records)
+        write(directory, name, records, clients, note)
     return sorted(path.name for path in directory.iterdir())
 
 

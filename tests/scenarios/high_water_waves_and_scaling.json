@@ -1,0 +1,37 @@
+{
+  "name": "high_water_waves_and_scaling",
+  "description": "High Water is a mode of its own (design 2.1 to 2.5): Wickhollow's twelve waves (hollow12, the design's creeps and counts), 120 gold each and 20 lives, windows of 15 then 10 seconds alone and 25 then 15 with company, creep health by the player-count table (1000, 2000, 2650, 3400 per mille) and growing 25% a wave, armour on. Classic still plays M1's eight waves.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"assert": "resource('res://scripts/sim/content.gd').RULES.has('high_water')", "msg": "this build can play High Water"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.wave_summary()", "as": "waves"},
+    {
+      "assert": "waves == ['gourdling x10', 'gourdling x18', 'scuttler x12', 'gourdling x8, thornback x4', 'duskmoth x8', 'thornback x3, bristlesow x1', 'gourdling x20, scuttler x10', 'thornback x6, duskmoth x8', 'scuttler x16, thornback x5', 'duskmoth x12, gourdling x20', 'gourdling x16, scuttler x10, thornback x5, duskmoth x8', 'duskmoth x6, thornback x4, hollowtide_crest x1']",
+      "msg": "the twelve waves of design 2.3"
+    },
+    {"assert": "scene.client(1).mode == 'high_water' and scene.gold(1) == 120 and scene.client(1).teams[0].lives == 20 and scene.client(1).hollows[0].countdown_t == 900", "msg": "alone: 120 gold, 20 lives, a 15 s first window"},
+    {"eval": "scene.spawn('gourdling')", "as": "g1"},
+    {"eval": "scene.debug(3, 0, 12)"},
+    {"eval": "scene.spawn('thornback')", "as": "t12"},
+    {"assert": "scene.creep(g1).max_hp_c == 2400 and scene.creep(t12).max_hp_c == 8000 * 3750 / 1000 and scene.creep(t12).armor_c == 400", "msg": "health grows 25% a wave: a wave-12 Thornback has 3.75 times its 80; armour stays"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2})"},
+    {"eval": "scene.spawn('gourdling')", "as": "g2"},
+    {"assert": "scene.creep(g2).max_hp_c == 4800 and scene.client(1).hollows[0].countdown_t == 1500 and scene.gold(2) == 120", "msg": "two players: twice the health, a 25 s first window, 120 gold each"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 3})"},
+    {"eval": "scene.spawn('gourdling')", "as": "g3"},
+    {"assert": "scene.creep(g3).max_hp_c == 2400 * 2650 / 1000", "msg": "three players: 2.65 times"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 4})"},
+    {"eval": "scene.spawn('gourdling')", "as": "g4"},
+    {"assert": "scene.creep(g4).max_hp_c == 2400 * 3400 / 1000", "msg": "four players: 3.4 times"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2})"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"repeat": 200, "steps": [{"eval": "scene.run_ticks(60)"}], "until": "scene.client(1).hollows[0].phase == 0"},
+    {"assert": "scene.client(1).hollows[0].wave == 1 and scene.client(1).hollows[0].countdown_t > 800 and scene.client(1).hollows[0].countdown_t <= 900", "msg": "later windows with company are 15 s"},
+    {"eval": "scene.start({'mode': 'classic', 'seats': 1})"},
+    {"assert": "scene.client(1).waves.size() == 8 and scene.wave_summary()[0] == 'gourdling x8'", "msg": "classic still plays M1's eight waves"}
+  ]
+}

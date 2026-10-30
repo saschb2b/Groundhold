@@ -1,5 +1,11 @@
 ## Mouse and hotkeys on the battlefield: choose a tower, see where it fits, place it,
-## select towers, upgrade, sell and call Ready. HUD buttons call the same methods.
+## select towers, fork, sell, signal and call Ready. HUD buttons call the same methods.
+##
+## The command card's keys are positional (design 5.7, Game.CARD_KEYS): Q, W, E place my
+## Builder's three towers, or, on a selected, unforked tower of my own, fork it to
+## branch A (Q) or branch B (W); A signals (then a click: "look here"; Alt+click signals
+## at once); S sells my selected tower; D, N and Space sound the war horn (Ready). Esc
+## and a right click cancel; Esc with nothing to cancel opens the match's menu.
 ##
 ## Nothing here changes the match: each order goes out as a command and runs when its
 ## turn comes (within 50 ms offline). Until then a placed tower stands as a pulsing ghost
@@ -20,15 +26,18 @@ signal mode_changed(kind: String)
 ## How close (screen pixels) a click must land to a creep to select it.
 const CREEP_PICK_RADIUS := 36.0
 
+## Input actions and their physical keys: the card's six slots by position, N and Space
+## for Ready beside D, Esc.
 const ACTIONS := {
-	"build_arrow": KEY_A,
-	"build_cannon": KEY_C,
-	"build_frost": KEY_F,
-	"upgrade": KEY_U,
-	"sell": KEY_S,
-	"ready": KEY_N,
-	"cancel": KEY_ESCAPE,
+	"card_q": [KEY_Q],
+	"card_w": [KEY_W],
+	"card_e": [KEY_E],
+	"signal": [KEY_A],
+	"sell": [KEY_S],
+	"ready": [KEY_D, KEY_N, KEY_SPACE],
+	"cancel": [KEY_ESCAPE],
 }
+const SLOT_ACTIONS := ["card_q", "card_w", "card_e"]
 
 var map: HollowMap
 var terrain: Terrain
@@ -38,6 +47,8 @@ var main: Node
 var tower_parent: Node3D
 ## Tower kind being placed, or "" when not building.
 var mode := ""
+## True while A waits for the click that says where to signal.
+var signaling := false
 var hover_cell := Vector2i(-1, -1)
 var selected: Tower
 var selected_creep: Creep
@@ -58,8 +69,10 @@ func _ready() -> void:
 	for action: String in ACTIONS:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
+		InputMap.action_erase_events(action)
+		for code: int in ACTIONS[action]:
 			var key := InputEventKey.new()
-			key.physical_keycode = ACTIONS[action]
+			key.physical_keycode = code
 			InputMap.action_add_event(action, key)
 	_range_material = StandardMaterial3D.new()
 	_range_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -99,7 +112,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		var button := event as InputEventMouseButton
 		_hover(button.position)
 		if button.button_index == MOUSE_BUTTON_LEFT:
-			if mode != "":
+			if signaling or button.alt_pressed:
+				signal_at(button.position)
+			elif mode != "":
 				if build(mode, hover_cell) and not button.shift_pressed:
 					set_mode("")
 			elif main.tower_at(hover_cell) != null:
@@ -108,23 +123,69 @@ func _unhandled_input(event: InputEvent) -> void:
 				select(null)
 				select_creep(_creep_near(button.position))
 		elif button.button_index == MOUSE_BUTTON_RIGHT:
-			set_mode("")
-			select(null)
-	elif event.is_action_pressed("build_arrow"):
-		set_mode("arrow")
-	elif event.is_action_pressed("build_cannon"):
-		set_mode("cannon")
-	elif event.is_action_pressed("build_frost"):
-		set_mode("frost")
-	elif event.is_action_pressed("upgrade"):
-		upgrade_selected()
+			cancel()
+	elif event.is_action_pressed("card_q"):
+		press_slot(0)
+	elif event.is_action_pressed("card_w"):
+		press_slot(1)
+	elif event.is_action_pressed("card_e"):
+		press_slot(2)
+	elif event.is_action_pressed("signal"):
+		arm_signal()
 	elif event.is_action_pressed("sell"):
 		sell_selected()
 	elif event.is_action_pressed("ready"):
 		toggle_ready()
 	elif event.is_action_pressed("cancel"):
-		set_mode("")
-		select(null)
+		if mode == "" and not signaling and selected == null and selected_creep == null and main.has_method("open_menu"):
+			main.open_menu()  # (nothing to cancel: the Esc menu)
+		else:
+			cancel()
+
+
+## Esc and a right click: stop placing or signalling, and drop the selection, a tower's
+## or a creep's (so the next Esc finds nothing to cancel and opens the menu).
+func cancel() -> void:
+	set_mode("")
+	select(null)
+	if selected_creep != null:
+		select_creep(null)
+
+
+## Q, W or E (slot 0, 1, 2), as the card shows it now: on my own unforked tower, fork it
+## to branch A or B (E does nothing there); on my forked tower nothing (a fork is final);
+## otherwise place my Builder's tower from that slot.
+func press_slot(slot: int) -> bool:
+	match slot_use(slot):
+		"branch":
+			return fork_selected(slot)
+		"idle":
+			return false
+		"forked":
+			Sfx.play("error")
+			Game.notice(Game.NOTICES[SimTypes.REFUSE_ALREADY_FORKED])
+			return false
+	var kind := Game.kit_tower(slot)
+	if kind == "":
+		return false
+	set_mode(kind)
+	return mode == kind
+
+
+## What slot 0, 1 or 2 of the card does now: "branch" (fork my selected, unforked
+## tower), "forked" (my tower is forked: the branches only show), "idle" (E on my own
+## tower) or "build" (place a tower from my kit).
+func slot_use(slot: int) -> String:
+	if my_tower_selected():
+		if selected.branch >= 0:
+			return "forked" if slot < 2 else "idle"
+		return "branch" if slot < 2 else "idle"
+	return "build"
+
+
+## A tower of mine is selected (a teammate's tower shows the card as nothing selected).
+func my_tower_selected() -> bool:
+	return selected != null and is_instance_valid(selected) and selected.owner_seat == Game.seat
 
 
 func set_mode(kind: String) -> void:
@@ -138,12 +199,13 @@ func set_mode(kind: String) -> void:
 		Game.notice("Not enough gold")
 		kind = ""
 	mode = kind
+	signaling = false
 	if _ghost:
 		_ghost.queue_free()
 		_ghost = null
 	if mode != "":
 		select(null)
-		_ghost = Models.instance(str(Game.TOWERS[mode]["model"]))
+		_ghost = Tower.model_of(mode)
 		for mi: MeshInstance3D in _meshes(_ghost):
 			mi.material_override = _ghost_material
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -220,24 +282,31 @@ func select(tower: Tower) -> void:
 	selection_changed.emit(selected)
 
 
+## Forks my selected tower to branch A, as M1's upgrade did.
 func upgrade_selected() -> bool:
-	if selected == null or not is_instance_valid(selected) or selected.upgrade_cost() < 0:
+	return fork_selected(0)
+
+
+## Forks my selected, unforked tower to `branch` (0 for A, 1 for B); a fork is final.
+func fork_selected(branch: int) -> bool:
+	if selected == null or not is_instance_valid(selected):
 		return false
 	if not Game.accepts_commands():
 		_refuse(Game.command_refusal())
 		return false
 	if selected.owner_seat != Game.seat:
-		Sfx.play("error")
-		Game.notice("That tower is not yours")
+		_refuse(_not_yours(selected))
+		return false
+	if selected.upgrade_cost() < 0:
+		_refuse(Game.NOTICES[SimTypes.REFUSE_ALREADY_FORKED])
 		return false
 	if _pending_on(selected.cell, "fork"):
 		return false
 	var cost := selected.upgrade_cost()
 	if not Game.can_afford(cost):
-		Sfx.play("error")
-		Game.notice("Not enough gold")
+		_refuse("Not enough gold")
 		return false
-	var seq := Game.command(SimTypes.CMD_FORK, selected.id, 0)
+	var seq := Game.command(SimTypes.CMD_FORK, selected.id, branch)
 	if seq < 0:
 		_refuse(Game.command_refusal())
 		return false
@@ -252,8 +321,7 @@ func sell_selected() -> bool:
 		_refuse(Game.command_refusal())
 		return false
 	if selected.owner_seat != Game.seat:
-		Sfx.play("error")
-		Game.notice("That tower is not yours")
+		_refuse(_not_yours(selected))
 		return false
 	if _pending_on(selected.cell, "sell"):
 		return false
@@ -263,6 +331,55 @@ func sell_selected() -> bool:
 		return false
 	_add_pending(seq, "sell", 0, selected.cell, null)
 	select(null)
+	return true
+
+
+## "That tower is Ana's": a teammate's tower is theirs to fork and sell.
+func _not_yours(tower: Tower) -> String:
+	return "That tower is %s's" % Game.seat_name(tower.owner_seat)
+
+
+## A: the next left click on the ground, a creep or a tower signals there.
+func arm_signal() -> bool:
+	if not Game.accepts_commands():
+		_refuse(Game.command_refusal())
+		return false
+	set_mode("")
+	signaling = true
+	Sfx.play("click", -6.0)
+	mode_changed.emit(mode)
+	return true
+
+
+## A signal where `screen` points (design 5.7: "look here"): on a creep or a tower it
+## names it, otherwise the ground. One command, no gold, no ghost; the simulation keeps
+## the rate (three in five seconds) and every window shows the ring.
+func signal_at(screen: Vector2) -> bool:
+	var was := signaling
+	signaling = false
+	if was:
+		mode_changed.emit(mode)
+	if not Game.accepts_commands():
+		_refuse(Game.command_refusal())
+		return false
+	var at := _ground_at(screen)
+	if at == Vector3.INF:
+		return false
+	var target := 0
+	var creep := _creep_near(screen)
+	var tower: Tower = main.tower_at(map.cell_at(at)) if map.inside(map.cell_at(at)) else null
+	if creep:
+		target = creep.id
+		at = creep.global_position
+	elif tower:
+		target = tower.id
+		at = tower.global_position
+	var seq := Game.command(
+		SimTypes.CMD_SIGNAL, roundi(at.x * 1000.0), roundi(at.z * 1000.0), target
+	)
+	if seq < 0:
+		_refuse(Game.command_refusal())
+		return false
 	return true
 
 
@@ -338,6 +455,7 @@ func forget_pending() -> void:
 			ghost.queue_free()
 	pending.clear()
 	ready_wanted = -1
+	signaling = false
 	_count_pending()
 	if map:
 		_refresh_preview()
@@ -357,6 +475,11 @@ func _pending_on(cell: Vector2i, what: String) -> bool:
 		if pending[seq]["what"] == what and pending[seq]["cell"] == cell:
 			return true
 	return false
+
+
+## The fork of mine on its way for `cell`, or false.
+func fork_pending(cell: Vector2i) -> bool:
+	return _pending_on(cell, "fork")
 
 
 func _add_pending(
@@ -389,7 +512,7 @@ func _count_pending() -> void:
 
 ## A tower ordered but not yet built: its model, pale and breathing.
 func _make_ghost(kind: String, cell: Vector2i) -> Node3D:
-	var ghost := Models.instance(str(Game.TOWERS[kind]["model"]))
+	var ghost := Tower.model_of(kind)
 	ghost.name = "Pending_%d_%d" % [cell.x, cell.y]
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -407,18 +530,23 @@ func _make_ghost(kind: String, cell: Vector2i) -> Node3D:
 
 
 func _hover(screen: Vector2) -> void:
-	var camera := get_viewport().get_camera_3d()
-	if camera == null:
-		return
-	var origin := camera.project_ray_origin(screen)
-	var direction := camera.project_ray_normal(screen)
-	var cell := Vector2i(-1, -1)
-	if direction.y < -0.001:
-		var hit := origin + direction * (-origin.y / direction.y)
-		cell = map.cell_at(hit)
+	var at := _ground_at(screen)
+	var cell := map.cell_at(at) if at != Vector3.INF else Vector2i(-1, -1)
 	if cell != hover_cell:
 		hover_cell = cell
 		_refresh_preview()
+
+
+## The ground under a screen point (the plane y = 0), or Vector3.INF.
+func _ground_at(screen: Vector2) -> Vector3:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return Vector3.INF
+	var origin := camera.project_ray_origin(screen)
+	var direction := camera.project_ray_normal(screen)
+	if direction.y >= -0.001:
+		return Vector3.INF
+	return origin + direction * (-origin.y / direction.y)
 
 
 func _refresh_preview() -> void:
@@ -432,7 +560,8 @@ func _refresh_preview() -> void:
 				Color(0.4, 1.0, 0.45, 0.5) if ok else Color(1.0, 0.3, 0.25, 0.5)
 			)
 			terrain.set_hover(hover_cell, ok)
-			_show_range(_ghost.position, float(Game.tower_stats(mode, 1)["range"]), ok)
+			var reach := float(Game.form_stats(mode, -1, Game.my_range_bonus())["range"])
+			_show_range(_ghost.position, reach, ok)
 			return
 	terrain.set_hover(Vector2i(-100, -100), true)
 	if selected and is_instance_valid(selected):

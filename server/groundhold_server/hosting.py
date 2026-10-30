@@ -98,7 +98,8 @@ def typed(address, port):
     return shown if port in (None, SPEC["port"]) else f"{shown}:{port}"
 
 
-def banner(name, host, port, secure, addresses, config=None, container=False, windows=False, dev_match=None):
+def banner(name, host, port, secure, addresses, config=None, container=False, windows=False, dev_match=None,
+           state_dir=None, beacon=False):
     """The lines the console shows as the server opens."""
     scheme = "wss" if secure else "ws"
     path = SPEC["path"]
@@ -125,11 +126,15 @@ def banner(name, host, port, secure, addresses, config=None, container=False, wi
                   "Tailscale or ZeroTier. Browsers need wss:// (a certificate, or a proxy in front)."]
         if windows:
             lines.append("Windows may ask whether to let it through the firewall: allow it on private networks.")
+    if beacon:
+        lines.append(f"The LAN beacon is on: games on this network list it under Nearby (UDP port {SPEC['beacon_port']}).")
     if dev_match:
         mode, seats = dev_match
         lines.append(f"Dev match: the first {seats} players to connect play {mode} together"
                      f" (start each game with -- --join=ADDRESS).")
     lines.append(f"Settings: {config}" if config else "Settings: the defaults (server.ini beside the server changes them).")
+    if state_dir:
+        lines.append(f"State: {state_dir} (the identity key and moderation: keep it, never publish it).")
     lines.append("Stopping the container closes the server." if container else "Ctrl+C closes the server.")
     return lines
 

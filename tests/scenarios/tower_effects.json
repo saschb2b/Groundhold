@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "tower_effects",
   "seed": 1,
   "observe_groups": [

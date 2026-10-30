@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "showcase_boss",
   "seed": 3,
   "ticks_per_frame": 2,

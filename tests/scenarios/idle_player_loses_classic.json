@@ -1,0 +1,39 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "idle_player_loses_classic",
+  "description": "The classic match (M1) kept working: two Arrow Towers placed through the game and nothing else lose it. idle_player_loses plays High Water.",
+  "seed": 1,
+  "ticks_per_frame": 8,
+  "timeout_frames": 20000,
+  "watch": {
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "scene.build('arrow', Vector2i(8, 3))"
+    },
+    {
+      "eval": "scene.build('arrow', Vector2i(10, 8))"
+    },
+    {
+      "wait_until": "scene.settled()",
+      "timeout": 12
+    },
+    {
+      "assert": "count('towers') == 2",
+      "msg": "both towers stand"
+    },
+    {
+      "wait_until": "Game.state >= 2",
+      "timeout": 19000
+    },
+    {
+      "assert": "Game.state == 3",
+      "msg": "two towers and no spending afterwards must not be enough"
+    },
+    {
+      "assert": "Game.wave < 8",
+      "msg": "the Holdfast falls before the last wave"
+    }
+  ]
+}

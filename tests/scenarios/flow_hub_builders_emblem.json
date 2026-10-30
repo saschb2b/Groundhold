@@ -1,0 +1,23 @@
+{
+  "name": "flow_hub_builders_emblem",
+  "description": "The hub's Builders button (B) is a command button showing your main's emblem, the Builder's signature prop (Game.BUILDERS' emblem: Tamsin's lighting pole, Edda's spyglass), and follows the main when it changes; the party row shows the main's face, drawn as painted; the hub's arch frames the main's bust, the Builders screen her whole figure.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 2},
+    {"assert": "node('Builders').get_node('Icon').texture == Game.icon(Game.BUILDERS['lamplighter']['emblem'])", "msg": "the Lamplighter's emblem on B"},
+    {"assert": "(node('Member1').get_node('Builder').texture == Game.icon(Game.BUILDERS['lamplighter']['glyph'])) and (node('Member1').get_node('Builder').modulate == Color(1, 1, 1, 1))", "msg": "my row shows her face as painted"},
+    {"eval": "Session.set_main('lookout')"},
+    {"wait": 2},
+    {"assert": "node('Builders').get_node('Icon').texture == Game.icon(Game.BUILDERS['lookout']['emblem'])", "msg": "the Lookout's emblem once she is the main"},
+    {"assert": "node('Member1').get_node('Builder').texture == Game.icon(Game.BUILDERS['lookout']['glyph'])", "msg": "and her face in my row"},
+    {"assert": "node('Shell').portrait._shown.begins_with(Game.BUILDERS['lookout']['bust'] + '|')", "msg": "the hub's arch frames her bust, a face, as a portrait window does"},
+    {"key": "B"},
+    {"wait": 2},
+    {"assert": "node('BuildersScreen').visible", "msg": "B still opens the Builders"},
+    {"assert": "node('Shell').portrait._shown.begins_with(Game.BUILDERS['lookout']['portrait'] + '|')", "msg": "and the Builders screen shows her whole figure"}
+  ]
+}

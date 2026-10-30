@@ -1,0 +1,33 @@
+{
+  "name": "address_rule",
+  "description": "What a player types as a server address in the Join panel becomes the server's URL by the address rule: a private address (192.168.1.20, the shared 100.64/10) means a server on this network, ws://<address>:8766/causeway, and the strip says LAN; a name online becomes wss://<name>/causeway, and the strip says Online.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"assert": "node('JoinPanel').url_for('192.168.1.20') == 'ws://192.168.1.20:8766/causeway'", "msg": "192.168.1.20: ws, the port and the path"},
+    {"assert": "node('JoinPanel').url_for('100.64.1.2') == 'ws://100.64.1.2:8766/causeway'", "msg": "100.64.1.2 (a VPN's shared space) is on this network too"},
+    {"assert": "node('JoinPanel').url_for('play.example.org') == 'wss://play.example.org/causeway'", "msg": "a name online: wss and the path"},
+    {"assert": "node('JoinPanel').url_for('not an address!') == ''", "msg": "nothing else"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"key": "J"},
+    {"wait": 1},
+    {"set": "node('AddressField').text", "value": "192.168.1.20"},
+    {"click": "node('GoAddress')"},
+    {"wait_until": "Session.state_name() == 'HUB' and Session.party_code() != ''", "timeout": 120},
+    {"assert": "Session.client.link.url == 'ws://192.168.1.20:8766/causeway' and Session.where == 'lan'", "msg": "typed 192.168.1.20: the game connects to ws://192.168.1.20:8766/causeway, on the LAN"},
+    {"wait": 1},
+    {"assert": "node('Place').text == 'LAN · 192.168.1.20' and node('Code').text == 'K7Q-4M'", "msg": "the strip: LAN, the address as typed, and the party's code"},
+    {"capture": "hub_on_lan_party"},
+    {"eval": "Session.connect_to('100.64.1.2')"},
+    {"wait_until": "Session.state_name() == 'HUB'", "timeout": 120},
+    {"assert": "Session.client.link.url == 'ws://100.64.1.2:8766/causeway' and Session.where == 'lan' and Session.place_text() == 'LAN · 100.64.1.2'", "msg": "100.64.1.2: ws, the LAN"},
+    {"eval": "Session.connect_to('play.example.org')"},
+    {"wait_until": "Session.state_name() == 'HUB'", "timeout": 120},
+    {"assert": "Session.client.link.url == 'wss://play.example.org/causeway' and Session.where == 'online' and Session.place_text() == 'Online · play.example.org'", "msg": "play.example.org: wss, online"},
+    {"assert": "not Session.connect_to('not an address!') and Session.last_notice == 'Not a server address: not an address!'", "msg": "a typed address that is none says so"}
+  ]
+}

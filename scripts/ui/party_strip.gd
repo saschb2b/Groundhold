@@ -1,7 +1,7 @@
 ## The party strip (design 5.7): top left, one slim plate per player while more than one
-## seat plays. Each plate shows the seat's glyph in its colour, the name, the gold, link
-## bars from the round trips the server relays (LINKS), and a Ready mark during the build
-## window. "away", "back next window", "caretaker" and "left" replace the gold when the
+## seat plays. Each plate shows the seat's glyph in its colour, its Builder's face, the
+## name, the gold, link bars from the round trips the server relays (LINKS), and a Ready
+## mark during the build window. "away", "back next window", "caretaker" and "left" replace the gold when the
 ## caretaker plays the seat. My own plate is framed brighter.
 ##
 ## Before a networked match starts, one plate says where the client stands: connecting,
@@ -125,6 +125,15 @@ func _status_text(client: MatchClient) -> String:
 	return ""
 
 
+## The name column's width: the widest name the game makes up (Profile.generated_name),
+## at `font` and `size`.
+static func name_room(font: Font, size: int) -> float:
+	var widest := 0.0
+	for word: String in Profile.NAME_WORDS:
+		widest = maxf(widest, font.get_string_size(word + " 88", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x)
+	return ceilf(widest) + 2.0
+
+
 func _rebuild(count: int) -> void:
 	for row: Dictionary in _rows:
 		(row["plate"] as Node).queue_free()
@@ -151,12 +160,25 @@ func _make_row(seat: int) -> Dictionary:
 	glyph.custom_minimum_size = Vector2(14, 14)
 	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(glyph)
+	# (the seat's Builder, as the hub's party rows and the results show it: design 5.7)
+	var builder := TextureRect.new()
+	builder.name = "Builder"
+	builder.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	builder.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	builder.custom_minimum_size = Vector2(20, 20)
+	builder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	builder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(builder)
 	var who := _text("", _bold, 15, TEXT)
 	who.name = "Name"
-	who.custom_minimum_size.x = 92
+	# (room for every generated name whole; a longer one the player chose ends in an
+	# ellipsis inside its column, never under the coin)
+	who.custom_minimum_size.x = name_room(_bold, 15)
 	who.clip_text = true
+	who.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(who)
 	var coin := TextureRect.new()
+	coin.name = "Coin"
 	coin.texture = _coin
 	coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -185,6 +207,8 @@ func _make_row(seat: int) -> Dictionary:
 	row.add_child(room)
 	return {
 		"plate": plate,
+		"builder": builder,
+		"builder_id": "",
 		"name": who,
 		"coin": coin,
 		"gold": gold,
@@ -196,6 +220,11 @@ func _make_row(seat: int) -> Dictionary:
 
 func _fill(row: Dictionary, sim: SimMatch, client: MatchClient, seat: int) -> void:
 	var s := sim.seat(seat)
+	if row["builder_id"] != s.builder and Game.BUILDERS.has(s.builder):
+		row["builder_id"] = s.builder
+		var icon: TextureRect = row["builder"]
+		icon.texture = Game.icon(str(Game.BUILDERS[s.builder]["glyph"]))
+		icon.modulate = Game.glyph_tint(s.builder)
 	var mine := seat == Game.seat
 	var caretaken := STATE_TEXT.has(s.state)
 	# (my own gold as the resource strip shows it: what my orders on their way will spend
@@ -214,7 +243,8 @@ func _fill(row: Dictionary, sim: SimMatch, client: MatchClient, seat: int) -> vo
 		(row["gold"] as Label).add_theme_font_override("font", _body if caretaken else _bold)
 		(row["coin"] as TextureRect).visible = not caretaken
 	var listed := client != null and seat - 1 < client.names.size()
-	(row["name"] as Label).text = client.names[seat - 1] if listed else "Seat %d" % seat
+	# (online the server's names; offline the names the session gave the scene, else "Seat N")
+	(row["name"] as Label).text = client.names[seat - 1] if listed else Game.seat_name(seat)
 	(row["gold"] as Label).text = STATE_TEXT[s.state] if caretaken else str(s.gold - held)
 	var bars: LinkBars = row["bars"]
 	bars.visible = listed

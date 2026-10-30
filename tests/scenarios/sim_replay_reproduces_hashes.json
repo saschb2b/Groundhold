@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "sim_replay_reproduces_hashes",
   "description": "A recorded turn log, scenario setters included, replayed into a fresh simulation reproduces every hash.",
   "seed": 1,

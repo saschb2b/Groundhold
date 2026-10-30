@@ -1,0 +1,55 @@
+{
+  "name": "contract_lookout_kit_resolves",
+  "description": "A Lookout seat beside a Lamplighter plays its own kit from the contract's tables: Q, W, E place the Perch Ballista, the Hawk Roost and the Owl's Eye with their numbers (air, pierce), forks resolve to the named branches (Pinning Ballista slows, the Lamplighter's Skyward Loft reaches the sky), the Owl's Eye fires no shot (it marks instead, M2), a caretaken Lookout stands Ready and works down its plan (data/plans/lookout.json, written in M2; until then it only stood Ready), and a checkpoint with the new tower ids round-trips.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "resource('res://scripts/sim/content.gd')", "as": "content"},
+    {"eval": "scene.start({'seats': 2, 'builders': ['lamplighter', 'lookout'], 'seed': 3})"},
+    {"assert": "scene.client(1).seat(2).builder == 'lookout' and not scene.client(1).plans['lookout'].is_empty()", "msg": "seat 2 is the Lookout, with the plan M2 wrote"},
+    {"eval": "scene.client(1).debug(1, 2, 1000)"},
+    {"eval": "[scene.cmd(2, 'BUILD', 0, 8, 3), scene.cmd(2, 'BUILD', 1, 8, 11), scene.cmd(2, 'BUILD', 2, 13, 8), scene.cmd(1, 'BUILD', 0, 10, 8)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "[scene.tower_at(8, 3), scene.tower_at(8, 11), scene.tower_at(13, 8), scene.tower_at(10, 8)]", "as": "built"},
+    {
+      "assert": "[built[0].kind, built[1].kind, built[2].kind, built[3].kind] == ['perch_ballista', 'hawk_roost', 'owls_eye', 'arrow'] and built[0].owner == 2 and built[3].owner == 1",
+      "msg": "Q, W, E place the Lookout's three towers; the Lamplighter's Q is still the Arrow Tower"
+    },
+    {
+      "assert": "built[0].air and built[0].pierce_c == 300 and built[0].range_mm == 4000 and built[1].air and built[2].dmg_c == 0 and built[2].shot_um_t == 0 and not built[3].air",
+      "msg": "their numbers come from the tables: the ballista reaches the sky and pierces 3, the Owl's Eye deals nothing and fires no shot, the Arrow Tower stays ground-only"
+    },
+    {"assert": "scene.gold(2) == 1000 - 75 - 55 - 65", "msg": "the Lookout paid its kit's costs"},
+    {"eval": "[scene.cmd(2, 'FORK', built[0].id, 1), scene.cmd(2, 'FORK', built[1].id, 0), scene.cmd(1, 'FORK', built[3].id, 1)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {
+      "assert": "[content.tower_form(built[0].kind, built[0].branch), content.tower_form(built[1].kind, built[1].branch), content.tower_form(built[3].kind, built[3].branch)] == ['pinning_ballista', 'falcon_roost', 'skyward_loft']",
+      "msg": "the forks stand as the named branches"
+    },
+    {
+      "assert": "built[0].slow_pm == 500 and built[0].slow_t == 60 and built[0].dmg_c == 3600 and built[1].dmg_c == 1800 and built[1].cd_t == 33 and built[3].air and built[3].dmg_c == 1200",
+      "msg": "with the branches' numbers: the Pinning Ballista slows, the Falcon Roost hits harder and faster, the Skyward Loft reaches the sky"
+    },
+    {"eval": "[scene.client(1).debug(7, 0, 4), scene.client(1).debug(7, 0, 5), scene.client(1).debug(7, 0, 2)]"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(900)"},
+    {
+      "assert": "built[2].shots == 0 and built[2].target == 0 and built[0].shots > 0",
+      "msg": "the Owl's Eye fired nothing while the ballista fought the wave"
+    },
+    {"eval": "scene.creep_kinds()", "as": "kinds"},
+    {"assert": "kinds.has('bristlesow') and kinds.has('gourdling')", "msg": "the Bristlesow walks the road beside the wave"},
+    {"eval": "scene.checkpoint(1)", "as": "bytes"},
+    {"eval": "scene.join_from(bytes)"},
+    {"assert": "scene.checkpoint(2) == bytes and scene.record_differences(1, 2) == []", "msg": "a checkpoint with the Lookout's towers and the new creeps round-trips"},
+    {"eval": "scene.run_ticks(600)"},
+    {"assert": "scene.hashes_agree() and scene.client(2).state_hash_hex() == scene.client(1).state_hash_hex()", "msg": "and both go on in step"},
+    {"eval": "scene.start({'seats': 2, 'builders': ['lamplighter', 'lookout'], 'caretakers': [2]})"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(30)"},
+    {"assert": "scene.client(1).hollows[0].wave == 1", "msg": "a caretaken Lookout stands Ready: the horn sounds as soon as seat 1 is"},
+    {"eval": "scene.run_ticks(1200)"},
+    {"assert": "scene.client(1).seat(2).towers >= 2 and scene.tower_at(12, 8).kind == 'hawk_roost' and scene.tower_at(12, 8).owner == 2", "msg": "and it builds its kit by its plan, the first Hawk Roost where the plan puts it"}
+  ]
+}

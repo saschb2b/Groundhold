@@ -1,0 +1,33 @@
+{
+  "name": "flow_results_one_line_each",
+  "description": "A match the session started ends on the results, an overlay on the finished hollow in place of the console's end plate: the title in the game's words, the match in one line, and one row per player with its numbers from the simulation and one positive line each, no line twice. Here an offline match with a caretaker partner, lost.",
+  "seed": 1,
+  "ticks_per_frame": 4,
+  "timeout_frames": 3000,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.play_offline('lamplighter', false, 1)"},
+    {"wait_until": "scene_path() == 'res://scenes/main.tscn'", "timeout": 60},
+    {"assert": "Game.sim.seats.size() == 2 and Game.sim.seat(2).state == 3", "msg": "my seat and a caretaker's"},
+    {"assert": "scene.build('arrow', Vector2i(6, 3))", "msg": "a tower of mine by the road"},
+    {"wait_until": "scene.settled()", "timeout": 30},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.sim.seat(1).kills >= 2", "timeout": 1500},
+    {"set": "Game.lives", "value": 0},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 30},
+    {"wait": 2},
+    {"assert": "(Session.state_name() == 'RESULTS') and (not node('EndPanel').visible)", "msg": "the results stand in for the end plate"},
+    {"assert": "node('ResultsTitle').text == 'THE HOLDFAST GOES UNDER'", "msg": "the title in the game's words"},
+    {"assert": "node('ResultsDetail').text.begins_with('High Water · fell in wave %d of 12 · ' % Game.wave)", "msg": "the match in one line"},
+    {"eval": "node('ResultsPanel').lines()", "as": "lines"},
+    {"assert": "lines.size() == 2 and lines[0].begins_with('Sascha Lamplighter ') and lines[1].begins_with('Caretaker 1 Lamplighter ')", "msg": "one row per player"},
+    {"assert": "node('ResultsPanel').results['rows'][0]['line'] != '' and node('ResultsPanel').results['rows'][1]['line'] != ''", "msg": "each with a positive line"},
+    {"assert": "node('ResultsPanel').results['rows'][0]['line'] != node('ResultsPanel').results['rows'][1]['line']", "msg": "no line twice"},
+    {"assert": "node('ResultsPanel').results['rows'][0]['kills'] == Game.sim.seat(1).kills and node('ResultsPanel').results['rows'][0]['kills'] >= 2", "msg": "the numbers are the simulation's"},
+    {"assert": "node('Seat1') != null and node('Seat2') != null and node('ResultsPlayAgain').visible", "msg": "a row each, and Play again"},
+    {"assert": "(node('Rows').get_child(1).find_child('Face', true, false).texture == Game.icon(Game.BUILDERS['lamplighter']['glyph'])) and (node('Rows').get_child(1).find_child('Face', true, false).modulate == Color(1, 1, 1, 1))", "msg": "each row shows its Builder's face beside the title, as painted"},
+    {"capture": "results_two_players"}
+  ]
+}

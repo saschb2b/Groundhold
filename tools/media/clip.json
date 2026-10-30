@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "clip",
   "seed": 5,
   "timeout_frames": 1500,

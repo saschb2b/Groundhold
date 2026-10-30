@@ -481,14 +481,15 @@ class GoldenTranscriptTests(unittest.TestCase):
             fresh = Path(temporary)
             names = asyncio.run(record_transcripts.record_all(fresh))
             self.assertEqual(names, ["m1_codec.bin", "m1_codec.json", "m1_dev_match.bin", "m1_dev_match.json",
-                                     "m1_handshake.bin", "m1_handshake.json"])
+                                     "m1_handshake.bin", "m1_handshake.json", "m3_back.bin", "m3_back.json",
+                                     "m3_barrier.bin", "m3_barrier.json", "m3_party.bin", "m3_party.json"])
             for name in names:
                 committed = record_transcripts.TRANSCRIPTS / name
                 self.assertEqual(committed.read_bytes(), (fresh / name).read_bytes(), name + " changed: re-record it")
 
     def test_every_record_decodes_to_its_json_and_encodes_back(self):
         seen = set()
-        for path in sorted(record_transcripts.TRANSCRIPTS.glob("m1_*.bin")):
+        for path in sorted(record_transcripts.TRANSCRIPTS.glob("m[13]_*.bin")):
             records = record_transcripts.read(path)
             listed = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["records"]
             self.assertEqual(len(records), len(listed))

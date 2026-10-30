@@ -23,7 +23,14 @@
 ## after printing "MATCH_END <outcome> <reason> <final tick>" (exit code 0 for a match
 ## that finished, 1 for a desync, an abort or a refusal).
 ##
-## Helpers for tests and tools: cell_center(cell), build(kind, cell), fork(cell),
+## The game boots into the hub (scenes/hub.tscn); the session (scripts/session/) brings
+## this scene up for the match it names: an offline one (Play, Try) or the networked one a
+## server's MATCH_CONFIG opened on the session's connection, which says LOADED once the
+## hollow stands. At the end it leaves to the results (scripts/ui/results_panel.gd), and
+## Play again goes back to the hub with the party. Booted on its own (its flags, a test)
+## it plays as before and ends on the console's end plate.
+##
+## Helpers for tests and tools: cell_center(cell), build(kind, cell), fork(cell, branch),
 ## sell(cell), tower_at(cell), spawn(kind), settled(), state_hash_hex(), hash_at(tick),
 ## record(), replay_matches(), schedule(tick, name, a, b, c).
 extends Node3D
@@ -61,6 +68,16 @@ var _bot: RefCounted
 var _shots: PackedInt32Array = []
 var _frames := 0
 var _finished := false
+## The match the session asked for ({} when booted on its own), and whether the session's
+## connection is the client here (it outlives this scene).
+var _spec := {}
+var _session_client := false
+var _results: ResultsPanel
+## The Esc menu (scripts/ui/match_menu.gd); an offline match waits while it is open.
+var _menu: MatchMenu
+## What the results count from the match's events: kills by seat and creep kind and by
+## seat and wave, towers sold by seat, and the team's lives after each wave.
+var _tally := {"kind_kills": {}, "wave_kills": {}, "sold": {}, "lives": []}
 
 @onready var terrain: Terrain = $Terrain
 @onready var decor: Decor = $Decor
@@ -81,20 +98,36 @@ func _ready() -> void:
 	terrain.build(map)
 	decor.build(map, terrain)
 	_place_landmarks()
-	if options.has("join"):
+	_spec = Session.enter_match(self)
+	if _spec.has("networked") and Session.client:
+		_session_client = true
+		play_through(Session.client)
+		if Session.client.phase >= MatchClient.Phase.LOADING:
+			_on_net_configured()
+	elif _spec.has("offline"):
+		var seats: Array = _spec["seats"]
+		begin(str(_spec["mode"]), seats, int(_spec["seed"]), LocalSequencer.new(seats.size(), 1), 1)
+	elif options.has("join"):
 		_join_server(str(options["join"]))
 	else:
 		var match_seed := int(options.get("seed", "1"))
 		begin(MODE, SimMatch.default_seats(1), match_seed, LocalSequencer.new(1, 1), 1)
 	controller.setup(map, terrain, decor, self, towers)
 	hud.setup(self)
+	_menu = MatchMenu.new()
+	add_child(_menu)
+	_menu.setup(self)
 	_frame_camera()
 	_set_the_scene()
 	Game.announce(MAP_NAME)
+	if _session_client:
+		Session.match_loaded()  # the hollow stands: LOADED
 
 
 func _exit_tree() -> void:
-	if client:
+	if client and _session_client:
+		_unhook(client)  # (the session keeps its connection for the hub)
+	elif client:
 		client.close()
 	Game.detach()
 	if _hash_file:
@@ -140,7 +173,7 @@ func begin(
 func _physics_process(_delta: float) -> void:
 	if client:
 		client.poll()
-	if sim == null:
+	if sim == null or paused():
 		return
 	source.poll()
 	var ran := 0
@@ -180,6 +213,46 @@ func _physics_process(_delta: float) -> void:
 	if sim.over and not _finished:
 		_finished = true
 		_on_match_over()
+		if _spec.has("offline"):
+			_show_results("aborted" if sim.aborted else ("won" if Game.state == Game.State.WON else "lost"))
+
+
+# ── The Esc menu ──
+
+
+## Whether the offline match waits: its Esc menu is open (a networked match plays on).
+func paused() -> bool:
+	return client == null and _menu != null and _menu.visible
+
+
+## Esc with nothing to cancel (BuildController): the menu, while the match plays.
+func open_menu() -> void:
+	if sim == null or sim.over or _finished or _results != null:
+		return
+	if client and client.phase != MatchClient.Phase.PLAYING:
+		return
+	_menu.open()
+
+
+func menu_open() -> bool:
+	return _menu != null and _menu.visible
+
+
+## The menu's Restart: the same offline match from its start (a Try stays a Try).
+func restart() -> void:
+	if client:
+		return
+	if _spec.has("offline"):
+		Session.restart_match()
+	else:
+		get_tree().reload_current_scene()
+
+
+## The menu's Leave to hub: online the server hears LEAVE_MATCH and the caretaker takes
+## the seat; the party is kept.
+func leave_to_hub() -> void:
+	_menu.close()
+	Session.to_hub()
 
 
 func _ticks_this_frame() -> int:
@@ -227,11 +300,8 @@ func _shot(tick: int) -> void:
 
 
 func _join_server(address: String) -> void:
-	var joining := MatchClient.new()
-	joining.player_name = str(options.get("name", "Player %d" % (OS.get_process_id() % 1000)))
-	joining.token = _net_token()
-	joining.build_seq = _build_seq()
-	joining.web = OS.has_feature("web")
+	# (one match at once on that server, no hub: the session's identity and name)
+	var joining := Session.direct_client(str(options.get("name", "")), address)
 	play_through(joining)
 	print("JOIN %s as %s" % [NetAddress.url(address), client.player_name])
 	client.join(address)
@@ -271,6 +341,8 @@ func _on_net_ended(outcome: String, reason: String) -> void:
 		Game.announce("The lands fell out of step")
 	elif outcome == "aborted":
 		Game.announce("The match was called off")
+	if _session_client:
+		_show_results(outcome)
 	if options.has("quit-after-match"):
 		if _hash_file:
 			_hash_file.flush()
@@ -282,37 +354,69 @@ func _on_net_failed(text: String) -> void:
 	Game.announce(text)
 	controller.forget_pending()
 	controller.set_mode("")
+	if _session_client:
+		_show_results("aborted")  # (the way back to the hub)
 	if options.has("quit-after-match"):
 		get_tree().quit(1)
 
 
-## This computer's token for servers (design 6.10): 16 random bytes kept in user://net.cfg.
-## Two windows on one computer share it, which M1's server allows.
-func _net_token() -> PackedByteArray:
-	var cfg := ConfigFile.new()
-	var path := "user://net.cfg"
-	cfg.load(path)
-	var hex := str(cfg.get_value("identity", "token", ""))
-	if hex.length() == 32:
-		return hex.hex_decode()
-	var token := Crypto.new().generate_random_bytes(16)
-	cfg.set_value("identity", "token", token.hex_encode())
-	cfg.save(path)
-	return token
+## Disconnects this scene from a client the session keeps.
+func _unhook(kept: MatchClient) -> void:
+	for sig: Signal in [kept.configured, kept.started, kept.ended, kept.failed]:
+		for c: Dictionary in sig.get_connections():
+			var target: Callable = c["callable"]
+			if target.get_object() == self:
+				sig.disconnect(target)
 
 
-## The CI run number (data/build.json, written by the release build), else 0.
-func _build_seq() -> int:
-	if not FileAccess.file_exists("res://data/build.json"):
-		return 0
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/build.json"))
-	return int((parsed as Dictionary).get("build_seq", 0)) if parsed is Dictionary else 0
+# ── Results ──
+
+
+## The match is over in a session's match: the results overlay on the finished hollow,
+## instead of the console's end plate.
+func _show_results(outcome: String) -> void:
+	if _results or sim == null:
+		return
+	controller.set_mode("")
+	var plate := hud.find_child("EndPanel", true, false) as Control
+	if plate:
+		plate.visible = false
+	var names: Array = _spec.get("names", []) if _spec.has("offline") else Array(client.names)
+	var shown_mode := str(_spec.get("shown_mode", Session.profile.mode))
+	var shown := ResultsPanel.compute(sim, names, outcome, _tally, shown_mode)
+	_results = ResultsPanel.new()
+	add_child(_results)
+	_results.show_results(shown)
+	Session.match_over(shown)
+
+
+## Counts what the results need from this frame's events.
+func _count(events: Array) -> void:
+	for e: Dictionary in events:
+		match int(e["type"]):
+			SimTypes.EV_DIE:
+				var by := int(e.get("seat", 0))
+				if by <= 0:
+					continue
+				var kinds: Dictionary = _tally["kind_kills"].get_or_add(by, {})
+				kinds[str(e["kind"])] = int(kinds.get(str(e["kind"]), 0)) + 1
+				var waves: Dictionary = _tally["wave_kills"].get_or_add(by, {})
+				var wave := sim.hollows[0].wave
+				waves[wave] = int(waves.get(wave, 0)) + 1
+			SimTypes.EV_SOLD:
+				var sold: Dictionary = _tally["sold"]
+				sold[int(e["seat"])] = int(sold.get(int(e["seat"]), 0)) + 1
+			SimTypes.EV_WAVE:
+				var done := int(e.get("phase", -1)) in [SimTypes.PHASE_DONE, SimTypes.PHASE_FALLEN]
+				if e.get("cleared", false) or done:
+					(_tally["lives"] as Array).append(sim.teams[0].lives)
 
 
 # ── Events to views ──
 
 
 func _show(events: Array) -> void:
+	_count(events)
 	for e: Dictionary in events:
 		match int(e["type"]):
 			SimTypes.EV_SPAWN:
@@ -439,11 +543,12 @@ func build(kind: String, cell: Vector2i) -> bool:
 	return controller.build(kind, cell)
 
 
-## Orders the tower on `cell` upgraded (fork branch A), as the U key would.
-func fork(cell: Vector2i) -> bool:
+## Orders the tower on `cell` forked to `branch` (0 for A, 1 for B), as Q or W on my
+## selected tower would.
+func fork(cell: Vector2i, branch := 0) -> bool:
 	var previous := controller.selected
 	controller.select(tower_at(cell))
-	var ok := controller.upgrade_selected()
+	var ok := controller.fork_selected(branch)
 	controller.select(previous if is_instance_valid(previous) else null)
 	return ok
 
@@ -574,7 +679,10 @@ func _set_the_scene() -> void:
 	add_child(layer)
 
 
-## Starts close enough to see the units, over the first stretch of road.
+## Starts on what the players defend and where they build: the Welling, the Holdfast and
+## the band between the road's two lower stretches, where both Builders' plans stand, all
+## above the console and clear of the strips at the top (view_match_frames_the_band).
+## Home shows the whole map; the wheel brings the units closer.
 func _frame_camera() -> void:
 	var rig := camera as CameraRig
-	rig.setup(Rect2(0, 0, map.width, map.depth), Vector3(9.0, 0, 6.5), 12.5, 21.0)
+	rig.setup(Rect2(0, 0, map.width, map.depth), Vector3(11.5, 0, 10.5), 20.5, 21.0)

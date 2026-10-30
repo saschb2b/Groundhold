@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "tower_kills_enemy_pays_gold",
   "seed": 1,
   "ticks_per_frame": 2,

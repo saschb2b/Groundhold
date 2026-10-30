@@ -1,0 +1,49 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "bot_wins_classic",
+  "description": "The classic match (M1, eight waves) kept working: the Lamplighter's classic plan, sent by tests/bot.gd through the game's own input route (the build controller) and the local sequencer, wins it. bot_wins plays High Water.",
+  "seed": 1,
+  "ticks_per_frame": 8,
+  "timeout_frames": 20000,
+  "watch": {
+    "wave": "Game.wave",
+    "lives": "Game.lives",
+    "gold": "Game.gold",
+    "towers": "count('towers')",
+    "plan_done": "vars.get('bot').done if vars.has('bot') else 0",
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {
+      "eval": "resource('res://tests/bot.gd').new()",
+      "as": "bot"
+    },
+    {
+      "repeat": 2000,
+      "steps": [
+        {
+          "eval": "bot.step(scene)"
+        },
+        {
+          "wait": 15
+        }
+      ],
+      "until": "Game.state >= 2"
+    },
+    {
+      "observe": "end"
+    },
+    {
+      "assert": "Game.state == 2",
+      "msg": "a sensible build order wins all eight waves"
+    },
+    {
+      "assert": "Game.lives >= 10",
+      "msg": "and keeps at least half the lives"
+    },
+    {
+      "assert": "bot.log.size() == bot.done",
+      "msg": "every planned build and upgrade landed"
+    }
+  ]
+}

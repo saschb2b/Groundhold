@@ -1,0 +1,23 @@
+{
+  "name": "flow_practice_partner_named",
+  "description": "An offline match from the hub with a caretaker partner of a chosen Builder (Session.play_offline's company_builder): a Lamplighter and a Lookout on one road, High Water's rules. The party strip names each seat as the session named it (my name, 'Caretaker 1'), not 'Seat 1' and 'Seat 2', each plate shows its Builder's face as painted, and the caretaken Lookout builds from her own kit.",
+  "seed": 1,
+  "ticks_per_frame": 4,
+  "timeout_frames": 1500,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.play_offline('lamplighter', false, 1, 'lookout')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 60},
+    {"assert": "(Game.sim.mode == 'high_water') and (Game.sim.seat(1).builder == 'lamplighter') and (Game.sim.seat(2).builder == 'lookout')", "msg": "High Water with a Lamplighter and a Lookout"},
+    {"assert": "Session.match_spec['chosen'] == ['lamplighter', 'lookout']", "msg": "the session knows whom it fielded"},
+    {"wait": 2},
+    {"eval": "node('PartyStrip').lines()", "as": "strip"},
+    {"assert": "node('PartyStrip').visible and (strip[0] == 'Sascha 120') and strip[1].begins_with('Caretaker 1 ')", "msg": "the strip names the seats as the session did"},
+    {"assert": "(node('Seat1').get_node('Row/Builder').texture == Game.icon(Game.BUILDERS['lamplighter']['glyph'])) and (node('Seat2').get_node('Row/Builder').texture == Game.icon(Game.BUILDERS['lookout']['glyph']))", "msg": "each plate shows its Builder's face (design 5.7)"},
+    {"assert": "node('Seat2').get_node('Row/Builder').modulate == Color(1, 1, 1, 1)", "msg": "painted art drawn as painted, not tinted"},
+    {"wait_until": "Game.sim.towers.size() >= 1", "timeout": 600},
+    {"assert": "(Game.sim.towers[0].owner == 2) and (Game.sim.towers[0].kind == 'hawk_roost')", "msg": "the caretaker plays the Lookout's plan: a Hawk Roost first"}
+  ]
+}

@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "hud_ready_pips",
   "description": "With company the war horn is Ready: it lights while you are Ready, the strip counts who is, and the wave comes only when everyone is.",
   "seed": 1,

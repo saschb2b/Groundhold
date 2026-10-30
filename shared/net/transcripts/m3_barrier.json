@@ -1,0 +1,1121 @@
+{
+ "transcript": "m3_barrier",
+ "format": 1,
+ "protocol": 1,
+ "clients": 2,
+ "note": "A party's loading barrier: Tamsin loads, Edda is Slow at 15 s, the leader starts without her at 30 s; turn 0 has AWAY for her seat, and her LOADED brings BACK.",
+ "records": [
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "0102030405060708090a0b0c0d0e0f10",
+    "flags": 0,
+    "name": "Tamsin"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "WELCOME",
+   "fields": {
+    "session": 1,
+    "identity": "9452a3fceb7783a14b25458ff0c7b1ed",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PARTY",
+   "fields": {
+    "op": "create",
+    "mode": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "1112131415161718191a1b1c1d1e1f20",
+    "flags": 0,
+    "name": "Edda"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "WELCOME",
+   "fields": {
+    "session": 2,
+    "identity": "466b12b8bc6e4cd5789c68a7819e22fa",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "PARTY",
+   "fields": {
+    "op": "join",
+    "code": "4e394e445a"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 1,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "PARTY",
+   "fields": {
+    "op": "builders",
+    "main": 1,
+    "backup": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 1,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "PARTY",
+   "fields": {
+    "op": "ready",
+    "on": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 1,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 1,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 1,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PARTY",
+   "fields": {
+    "op": "start"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 1,
+    "countdown_ms": 3000,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 1,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 1,
+    "phase": 1,
+    "countdown_ms": 3000,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 1,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 3,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 1,
+    "phase": 3,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 0,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 1,
+      "flags": 0,
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 1,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 1,
+      "flags": 0,
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "LOADING",
+   "fields": {
+    "per_mille": 500
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 500,
+      "state": 1
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 500,
+      "state": 1
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "LOADED",
+   "fields": {
+    "rules_hash": "47726f756e646831",
+    "tick0_hash": "9e3779b97f4a7c15"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "LOADING",
+   "fields": {
+    "per_mille": 250
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 250,
+      "state": 1
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 250,
+      "state": 1
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 250,
+      "state": 4
+     }
+    ],
+    "seconds": 15
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 250,
+      "state": 4
+     }
+    ],
+    "seconds": 15
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "LOADING",
+   "fields": {
+    "per_mille": 400
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 400,
+      "state": 4
+     }
+    ],
+    "seconds": 15
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 400,
+      "state": 4
+     }
+    ],
+    "seconds": 15
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 400,
+      "state": 4
+     }
+    ],
+    "seconds": 30
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 400,
+      "state": 4
+     }
+    ],
+    "seconds": 30
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PARTY",
+   "fields": {
+    "op": "start"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 3
+     },
+     {
+      "seat": 1,
+      "per_mille": 400,
+      "state": 4
+     }
+    ],
+    "seconds": 30
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 3
+     },
+     {
+      "seat": 1,
+      "per_mille": 400,
+      "state": 4
+     }
+    ],
+    "seconds": 30
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "START",
+   "fields": {
+    "ms_until_turn0": 1500
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "START",
+   "fields": {
+    "ms_until_turn0": 1500
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 4,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 1,
+    "phase": 4,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "TURN",
+   "fields": {
+    "turn": 0,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 1,
+      "type": 64,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "TURN",
+   "fields": {
+    "turn": 0,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 1,
+      "type": 64,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "LOADED",
+   "fields": {
+    "rules_hash": "47726f756e646831",
+    "tick0_hash": "9e3779b97f4a7c15"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "TURN",
+   "fields": {
+    "turn": 1,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 2,
+      "type": 65,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "TURN",
+   "fields": {
+    "turn": 1,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 2,
+      "type": 65,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "BYE",
+   "fields": {}
+  }
+ ]
+}

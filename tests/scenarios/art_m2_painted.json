@@ -1,0 +1,11 @@
+{
+  "name": "art_m2_painted",
+  "description": "M2's art has landed: every tower form's command icon, the card's Signal (a pennant over the ring a signal draws), the four check glyphs, the four role icons and both Builders' glyphs are painted at their sizes (no placeholder rings left), the new tower, head, projectile and creep models load with meshes, the new shot sounds load, and the Duskmoth has a looping flap that moves all four wings, an emissive glow and no light of its own.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/sim/art_m2_painted.gd').problems()", "as": "found"},
+    {"assert": "found == []", "msg": "every M2 icon, model and sound is in place"}
+  ]
+}

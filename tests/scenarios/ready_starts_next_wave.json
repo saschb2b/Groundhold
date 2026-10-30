@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "ready_starts_next_wave",
   "description": "Ready sounds the horn at once and pays a gold for each whole second left; after a clear a fresh window opens and runs out by itself.",
   "seed": 1,

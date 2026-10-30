@@ -1,0 +1,31 @@
+{
+  "name": "beacon_lists_server",
+  "description": "A LAN server's beacon (GHB1, protocol version, WebSocket port, open parties, name) handed to the listener lists the server under Nearby in the Join panel, keyed by its address and port; a beacon of another protocol version, or not a beacon at all, is not listed; a server silent for 3 s drops off.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "resource('res://scripts/net/beacon_listener.gd')", "as": "B"},
+    {"assert": "B.parse(B.datagram(1, 8766, 2, \"Sascha's server\")) == {'version': 1, 'port': 8766, 'parties': 2, 'name': \"Sascha's server\"}", "msg": "the datagram's fields"},
+    {"assert": "Session.beacon.inject(B.datagram(1, 8766, 2, \"Sascha's server\"), '192.168.1.20')", "msg": "a beacon of this protocol version lists its server"},
+    {"assert": "not Session.beacon.inject(B.datagram(2, 8766, 1, 'Newer server'), '192.168.1.21')", "msg": "a mismatched version is not listed"},
+    {"assert": "not Session.beacon.inject('GHB2 not a beacon'.to_ascii_buffer(), '192.168.1.22') and not Session.beacon.inject(PackedByteArray([71, 72, 66, 49, 0, 1]), '192.168.1.23')", "msg": "nor is a datagram that is not a beacon"},
+    {"assert": "Session.beacon.inject(B.datagram(1, 9000, 0, 'Attic'), '192.168.1.30')", "msg": "a server on another port"},
+    {"assert": "Session.beacon.servers().size() == 2 and Session.beacon.refused == 3", "msg": "two listed, three refused"},
+    {"key": "J"},
+    {"wait": 2},
+    {"assert": "node('JoinPanel').nearby_lines() == ['Attic 192.168.1.30:9000', \"Sascha's server 192.168.1.20\"]", "msg": "Nearby lists them by name, the default port left out"},
+    {"assert": "screen_has(\"Sascha's server\") and screen_has('2 parties') and screen_has('192.168.1.30:9000') and not screen_has('Newer server')", "msg": "the Join panel shows them, not the mismatched one"},
+    {"assert": "node('Nearby').visible and not node('WebLine').visible", "msg": "the desktop shows Nearby"},
+    {"capture": "join_panel_nearby"},
+    {"repeat": 12, "steps": [{"eval": "Session.beacon.inject(B.datagram(1, 8766, 2, \"Sascha's server\"), '192.168.1.20')"}, {"wait": 15}]},
+    {"wait": 5},
+    {"assert": "node('JoinPanel').nearby_lines() == [\"Sascha's server 192.168.1.20\"]", "msg": "after 3 s of silence the Attic drops off; the server still calling stays"},
+    {"eval": "node('JoinPanel').set_lan(false)"},
+    {"assert": "not node('Nearby').visible and node('WebLine').visible and node('WebLine').text.begins_with('LAN games need the desktop version.')", "msg": "the browser plays online only: one line instead of Nearby"}
+  ]
+}

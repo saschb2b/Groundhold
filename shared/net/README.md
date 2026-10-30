@@ -48,8 +48,9 @@ as an `int`, so no value needs 64 unsigned bits. `JSON.parse_string` gives every
 
 1. The game opens the socket and sends `HELLO` within 5 s of connecting.
 2. The server checks, in order: the version (`ERROR` 2 when the game is older, 17 when the server is),
-   the shape, a non-zero token (9), the name (5); then maintenance (16, with the host's line) and
-   room (7). A refusal is `ERROR`, then the close: the server reads and drops whatever the game
+   the shape, a non-zero token (9), the name (5); then maintenance (16, with the host's line), a ban
+   (10), the allowlist (11), a kick (14, with the minutes left) and room (7). A refusal is `ERROR`,
+   then the close: the server reads and drops whatever the game
    still sends until the game closes (a game closes on `ERROR`), at most `linger_ms` (1 s) and at
    most a hub bucket's burst of frames (40), and only then sends its close frame (1008). A close or
    a reset right behind `ERROR` could take it away unread; this way every refusal, here or later
@@ -61,7 +62,82 @@ as an `int`, so no value needs 64 unsigned bits. `JSON.parse_string` gives every
    (`--dev-match`), so `MATCH_CONFIG` follows with no hub.
 4. `PING` every 2 s carries the game's clock and its last measured round trip; `PONG` echoes the
    clock and says the open turn. 15 s without any message closes the connection.
-5. `BYE` (or a close frame) is a goodbye: in a match it is `LEFT`.
+5. `BYE` (or a close frame) is a goodbye: in a match it is `LEFT`, in a party it frees the row at once.
+
+**The token** (identity without accounts, design §6.12). The game makes a random 16-byte device key
+once and never sends it. For each server it sends `token = HMAC-SHA1(device key, "Groundhold identity
+v1\n" + origin)[:16]`, where the origin is `scheme://host:port` of the URL it connects to: the scheme
+`ws` or `wss` (kept apart, so a plaintext server never reuses a TLS server's token), the host in lower
+case without a trailing dot (an IPv6 address in brackets), the port numeric, 80 for `ws` and 443 for
+`wss` where the URL names none. One server, one token; another server, another. Reference
+(`client_token` in `server/groundhold_server/identity.py`): the device key `000102...0f` and
+`wss://groundhold.saschb2b.com/causeway` give the origin `wss://groundhold.saschb2b.com:443` and the
+token `5c0d37e02b41a1060b3bfe6a5c10af52`; `ws://192.168.1.20:8766/causeway` gives
+`b6c7c14ce43e4cf09ae7c7c89131b15d`. The server keeps its `identity.key` in its state directory, so a
+token's public identity stays the same across restarts.
+
+## The hub
+
+A server without `--dev-match` has a hub: parties by code, their countdown, their matches and the
+way back. `PARTY_STATE` is the whole party, sent to every member after every change; its `you` is
+the recipient's own member number (255 outside a party), so a game knows its row. An op the
+party's rules do not allow now (a member's start, an op from a former leader, a phase that moved
+on) is answered to the asker alone with the party as it is, so a game always shows the truth; an
+op outside its limits (an unknown mode or Builder, `on` or `team` past 1, a member past 3) ends the
+connection with `ERROR` 6. A player in no party (after `leave`, a removal, or an op with no party)
+gets the **no-party state**: a code of five zero bytes, leader and `you` 255, no members.
+
+| Op | Who | What |
+|---|---|---|
+| `create(mode)` | anyone | a new party with a new code, the creator its leader (out of any party first) |
+| `join(code)` | anyone | the party with that code: see Codes below |
+| `leave` | a member | out; the member who joined earliest leads if the leader left |
+| `remove(member)` | the leader | that member out with `NOTICE removed`; its identity cannot rejoin that code |
+| `mode(mode)` | the leader | every Ready cleared; a two-team mode lays the teams out alternately by joining order |
+| `builders(main, backup)` | a member, its own | its own Ready cleared; allowed in a match too (for the next one) |
+| `ready(on)` | a member, its own | the leader's Ready is its Start, so the leader needs none |
+| `team(member, team)` | the leader, two-team modes | that member's Ready cleared |
+| `open(on)` | the leader | the flag (`PARTY_STATE` flags, the beacon's count); the public queue comes in M6 |
+| `start` | the leader | forming: the countdown, if every other member is Ready, everyone has one rules hash, the party is a size the mode takes (`seats` in `modes`) and, in a two-team mode, two equal teams. Loading: start without the slow seats (the barrier, below) |
+| `cancel` | any member | the countdown stops; Ready stays |
+
+**Codes** are five symbols of `23456789BCDFGHJKMNPQRSTVWXYZ` sent as ASCII; games show them as
+`K7Q-4M`. The server reads them leniently too (lower case is upper case). A join answers `NOTICE`
+`no_such_party` (argument 0) for a code it does not know or that is not a code, `party_full` (the
+argument: members) for four members, and `removed` for an identity the leader removed. Each
+connection has five lookups at once and one more every 5 s: past that a join makes no lookup and
+answers `no_such_party` with the seconds until the next one as the argument. A party whose last
+member left keeps its code 15 minutes (anyone may join it again and lead it); then it is gone.
+A server keeps at most `party_cap` parties (four per `player_cap` by default) and an identity at
+most one empty one (leaving another empty drops the one it left before). A `create` at the cap
+drops the empty party that has waited longest; with none empty it answers `NOTICE parties_full`
+(argument 0) and the player keeps the party it has.
+
+**Members** are numbered 0 to 3 (the row, kept while they stay; a newcomer takes the lowest free
+one). Their `state`: `here`; `ready`; `away` (the connection dropped: the row is held 40 s,
+"reconnecting"); `needs_reload` (another rules hash than the newest build's: the highest
+`build_seq`, the leader's on a tie; the party cannot start, and the member gets `NOTICE
+needs_reload` with its number when it starts to need one); `in_match` (in the party's match, or on
+its results plate). A joiner in a two-team mode goes to the smaller team.
+
+**Phases**: `forming`; `countdown` (`countdown_ms` is what is left when the state is sent: 3,000 at
+the start); `loading`; `in_match`; `results`; `queued` is not used before the queue (M6). Anything
+that breaks the start's rule stops the countdown: a cancel, an un-Ready, a Builder, team or mode
+change, a join, a leave, a drop. At its end the party's match forms: `PARTY_STATE` (`loading`, each
+member `in_match`), then `MATCH_CONFIG` to each member, one seat each in seat order (by team, then by
+member number); a seat's Builder is its member's main. (Until M2 merges, the contract has matches
+field a Lamplighter for a Builder the game cannot play yet, `docs/design/contract-m2m3.md` §7: a rule
+every game applies alike, so they stay in step; the server names the main either way.)
+
+**Held rows.** A connection that drops without a goodbye keeps its row 40 s, `away`. A `HELLO` with
+the `resume` flag from the same public identity takes it back (row, team, Builders; Ready cleared),
+and so does a `join` of the same code by that identity; the others see it `here` again. A
+goodbye or a moderator's removal frees the row at once. A row whose member's match still runs is
+kept until 40 s after the match ends.
+
+**No public queue yet.** `QUEUE` is answered with `QUEUE_STATE` idle (state 0, no caretaker offer)
+whatever its op, `ACCEPT` is let pass, and the server never sends `MATCH_FOUND`: the queue, Match
+Found and strangers' matches are M6.
 
 ## A match
 
@@ -73,8 +149,26 @@ human), the server sends `START(1500)`: turn 0 opens 1.5 s later. Tick-0 hashes 
 (`tick0_mismatch`, the differing seat, or 255 without a majority) and `MATCH_END` (aborted). A seat
 whose connection is gone at the start begins `AWAY` (or `LEFT`) in turn 0.
 
-**Seats** are 0-based on the wire (0 to 3; the game shows 1 to 4). A seat's team is
-`seat × teams div seats`: a Race of four is seats 0 and 1 against 2 and 3. Seat 255 is the server.
+The barrier's timers run from `MATCH_CONFIG` on the server's clock (design §6.6):
+
+| Time | What happens |
+|---|---|
+| 0 to 4 s | the minimum: nothing starts before it (0 s with one human) |
+| 15 s | each seat not yet `LOADED` is `slow` (and stays so as its `LOADING` comes, until its `LOADED`); `LOAD_STATE` goes out with `seconds` 15 |
+| 30 s | a party's match: `LOAD_STATE` with `seconds` 30, and from now the leader's `PARTY start` starts without the seats still loading (at least one seat loaded; before 30 s, or from anyone else, it is refused with the party's state) |
+| 45 s | a match of strangers (the queue's, M6, or `--dev-match`'s): it starts by itself with the seats loaded |
+| 120 s | every seat still not `LOADED` is out: `MATCH_END` (aborted, reason `timeout`) to its game and `LEFT` in the turns; with nobody loaded the match ends there (a strangers' match after `NOTICE match_dissolved`) |
+
+The seats loaded at a start without the others must agree on the tick-0 hash, as at any start. A seat
+started without its player begins `AWAY` in turn 0 (the caretaker plays it) and gets `START` and the
+turns like any other; its `LOADING`, `PING`s and other messages do not bring it back. Its `LOADED`
+does: with the match's rules hash and the tick-0 hash the seats agreed, `BACK(seat)` follows in the
+next turn; with another, `NOTICE tick0_mismatch` (its seat) and `MATCH_END` (aborted, reason
+`tick0_mismatch` or `rules_mismatch`) to it, and `LEFT` in the turns.
+
+**Seats** are 0-based on the wire (0 to 3; the game shows 1 to 4). A party's seats are its members in
+order of team, then member number; a dev match's team is `seat × teams div seats`. Either way a Race
+of four is seats 0 and 1 against 2 and 3. Seat 255 is the server.
 
 **Turns.** Turn *k* covers ticks 3*k* to 3*k* + 2 and closes at `origin + (k + 1) × 50 ms`, an
 absolute deadline on the server's monotonic clock; a late server closes every missed turn at once,
@@ -127,6 +221,14 @@ server's hard cap (`match_cap_ms`, 60 minutes) it seals `TIMEOUT` into the turn 
 no result is agreed 10 s later, `MATCH_END` is `aborted` with reason `timeout`. After `MATCH_END` the
 connection stays; match messages already on their way are let pass.
 
+**Back to the party.** When a party's match ends, `PARTY_STATE` says `results`: each member who was
+in the match at its end stays `in_match` (on the results plate). `LEAVE_MATCH` after `MATCH_END`
+(Play again, or Hub) brings it back: `here`, its Ready cleared; so does a `PARTY ready` or `builders`
+from the plate. When everyone is back the phase is `forming`, with the party's code, mode, open
+seats, teams and Builders as they were. A member who sends `LEAVE_MATCH` during the match is back in
+the hub at once (the caretaker keeps its seat). A match that ends before it starts (tick-0 hashes
+apart, nobody loaded at the ceiling) brings everyone back at once, with no results plate.
+
 **Links.** Every 2 s `LINKS` gives each seat's round trip (from its `PING`) and flags: `hidden` (its
 `VISIBILITY`) and `silent` (away, left or dropped).
 
@@ -144,11 +246,29 @@ repair of 100 turns every 300 ms).
 with `ERROR` 8, and a seat is held. A connection whose unsent output passes 64 KiB is dropped, and
 its seat is held.
 
-**Not served by the M1 server** (their layouts are fixed here): `PARTY`, `QUEUE`, `ACCEPT` (the hub,
-M3) and `CHECKPOINT_PART` (M4) are answered with `ERROR` 1; it never sends `PARTY_STATE`,
-`QUEUE_STATE`, `MATCH_FOUND`, `CHECKPOINT_ASK` or `RESYNC`. Its identity key lives in memory (M3 keeps
-it on disk), and one profile may connect twice, because two windows on one computer share their
-`user://` key (`ERROR` 12 and the resume bit come with M4's reconnect).
+**Not served yet** (their layouts are fixed here): `CHECKPOINT_PART` (M4) is answered with `ERROR` 1;
+the server never sends `MATCH_FOUND` (the queue, M6), `CHECKPOINT_ASK` or `RESYNC` (M4). A `--dev-match`
+server has no hub: `PARTY`, `QUEUE` and `ACCEPT` are `ERROR` 1 there. One profile may connect twice,
+because two windows on one computer share their `user://` key (`ERROR` 12 and a match seat's resume
+come with M4's reconnect; M3's resume bit takes back a party row).
+
+## The LAN beacon
+
+A server on a home network (not in a container, not behind TLS, not on 127.0.0.1 alone, `beacon` not
+turned off) broadcasts one UDP datagram a second of its clock to `255.255.255.255` on `beacon_port`
+(8767), all big-endian:
+
+| Bytes | Field |
+|---|---|
+| 4 | `GHB1` |
+| 2 | protocol version |
+| 2 | the WebSocket port |
+| 1 | open parties: parties with open seats on, a seat free and no match under way (at most 255) |
+| 1 + n | the server's name (u8 length, UTF-8, at most 64 bytes) |
+
+The datagram is exactly that long. A game keys servers by the datagram's source address and the port,
+lists only those whose version is its own (another version could not play there), and drops a server
+it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `listed` are the reference.
 
 ## Messages
 
@@ -166,7 +286,7 @@ it on disk), and one profile may connect twice, because two windows on one compu
 | 14 | `NOTICE` | S→C |  | 6 | u8 code, u32 argument |
 | 15 | `BYE` | both | hub | 1 | nothing |
 | 20 | `PARTY` | C→S | hub | 2 to 7 | u8 op; then by op: create (1): u8 mode; join (2): 5 bytes code; leave (3): nothing; remove (4): u8 member; mode (5): u8 mode; builders (6): u8 main, u8 backup; ready (7): u8 on; team (8): u8 member, u8 team; open (9): u8 on; start (10): nothing; cancel (11): nothing |
-| 21 | `PARTY_STATE` | S→C |  | 15 to 159 | 5 bytes code, u8 mode, u8 flags, u8 leader, u8 phase, u32 countdown_ms, u8 n, then n × members [u8 member, u8 team, u8 main, u8 backup, u8 state, u16 rtt_ms, u32 build_seq, 8 bytes rules_hash, u8 + UTF-8 name (≤ 16 bytes)] (n ≤ 4) |
+| 21 | `PARTY_STATE` | S→C |  | 16 to 160 | 5 bytes code, u8 mode, u8 flags, u8 leader, u8 you, u8 phase, u32 countdown_ms, u8 n, then n × members [u8 member, u8 team, u8 main, u8 backup, u8 state, u16 rtt_ms, u32 build_seq, 8 bytes rules_hash, u8 + UTF-8 name (≤ 16 bytes)] (n ≤ 4) |
 | 22 | `QUEUE` | C→S | hub | 2 | u8 op |
 | 23 | `QUEUE_STATE` | S→C |  | 7 | u8 state, u32 elapsed_ms, u8 caretaker_offer |
 | 24 | `MATCH_FOUND` | S→C |  | 12 | u32 match, u8 mode, u8 seats, u8 accepted, u32 ms_left |
@@ -226,7 +346,7 @@ it on disk), and one profile may connect twice, because two windows on one compu
 | Key | Values |
 |---|---|
 | `errors` | protocol 1, game_older 2, bad_name 5, out_of_limits 6, full 7, rate 8, bad_token 9, banned 10, allowlist 11, replaced 12, kicked 14, maintenance 16, server_older 17 |
-| `notices` | party_full 1, no_such_party 2, removed 3, match_dissolved 4, needs_reload 5, caretakers_offered 6, tick0_mismatch 7 |
+| `notices` | party_full 1, no_such_party 2, removed 3, match_dissolved 4, needs_reload 5, caretakers_offered 6, tick0_mismatch 7, parties_full 8 |
 | `outcomes` | won 0, lost 1, draw 2, desynced 3, aborted 4 |
 | `end_reasons` | result 0, desync 1, tick0_mismatch 2, rules_mismatch 3, everyone_left 4, timeout 5, server_closing 6 |
 | `load_states` | connecting 0, loading 1, checking 2, ready 3, slow 4, gone 5 |
@@ -249,16 +369,21 @@ it on disk), and one profile may connect twice, because two windows on one compu
 
 ## Golden transcripts
 
-`transcripts/m1_*.bin` are byte streams recorded from the real server on a hand-moved clock
+`transcripts/*.bin` are byte streams recorded from the real server on a hand-moved clock
 (`python3 server/tools/record_transcripts.py`; a server test fails when re-recording would change a
 byte). Each `.json` beside one lists the same records decoded, which is what the GDScript codec must
-produce (`protocol_golden_m1`), and encoding those values must give the same bytes back.
+produce (`protocol_golden_m1`, `protocol_golden_m3`), and encoding those values must give the same
+bytes back. The `m3_*` ones are also the hub's conversations in order, for testing the game's
+session against the real server's answers.
 
 | File | What it holds |
 |---|---|
 | `m1_handshake` | `HELLO`, `WELCOME`, `PING`, `PONG`, `VISIBILITY`, `BYE`; refused `HELLO`s: an older game (`ERROR` 2), a newer one (17), a bad name (5), a zero token (9) |
 | `m1_dev_match` | a whole `--dev-match classic:2`: `MATCH_CONFIG`, every `LOAD_STATE` of the barrier, `START`, turns with every command type and both rotations, `PONG`, `TURN_REQUEST`, `HASH`, `LINKS`, `AWAY`, `BACK`, `LEFT`, `TIMEOUT`, `RESULT`, `MATCH_END`, `BYE` |
 | `m1_codec` | every message of `protocol.json` once with canonical values: each `PARTY` op, each command type, every system command in one `TURN`, a 1,024-byte `CHECKPOINT_PART`, UTF-8 beyond ASCII in a `motd` |
+| `m3_party` | the hub (party codes from `random.Random(20261030)`): `create`, a wrong code (`NOTICE no_such_party`), a `join` in lower case, `builders`, an older build (`NOTICE needs_reload`), `ready`, a refused `start`, `remove` (`NOTICE removed`, the no-party state, a refused rejoin), `mode` and `team` in a Race, `open`, `QUEUE` answered idle, the countdown, its `cancel`, and the countdown's end: `PARTY_STATE` loading, `MATCH_CONFIG` with each member's main |
+| `m3_barrier` | a party's barrier: `LOADING`, `LOADED`, `slow` at 15 s, `seconds` 30, the leader's start without the slow seat, `START`, `PARTY_STATE` in_match, `AWAY` in turn 0 and `BACK` after her `LOADED` |
+| `m3_back` | a party's match to its end and back: a member joining during the match, `RESULT` and `MATCH_END`, the results plate, `LEAVE_MATCH` and a `ready` back to forming; a dropped member held (`away`) and taken back by a resume `HELLO`; another's row freed 40 s after its drop |
 
 The `.bin` layout, big-endian: `"GHTX"`, u8 format (1), u16 protocol version, u8 clients, u32
 records; then per record u8 direction (0 game to server, 1 server to game), u8 client, u16 length and
@@ -279,4 +404,12 @@ lists are arrays of objects and `PARTY`'s `op` is its name.
 - Load states: `connecting` (nothing yet), `loading` (a `LOADING` came), `checking` (`LOADED`, waiting for
   the others), `ready`, `slow` (M3, 15 s), `gone`.
 - Welcome flags: `maintenance` (draining: only resumes are let in; M4) and `dev_match`.
-- Silence for `AWAY` counts from `START`; any message counts as a word, WebSocket pings included.
+- Silence for `AWAY` counts from `START`; any message counts as a word, WebSocket pings included
+  (but a seat started without its player comes back only with its `LOADED`).
+- The hub (M3): "back to the party" is `LEAVE_MATCH` after `MATCH_END`; "start without Ben" is the
+  leader's `PARTY start` while the party is `loading`; "in no party" is a `PARTY_STATE` with a zero
+  code; `NOTICE no_such_party`'s argument is 0, or the seconds until the connection may look a code
+  up again; `NOTICE party_full`'s is the member count, `needs_reload`'s the member's number. The
+  member state `away` is a held row ("reconnecting"); `in_match` covers the results plate.
+- `PARTY_STATE`'s `rtt_ms` is each member's last reported round trip; a change of it alone is sent
+  at most every 2 s (`links_ms`), outside a match.

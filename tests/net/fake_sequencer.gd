@@ -17,9 +17,43 @@
 ##   their own); TURN_REQUEST answered from the turn log, a window at most, at most once
 ##   per half of the game's own asking interval; the CMD bucket (ERROR 8 when empty);
 ##   match messages that were on their way when MATCH_END went out are let pass.
-## Not here (as in M1's server): parties, the queue, checkpoints, RESYNC, resume.
+## Not here (as in M1's server): the queue, checkpoints, RESYNC, resume.
+##
+## Lobby mode (`lobby = true`, M3: the hub and loading scripting, design 5.2 and 6.6):
+## HELLO only welcomes; PARTY makes the one party (code `party_code`) or joins it, sets the
+## mode, Builders and Ready, and the leader's start counts 3 s down (countdown_frames)
+## while everyone else is Ready, then forms the match from the members in joining order
+## with their mains as Builders. Loading reports each seat as the server does: connecting
+## until its first LOADING, loading with its per mille, checking once LOADED while others
+## still load, ready when all have, and slow from 15 s (slow_after) while not loaded; every
+## second (load_every) it says the seconds again. After MATCH_END the party is back,
+## forming, Ready cleared, every link kept. Members without a client (add_member) are
+## scripted: set_member(), script_load(); in a match they never speak, so they go AWAY.
+## As the server does, it closes a connection that said nothing for 15 s (silence_ms) and
+## frees its party row (the server holds it 40 s first; nothing here comes back for it).
+## From 30 s of loading the leader's PARTY start starts the seats loaded without the rest
+## (start_without_frames): those begin AWAY in turn 0, and only their LOADED brings them
+## BACK.
 @warning_ignore_start("integer_division")
 extends RefCounted
+
+
+## A scripted member's connection: nobody reads it, it never drops.
+class QuietLink:
+	extends RefCounted
+	var conn: Variant = null
+
+	func push_down(_message: PackedByteArray) -> void:
+		pass
+
+	func take_up() -> Array[PackedByteArray]:
+		return []
+
+	func is_dropped() -> bool:
+		return false
+
+	func drop(_reason: String, _code := 1008) -> void:
+		pass
 
 const FRAMES_PER_SECOND := 60
 
@@ -70,6 +104,27 @@ var seat_override := {}
 var resends := 0
 var resends_ignored := 0
 
+# Lobby mode (see the top of this file).
+var lobby := false
+var party_code := "K7Q4M"
+## {"mode": wire id, "leader": member id, "phase": a party_phases name, "countdown_at":
+## frame, "members": [conn, ...] in joining order}; {} without a party.
+var party := {}
+var countdown_frames := 180
+var slow_after := 900
+## Frames of silence after which a hub connection is closed, as the server does it.
+var silence_frames := NetProtocol.number("silence_ms") * FRAMES_PER_SECOND / 1000
+## The members whose connection was closed for silence, by name, for assertions.
+var silenced: Array = []
+## Frames of loading after which the leader may start without the slow seats (§6.6).
+var start_without_frames := 30 * FRAMES_PER_SECOND
+## The leader started without the seats still loading.
+var started_without := false
+var load_every := 60
+## Every PARTY op received, as [member, op name], for assertions.
+var party_log: Array = []
+var _next_load_state := 0
+
 var _pending: Array = []
 var _system: Array = []
 var _system_seq := 0
@@ -110,6 +165,19 @@ func accept(link: Variant) -> void:
 		"tokens": cmd_burst * FRAMES_PER_SECOND,
 		"filled": world.frame,
 		"resent": -1,
+		# (lobby mode: the party member it is, its row 0 to 3 as the server numbers them,
+		# -1 outside the party; its Builders, Ready, a scripted member's load and whether it
+		# runs another version)
+		"member": -1,
+		"main": 0,
+		"backup": 1,
+		"ready": false,
+		# (after a party's match: false while its game shows the results plate)
+		"back": true,
+		"virtual": false,
+		"reload": false,
+		"per_mille": 0,
+		"virtual_loaded": false,
 	}
 	link.conn = conn
 	conns.append(conn)
@@ -131,7 +199,14 @@ func step() -> void:
 			continue
 		for bytes: PackedByteArray in link.take_up():
 			_receive(conn, bytes)
+	if lobby:
+		_close_silent()
+	if lobby and not party.is_empty() and party["phase"] == "countdown" and world.frame >= int(party["countdown_at"]):
+		_begin_party()
 	if phase == "loading":
+		if lobby and world.frame >= _next_load_state:
+			_next_load_state = world.frame + load_every
+			_broadcast_load_state()
 		_check_start()
 	if phase != "playing":
 		return
@@ -163,6 +238,7 @@ func _receive(conn: Dictionary, bytes: PackedByteArray) -> void:
 		return
 	var fields: Dictionary = message["fields"]
 	var type: String = message["type"]
+	conn["heard"] = world.frame
 	if conn["seat"] >= 0:
 		_heard(conn)
 	match type:
@@ -172,10 +248,21 @@ func _receive(conn: Dictionary, bytes: PackedByteArray) -> void:
 			conn["rtt"] = int(fields["rtt_ms"])
 			_send(conn, "PONG", {"client_ms": fields["client_ms"], "turn": turn if origin >= 0 else 0})
 		"LOADING":
-			pass
+			conn["per_mille"] = int(fields["per_mille"])
+			if lobby and phase == "loading":
+				_broadcast_load_state()
 		"LOADED":
 			conn["loaded"] = [fields["rules_hash"], fields["tick0_hash"]]
+			if conn.get("late", false) and phase == "playing":
+				conn["late"] = false  # (started without it: its LOADED brings it back)
+				conn["state"] = "present"
+				_inject("BACK", conn["seat"])
 			_broadcast_load_state()
+		"PARTY":
+			if lobby:
+				_party_op(conn, fields)
+			else:
+				_refuse(conn, 1, "Unknown or out-of-order message")
 		"CMD":
 			_command(conn, fields)
 		"HASH":
@@ -192,7 +279,10 @@ func _receive(conn: Dictionary, bytes: PackedByteArray) -> void:
 			if phase != "ended":
 				_resend(conn, int(fields["first_missing"]))
 		"LEAVE_MATCH":
-			_leave(conn)
+			if lobby and phase == "ended":
+				_back(conn)  # (Play again or Hub from the results plate)
+			else:
+				_leave(conn)
 		"BYE":
 			conn["link"].drop("Goodbye", 1000)
 			if conn["seat"] >= 0 and phase != "ended":
@@ -217,11 +307,13 @@ func _hello(conn: Dictionary, fields: Dictionary) -> void:
 			"turn_ms": NetProtocol.number("turn_ms"),
 			"turn_ticks": NetProtocol.number("turn_ticks"),
 			"hash_every": NetProtocol.number("hash_every"),
-			"flags": 2,
+			"flags": 0 if lobby else 2,
 			"server_name": "Loopback",
 			"motd": "",
 		}
 	)
+	if lobby:
+		return  # (parties form matches)
 	var waiting := conns.filter(func(c: Dictionary) -> bool: return c["hello"] and c["seat"] < 0)
 	if phase == "waiting" and waiting.size() >= seats:
 		_begin(waiting.slice(0, seats))
@@ -230,12 +322,14 @@ func _hello(conn: Dictionary, fields: Dictionary) -> void:
 func _begin(players: Array) -> void:
 	phase = "loading"
 	configured_at = world.frame
+	started_without = false
 	var listed := []
 	for i in players.size():
 		var conn: Dictionary = players[i]
 		conn["seat"] = i
 		conn["heard"] = world.frame
-		var entry := {"seat": i, "team": 0, "builder": 0, "flags": 0, "name": conn["name"]}
+		var builder: int = conn["main"] if lobby else 0
+		var entry := {"seat": i, "team": 0, "builder": builder, "flags": 0, "name": conn["name"]}
 		entry.merge(seat_override, true)
 		listed.append(entry)
 	for conn: Dictionary in players:
@@ -244,10 +338,10 @@ func _begin(players: Array) -> void:
 			"MATCH_CONFIG",
 			{
 				"match": 1,
-				"mode": int(NetProtocol.spec()["modes"][mode]["id"]),
+				"mode": int(party["mode"]) if lobby else int(NetProtocol.spec()["modes"][mode]["id"]),
 				"map": 0,
 				"seed": match_seed,
-				"rules_hash": players[0]["rules_hash"],
+				"rules_hash": _rules_of(players),
 				"your_seat": conn["seat"],
 				"seats": listed,
 			}
@@ -257,12 +351,13 @@ func _begin(players: Array) -> void:
 
 func _check_start() -> void:
 	var players := _seated()
-	if players.any(func(c: Dictionary) -> bool: return (c["loaded"] as Array).is_empty()):
+	var ready := players.filter(func(c: Dictionary) -> bool: return not _loaded_of(c).is_empty())
+	if ready.is_empty() or (ready.size() < players.size() and not started_without):
 		return
-	var first: Array = players[0]["loaded"]
-	for conn: Dictionary in players:
-		var loaded: Array = conn["loaded"]
-		if loaded[0] != players[0]["rules_hash"]:
+	var first: Array = _loaded_of(ready[0])
+	for conn: Dictionary in ready:
+		var loaded: Array = _loaded_of(conn)
+		if loaded[0] != _rules_of(players):
 			_end("aborted", "rules_mismatch", 0)
 			return
 		if loaded[1] != first[1]:
@@ -278,6 +373,11 @@ func _check_start() -> void:
 	for conn: Dictionary in players:
 		conn["heard"] = world.frame
 		conn["hashed"] = origin
+		if not ready.has(conn):
+			# (started without it: AWAY in turn 0, the caretaker plays it)
+			conn["late"] = true
+			conn["state"] = "away"
+			_inject("AWAY", conn["seat"])
 	_broadcast("START", {"ms_until_turn0": start_delay * 1000 / FRAMES_PER_SECOND})
 
 
@@ -509,7 +609,7 @@ func _inject(name: String, seat: int) -> void:
 
 func _heard(conn: Dictionary) -> void:
 	conn["heard"] = world.frame
-	if conn["state"] == "away" and phase == "playing":
+	if conn["state"] == "away" and phase == "playing" and not conn.get("late", false):
 		conn["state"] = "present"
 		_inject("BACK", conn["seat"])
 
@@ -539,6 +639,305 @@ func _end(result: String, reason: String, tick: int) -> void:
 			"final_tick": tick,
 		}
 	)
+	if lobby and not party.is_empty():
+		# (the results, as the server keeps them: each member's game stays on its results
+		# plate, in_match, until its LEAVE_MATCH (or a PARTY ready or builders) brings it
+		# back, Ready cleared; scripted members come back at once; when all are back the
+		# party is forming again, its links kept)
+		party["phase"] = "results"
+		for conn: Dictionary in party["members"]:
+			conn["ready"] = false
+			conn["back"] = conn["virtual"]
+		_all_back()
+		_broadcast_party()
+
+
+## A member's game left the results plate: back in the party, Ready cleared.
+func _back(conn: Dictionary) -> void:
+	if party.is_empty() or party["phase"] != "results" or conn["back"] or not (party["members"] as Array).has(conn):
+		return
+	conn["back"] = true
+	conn["ready"] = false
+	_all_back()
+	_broadcast_party()
+
+
+func _all_back() -> void:
+	if (party["members"] as Array).all(func(c: Dictionary) -> bool: return c["back"]):
+		party["phase"] = "forming"
+
+
+## Ends the match now with `result` (a test's way to the results).
+func finish(result := "won") -> void:
+	_end(result, "result", turn * 3)
+
+
+# ── The lobby (lobby mode) ──
+
+
+## A member without a client, named `who`, with `main` as its Builder: it hosts the party
+## when there is none, otherwise joins it. Returns its connection record.
+func add_member(who: String, main := "lamplighter") -> Dictionary:
+	var link := QuietLink.new()
+	accept(link)
+	var conn: Dictionary = link.conn
+	conn["virtual"] = true
+	conn["hello"] = true
+	conn["name"] = who
+	conn["main"] = NetProtocol.enum_value("builders", main)
+	if party.is_empty():
+		_create_party(conn, int(NetProtocol.spec()["modes"][mode]["id"]))
+	else:
+		conn["member"] = _free_row()
+		(party["members"] as Array).append(conn)
+	_broadcast_party()
+	return conn
+
+
+## Sets a member's "ready", "reload" (another rules version) or "main" (a Builder id).
+func set_member(who: String, key: String, value: Variant) -> void:
+	var conn := member_conn(who)
+	if conn.is_empty():
+		return
+	if key == "main":
+		conn["main"] = NetProtocol.enum_value("builders", str(value))
+	else:
+		conn[key] = value
+	_broadcast_party()
+
+
+## A scripted member's loading: its per mille, and whether it has loaded (with the same
+## hashes as the first member with a client).
+func script_load(who: String, per_mille: int, loaded := false) -> void:
+	var conn := member_conn(who)
+	if conn.is_empty():
+		return
+	conn["per_mille"] = per_mille
+	conn["virtual_loaded"] = loaded
+	if phase == "loading":
+		_broadcast_load_state()
+
+
+func member_conn(who: String) -> Dictionary:
+	for conn: Dictionary in conns:
+		if conn["name"] == who:
+			return conn
+	return {}
+
+
+func _party_op(conn: Dictionary, fields: Dictionary) -> void:
+	var op := str(fields["op"])  # (the codec gives a switch case by its name)
+	party_log.append([conn["member"], op])
+	var members: Array = party.get("members", [])
+	var leads := members.has(conn) and int(party["leader"]) == int(conn["member"])
+	match op:
+		"create":
+			_drop_member(conn)
+			_create_party(conn, int(fields["mode"]))
+		"join":
+			var code := (fields["code"] as PackedByteArray).get_string_from_ascii()
+			if party.is_empty() or code != party_code:
+				_notice(conn, "no_such_party")
+				return
+			if members.has(conn):
+				return
+			if members.size() >= NetProtocol.number("max_seats"):
+				_notice(conn, "party_full")
+				return
+			_drop_member(conn)
+			conn["member"] = _free_row()
+			members.append(conn)
+			conn["ready"] = false
+		"leave":
+			_drop_member(conn)
+			_send_no_party(conn)
+		"mode":
+			if not leads or party["phase"] != "forming":
+				return
+			party["mode"] = int(fields["mode"])
+			for m: Dictionary in members:
+				m["ready"] = false
+		"builders":
+			conn["main"] = int(fields["main"])
+			conn["backup"] = int(fields["backup"])
+			conn["ready"] = false
+			_back(conn)
+		"ready":
+			_back(conn)
+			conn["ready"] = int(fields["on"]) == 1
+		"start":
+			if phase == "loading":
+				var waited: bool = world.frame - configured_at >= start_without_frames
+				if leads and waited and _seated().any(func(c: Dictionary) -> bool: return not _loaded_of(c).is_empty()):
+					started_without = true
+				return
+			var others_ready := members.all(
+				func(m: Dictionary) -> bool: return m == conn or (m["ready"] and not m["reload"])
+			)
+			if not leads or party["phase"] != "forming" or not others_ready or conn["reload"]:
+				return
+			party["phase"] = "countdown"
+			party["countdown_at"] = world.frame + countdown_frames
+		"cancel":
+			if party.get("phase", "") == "countdown" and members.has(conn):
+				party["phase"] = "forming"
+		_:
+			return
+	_broadcast_party()
+
+
+## The server's silence rule (shared/net/README.md, the handshake's step 4): a game that
+## sent nothing, not even PING, for 15 s is closed, and its party row goes.
+func _close_silent() -> void:
+	for conn: Dictionary in conns:
+		if conn["virtual"] or not conn["hello"] or conn["link"].is_dropped():
+			continue
+		if world.frame - int(conn["heard"]) < silence_frames:
+			continue
+		silenced.append(conn["name"])
+		conn["link"].drop("Silent too long", 1001)
+		if conn["seat"] >= 0 and phase == "playing":
+			_leave(conn)
+		_drop_member(conn)
+		_broadcast_party()
+
+
+func _create_party(conn: Dictionary, wire_mode: int) -> void:
+	conn["member"] = 0
+	party = {"mode": wire_mode, "leader": conn["member"], "phase": "forming", "countdown_at": 0, "members": [conn]}
+	conn["ready"] = false
+
+
+## The lowest row (0 to 3) no member of the party holds: a newcomer's, as on the server.
+func _free_row() -> int:
+	var taken := []
+	for m: Dictionary in party.get("members", []):
+		taken.append(int(m["member"]))
+	var row := 0
+	while taken.has(row):
+		row += 1
+	return row
+
+
+func _drop_member(conn: Dictionary) -> void:
+	if party.is_empty() or not (party["members"] as Array).has(conn):
+		return
+	(party["members"] as Array).erase(conn)
+	if (party["members"] as Array).is_empty():
+		party = {}
+		return
+	if int(party["leader"]) == int(conn["member"]):
+		party["leader"] = party["members"][0]["member"]
+
+
+func _begin_party() -> void:
+	party["phase"] = "loading"
+	turns = []
+	turn = 0
+	origin = -1
+	hashes = {}
+	agreed = {}
+	disagreements = []
+	compared = 0
+	outcome = ""
+	end_reason = ""
+	final_tick = 0
+	system_log = []
+	_pending = []
+	_system = []
+	for conn: Dictionary in conns:
+		conn["seat"] = -1
+	for conn: Dictionary in party["members"]:
+		conn["loaded"] = []
+		conn["virtual_loaded"] = false
+		if not conn["virtual"]:
+			conn["per_mille"] = 0
+		conn["hash_tick"] = -1
+		conn["hashed"] = 0
+		conn["result"] = []
+		conn["last_seq"] = -1
+		conn["state"] = "present"
+		conn["resent"] = -1
+	_next_load_state = world.frame + load_every
+	_broadcast_party()
+	_begin(party["members"])
+
+
+func _broadcast_party() -> void:
+	if party.is_empty():
+		return
+	var listed := []
+	for conn: Dictionary in party["members"]:
+		var state := "here"
+		if conn["reload"]:
+			state = "needs_reload"
+		elif party["phase"] in ["loading", "in_match"] or not conn["back"]:
+			state = "in_match"
+		elif conn["ready"]:
+			state = "ready"
+		var hash_bytes: PackedByteArray = conn["rules_hash"]
+		if hash_bytes.size() != 8:
+			hash_bytes = PackedByteArray([0, 0, 0, 0, 0, 0, 0, 0])
+		listed.append(
+			{
+				"member": conn["member"],
+				"team": 0,
+				"main": conn["main"],
+				"backup": conn["backup"],
+				"state": NetProtocol.enum_value("member_states", state),
+				"rtt_ms": int(conn["rtt"]),
+				"build_seq": 0,
+				"rules_hash": hash_bytes,
+				"name": conn["name"],
+			}
+		)
+	var left := maxi(0, int(party["countdown_at"]) - world.frame) * 1000 / FRAMES_PER_SECOND
+	var fields := {
+		"code": party_code.to_ascii_buffer(),
+		"mode": party["mode"],
+		"flags": 0,
+		"leader": party["leader"],
+		"phase": NetProtocol.enum_value("party_phases", party["phase"]),
+		"countdown_ms": left if party["phase"] == "countdown" else 0,
+		"members": listed,
+	}
+	for conn: Dictionary in party["members"]:
+		fields["you"] = conn["member"]  # (each member told its own row, as the server does)
+		_send_bytes(conn, NetProtocol.encode("PARTY_STATE", fields))
+
+
+## The no-party state the server sends after a leave: five zero bytes, leader 255, nobody.
+func _send_no_party(conn: Dictionary) -> void:
+	conn["member"] = -1
+	var fields := {
+		"code": PackedByteArray([0, 0, 0, 0, 0]), "mode": 0, "flags": 0, "leader": 255, "you": 255,
+		"phase": 0, "countdown_ms": 0, "members": [],
+	}
+	_send_bytes(conn, NetProtocol.encode("PARTY_STATE", fields))
+
+
+func _notice(conn: Dictionary, key: String) -> void:
+	_send(conn, "NOTICE", {"code": NetProtocol.enum_value("notices", key), "argument": 0})
+
+
+## What a seat has LOADED: its own, or for a scripted member that has, the first client's.
+func _loaded_of(conn: Dictionary) -> Array:
+	if not conn["virtual"]:
+		return conn["loaded"]
+	if not conn["virtual_loaded"]:
+		return []
+	for c: Dictionary in _seated():
+		if not c["virtual"]:
+			return c["loaded"]
+	return []
+
+
+## The rules hash a match is made with: its first member with a client's.
+func _rules_of(players: Array) -> PackedByteArray:
+	for c: Dictionary in players:
+		if not c["virtual"]:
+			return c["rules_hash"]
+	return players[0]["rules_hash"]
 
 
 func _refuse(conn: Dictionary, code: int, text: String) -> void:
@@ -561,9 +960,24 @@ func _present() -> Array:
 
 func _broadcast_load_state() -> void:
 	var listed := []
-	for conn: Dictionary in _seated():
-		var loaded := not (conn["loaded"] as Array).is_empty()
-		listed.append({"seat": conn["seat"], "per_mille": 1000 if loaded else 0, "state": 2 if loaded else 1})
+	var players := _seated()
+	var everyone := players.all(func(c: Dictionary) -> bool: return not _loaded_of(c).is_empty())
+	var slow: bool = world.frame - configured_at >= slow_after
+	for conn: Dictionary in players:
+		var loaded := not _loaded_of(conn).is_empty()
+		if not lobby:
+			listed.append({"seat": conn["seat"], "per_mille": 1000 if loaded else 0, "state": 2 if loaded else 1})
+			continue
+		var state := "connecting"
+		var per_mille := int(conn["per_mille"])
+		if loaded:
+			state = "ready" if everyone else "checking"
+			per_mille = 1000
+		elif slow:
+			state = "slow"
+		elif per_mille > 0:
+			state = "loading"
+		listed.append({"seat": conn["seat"], "per_mille": per_mille, "state": NetProtocol.enum_value("load_states", state)})
 	_broadcast("LOAD_STATE", {"seats": listed, "seconds": (world.frame - configured_at) / FRAMES_PER_SECOND})
 
 

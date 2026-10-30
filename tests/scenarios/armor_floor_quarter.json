@@ -1,0 +1,27 @@
+{
+  "name": "armor_floor_quarter",
+  "description": "Armour never takes more than three quarters of a hit (design 3.2: dealt = max(raw - armour, raw / 4)): the Frost Spire's 4 damage does 1 to the Bristlesow (armour 6) and 1 to a Thornback (armour 4), and an 8-damage arrow does 2 to the Bristlesow, where armour would have left nothing or less than a quarter.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.debug(1, 1, 1000)"},
+    {"eval": "[scene.cmd(1, 'BUILD', 2, 5, 3), scene.cmd(1, 'BUILD', 0, 5, 1)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "scene.spawn('bristlesow', 3000000)", "as": "boar"},
+    {"eval": "scene.hold(boar)"},
+    {"eval": "scene.run_ticks(150)"},
+    {"assert": "scene.creep(boar) != null and scene.creep(boar).armor_c == 600", "msg": "the Bristlesow, armour 6, stands in reach of both towers"},
+    {"eval": "scene.hit_values('frost', 'bristlesow')", "as": "frost_on_boar"},
+    {"eval": "scene.hit_values('arrow', 'bristlesow')", "as": "arrow_on_boar"},
+    {"assert": "frost_on_boar == [[100, 400, 300]]", "msg": "4 against armour 6 still does a quarter: 1"},
+    {"assert": "arrow_on_boar == [[200, 800, 600]]", "msg": "8 against armour 6 does 2, which is also its quarter"},
+    {"eval": "scene.debug(5, boar, 45000000)"},
+    {"eval": "scene.spawn('thornback', 3000000)", "as": "thornback"},
+    {"eval": "scene.hold(thornback)"},
+    {"eval": "scene.run_ticks(150)"},
+    {"assert": "scene.hit_values('frost', 'thornback') == [[100, 400, 300]]", "msg": "4 against armour 4 would be nothing; the floor leaves 1"},
+    {"assert": "scene.hit_values('arrow', 'thornback') == [[400, 800, 400]]", "msg": "where armour leaves more than a quarter, it is plain subtraction"}
+  ]
+}

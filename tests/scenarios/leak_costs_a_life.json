@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "leak_costs_a_life",
   "seed": 1,
   "ticks_per_frame": 8,

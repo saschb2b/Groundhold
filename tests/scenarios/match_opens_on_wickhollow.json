@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "match_opens_on_wickhollow",
   "description": "A match opens with the map's name, Wickhollow, not the game's; with nothing selected the info names the road's end the Holdfast. A networked window walks out while it loads, says the tide turns as the server starts the match, and announces it at Wickhollow.",
   "seed": 1,

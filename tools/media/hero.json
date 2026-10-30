@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "hero",
   "seed": 4,
   "ticks_per_frame": 2,

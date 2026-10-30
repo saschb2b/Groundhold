@@ -3,6 +3,8 @@
 Build:
     godot-agent asset blender . art_src/blender/thornback.py --to res://models/creeps/thornback.glb \
         --seed 1 --review --no-import
+    godot-agent asset blender . art_src/blender/thornback.py --to res://models/creeps/bristlesow.glb \
+        --seed 1 --param tint=0.66 --param game_scale=2.7 --review --no-import    # the Bristlesow
 
 A heavy, dark, smooth-shaded boar body lofted from cross-sections, kept well below the dirt path's
 value so the creep reads against it; a dark shaggy mantle whose side fringe hangs as locks over the
@@ -23,6 +25,8 @@ The walk matches a ground speed of STRIDE (printed at the end, in game units at 
 scale); Game.CREEPS["thornback"]["stride"] should be set to it so the hooves do not slide.
 
 Params:
+    tint          darken the hide, legs and quill shafts by this factor (the Bristlesow: 0.66)
+    game_scale    the scale the game draws the model at, for the printed stride (1.35; the Bristlesow 2.7)
     pose_frame    bake the walk at this frame into the mesh (preview only; no rig in the output)
     per_row       quills per chevron row (default 12)
     quill_smooth  0 (default) flat-shaded quills with crisp lit and shaded facets, 1 smooth-shaded
@@ -67,6 +71,16 @@ TARGET_HEIGHT_BODY = 0.445
 EYE_EMISSION = (1.0, 0.022, 0.009)     # linear; sRGB about #ff2911, a deeper eye_red for the glow only
 EYE_GLOW = 2.2
 POSE_FRAME = gab.param("pose_frame", -1)
+# The Bristlesow, Wickhollow's half-flood Crest, is this same mesh with its hide, legs and quill shafts
+# darkened (the bone tips, tusks and eyes keep their colour) and drawn at twice the Thornback's scale
+# (design 2.4): --param tint=0.66 --param game_scale=2.7. The defaults build the Thornback.
+TINT = gab.param("tint", 1.0)
+GAME_SCALE = gab.param("game_scale", 1.35)
+if TINT != 1.0:
+    def _darken(h: str) -> str:
+        return "#" + "".join(f"{round(int(h[i:i + 2], 16) * TINT):02x}" for i in (1, 3, 5))
+
+    HIDE, HIDE_DARK, LEG, WOOD, WOOD_DARK, BARK = (_darken(c) for c in (HIDE, HIDE_DARK, LEG, WOOD, WOOD_DARK, BARK))
 PER_ROW = gab.param("per_row", 12)
 QUILL_SMOOTH = bool(gab.param("quill_smooth", 0))
 
@@ -1124,10 +1138,10 @@ for f in range(FRAMES):
             jy = 1.5 * math.sin(2 * math.pi * (2 * p + ph[1]))
             key(f"q_{seg}{side}", f, (2.5 * lp + flare + jx, 2.5 * lr + sgn * flare * 0.5 + jy, 0))
 
-# The ground speed the cycle matches, in game units (the game scales the model by 1.35):
+# The ground speed the cycle matches, in game units (the game scales the model by GAME_SCALE, 1.35):
 # Game.CREEPS["thornback"]["stride"] should be this for the hooves not to slide.
 _reach = sum(LEGS[n][0].z for n in LEGS) / 4 * S
-STRIDE = 2 * _reach * math.sin(math.radians(SWING)) / (STANCE * FRAMES / FPS) * 1.35
+STRIDE = 2 * _reach * math.sin(math.radians(SWING)) / (STANCE * FRAMES / FPS) * GAME_SCALE
 
 gab.animate(arm, "walk", FRAMES, keys)
 

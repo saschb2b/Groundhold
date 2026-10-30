@@ -12,6 +12,13 @@
 ## alone for headless clients (tests/net/loopback_match.gd). The link is a NetLink, or a
 ## FakeLink in tests; the clock is milliseconds of any monotonic clock, so tests can
 ## count frames instead.
+##
+## The session (scripts/session/session.gd) keeps one MatchClient as its connection to a
+## server for as long as it stays: `keep_link` holds the link open after MATCH_END and
+## lets the next MATCH_CONFIG start a new match (rearm), `defer_loaded` waits for the host
+## to build the hollow before LOADED (loaded()), and the hub's messages (PARTY_STATE,
+## QUEUE_STATE, MATCH_FOUND, NOTICE) go out on `hub_message`. Without them (--join, the
+## loopback tests) it plays one match exactly as in M1.
 @warning_ignore_start("integer_division")
 class_name MatchClient
 extends RefCounted
@@ -26,6 +33,10 @@ signal ended(outcome: String, reason: String)
 signal failed(text: String)
 ## LINKS or LOAD_STATE changed what the party strip shows.
 signal party_changed
+## WELCOME arrived: the server knows us.
+signal welcomed
+## A hub message for the session: PARTY_STATE, QUEUE_STATE, MATCH_FOUND or NOTICE.
+signal hub_message(type: String, fields: Dictionary)
 
 enum Phase { IDLE, CONNECTING, HELLO, WAITING, LOADING, STARTING, PLAYING, ENDED, FAILED }
 
@@ -48,7 +59,7 @@ const ERROR_TEXT := {
 }
 
 var link: NetLink
-var source := RemoteSequencer.new()
+var source: RemoteSequencer
 var playout := Playout.new()
 var sim: SimMatch
 var phase := Phase.IDLE
@@ -61,8 +72,11 @@ var timed := true
 var player_name := "Player"
 var token := PackedByteArray()
 var build_seq := 0
-var hello_mode := "classic"
 var web := false
+## The session's connection: the link outlives a match (see the top of this file).
+var keep_link := false
+## LOADED waits for loaded(), sent once the host has built the hollow.
+var defer_loaded := false
 
 # What the server said.
 var session := 0
@@ -82,8 +96,9 @@ var seat_list := []
 var names: Array[String] = []
 var rtts: Array[int] = []
 var link_flags: Array[int] = []
-## LOAD_STATE: [per mille, state] by seat - 1.
+## LOAD_STATE: [per mille, state] by seat - 1, and the seconds since MATCH_CONFIG it gave.
 var load_states: Array = []
+var load_seconds := 0
 ## My own round trip to the server (ms) and the server's open turn as PONG said it.
 var rtt_ms := 0
 var server_turn := 0
@@ -101,6 +116,8 @@ var sent_hashes := {}
 var refusals: Array = []
 ## Frames left during which this client neither reads its link nor steps (a test's stall).
 var stalled_frames := 0
+## Whether LOADED went out for this match.
+var loaded_sent := false
 
 var _ping_every := 2000
 var _last_ping_at := -1
@@ -114,10 +131,59 @@ var _frozen := false
 
 
 func _init() -> void:
+	_new_source()
+
+
+func _new_source() -> void:
+	source = RemoteSequencer.new()
 	source.send = _send_command
 	source.open = false
 	source.closed_note = NOT_STARTED
 	source.clock = _now
+
+
+## After a match on a kept link: back to waiting for the next MATCH_CONFIG, with a fresh
+## turn source and nothing of the last match (the session calls it on the way to the hub).
+func rearm() -> void:
+	if phase != Phase.ENDED or link == null or not link.is_open():
+		return
+	_new_source()
+	sim = null
+	config = {}
+	match_id = 0
+	mode = ""
+	seat = 0
+	seat_list = []
+	names = []
+	rtts = []
+	link_flags = []
+	load_states = []
+	load_seconds = 0
+	outcome = ""
+	end_reason = ""
+	final_tick = -1
+	result_sent = false
+	hashes_sent = 0
+	sent_hashes = {}
+	refusals = []
+	loaded_sent = false
+	_gap_asked = -1
+	phase = Phase.WAITING
+
+
+## The hollow is built (defer_loaded): LOADING at 1000 and LOADED with the rules hash and
+## the simulation's tick-0 hash, once per match.
+func loaded() -> void:
+	if phase != Phase.LOADING or sim == null or loaded_sent:
+		return
+	loaded_sent = true
+	_send("LOADING", {"per_mille": 1000})
+	_send("LOADED", {"rules_hash": SimContent.rules_hash(), "tick0_hash": sim.state_hash()})
+
+
+## Sends a hub message (PARTY, QUEUE, ACCEPT, LEAVE_MATCH) on the open link.
+func send(type: String, fields := {}) -> void:
+	_send(type, fields)
 
 
 ## Joins the server at a typed address (see NetAddress) or a ws:// URL.
@@ -286,6 +352,9 @@ func _handle(bytes: PackedByteArray, now: int) -> void:
 			_fail(str(ERROR_TEXT.get(key, error_text)))
 		"NOTICE":
 			notices.append([int(fields["code"]), int(fields["argument"])])
+			hub_message.emit("NOTICE", fields)
+		"PARTY_STATE", "QUEUE_STATE", "MATCH_FOUND":
+			hub_message.emit(str(message["type"]), fields)
 		"PONG":
 			_on_pong(fields, now)
 		"MATCH_CONFIG":
@@ -294,6 +363,7 @@ func _handle(bytes: PackedByteArray, now: int) -> void:
 			load_states = []
 			for entry: Dictionary in fields["seats"]:
 				load_states.append([int(entry["per_mille"]), int(entry["state"])])
+			load_seconds = int(fields["seconds"])
 			party_changed.emit()
 		"START":
 			if phase == Phase.LOADING:
@@ -339,6 +409,7 @@ func _on_welcome(fields: Dictionary) -> void:
 		_fail("This server keeps other turns than the game")
 		return
 	phase = Phase.WAITING
+	welcomed.emit()
 
 
 func _on_pong(fields: Dictionary, now: int) -> void:
@@ -353,6 +424,8 @@ func _on_pong(fields: Dictionary, now: int) -> void:
 
 
 func _on_config(fields: Dictionary) -> void:
+	if phase == Phase.ENDED and keep_link:
+		rearm()  # (the next match on the session's link, before the hub called rearm)
 	if phase != Phase.WAITING:
 		return
 	config = fields
@@ -362,7 +435,7 @@ func _on_config(fields: Dictionary) -> void:
 	if not SimContent.RULES.has(mode):
 		_fail("This game cannot play the server's mode (%d)" % int(fields["mode"]))
 		return
-	var mine := SimContent.rules_hash(mode)
+	var mine := SimContent.rules_hash()
 	if mine != (fields["rules_hash"] as PackedByteArray):
 		_fail("The server's rules differ from this game's: update the game")
 		return
@@ -395,9 +468,9 @@ func _on_config(fields: Dictionary) -> void:
 		if int(entry["flags"]) & ~known_flags:
 			_fail("MATCH_CONFIG gives a seat flags this game does not know")
 			return
-		var builder := NetProtocol.enum_name("builders", int(entry["builder"]))
-		if not SimContent.BUILDERS.has(builder):
-			builder = "lamplighter"  # (M1 has one Builder; M2 brings the rest)
+		# (a Builder whose views this build lacks is fielded as a Lamplighter, the same on
+		# every client: Profile.fielded)
+		var builder := Profile.fielded(NetProtocol.enum_name("builders", int(entry["builder"])))
 		seat_list.append(
 			{
 				"team": int(entry["team"]),
@@ -412,10 +485,11 @@ func _on_config(fields: Dictionary) -> void:
 	source.seat = seat
 	sim = SimMatch.new(SimContent.rules(mode), seat_list, match_seed)
 	phase = Phase.LOADING
+	loaded_sent = false
 	configured.emit()
-	# The hollow is already built at boot: loading is done once the simulation stands.
-	_send("LOADING", {"per_mille": 1000})
-	_send("LOADED", {"rules_hash": mine, "tick0_hash": sim.state_hash()})
+	if not defer_loaded:
+		# The hollow is already built at boot: loading is done once the simulation stands.
+		loaded()
 	party_changed.emit()
 
 
@@ -426,7 +500,8 @@ func _on_end(fields: Dictionary) -> void:
 	phase = Phase.ENDED
 	source.open = false
 	source.closed_note = OVER
-	close()
+	if not keep_link:
+		close()
 	ended.emit(outcome, end_reason)
 
 
@@ -476,7 +551,7 @@ func _say_hello() -> void:
 		{
 			"version": NetProtocol.number("version"),
 			"build_seq": build_seq,
-			"rules_hash": SimContent.rules_hash(hello_mode),
+			"rules_hash": SimContent.rules_hash(),
 			"token": token,
 			"flags": flags,
 			"name": player_name,

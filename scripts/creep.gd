@@ -1,5 +1,12 @@
 ## A creep's view: the model walking the road where the simulation says, its walk cycle
-## at its walking speed, a health bar, frost's tint, and the hit, death and leak effects.
+## at its walking speed, a health bar, the effects on it, and the hit, death and leak
+## effects. A winged creep (the Duskmoth) hovers over the road at its "hover" height,
+## bobbing, and its "walk" is its flap: it beats on, slower but never still, when slowed
+## or stunned. Its glow is its model's emission; the view adds no light.
+##
+## Effects show while the simulation holds them: a slow tints the creep frost blue, a
+## stun circles stars over its head, a mark floats the Owl's Eye's gold rune over it
+## (Fx.mark_rune) and rings once when it takes hold.
 ##
 ## It reads its SimCreep record after every step and decides nothing. Between steps it
 ## is drawn between the last two ticks' positions. Keyed by the record's id.
@@ -7,6 +14,16 @@ class_name Creep
 extends Node3D
 
 const BAR_WIDTH := 0.5
+const BAR_SHADER := preload("res://shaders/health_bar.gdshader")
+## A flier's slowest flap, as a share of its authored cycle: slowed or stunned, it still
+## beats its wings to stay up.
+const MIN_FLAP := 0.6
+## How far a flier bobs about its hover height, and how fast (radians per second).
+const BOB := 0.06
+const BOB_RATE := 2.4
+## The mark rune's height over the head, and its turn (radians per second).
+const RUNE_LIFT := 0.36
+const RUNE_TURN := 1.1
 
 var rec: SimRecords.SimCreep
 var id := 0
@@ -36,26 +53,50 @@ var distance: float:
 var slow_factor: float:
 	get:
 		return 1.0 - _slow_pm() / 1000.0
+## Metres per second it moves this tick: 0 while stunned.
+var pace: float:
+	get:
+		return 0.0 if stunned else speed * slow_factor
 var bounty: int:
 	get:
 		return rec.bounty
 var lives_cost: int:
 	get:
 		return rec.toll
+## Flat armour per hit, in the HUD's units.
+var armor: float:
+	get:
+		return rec.armor_c / 100.0
+var winged: bool:
+	get:
+		return rec.winged
+var stunned: bool:
+	get:
+		return Game.sim != null and rec.stun_until > Game.sim.tick
+## The extra share of every hit it takes while marked (0.2 for +20%), else 0.
+var mark: float:
+	get:
+		var on := Game.sim != null and rec.mark_until > Game.sim.tick
+		return rec.mark_pm / 1000.0 if on else 0.0
+## How high it flies over the road (0 on the ground).
+var hover := 0.0
 
 var _points := PackedVector3Array()
 var _lengths := PackedFloat32Array()
 var _total := 0.0
 var _body: Node3D
 var _bar_root: Node3D
-var _bar_fill: MeshInstance3D
-var _bar_material: StandardMaterial3D
+var _bar: MeshInstance3D
+var _bar_material: ShaderMaterial
+var _rune: MeshInstance3D
+var _halo: Node3D
 var _flash := 0.0
 var _clock := 0.0
 var _height := 0.4
 var _model_scale := 1.0
 var _shown_hp := -1
 var _slowed := false
+var _marked := false
 ## Road distance (metres) at the previous and the latest tick, drawn between.
 var _from := 0.0
 var _to := 0.0
@@ -80,16 +121,26 @@ func setup(record: SimRecords.SimCreep, points: PackedVector3Array) -> void:
 	_model_scale = float(data.get("scale", 1.0))
 	_body.scale = Vector3.ONE * _model_scale
 	add_child(_body)
+	hover = float(data.get("hover", 0.0)) if rec.winged else 0.0
+	_body.position.y = hover
 	_start_walk()
-	BlobShadow.under(self, 0.24 * _model_scale)
+	# (a flier's shadow lies smaller on the road below it)
+	BlobShadow.under(self, 0.24 * _model_scale * (0.75 if hover > 0.0 else 1.0))
 	_height = _model_height(_body) * _model_scale
 	_build_bar()
+	_rune = Fx.mark_rune()
+	_rune.position.y = hover + _height + RUNE_LIFT
+	add_child(_rune)
+	_halo = Fx.stun_halo()
+	_halo.position.y = hover + _height + 0.12
+	add_child(_halo)
 	_from = distance
 	_to = _from
 	_place(_to, true)
 
 
-## After the simulation stepped `ticks` ticks: where it is now, how it walks, its bar.
+## After the simulation stepped `ticks` ticks: where it is now, how it walks or flies,
+## its bar and the effects on it.
 func sync(ticks: int) -> void:
 	if dead:
 		return
@@ -103,21 +154,42 @@ func sync(ticks: int) -> void:
 		_tint(Color(0.6, 0.85, 1.0) if slowed else Color.WHITE)
 	if rec.hp_c != _shown_hp:
 		_update_bar()
-	var pace := speed * slow_factor
+	_show_effects()
+	var now := pace
 	if _anim:
 		# Feet keep pace with the ground: frost slows the cycle with the creep.
 		# "stride" is the walking speed the authored cycle matches.
-		_anim.speed_scale = pace / float(Game.CREEPS[kind].get("stride", 1.0))
+		var cycle := now / float(Game.CREEPS[kind].get("stride", 1.0))
+		_anim.speed_scale = maxf(cycle, MIN_FLAP) if hover > 0.0 else cycle
 		_anim.advance(seconds)
 	else:
 		# A waddle: lean side to side and bob, faster when walking faster.
-		var step := _clock * pace * 9.0
+		var step := _clock * now * 9.0
 		_body.rotation.z = sin(step) * 0.12
-		_body.position.y = absf(sin(step)) * 0.035
+		_body.position.y = hover + absf(sin(step)) * 0.035
+	if hover > 0.0:
+		# (by the simulation's clock and the creep's id, so captures repeat)
+		_body.position.y = hover + sin(_clock * BOB_RATE + id * 0.9) * BOB
 	if _flash > 0.0:
 		_flash -= seconds
 		_body.scale = Vector3.ONE * _model_scale * (1.0 + 0.12 * maxf(_flash, 0.0) / 0.12)
 	_turn(ticks)
+
+
+## The rune while a mark holds (it rings once as the mark takes hold), the stars while
+## a stun does; both turn by the simulation's clock.
+func _show_effects() -> void:
+	var marked := mark > 0.0
+	if marked and not _marked:
+		Fx.ring(get_tree(), global_position + Vector3(0, hover, 0), 0.5, Fx.MARK_GOLD, 0.45)
+	_marked = marked
+	_rune.visible = marked
+	if marked:
+		_rune.rotation.y = _clock * RUNE_TURN
+		_rune.scale = Vector3.ONE * (1.0 + 0.06 * sin(_clock * 4.0))
+	_halo.visible = stunned
+	if _halo.visible:
+		_halo.rotation.y = -_clock * 4.0
 
 
 func _process(_delta: float) -> void:
@@ -126,9 +198,14 @@ func _process(_delta: float) -> void:
 	_place(lerpf(_from, _to, Engine.get_physics_interpolation_fraction()))
 
 
-## Point on the road where hits land.
+## Where hits land: the body's middle, in the air for a flier.
 func aim_point() -> Vector3:
-	return global_position + Vector3(0, _height * 0.55, 0)
+	return global_position + Vector3(0, hover + _height * 0.55, 0)
+
+
+## Whether the mark rune and the stun stars show, for tests: {"rune", "stars", "tint"}.
+func effects_shown() -> Dictionary:
+	return {"rune": _rune.visible, "stars": _halo.visible, "tint": _slowed}
 
 
 ## A hit landed: the model flinches and the bar shows what is left.
@@ -154,7 +231,7 @@ func die() -> void:
 		return
 	dead = true
 	remove_from_group("creeps")
-	var at := global_position + Vector3(0, _height * 0.5, 0)
+	var at := global_position + Vector3(0, hover + _height * 0.5, 0)
 	var color: Color = Game.CREEPS[kind]["color"]
 	Fx.burst(get_tree(), at, color, 16, 2.6, 0.07, 0.6)
 	Fx.floating_text(get_tree(), at, "+%d" % bounty, Color(1.0, 0.85, 0.3))
@@ -164,6 +241,8 @@ func die() -> void:
 	tween.tween_property(_body, "scale", Vector3(1.3, 0.1, 1.3) * _model_scale, 0.15)
 	tween.tween_callback(queue_free)
 	_bar_root.visible = false
+	_rune.visible = false
+	_halo.visible = false
 
 
 func leak() -> void:
@@ -242,47 +321,42 @@ func _model_height(node: Node3D) -> float:
 	return top
 
 
+## The health bar over the head: one quad facing the camera that draws its trough and the
+## fill inside it (shaders/health_bar.gdshader), so the fill keeps to the trough however
+## the creep turns. Shown once the creep is hurt.
 func _build_bar() -> void:
 	_bar_root = Node3D.new()
-	_bar_root.position = Vector3(0, _height + 0.18, 0)
+	_bar_root.position = Vector3(0, hover + _height + 0.18, 0)
 	add_child(_bar_root)
-	var back := MeshInstance3D.new()
-	back.mesh = _bar_mesh(BAR_WIDTH + 0.04, 0.09)
-	back.material_override = _bar_mat(Color(0.05, 0.04, 0.03, 0.85), 0)
-	_bar_root.add_child(back)
-	_bar_fill = MeshInstance3D.new()
-	_bar_fill.mesh = _bar_mesh(BAR_WIDTH, 0.055)
-	_bar_material = _bar_mat(Color(0.3, 0.9, 0.3), 1)
-	_bar_fill.material_override = _bar_material
-	_bar_root.add_child(_bar_fill)
-	_bar_root.visible = false
-
-
-func _bar_mesh(width: float, height: float) -> QuadMesh:
+	_bar = MeshInstance3D.new()
+	_bar.name = "HealthBar"
 	var quad := QuadMesh.new()
-	quad.size = Vector2(width, height)
-	return quad
-
-
-func _bar_mat(color: Color, priority: int) -> StandardMaterial3D:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.no_depth_test = true
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = color
-	mat.render_priority = priority
-	return mat
+	quad.size = Vector2(BAR_WIDTH + 0.04, 0.09)
+	_bar.mesh = quad
+	_bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_bar_material = ShaderMaterial.new()
+	_bar_material.shader = BAR_SHADER
+	_bar_material.render_priority = 1
+	_bar.material_override = _bar_material
+	_bar_root.add_child(_bar)
+	_bar_root.visible = false
 
 
 func _update_bar() -> void:
 	_shown_hp = rec.hp_c
 	var ratio := clampf(hp / max_hp, 0.0, 1.0) if rec.max_hp_c > 0 else 0.0
 	_bar_root.visible = ratio < 1.0
-	# The quad is centred, so shrink it and slide it left to keep its left edge fixed.
-	_bar_fill.scale.x = maxf(ratio, 0.001)
-	_bar_fill.position.x = -BAR_WIDTH * (1.0 - ratio) * 0.5
-	_bar_material.albedo_color = Color(0.9, 0.25, 0.2).lerp(Color(0.3, 0.9, 0.3), ratio)
+	_bar_material.set_shader_parameter("fill", ratio)
+	_bar_material.set_shader_parameter(
+		"fill_color", Color(0.9, 0.25, 0.2).lerp(Color(0.3, 0.9, 0.3), ratio)
+	)
+
+
+## The share of its trough the health bar fills now, for tests; -1 while it is hidden.
+func bar_shown() -> float:
+	if not _bar_root.visible:
+		return -1.0
+	return float(_bar_material.get_shader_parameter("fill"))
 
 
 ## A translucent overlay on the model; white removes it. Frost uses a cool blue.

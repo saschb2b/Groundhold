@@ -78,5 +78,84 @@
     3,
     4
   ],
-  "scale": 2
+  "scale": 2,
+  "panel": {
+    "margin": 32,
+    "expand": 8,
+    "tile": [
+      256,
+      128
+    ],
+    "content": [
+      22,
+      20,
+      22,
+      20
+    ]
+  },
+  "panel_jewel": {
+    "size": [
+      136,
+      64
+    ],
+    "seat": [
+      68.0,
+      40
+    ]
+  },
+  "card_frame": {
+    "margin": 16,
+    "content": [
+      14,
+      12,
+      14,
+      12
+    ]
+  },
+  "portrait_plate": {
+    "size": [
+      160,
+      168
+    ],
+    "window": [
+      24,
+      24,
+      112,
+      120
+    ],
+    "backdrop": [
+      21,
+      21,
+      118,
+      126
+    ]
+  },
+  "field": {
+    "height": 30,
+    "content": [
+      12,
+      6,
+      12,
+      6
+    ],
+    "code": {
+      "cell": [
+        30,
+        38
+      ],
+      "gap": 5,
+      "dash": 14
+    }
+  },
+  "bar": {
+    "height": 18,
+    "fill_height": 10,
+    "inset": [
+      4,
+      4
+    ]
+  },
+  "divider": {
+    "height": 6
+  }
 }

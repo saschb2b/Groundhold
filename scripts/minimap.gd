@@ -1,6 +1,6 @@
-## The minimap: the map seen from straight above, towers, creeps, the Welling and
-## the Holdfast as marks, and the camera's view as an outline. Click or drag on it to move
-## the camera there. The picture is the real terrain and woods, rendered once by an
+## The minimap: the map seen from straight above, towers (in their owners' seat colours
+## when several seats play), creeps, the Welling and the Holdfast as marks, and the
+## camera's view as an outline. Click or drag on it to move the camera there. The picture is the real terrain and woods, rendered once by an
 ## orthographic camera when the hollow is built (towers come later, so they are marks);
 ## a flat colour map of the tiles lies under it for runs that render nothing (headless).
 class_name Minimap
@@ -80,11 +80,21 @@ func _draw() -> void:
 	var cell := area.size.x / map.width
 	_mark(_to_mini(map.center(map.spawn)), cell * 0.5, Color("#c58cff"))
 	_mark(_to_mini(map.center(map.holdfast)), cell * 0.5, Color("#ffbf4a"))
-	for tower in get_tree().get_nodes_in_group("towers"):
-		_mark(_to_mini((tower as Node3D).global_position), cell * 0.34, Color("#9cc4ff"))
+	var seats := Game.seat_count()
+	for node in get_tree().get_nodes_in_group("towers"):
+		var tower := node as Tower
+		_mark(_to_mini(tower.global_position), cell * 0.34, tower_color(tower.owner_seat, seats))
 	for creep in get_tree().get_nodes_in_group("creeps"):
 		_mark(_to_mini((creep as Node3D).global_position), maxf(1.6, cell * 0.24), Color("#ff5a40"))
 	_draw_view(area)
+
+
+## A tower's mark: its owner's seat colour while several seats play (design 5.7: owner
+## colours), the quiet blue alone.
+static func tower_color(owner: int, seats: int) -> Color:
+	if seats <= 1:
+		return Color("#9cc4ff")
+	return PartyStrip.SEAT_COLORS[(owner - 1) % PartyStrip.SEAT_COLORS.size()]
 
 
 ## A dot with a dark rim, so marks read on grass and road alike.

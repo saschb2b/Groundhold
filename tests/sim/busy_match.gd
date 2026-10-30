@@ -8,25 +8,40 @@
 ##   {"eval": "resource('res://tests/sim/busy_match.gd')", "as": "B"}
 ##   {"eval": "B.busy_log(7)", "as": "rec"}
 ##   {"eval": "B.roundtrip_chain(rec, 7, 3)", "as": "trip"}, {"assert": "trip['first_bad'] == -1"}
+##
+## busy_log(seed, limit, "high_water", ["lookout", "lookout", "lookout"]) plays the same
+## match in High Water with three Lookouts, so marks, the Owl's Eye's picks, the Pinning
+## Ballista's slows, Help and the Kestrel Flock's bounces are in the state too
+## (sim_checkpoint_roundtrip_high_water).
 extends RefCounted
 
 
 ## Plays the busy match from tick 0 to its end (or `limit`). Returns the turn log
 ## (LocalSequencer.log_for) with the hash at every tick ("per_tick") and a summary.
-static func busy_log(seed_value := 7, limit := 60000) -> Dictionary:
+static func busy_log(
+	seed_value := 7, limit := 60000, mode := "classic",
+	builders := ["lamplighter", "lamplighter", "lamplighter"]
+) -> Dictionary:
 	var seats := [
-		{"team": 0, "builder": "lamplighter"},
-		{"team": 0, "builder": "lamplighter", "caretaker": true},
-		{"team": 0, "builder": "lamplighter"},
+		{"team": 0, "builder": builders[0]},
+		{"team": 0, "builder": builders[1], "caretaker": true},
+		{"team": 0, "builder": builders[2]},
 	]
-	var sim := SimMatch.new(SimContent.rules("classic"), seats, seed_value)
+	var sim := SimMatch.new(SimContent.rules(mode), seats, seed_value)
 	var seq := LocalSequencer.new(3)
 	var cursors := {1: 0, 3: 0}
 	var per_tick := {0: sim.state_hash_hex()}
 	var sold := false
 	var signals := 0
 	var away_seen := false
+	var most_marked := 0
+	var bounces_seen := 0
 	while not sim.over and sim.tick < limit:
+		for tower in sim.towers:
+			most_marked = maxi(most_marked, tower.marked.size())
+		for shot in sim.shots:
+			if shot.bounce > 0:
+				bounces_seen += 1
 		var t := sim.tick
 		if t % 45 == 0:
 			for s: int in [1, 3]:
@@ -71,6 +86,13 @@ static func busy_log(seed_value := 7, limit := 60000) -> Dictionary:
 	record["left_seen"] = sim.seat(1).state == SimTypes.SEAT_LEFT
 	record["seat_states"] = [sim.seat(1).state, sim.seat(2).state, sim.seat(3).state]
 	record["plan_cursors"] = [sim.seat(1).plan_cursor, sim.seat(2).plan_cursor, sim.seat(3).plan_cursor]
+	var forms := []
+	for tower in sim.towers:
+		forms.append("%d:%s" % [tower.owner, SimContent.tower_form(tower.kind, tower.branch)])
+	record["forms"] = forms
+	record["most_marked"] = most_marked
+	record["bounces_seen"] = bounces_seen
+	record["help"] = [sim.seat(1).help_c, sim.seat(2).help_c, sim.seat(3).help_c]
 	return record
 
 

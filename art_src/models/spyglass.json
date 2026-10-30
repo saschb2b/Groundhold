@@ -1,0 +1,16 @@
+{
+  "note": "Edda Greyplume's brass spyglass with a grey feather tucked across it, for the Lookout's glyph (ui/icons/builder_lookout.png) only.",
+  "colors": {"brass": "#b07a3a", "gold": "#e0b040", "iron": "#3a3c42", "leather": "#6b4a34", "leather_dark": "#4a3324", "lens": "#ffd860", "feather": "#c9c3b8", "feather_dark": "#6b665f", "quill": "#efe6d6"},
+  "origin": "bottom-center",
+  "parts": [
+    {"shape": "cylinder", "radius": 0.03, "height": 0.15635856228553652, "sides": 8, "rotate": [55.7497, 111.8014, 0.0], "at": [-0.3, 0.06, 0.12], "color": "iron", "pattern": "metal"},
+    {"shape": "cylinder", "radius": 0.042, "height": 0.2110840590854743, "sides": 10, "rotate": [55.7497, 111.8014, 0.0], "at": [-0.192, 0.1392, 0.0768], "color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.056, "radius_top": 0.06, "height": 0.42216811817094857, "sides": 10, "rotate": [55.7497, 111.8014, 0.0], "at": [-0.042, 0.2492, 0.0168], "color": "brass", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.062, "height": 0.15635856228553643, "sides": 10, "rotate": [55.7497, 111.8014, 0.0], "at": [0.03, 0.302, -0.012], "color": "leather", "pattern": "planks"},
+    {"shape": "cylinder", "radius": 0.05, "height": 0.023453784342830502, "sides": 10, "rotate": [55.7497, 111.8014, 0.0], "at": [-0.048, 0.2448, 0.0192], "color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.038, "height": 0.023453784342830478, "sides": 10, "rotate": [55.7497, 111.8014, 0.0], "at": [-0.198, 0.1348, 0.0792], "color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.07, "height": 0.039089640571384164, "sides": 10, "rotate": [55.7497, 111.8014, 0.0], "at": [0.27, 0.478, -0.108], "color": "gold", "pattern": "gold"},
+    {"shape": "cylinder", "radius": 0.058, "height": 0.011726892171415114, "sides": 10, "rotate": [55.7497, 111.8014, 0.0], "at": [0.3, 0.5, -0.12], "color": "lens", "emit": 1.2},
+    {"parts": [{"shape": "sphere", "radius": 0.06, "segments": [8, 4], "at": [0.0, 0.0, 0.0], "scale": [0.75, 0.12, 4.2], "color": "feather", "color_top": "feather_dark"}, {"shape": "cylinder", "radius": 0.008, "height": 0.56, "sides": 4, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, -0.3], "color": "quill"}, {"shape": "box", "size": [0.07, 0.03, 0.006], "rotate": [0.0, 30.0, 90.0], "at": [0.03, -0.01, 0.1], "color": "feather_dark"}], "at": [0.02, 0.33, 0.05], "rotate": [25.0, 60.0, 0.0]}
+  ]
+}

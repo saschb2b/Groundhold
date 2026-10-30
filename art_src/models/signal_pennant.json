@@ -1,0 +1,141 @@
+{
+  "colors": {
+    "wood": "#6e4e30",
+    "wood_light": "#a47c4c",
+    "cloth": "#e9dfc6",
+    "cloth_shade": "#b9ab8c",
+    "band": "#c4443a",
+    "band_dark": "#7e2622",
+    "gold": "#e0b040",
+    "gold_dark": "#a87a28"
+  },
+  "origin": "bottom-center",
+  "parts": [
+    {
+      "repeat": 18,
+      "around": 0.17,
+      "phase": 0,
+      "at": [
+        0,
+        0.012,
+        0
+      ],
+      "parts": [
+        {
+          "shape": "box",
+          "size": [
+            0.064,
+            0.024,
+            0.034
+          ],
+          "bevel": 0.006,
+          "color": "gold_dark",
+          "color_top": "gold",
+          "pattern": "gold"
+        }
+      ]
+    },
+    {
+      "shape": "cylinder",
+      "radius": 0.05,
+      "height": 0.03,
+      "sides": 10,
+      "bevel": 0.008,
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "color": "gold_dark",
+      "cap_color": "gold",
+      "pattern": "gold"
+    },
+    {
+      "shape": "cylinder",
+      "radius": 0.017,
+      "radius_top": 0.014,
+      "height": 0.66,
+      "sides": 6,
+      "at": [
+        0,
+        0.02,
+        0
+      ],
+      "color": "wood",
+      "color_top": "wood_light",
+      "pattern": "planks"
+    },
+    {
+      "shape": "sphere",
+      "radius": 0.032,
+      "segments": [
+        7,
+        5
+      ],
+      "at": [
+        0,
+        0.69,
+        0
+      ],
+      "color": "gold_dark",
+      "color_top": "gold",
+      "pattern": "gold"
+    },
+    {
+      "parts": [
+        {
+          "shape": "wedge",
+          "size": [
+            0.19,
+            0.34,
+            0.012
+          ],
+          "rotate": [
+            0,
+            0,
+            -90
+          ],
+          "at": [
+            0,
+            0,
+            0
+          ],
+          "color": "cloth_shade",
+          "color_top": "cloth",
+          "pattern": "cloth"
+        },
+        {
+          "shape": "wedge",
+          "size": [
+            0.075,
+            0.13,
+            0.016
+          ],
+          "rotate": [
+            0,
+            0,
+            -90
+          ],
+          "at": [
+            0.0,
+            0.0,
+            0
+          ],
+          "color": "band_dark",
+          "color_top": "band",
+          "pattern": "cloth"
+        }
+      ],
+      "at": [
+        0.012,
+        0.58,
+        0
+      ],
+      "rotate": [
+        0,
+        -14,
+        -3
+      ]
+    }
+  ]
+}

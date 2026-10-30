@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "net_two_clients_converge_live",
   "description": "The real server (--dev-match classic:2 on port 0) and two headless games that join it: each pays for its own tower, only the owner may sell, and their hash streams are equal at every tick both printed.",
   "seed": 1,

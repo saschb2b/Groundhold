@@ -1,0 +1,18 @@
+{
+  "name": "sim_checkpoint_roundtrip_high_water",
+  "description": "The codec round-trips every field M2 added: the busy three-seat match of sim_checkpoint_roundtrip_busy, played in High Water by three Lookouts (two by command, one caretaken; with nobody covering Swarm or Swift they fork Kestrel Flocks and Pinning Ballistas) (Owl's Eyes holding their marked creeps, Kestrel Flock bounces in the air, marks, slows, Help), replayed into a simulation replaced by deserialize(serialize()) every 7 ticks and every 61 with events on: every tick's hash equals the uninterrupted run's.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/sim/busy_match.gd')", "as": "B"},
+    {"eval": "B.busy_log(11, 24000, 'high_water', ['lookout', 'lookout', 'lookout'])", "as": "rec"},
+    {"eval": "[rec['final_tick'], rec['over'], rec['wave'], rec['towers'], rec['most_marked'], rec['bounces_seen'], rec['help']]", "as": "summary"},
+    {"assert": "rec['mode'] == 'high_water' and rec['final_tick'] == 24000 and rec['wave'] >= 6", "msg": "the busy High Water match ran six and a half minutes, past the first Duskmoths and the Bristlesow"},
+    {"assert": "rec['most_marked'] >= 1 and rec['bounces_seen'] > 0 and rec['help'][0] + rec['help'][1] + rec['help'][2] > 0", "msg": "Owl's Eyes held their creeps, bounces flew and Help was earned"},
+    {"eval": "B.roundtrip_chain(rec, 7, 3, false)", "as": "every7"},
+    {"assert": "every7['first_bad'] == -1 and every7['final'] == rec['final_tick'] and every7['trips'] > 1000", "msg": "a round trip every 7 ticks keeps every tick's hash"},
+    {"eval": "B.roundtrip_chain(rec, 61, 59, true)", "as": "every61"},
+    {"assert": "every61['first_bad'] == -1 and every61['final'] == rec['final_tick']", "msg": "and every 61 ticks with events on"}
+  ]
+}

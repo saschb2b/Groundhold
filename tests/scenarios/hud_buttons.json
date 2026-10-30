@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "hud_buttons",
   "seed": 1,
   "watch": {
@@ -13,7 +14,7 @@
       "value": 300
     },
     {
-      "click": "node('BuildCannon')"
+      "click": "node('CardW')"
     },
     {
       "assert": "node('BuildController').mode == 'cannon'",
@@ -38,8 +39,8 @@
       "click": "scene.cell_center(Vector2i(6, 4))"
     },
     {
-      "assert": "not node('Upgrade').disabled",
-      "msg": "upgrade is offered for the selected tower"
+      "assert": "not node('CardQ').disabled and node('CardQ').get_meta('what') == 'great_cannon' and node('CardW').get_meta('what') == 'iron_mortar'",
+      "msg": "on my selected tower the card offers its branches: Q is branch A, W branch B"
     },
     {
       "click": "node('Ready')"

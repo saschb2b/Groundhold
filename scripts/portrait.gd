@@ -91,6 +91,8 @@ func show_model(
 	if path.is_empty():
 		return
 	var model := Models.instance(path)
+	# a Builder's bust wears the toon material, levelled for this renderer
+	BuilderFigure.dress_for_portrait(model)
 	model.scale = Vector3.ONE * model_scale
 	_holder.add_child(model)
 	if head != "":

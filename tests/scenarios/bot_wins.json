@@ -1,48 +1,22 @@
 {
   "name": "bot_wins",
-  "description": "The Lamplighter's plan, sent as commands through the local sequencer, wins the classic match.",
+  "description": "The balance gate (AGENTS.md), on High Water solo and Wickhollow's hollow12: the Lamplighter's plan (data/plans/lamplighter.json), sent as commands through the local sequencer and decided as the caretaker decides (alone she forks Skyward Lofts and a Rime Spire for the sky and an Iron Mortar for armour), wins all twelve waves with at least half the lives. The leak table is in the watches. bot_wins_classic keeps M1's classic match through the game's input route.",
+  "scene": "res://tests/sim/sim_harness.tscn",
   "seed": 1,
-  "ticks_per_frame": 8,
-  "timeout_frames": 20000,
+  "timeout_frames": 60,
   "watch": {
-    "wave": "Game.wave",
-    "lives": "Game.lives",
-    "gold": "Game.gold",
-    "towers": "count('towers')",
-    "plan_done": "vars.get('bot').done if vars.has('bot') else 0",
-    "hash": "scene.state_hash_hex()"
+    "summary": "scene.summary()",
+    "leaks": "scene.leak_table()"
   },
   "steps": [
-    {
-      "eval": "resource('res://tests/bot.gd').new()",
-      "as": "bot"
-    },
-    {
-      "repeat": 2000,
-      "steps": [
-        {
-          "eval": "bot.step(scene)"
-        },
-        {
-          "wait": 15
-        }
-      ],
-      "until": "Game.state >= 2"
-    },
-    {
-      "observe": "end"
-    },
-    {
-      "assert": "Game.state == 2",
-      "msg": "a sensible build order wins all eight waves"
-    },
-    {
-      "assert": "Game.lives >= 10",
-      "msg": "and keeps at least half the lives"
-    },
-    {
-      "assert": "bot.log.size() == bot.done",
-      "msg": "every planned build and upgrade landed"
-    }
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.play_out([1])", "as": "end"},
+    {"eval": "scene.summary()", "as": "summary"},
+    {"eval": "scene.leak_table()", "as": "leaks"},
+    {"assert": "scene.client(1).hollows[0].phase == 2 and scene.client(1).hollows[0].wave == 12", "msg": "a sensible build order wins all twelve waves"},
+    {"assert": "scene.client(1).teams[0].lives >= 10", "msg": "and keeps at least half the lives"},
+    {"assert": "scene.refusals(1) == [] and scene.client(1).seat(1).towers >= 8", "msg": "every order of the plan went through the sequencer and was accepted"},
+    {"eval": "scene.forms()", "as": "forms"},
+    {"assert": "forms.has('skyward_loft') and forms.has('rime_spire') and forms.has('iron_mortar')", "msg": "alone, the Lamplighter forked for the sky and for armour"}
   ]
 }

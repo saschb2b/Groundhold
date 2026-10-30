@@ -87,7 +87,8 @@
     "match_dissolved": 4,
     "needs_reload": 5,
     "caretakers_offered": 6,
-    "tick0_mismatch": 7
+    "tick0_mismatch": 7,
+    "parties_full": 8
   },
   "outcomes": {"won": 0, "lost": 1, "draw": 2, "desynced": 3, "aborted": 4},
   "end_reasons": {
@@ -153,7 +154,8 @@
         "start": [],
         "cancel": []}}},
     "PARTY_STATE": {"id": 21, "dir": "s2c", "fields": [
-      ["code", "b5"], ["mode", "u8"], ["flags", "u8"], ["leader", "u8"], ["phase", "u8"], ["countdown_ms", "u32"],
+      ["code", "b5"], ["mode", "u8"], ["flags", "u8"], ["leader", "u8"], ["you", "u8"], ["phase", "u8"],
+      ["countdown_ms", "u32"],
       ["members", "l8", [
         ["member", "u8"], ["team", "u8"], ["main", "u8"], ["backup", "u8"], ["state", "u8"], ["rtt_ms", "u16"],
         ["build_seq", "u32"], ["rules_hash", "b8"], ["name", "s8", 16]], 4]]},

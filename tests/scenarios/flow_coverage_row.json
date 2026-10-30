@@ -1,0 +1,28 @@
+{
+  "name": "flow_coverage_row",
+  "description": "The hub's coverage row lights the checks any party member's main is strong against (content.gd BUILDERS covers): alone as a Lamplighter Swarm and Swift; with a Lookout in the party all four; with two Lamplighters Armored and Winged stay dim, and hovering a dim one says nobody here is strong against it.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"assert": "node('CoverageRow').lit() == ['swarm', 'swift'] and node('CoverageRow').dim() == ['armored', 'winged']", "msg": "a Lamplighter alone covers Swarm and Swift"},
+    {"assert": "node('Check_winged').get_node('Icon').modulate.a < 0.5 and node('Check_swarm').get_node('Icon').modulate.a == 1.0", "msg": "dim checks are dimmed, lit ones full"},
+    {"assert": "node('Check_winged').tooltip_text == 'Winged · Spindrift\\nNobody here is strong against Winged'", "msg": "a dim check says nobody here covers it"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.get_node('LoopbackHub').host('Ana', 'lookout')"},
+    {"eval": "Session.join_code('K7Q4M')"},
+    {"wait_until": "Session.party_size() == 2", "timeout": 120},
+    {"wait": 2},
+    {"assert": "node('CoverageRow').lit() == ['swarm', 'swift', 'armored', 'winged'] and node('CoverageRow').dim() == []", "msg": "Lamplighter + Lookout light all four"},
+    {"assert": "node('Check_armored').get_node('Icon').modulate.a == 1.0 and node('Check_armored').tooltip_text == 'Armored · Ballast\\nStrong: Lookout'", "msg": "the Lookout lights Armored, and the tooltip names her"},
+    {"capture": "hub_coverage_all_four"},
+    {"eval": "Session.get_node('LoopbackHub').set_member('Ana', 'main', 'lamplighter')"},
+    {"wait_until": "node('HubPanel').lines()[0] == 'diamond Ana lamplighter leader'", "timeout": 60},
+    {"assert": "node('CoverageRow').lit() == ['swarm', 'swift'] and node('CoverageRow').dim() == ['armored', 'winged']", "msg": "two Lamplighters leave Armored and Winged dim"},
+    {"assert": "node('Check_armored').tooltip_text == 'Armored · Ballast\\nNobody here is strong against Armored' and node('Check_swift').tooltip_text == 'Swift · Runnel\\nStrong: Lamplighter'", "msg": "a duplicate counts once"}
+  ]
+}

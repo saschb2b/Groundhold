@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "net_no_server_says_so_live",
   "description": "A game told to join an address where nothing listens says so on the party strip instead of waiting forever, and starts no match.",
   "seed": 1,

@@ -1,0 +1,52 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_check_icons",
+  "description": "The strip shows the next wave's checks, each glyph with the portrait of the creep that brings it (design 5.7 and 2.3): before wave 1 Swarm (Froth) with the Gourdling; in the window before wave 5 the Winged glyph (Spindrift) with the Duskmoth's portrait; before wave 6 Armored with the Thornback and the Bristlesow as its boss; during a wave, that wave's own. Hovering the wave lists every wave still to come as rows of glyphs and portraits.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"wait": 2},
+    {"assert": "Game.sim.mode == 'classic' and node('Hud').checks_shown() == [['swarm', 'gourdling']]", "msg": "the classic match's first wave, eight Gourdlings and nothing else, is a swarm"},
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"assert": "node('Hud').checks_shown() == [['swarm', 'gourdling']]", "msg": "before wave 1: Swarm, with the Gourdling beside it"},
+    {"set": "Game.wave", "value": 3},
+    {"wait": 2},
+    {"assert": "node('Hud').checks_shown() == [['armored', 'thornback']]", "msg": "before wave 4: Armored with the Thornback only (its eight Gourdlings are no pack)"},
+    {"set": "Game.wave", "value": 4},
+    {"wait": 2},
+    {"assert": "Game.state == 0 and node('Hud').checks_shown() == [['winged', 'duskmoth']]", "msg": "in the window before wave 5: the Winged glyph with the Duskmoth"},
+    {
+      "assert": "node('Glyph_winged').texture.resource_path == 'res://ui/icons/check_winged.png' and node('Face_duskmoth').texture.resource_path == 'res://ui/icons/duskmoth.png' and node('Glyph_winged').is_visible_in_tree() and node('Face_duskmoth').is_visible_in_tree()",
+      "msg": "drawn from the painted Spindrift glyph and the Duskmoth's portrait, on the strip"
+    },
+    {
+      "assert": "node('Face_duskmoth').get_global_rect().position.x > node('Glyph_winged').get_global_rect().position.x and absf(node('Face_duskmoth').get_global_rect().get_center().y - node('Countdown').get_global_rect().get_center().y) < 3.0",
+      "msg": "the portrait sits beside its glyph, on the wave's line"
+    },
+    {"capture": "strip_before_wave_5"},
+    {"hover": "node('WaveArea')"},
+    {"wait": 1},
+    {
+      "assert": "node('WaveList').visible and node('WaveRows').get_child_count() == 8 and node('WaveRow5') != null and node('WaveRow12') != null",
+      "msg": "hovering the wave lists the waves to come, 5 to 12, one row each"
+    },
+    {
+      "assert": "node('WaveRow11').get_child(1).get_child_count() == 4 and node('WaveRow5').get_child(1).get_child_count() == 1",
+      "msg": "each row shows its checks' glyphs: all four on wave 11, Winged alone on wave 5"
+    },
+    {"capture": "wave_list_before_wave_5"},
+    {"hover": [640, 360]},
+    {"wait": 1},
+    {"assert": "not node('WaveList').visible", "msg": "and goes when the pointer leaves"},
+    {"set": "Game.wave", "value": 5},
+    {"wait": 2},
+    {"assert": "node('Hud').checks_shown() == [['armored', 'thornback'], ['boss', 'bristlesow']]", "msg": "before wave 6: Armored with the Thornback, and the Bristlesow's portrait as its boss"},
+    {"set": "Game.wave", "value": 4},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.state == 1", "timeout": 30},
+    {"wait": 1},
+    {"assert": "Game.wave == 5 and node('Hud').checks_shown() == [['winged', 'duskmoth']]", "msg": "during wave 5 the strip shows that wave's own checks"}
+  ]
+}

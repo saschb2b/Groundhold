@@ -10,6 +10,41 @@
     "frost_tower": {"render": "art_src/ui/renders/frost_tower.png", "centre": "#2a9a88", "edge": "#04201c"},
     "upgrade": {"render": "art_src/ui/renders/upgrade.png", "centre": "#3f8a2c", "edge": "#0a1c08", "rim": 0.7},
     "sell": {"render": "art_src/ui/renders/sell.png", "centre": "#4c5260", "edge": "#0b0d12", "rim": 0.7},
-    "next_wave": {"render": "art_src/ui/renders/next_wave.png", "centre": "#6c3ea8", "edge": "#140a22"}
+    "next_wave": {"render": "art_src/ui/renders/next_wave.png", "centre": "#6c3ea8", "edge": "#140a22"},
+    "signal": {"render": "art_src/ui/renders/signal.png", "centre": "#2c6670", "edge": "#061316", "rim": 0.7},
+    "longbow_loft": {"render": "art_src/ui/renders/longbow_loft.png", "centre": "#34589e", "edge": "#080f22"},
+    "skyward_loft": {"render": "art_src/ui/renders/skyward_loft.png", "centre": "#4a8ac4", "edge": "#071a2a"},
+    "great_cannon": {"render": "art_src/ui/renders/great_cannon.png", "centre": "#683a22", "edge": "#140906", "rim": 0.9},
+    "iron_mortar": {"render": "art_src/ui/renders/iron_mortar.png", "centre": "#454c58", "edge": "#0a0c10", "rim": 0.9},
+    "deep_frost": {"render": "art_src/ui/renders/deep_frost.png", "centre": "#217f74", "edge": "#031a17"},
+    "rime_spire": {"render": "art_src/ui/renders/rime_spire.png", "centre": "#3f93b8", "edge": "#04161f"},
+    "perch_ballista": {"render": "art_src/ui/renders/perch_ballista.png", "centre": "#4f5b6b", "edge": "#0a0d12"},
+    "siege_perch": {"render": "art_src/ui/renders/siege_perch.png", "centre": "#5d4b45", "edge": "#110c0b"},
+    "pinning_ballista": {"render": "art_src/ui/renders/pinning_ballista.png", "centre": "#3f6273", "edge": "#071116"},
+    "hawk_roost": {"render": "art_src/ui/renders/hawk_roost.png", "centre": "#6a5733", "edge": "#130f08"},
+    "falcon_roost": {"render": "art_src/ui/renders/falcon_roost.png", "centre": "#7a5d24", "edge": "#160f05"},
+    "kestrel_flock": {"render": "art_src/ui/renders/kestrel_flock.png", "centre": "#7a4626", "edge": "#170a05"},
+    "owls_eye": {"render": "art_src/ui/renders/owls_eye.png", "centre": "#3a3c6c", "edge": "#090a19"},
+    "owls_glare": {"render": "art_src/ui/renders/owls_glare.png", "centre": "#57437a", "edge": "#0f0a1c"},
+    "twin_gaze": {"render": "art_src/ui/renders/twin_gaze.png", "centre": "#30486c", "edge": "#070d19"},
+    "emblem_lookout": {"render": "art_src/ui/renders/builder_lookout.png", "centre": "#4c5866", "edge": "#0b0e12", "foot": 0.0},
+    "emblem_lamplighter": {"render": "art_src/ui/renders/builder_lamplighter.png", "centre": "#6e5530", "edge": "#140e06", "foot": 0.0}
+  },
+  "marks": {
+    "size": 64,
+    "finishes": {
+      "tide": {"top": "#f2f7f2", "bottom": "#5aae9e", "line": "#0b2224", "outline": 2.3},
+      "role": {"top": "#f4e2ae", "bottom": "#a8722e", "line": "#1c1006", "outline": 2.3}
+    },
+    "items": {
+      "check_swarm": {"finish": "tide", "shapes": [{"ring": [25, 39, 12.5, 4.2]}, {"ring": [42.5, 35, 9.5, 4.0]}, {"ring": [33, 20.5, 7.5, 3.6]}, {"circle": [47, 50, 5.5]}, {"circle": [15, 21, 4.6]}, {"circle": [51, 19, 3.8]}, {"circle": [12.5, 53, 3.6]}, {"circle": [22, 35.5, 2.6]}]},
+      "check_swift": {"finish": "tide", "shapes": [{"curve": [[8, 22], [22, 12], [36, 26], [56, 15]], "taper": [2.5, 6.5]}, {"curve": [[5, 35], [20, 25], [36, 40], [59, 28]], "taper": [2.5, 7.5]}, {"curve": [[8, 48], [22, 38], [36, 52], [56, 41]], "taper": [2.5, 6.5]}]},
+      "check_armored": {"finish": "tide", "shapes": [{"ring": [32, 13.5, 6.5, 4.2]}, {"poly": [[21, 21], [43, 21], [50, 52], [14, 52]]}, {"line": [[18, 36], [46, 36]], "width": 3.0, "cut": true}, {"line": [[24, 27], [40, 27]], "width": 2.0, "cut": true}]},
+      "check_winged": {"finish": "tide", "shapes": [{"curve": [[7, 55], [26, 52], [26, 26], [46, 21], [58, 22], [55, 34], [46, 31]], "taper": [7.5, 3.0]}, {"circle": [37, 11.5, 3.6]}, {"circle": [47, 8.5, 3.0]}, {"circle": [56, 12, 2.5]}, {"circle": [27, 15, 2.5]}]},
+      "role_warden": {"finish": "role", "shapes": [{"poly": [[9, 12], [31, 12], [31, 24.5], [9, 24.5]]}, {"poly": [[33.5, 12], [55, 12], [55, 24.5], [33.5, 24.5]]}, {"poly": [[9, 27], [19.5, 27], [19.5, 39.5], [9, 39.5]]}, {"poly": [[22, 27], [42, 27], [42, 39.5], [22, 39.5]]}, {"poly": [[44.5, 27], [55, 27], [55, 39.5], [44.5, 39.5]]}, {"poly": [[9, 42], [31, 42], [31, 54.5], [9, 54.5]]}, {"poly": [[33.5, 42], [55, 42], [55, 54.5], [33.5, 54.5]]}]},
+      "role_marksman": {"finish": "role", "shapes": [{"curve": [[14, 54], [10, 34], [30, 14], [53, 9]], "taper": [2.0, 1.0]}, {"poly": [[18, 44], [16, 30], [24, 19], [37, 12], [53, 9], [47, 21], [38, 32], [27, 41]]}, {"line": [[19, 47], [52, 10]], "width": 2.0, "cut": true}, {"line": [[31, 37], [27, 41]], "width": 2.2, "cut": true}, {"line": [[24, 22], [21, 19]], "width": 2.2, "cut": true}, {"line": [[14, 54], [19, 46]], "width": 3.2}]},
+      "role_breaker": {"finish": "role", "shapes": [{"ring": [32, 10.5, 4.6, 3.2]}, {"poly": [[24, 16], [40, 16], [43, 24], [44, 34], [47, 41], [53, 46], [11, 46], [17, 41], [20, 34], [21, 24]]}, {"line": [[14, 41.5], [50, 41.5]], "width": 2.0, "cut": true}, {"circle": [32, 52.5, 5.0]}]},
+      "role_sweeper": {"finish": "role", "shapes": [{"ellipse": [27, 17, 10, 5.5, -70]}, {"ellipse": [38, 16, 11, 6, -40]}, {"ellipse": [39, 38, 15, 10.5, 22]}, {"line": [[34, 27], [29, 47]], "width": 2.6, "cut": true}, {"line": [[43, 30], [38, 50]], "width": 2.6, "cut": true}, {"poly": [[51, 41], [60, 48], [50, 47]]}, {"circle": [23, 33, 7.5]}, {"circle": [13.5, 37, 5.5]}, {"curve": [[11, 32], [8, 24], [3, 21]], "width": 2.0}, {"curve": [[14, 32], [14, 23], [10, 18]], "width": 2.0}]}
+    }
   }
 }

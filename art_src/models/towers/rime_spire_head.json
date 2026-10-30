@@ -1,0 +1,10 @@
+{
+  "note": "The Rime Spire's floating crystal: a tall needle pointing at the sky with upright splinters round it.",
+  "colors": {"frost": "#8fe0f0", "frost_dark": "#4aa0c8", "snow": "#eef4f8"},
+  "ground_ao": 0.0,
+  "parts": [
+    {"shape": "sphere", "radius": 0.12, "segments": [6, 2], "at": [0.0, 0.0, 0.0], "scale": [1.0, 2.7, 1.0], "color": "frost", "pattern": "crystal", "emit": 0.9},
+    {"repeat": 4, "around": 0.12, "phase": 45, "parts": [{"shape": "cone", "radius": 0.035, "height": 0.22, "sides": 4, "rotate": [12.0, 0.0, 0.0], "at": [0.0, -0.12, 0.0], "color": "frost_dark", "pattern": "crystal", "emit": 0.7}]},
+    {"repeat": 4, "around": 0.09, "phase": 0, "parts": [{"shape": "cone", "radius": 0.025, "height": 0.14, "sides": 4, "rotate": [18.0, 0.0, 0.0], "at": [0.0, 0.08, 0.0], "color": "frost", "pattern": "crystal", "emit": 0.9}]}
+  ]
+}

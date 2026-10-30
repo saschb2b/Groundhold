@@ -1,0 +1,23 @@
+{
+  "name": "flow_hub_causeway_backdrop",
+  "description": "Behind the hub stands the Causeway at low water (design 5.1, 5.2; world.md), built from its own props, not drawn: the road (models/causeway/road.glb) chained along +Z out to the haze, tide poles along it, waymark cairns and wrack on the flats, in a 3D world of its own under a low sun; the camera drifts slowly along the road and comes round again after one tile of props, so the drift never ends. The loading screen stands on the same Causeway.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 2},
+    {"eval": "node('Causeway').props()", "as": "props"},
+    {"assert": "props.get('res://models/causeway/road.glb', 0) >= 60", "msg": "the road, chained 2 units at a time out to the haze"},
+    {"assert": "props.get('res://models/causeway/pole.glb', 0) >= 20 and props.get('res://models/causeway/cairn.glb', 0) >= 6 and props.get('res://models/causeway/wrack.glb', 0) >= 20", "msg": "tide poles along it, cairns and wrack on the flats"},
+    {"assert": "node('Causeway').get_node('CausewayWorld').own_world_3d and node('Causeway').get_node('CausewayWorld').get_camera_3d() != null", "msg": "a 3D world of its own, seen through its own camera"},
+    {"eval": "node('Causeway').camera_z()", "as": "z0"},
+    {"wait": 120},
+    {"assert": "node('Causeway').camera_z() < z0", "msg": "the camera drifts along the road"},
+    {"set": "node('Causeway').drift", "value": 96.05},
+    {"wait": 1},
+    {"assert": "node('Causeway').camera_z() > z0 - 1.0", "msg": "and comes round after one tile (24 units), where the road and its props repeat"},
+    {"capture": "hub_on_the_causeway"}
+  ]
+}

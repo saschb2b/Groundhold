@@ -1,4 +1,6 @@
-## One-shot visual effects: particle bursts, blast rings, flashes and floating text.
+## One-shot visual effects: particle bursts, blast rings, flashes and floating text; and
+## the marks a team effect leaves on a creep while it lasts: the Owl's Eye's rune and a
+## stunned creep's halo (design 3.7: "mark rune as Fx").
 ##
 ## Particles take fixed seeds from the effects' own random number generator, never the
 ## match's, so effects look the same on every run, captures stay comparable, and no
@@ -6,8 +8,14 @@
 class_name Fx
 extends RefCounted
 
+## The mark rune's gold: the Owl's lens.
+const MARK_GOLD := Color(1.0, 0.84, 0.42, 0.92)
+const STUN_PALE := Color(1.0, 0.95, 0.7, 0.95)
+
 static var _particle_material: StandardMaterial3D
 static var _ring_mesh: TorusMesh
+static var _rune_mesh: ArrayMesh
+static var _star_mesh: ArrayMesh
 ## State of the particle seeds' xorshift; a plain int, so nothing outlives the scene.
 static var _seed_state := 1
 
@@ -15,6 +23,112 @@ static var _seed_state := 1
 static func clear_cache() -> void:
 	_particle_material = null
 	_ring_mesh = null
+	_rune_mesh = null
+	_star_mesh = null
+
+
+## The Owl's Eye's mark: a flat gold rune, a broken ring round an open eye, that floats
+## over a marked creep. The creep's view shows it while the mark holds and turns it by
+## the simulation's ticks (Creep.sync), so it never depends on wall-clock time.
+static func mark_rune() -> MeshInstance3D:
+	if _rune_mesh == null:
+		_rune_mesh = _build_rune()
+	var rune := MeshInstance3D.new()
+	rune.name = "MarkRune"
+	rune.mesh = _rune_mesh
+	rune.material_override = _glow_material(MARK_GOLD)
+	rune.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rune.visible = false
+	return rune
+
+
+## A stunned creep's halo: three small pale stars circling over its head.
+static func stun_halo() -> Node3D:
+	if _star_mesh == null:
+		_star_mesh = _build_star()
+	var halo := Node3D.new()
+	halo.name = "StunHalo"
+	var material := _glow_material(STUN_PALE)
+	for i in 3:
+		var star := MeshInstance3D.new()
+		star.mesh = _star_mesh
+		star.material_override = material
+		star.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var angle := TAU * i / 3.0
+		star.position = Vector3(cos(angle), 0.0, sin(angle)) * 0.2
+		halo.add_child(star)
+	halo.visible = false
+	return halo
+
+
+## Unshaded, so the marks read the same in shade, at night and in the browser's
+## Compatibility renderer, and lit by nothing (no extra lights).
+static func _glow_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.albedo_color = color
+	material.render_priority = 2
+	return material
+
+
+## The rune in the ground plane, 0.62 across: four arcs of a ring with a diamond in
+## each gap, an eye drawn as two arcs, and its pupil.
+static func _build_rune() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for quarter in 4:
+		var start := TAU * quarter / 4.0 + deg_to_rad(12.0)
+		_arc(st, Vector2.ZERO, 0.27, 0.31, start, start + deg_to_rad(66.0), 10)
+		var gap := TAU * quarter / 4.0
+		_diamond(st, Vector2(cos(gap), sin(gap)) * 0.29, 0.035)
+	# The eye: two arcs meeting at its corners, 0.4 wide and 0.2 high.
+	var bulge := 0.1
+	var half := 0.2
+	var radius := (half * half + bulge * bulge) / (2.0 * bulge)
+	var sweep := asin(half / radius)
+	for side: float in [1.0, -1.0]:
+		var centre := Vector2(0.0, -side * (radius - bulge))
+		var mid := PI * 0.5 if side > 0.0 else -PI * 0.5
+		_arc(st, centre, radius - 0.022, radius + 0.008, mid - sweep, mid + sweep, 10)
+	_arc(st, Vector2.ZERO, 0.0, 0.055, 0.0, TAU, 12)
+	return st.commit()
+
+
+static func _build_star() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tips := [Vector3(0.045, 0, 0), Vector3(0, 0, 0.045), Vector3(-0.045, 0, 0), Vector3(0, 0, -0.045)]
+	for up: float in [0.06, -0.06]:
+		for i in 4:
+			st.add_vertex(Vector3(0, up, 0))
+			st.add_vertex(tips[i])
+			st.add_vertex(tips[(i + 1) % 4])
+	return st.commit()
+
+
+## A band between two radii from angle a0 to a1 in the ground plane (x, z).
+static func _arc(
+	st: SurfaceTool, centre: Vector2, inner: float, outer: float, a0: float, a1: float, steps: int
+) -> void:
+	for i in steps:
+		var t0 := lerpf(a0, a1, float(i) / steps)
+		var t1 := lerpf(a0, a1, float(i + 1) / steps)
+		var p := [
+			centre + Vector2(cos(t0), sin(t0)) * inner,
+			centre + Vector2(cos(t0), sin(t0)) * outer,
+			centre + Vector2(cos(t1), sin(t1)) * outer,
+			centre + Vector2(cos(t1), sin(t1)) * inner,
+		]
+		for k: int in [0, 1, 2, 0, 2, 3]:
+			st.add_vertex(Vector3(p[k].x, 0.0, p[k].y))
+
+
+static func _diamond(st: SurfaceTool, at: Vector2, r: float) -> void:
+	var p := [at + Vector2(r, 0), at + Vector2(0, r), at + Vector2(-r, 0), at + Vector2(0, -r)]
+	for k: int in [0, 1, 2, 0, 2, 3]:
+		st.add_vertex(Vector3(p[k].x, 0.0, p[k].y))
 
 
 ## Starts the particle seeds over; the scene calls it when a match begins.

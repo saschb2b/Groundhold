@@ -1,0 +1,48 @@
+GIMP Palette
+Name: builders
+Columns: 8
+#
+# Flat swatches for the chibi Builders (art_src/blender/builders/). Every vertex colour of a
+# Builder is one of these; the light comes from materials/builder_toon.gdshader.
+# The face block every Builder shares
+251 243 230	face_eye_white
+ 43  26  20	face_lid
+255 250 240	face_highlight
+106  36  32	face_mouth
+# Tamsin Wick, the Lamplighter
+179  49  63	tamsin_coat_cranberry
+224 160  48	tamsin_mustard
+110  68  48	tamsin_hat_felt
+232 105  42	tamsin_hat_band
+208  80  42	tamsin_leaf_rust
+240 180  64	tamsin_leaf_gold
+180  72  31	tamsin_hair_copper
+122  44  20	tamsin_brow
+235 180 142	tamsin_skin
+239 143 132	tamsin_blush
+237 162 137	tamsin_blush_flat
+236 171 140	tamsin_nose
+ 74  36  16	tamsin_iris
+139  90  58	tamsin_mitten
+ 74  44  34	tamsin_boot
+122  82  52	tamsin_boot_band
+122  74  48	tamsin_pole_wood
+214 162  60	brass
+242 200 104	brass_light
+138  94  34	brass_dark
+255 166  60	tamsin_lamp_amber
+# Edda Greyplume, the Lookout
+ 74  67  86	edda_coat_ink
+224 219 210	edda_fog_white
+220 138  46	edda_lichen
+142 138 150	edda_plume
+ 92  88 102	edda_plume_tip
+ 58  42  38	edda_hair
+180 122  82	edda_skin
+196 106  90	edda_blush
+188 114  86	edda_blush_flat
+184 118  84	edda_nose
+122  84  20	edda_iris
+ 44  40  48	edda_boot_tar
+ 75  58  51	edda_grip_leather
+201 211 234	edda_lens_glint

@@ -1,0 +1,21 @@
+{
+  "name": "hud_party_strip_long_names",
+  "description": "Every name a player may have fits the party strip: a name the game made up ('Sandpiper 32', 'Kittiwake 88') shows whole, and the longest the protocol allows (16 bytes, 'Bartholomew Wynn') ends in an ellipsis inside its column instead of being cut mid-glyph or running under the coin.",
+  "scene": "res://scenes/main.tscn",
+  "seed": 1,
+  "timeout_frames": 300,
+  "steps": [
+    {"wait": 2},
+    {"set": "scene._spec", "value_expr": "{'names': ['Bartholomew Wynn', 'Kittiwake 88', 'Sandpiper 32']}"},
+    {"eval": "scene.begin('classic', [{'team': 0}, {'team': 0}, {'team': 0}], 1, resource('res://scripts/net/local_sequencer.gd').new(3, 1), 1)"},
+    {"wait": 3},
+    {"assert": "node('PartyStrip').visible and node('Seat1').get_node('Row/Name').text == 'Bartholomew Wynn'", "msg": "three plates, the first with the longest name"},
+    {"eval": "node('Seat2').get_node('Row/Name')", "as": "generated"},
+    {"eval": "generated.get_theme_font('font')", "as": "font"},
+    {"assert": "font.get_string_size('Kittiwake 88', 0, -1, 15).x <= generated.size.x and font.get_string_size('Sandpiper 32', 0, -1, 15).x <= node('Seat3').get_node('Row/Name').size.x", "msg": "a made-up name fits its column whole"},
+    {"assert": "node('Seat1').get_node('Row/Name').text_overrun_behavior == 3 and node('Seat1').get_node('Row/Name').clip_text", "msg": "a longer name ends in an ellipsis"},
+    {"assert": "node('Seat1').get_node('Row/Name').get_global_rect().end.x <= node('Seat1').get_node('Row/Coin').get_global_rect().position.x", "msg": "and never runs under the coin"},
+    {"assert": "node('Seat1').size.x == node('Seat2').size.x and node('Seat2').size.x == node('Seat3').size.x", "msg": "every plate one width"},
+    {"capture": "party_strip_long_and_generated_names"}
+  ]
+}

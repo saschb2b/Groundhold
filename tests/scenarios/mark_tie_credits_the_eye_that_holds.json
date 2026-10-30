@@ -1,0 +1,30 @@
+{
+  "name": "mark_tie_credits_the_eye_that_holds",
+  "description": "Two Lookouts' Owl's Eyes mark one Thornback at the same strength (+20% each). While both refresh it, the lower-id eye (seat 2's, which marked it first) keeps the credit. Once seat 2 sells its eye, the mark that still applies is seat 3's alone, so from the next tick it is seat 3's: Help on the Lamplighter's hits goes to seat 3, and seat 2, with no tower marking anything, earns none (design 3.2).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 3, 'builders': ['lamplighter', 'lookout', 'lookout']})"},
+    {"eval": "[scene.debug(1, 1, 5000), scene.debug(1, 2, 5000), scene.debug(1, 3, 5000)]"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 5, 3), scene.cmd(2, 'BUILD', 2, 6, 1), scene.cmd(3, 'BUILD', 2, 7, 1)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "[scene.tower_at(5, 3), scene.tower_at(6, 1), scene.tower_at(7, 1)]", "as": "t"},
+    {"assert": "t[1].owner == 2 and t[2].owner == 3 and t[1].id < t[2].id", "msg": "seat 2's eye has the lower id"},
+    {"eval": "scene.spawn('thornback', 3000000)", "as": "c"},
+    {"eval": "scene.hold(c)"},
+    {"eval": "scene.run_ticks(30)"},
+    {"assert": "scene.creep(c).mark_seat == 2 and t[1].marked == PackedInt32Array([c]) and t[2].marked == PackedInt32Array([c])", "msg": "both eyes hold the Thornback; seat 2's mark took hold first"},
+    {"eval": "scene.cmd(2, 'SELL', t[1].id)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.tower_at(6, 1) == null", "msg": "seat 2's eye is sold"},
+    {"eval": "scene.help_total(2)", "as": "help2_at_sale"},
+    {"eval": "scene.help_total(3)", "as": "help3_at_sale"},
+    {"eval": "scene.run_ticks(240)"},
+    {"eval": "[scene.creep(c).mark_pm, scene.creep(c).mark_seat, scene.help_total(2), scene.help_total(3), scene.client(1).tick]", "as": "after"},
+    {"assert": "scene.creep(c).mark_pm == 200", "msg": "the Thornback is still marked +20%, by seat 3's eye alone"},
+    {"assert": "scene.creep(c).mark_seat == 3", "msg": "four seconds after the sale the mark that applies is seat 3's"},
+    {"assert": "scene.help_total(2) == help2_at_sale", "msg": "seat 2, with no eye, earns no Help four seconds later"},
+    {"assert": "scene.help_total(3) > help3_at_sale", "msg": "seat 3, whose eye marks it, earns the Help"}
+  ]
+}

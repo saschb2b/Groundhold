@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "towers",
   "seed": 2,
   "ticks_per_frame": 2,

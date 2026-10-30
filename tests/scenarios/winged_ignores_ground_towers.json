@@ -1,0 +1,27 @@
+{
+  "name": "winged_ignores_ground_towers",
+  "description": "Winged is binary (design 3.2): an Arrow Tower and a Cannon Tower never fire at a Duskmoth hovering over the road beside them, a cannon shell bursting on a Gourdling right under a Duskmoth leaves the moth untouched, and the same arrow forked to the Skyward Loft (air) strikes it.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.debug(1, 1, 1000)"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 5, 3), scene.cmd(1, 'BUILD', 1, 4, 3)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "[scene.tower_at(5, 3), scene.tower_at(4, 3)]", "as": "built"},
+    {"eval": "scene.spawn('duskmoth', 3000000)", "as": "moth"},
+    {"eval": "scene.hold(moth)"},
+    {"eval": "scene.run_ticks(240)"},
+    {"assert": "scene.creep(moth).winged and built[0].shots == 0 and built[1].shots == 0 and built[0].target == 0", "msg": "four seconds beside a Duskmoth: neither ground tower aims or fires"},
+    {"eval": "scene.spawn('gourdling', 3000000)", "as": "gourdling"},
+    {"eval": "scene.hold(gourdling)"},
+    {"eval": "scene.run_ticks(150)"},
+    {"assert": "built[1].shots > 0 and scene.events_where('EFFECT', {'tower': built[1].id}).size() > 0 and scene.creep(gourdling) == null", "msg": "the cannon shelled the Gourdling under the moth to death"},
+    {"assert": "scene.hits('', 'duskmoth') == [] and scene.creep(moth).hp_c == scene.creep(moth).max_hp_c", "msg": "and its bursts left the Duskmoth untouched"},
+    {"eval": "scene.cmd(1, 'FORK', built[0].id, 1)"},
+    {"eval": "scene.run_ticks(120)"},
+    {"assert": "resource('res://scripts/sim/content.gd').tower_form(built[0].kind, built[0].branch) == 'skyward_loft' and built[0].air", "msg": "branch B made the arrow a Skyward Loft, which reaches the sky"},
+    {"assert": "scene.hits('arrow', 'duskmoth').size() > 0 and built[0].shots > 0", "msg": "and it strikes the Duskmoth"}
+  ]
+}

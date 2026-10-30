@@ -7,7 +7,9 @@ sender's sequence number. Every game runs the same integer simulation from
 (seed, rules, turns), executing TURN(k) at the start of tick 3k. The server
 also keeps the loading barrier, a light hash and result referee, and the
 system commands AWAY, BACK, LEFT and TIMEOUT. docs/design/core-loop.md
-§6.1, §6.3, §6.5 to §6.7.
+§6.1, §6.3, §6.5 to §6.7. A party's match (M3) takes its seats' teams and
+Builders from the party and tells the lobby as it starts and ends; the
+barrier's timers are lobby.py's.
 
 Turns close on **absolute deadlines**: turn k closes at origin + (k + 1) ×
 50 ms, in integer nanoseconds of a monotonic clock. A loop that wakes late
@@ -34,6 +36,7 @@ MS = 1_000_000
 TURN_NS = SPEC["turn_ms"] * MS
 TURN_TICKS = SPEC["turn_ticks"]
 SYSTEM = SPEC["system_commands"]
+SIGNAL = SPEC["commands"]["SIGNAL"]["type"]
 LOADING, PLAYING, ENDED = "loading", "playing", "ended"
 PRESENT, AWAY, LEFT = "present", "away", "left"
 AGREED_KEPT = 600       # agreed hashes remembered for late reports: ten minutes of them
@@ -108,10 +111,14 @@ class Sequencer:
         self.system_seq = 0
 
     def command(self, seat, seq, kind, a, b, c):
+        self.skip(seat, seq)
+        self.pending.append((seat, seq, kind, a, b, c))
+
+    def skip(self, seat, seq):
+        """A command's sequence number taken without listing it (a muted signal)."""
         if seq <= self.last_seq[seat]:
             raise ProtocolError("Command sequence numbers must increase")
         self.last_seq[seat] = seq
-        self.pending.append((seat, seq, kind, a, b, c))
 
     def inject(self, name, seat=0):
         """A system command (seat 255), its seq the match's own count."""
@@ -147,15 +154,17 @@ class Seat:
     hashed: int = 0                 # clock ns of its last HASH (of turn 0's opening before its first)
     result: tuple = None            # RESULT's (tick, hash, outcomes)
     resent: int = None              # clock ns of its last TURN_REQUEST answered
+    cared: bool = False             # the caretaker has played it this match (/stats counts it once)
 
 
 class Match:
-    """A match the server formed (M1: `--dev-match`), from MATCH_CONFIG to MATCH_END."""
+    """A match the server formed (a party's, or `--dev-match`'s), from MATCH_CONFIG to MATCH_END."""
 
     def __init__(self, server, match_id, mode, seed, rules_hash, players, clock,
                  start_delay_ms=SPEC["start_delay_ms"], loading_min_ms=SPEC["loading_min_ms"],
                  match_cap_ms=SPEC["match_cap_ms"], output_cap=SPEC["output_cap"], observer=None,
-                 turn_ms=SPEC["turn_ms"]):
+                 turn_ms=SPEC["turn_ms"], seats=None, party=None):
+        from .lobby import Barrier     # (lobby.py forms matches: imported here, not at the top)
         self.server, self.id, self.mode, self.seed, self.rules_hash = server, match_id, mode, seed, rules_hash
         self.spec = SPEC["modes"][mode]
         self.clock = clock
@@ -165,8 +174,13 @@ class Match:
         self.cap_turn = match_cap_ms // turn_ms
         self.observer = observer        # (tests: each sealed turn as (turn, now, entries))
         teams, count = self.spec["teams"], len(players)
-        self.seats = [Seat(index, index * teams // count, SPEC["builders"]["lamplighter"], 0, player.name, player)
-                      for index, player in enumerate(players)]
+        # (a party gives each seat its team and its member's main Builder;
+        # a dev match puts half the seats on each team, every seat a Lamplighter)
+        seats = seats or [dict(team=index * teams // count, builder=SPEC["builders"]["lamplighter"], flags=0)
+                          for index in range(count)]
+        self.seats = [Seat(index, spec["team"], spec["builder"], spec["flags"], player.name, player)
+                      for index, (spec, player) in enumerate(zip(seats, players))]
+        self.party = party
         for seat in self.seats:
             seat.player.match, seat.player.seat, seat.player.after_match = self, seat.index, False
         self.sequencer = Sequencer(count)
@@ -180,6 +194,9 @@ class Match:
         self.agreed = collections.OrderedDict()
         self.timed_out = None
         self.next_links = 0
+        self.tick0 = None               # the tick-0 hash the seats agreed at the start
+        self.finishers = []             # the connections MATCH_END went to
+        self.barrier = Barrier(self, strangers=party is None)
 
     # -- what the server and its connections call
 
@@ -208,7 +225,9 @@ class Match:
         if seat.player is not player:
             return
         seat.heard = self.clock.now()
-        if seat.state == AWAY and self.phase == PLAYING and self.loop.sealing:
+        # (a seat started without its player comes BACK with its LOADED, not
+        # with the LOADING and PINGs it sends while it still loads)
+        if seat.state == AWAY and self.phase == PLAYING and self.loop.sealing and seat.loaded is not None:
             seat.state = PRESENT
             self.sequencer.inject("BACK", seat.index)
             self.server.event("back", match=self.id, seat=seat.index)
@@ -221,9 +240,15 @@ class Match:
             if fields["per_mille"] > 1000:
                 raise ProtocolError("LOADING outside its limits", protocol.ERRORS["out_of_limits"])
             if self.phase == LOADING and seat.loaded is None:
-                seat.per_mille, seat.load_state = fields["per_mille"], protocol.LOAD_STATES["loading"]
+                # (a seat shown slow stays slow until its LOADED: §5.6)
+                if seat.load_state != protocol.LOAD_STATES["slow"]:
+                    seat.load_state = protocol.LOAD_STATES["loading"]
+                seat.per_mille = fields["per_mille"]
                 self.broadcast(self.load_state())
         elif name == "LOADED":
+            if self.phase == PLAYING and seat.loaded is None and seat.state == AWAY:
+                self.late_loaded(seat, fields["rules_hash"], fields["tick0_hash"])
+                return
             if self.phase != LOADING or seat.loaded is not None:
                 raise ProtocolError("Unknown or out-of-order message")
             seat.loaded = (fields["rules_hash"], fields["tick0_hash"])
@@ -238,6 +263,10 @@ class Match:
                 raise ProtocolError("Unknown or out-of-order message")
             protocol.check_command(fields["type"], fields["a"], fields["b"], fields["c"])
             if self.loop.sealing and seat.state != LEFT:
+                if fields["type"] == SIGNAL and self.server.muted(player):
+                    # (a muted profile's signals reach no one: admin.py)
+                    self.sequencer.skip(seat.index, fields["seq"])
+                    return
                 self.sequencer.command(seat.index, fields["seq"], fields["type"], fields["a"], fields["b"], fields["c"])
         elif name == "HASH":
             self.hash(seat, fields["tick"], fields["hash"], fields["flags"])
@@ -283,9 +312,16 @@ class Match:
         match starts (a seat whose player is gone starts AWAY or LEFT)."""
         if self.phase != LOADING or any(s.player and s.loaded is None for s in self.seats):
             return
-        loaded = [s for s in self.seats if s.loaded]
-        if not loaded:
+        if not any(s.loaded for s in self.seats) or not self.agree_loaded():
             return
+        self.broadcast(self.load_state())
+        self.ready.set()
+        self.barrier.poke()
+
+    def agree_loaded(self):
+        """The loaded seats' tick-0 hashes compared: all equal marks them
+        ready (True); apart, the match is aborted before anyone plays."""
+        loaded = [s for s in self.seats if s.loaded]
         votes = collections.Counter(s.loaded[1] for s in loaded)
         best, count = votes.most_common(1)[0]
         if count != len(loaded):
@@ -296,22 +332,44 @@ class Match:
                     self.write(seat, protocol.encode("NOTICE", code=protocol.NOTICES["tick0_mismatch"],
                                                      argument=odd[0] if odd else protocol.SYSTEM_SEAT))
             self.end("tick0_mismatch", "aborted")
-            return
+            return False
+        self.tick0 = best
         for seat in loaded:
             seat.load_state = protocol.LOAD_STATES["ready"]
-        self.broadcast(self.load_state())
-        self.ready.set()
+        return True
+
+    def late_loaded(self, seat, rules_hash, tick0):
+        """LOADED from a seat the match started without: the same hashes
+        hand it BACK (the caretaker gives it control at the next build
+        window); others put it out of the match, as at the start."""
+        if rules_hash != self.rules_hash or tick0 != self.tick0:
+            self.write(seat, protocol.encode("NOTICE", code=protocol.NOTICES["tick0_mismatch"], argument=seat.index))
+            self.drop_late(seat, "rules_mismatch" if rules_hash != self.rules_hash else "tick0_mismatch")
+            return
+        seat.loaded = (rules_hash, tick0)
+        seat.per_mille, seat.load_state = 1000, protocol.LOAD_STATES["ready"]
+        self.heard(seat.player)
+
+    def drop_late(self, seat, reason="timeout"):
+        """A seat out of the match before it played (the ceiling, or tick-0
+        hashes apart after a start without it): its game told the match
+        ended for it (aborted), and the caretaker keeps the seat (LEFT)."""
+        if seat.player:
+            self.write(seat, protocol.encode("MATCH_END", outcome=protocol.OUTCOMES["aborted"],
+                                             reason=protocol.END_REASONS[reason], final_tick=0))
+        self.leave(seat)
 
     async def run(self):
         try:
-            await self.ready.wait()
-            if self.phase != LOADING:
+            # (the loading screen shows at least loading_min_ms, 0 for one
+            # human, and the barrier's timers run: lobby.Barrier, §6.6)
+            if not await self.barrier.wait() or self.phase != LOADING:
                 return
-            # (the loading screen shows at least loading_min_ms, 0 for one human: §6.6)
-            humans = sum(1 for s in self.seats if s.player)
-            await self.clock.sleep_until(self.configured + (self.loading_min_ms if humans > 1 else 0) * MS)
-            if self.phase != LOADING:
-                return
+            if not self.ready.is_set():
+                # (started without the seats still loading: those loaded must agree)
+                if not self.agree_loaded():
+                    return
+                self.broadcast(self.load_state())
             self.start()
             await self.loop.run()
         except asyncio.CancelledError:
@@ -330,11 +388,22 @@ class Match:
             seat.heard, seat.hashed = now, origin
             if seat.state == LEFT:
                 self.sequencer.inject("LEFT", seat.index)
-            elif seat.player is None:
+                self.cared(seat)
+            elif seat.player is None or seat.loaded is None:
+                # (gone, or started without while it still loads: the caretaker plays it)
                 seat.state = AWAY
                 self.sequencer.inject("AWAY", seat.index)
+                self.cared(seat)
         self.broadcast(protocol.encode("START", ms_until_turn0=self.start_delay_ms))
-        self.server.event("start", match=self.id)
+        self.server.event("start", match=self.id, mode=self.mode)
+        self.server.daily.tally("started", self.mode)
+        self.server.lobby.started(self)
+
+    def cared(self, seat):
+        """The caretaker took `seat`: counted once a match (/stats)."""
+        if not seat.cared:
+            seat.cared = True
+            self.server.daily.count("caretaker_seats")
 
     # -- the turns
 
@@ -361,7 +430,11 @@ class Match:
             if seat.state == PRESENT and self.loop.sealing and now - seat.heard >= SPEC["away_ms"] * MS:
                 seat.state = AWAY
                 self.sequencer.inject("AWAY", seat.index)
+                self.cared(seat)
                 self.server.event("away", match=self.id, seat=seat.index)
+        self.barrier.tend(now)
+        if self.phase != PLAYING:
+            return
         for tick in [tick for tick, (first, _) in self.hashes.items() if now - first >= SPEC["hash_wait_ms"] * MS]:
             self.decide(tick)
         # (a seat gone AWAY or LEFT no longer holds the results up)
@@ -447,6 +520,8 @@ class Match:
         self.server.event("desync", match=self.id, seats=seats, tick=tick)
         if len(self.seats) < 3:
             self.end("desync", "desynced", tick)
+        else:
+            self.server.daily.count("desyncs")     # (a match ended desynced counts at its end)
 
     def result(self, seat, tick, digest, outcomes):
         """RESULT: the seat's final tick, its hash there and each team's
@@ -509,9 +584,11 @@ class Match:
         seat.player = None
         if player:
             player.match, player.after_match = None, True
+            self.server.lobby.left_match(self, player)
         if seat.state != LEFT:
             if self.phase == PLAYING and self.loop.sealing:
                 self.sequencer.inject("LEFT", seat.index)
+                self.cared(seat)
             seat.state = LEFT
             self.server.event("left", match=self.id, seat=seat.index)
         if self.phase == LOADING:
@@ -531,6 +608,7 @@ class Match:
             return
         self.phase = ENDED
         self.ready.set()
+        self.barrier.poke()
         if self.loop:
             self.loop.running = False
         for seat in self.seats:
@@ -542,6 +620,11 @@ class Match:
                                              final_tick=final_tick))
             seat.player = None
             player.match, player.after_match = None, True
+            self.finishers.append(player)
+        if reason == "result":
+            self.server.daily.tally("finished", self.mode)
+        elif reason == "desync":
+            self.server.daily.count("desyncs")
         self.server.ended(self)
         self.server.event("end", match=self.id, reason=reason, final_tick=final_tick)
         if self.task and self.task is not asyncio.current_task():

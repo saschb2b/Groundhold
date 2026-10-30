@@ -1,0 +1,27 @@
+{
+  "name": "fork_is_final",
+  "description": "A fork is final (design 3.4): the Arrow Tower forked to branch A stands as the Longbow Loft (FORKED names the form); a second fork, to either branch, is ALREADY_FORKED and changes neither its numbers nor the gold; a teammate's fork is NOT_YOURS; a branch that does not exist is BAD_COMMAND.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2})"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 5, 3), scene.cmd(1, 'BUILD', 0, 4, 3)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "[scene.tower_at(5, 3), scene.tower_at(4, 3)]", "as": "t"},
+    {"eval": "scene.cmd(1, 'FORK', t[0].id, 0)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "scene.events_where('FORKED', {'id': t[0].id})", "as": "forked"},
+    {"assert": "forked.size() == 1 and forked[0]['form'] == 'longbow_loft' and forked[0]['branch'] == 0", "msg": "branch A: FORKED names the Longbow Loft"},
+    {"assert": "t[0].branch == 0 and t[0].dmg_c == 1600 and t[0].cd_t == 24 and scene.gold(1) == 1000 - 80 - 60", "msg": "with its numbers, for the fork's price"},
+    {"eval": "[scene.cmd(1, 'FORK', t[0].id, 1), scene.cmd(1, 'FORK', t[0].id, 0)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.refusals(1) == ['ALREADY_FORKED', 'ALREADY_FORKED']", "msg": "a second fork, to either branch, is refused"},
+    {"assert": "t[0].branch == 0 and t[0].dmg_c == 1600 and not t[0].air and scene.gold(1) == 1000 - 80 - 60 and scene.events_where('FORKED', {'id': t[0].id}).size() == 1", "msg": "and changes nothing: still the Longbow Loft, gold untouched"},
+    {"eval": "scene.cmd(2, 'FORK', t[1].id, 1)"},
+    {"eval": "scene.cmd(1, 'FORK', t[1].id, 2)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.last_refusal(2) == 'NOT_YOURS' and scene.last_refusal(1) == 'BAD_COMMAND' and t[1].branch == -1", "msg": "a teammate cannot fork it, and there is no third branch"}
+  ]
+}

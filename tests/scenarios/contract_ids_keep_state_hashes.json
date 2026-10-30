@@ -1,0 +1,30 @@
+{
+  "name": "contract_ids_keep_state_hashes",
+  "description": "The codec stores a mode, Builder, tower or creep as its index in SimContent's id lists, so those lists only ever grow at the end. This classic match (two Lamplighters, every tower kind, every M1 creep kind on the road, shots in the air, a fork and a sale) reaches the state hashes recorded before the M2/M3 contract appended its ids. Re-record them only for a change that means to alter the classic match; appending an id never does.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"eval": "scene.start({'seats': 2, 'seed': 7})"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 8, 3), scene.cmd(2, 'BUILD', 1, 8, 11), scene.cmd(1, 'BUILD', 2, 13, 8), scene.cmd(2, 'BUILD', 0, 10, 8)]"},
+    {"eval": "scene.run_ticks(30)"},
+    {"eval": "[scene.client(1).debug(7, 0, 0), scene.client(1).debug(7, 0, 1), scene.client(1).debug(7, 0, 2), scene.client(1).debug(7, 0, 3)]"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_to(600)"},
+    {"eval": "scene.creep_kinds()", "as": "kinds"},
+    {
+      "assert": "scene.client(1).towers.size() == 4 and kinds == ['gourdling', 'thornback', 'hollowtide_crest'] and scene.client(1).shots.size() > 0",
+      "msg": "at tick 600 four towers of all three kinds stand, Gourdlings, Thornbacks and the Hollowtide Crest walk the road and shots are in the air"
+    },
+    {"eval": "scene.cmd(1, 'FORK', scene.tower_at(8, 3).id, 0)"},
+    {"eval": "scene.cmd(2, 'SELL', scene.tower_at(10, 8).id)"},
+    {"eval": "scene.run_to(1800)"},
+    {"eval": "scene.cmd(2, 'BUILD', 2, 10, 8)"},
+    {"eval": "scene.run_to(3000)"},
+    {"eval": "[scene.hash_at(600), scene.hash_at(1800), scene.hash_at(3000)]", "as": "hashes"},
+    {
+      "assert": "hashes == ['437131c05bd0dd5e', 'ebf70a476ff97954', '9a107ae574109839']",
+      "msg": "the classic match hashes as it did before the ids were appended"
+    }
+  ]
+}

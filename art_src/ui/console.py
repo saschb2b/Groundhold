@@ -7,7 +7,11 @@ Every piece of the bottom console (two wings with a recessed well each, the arch
 crest round the portrait window, the rail that joins them, the resource strip, the
 end plate, the banner and the small nine-slices: tooltip, button states, the hover
 glow) is a silhouette turned into a height field and lit as weathered bronze over
-stone from the top left. One bronze rim follows the silhouette and meets curves in
+stone from the top left. The screens outside a match (hub, party, join, Builders,
+loading, results) reuse that material: a large panel whose stone tiles both ways, the
+jewel to crown one panel per screen, a card frame and its lit state, an arched portrait
+plate, a sunk text field and its focus, a progress bar's trough and gilt fill, and an
+incised divider. One bronze rim follows the silhouette and meets curves in
 round fillets; the wells are cut into the stone and read by their shade; the portrait
 window, the focal point, gets the one moulding and the crest above it the one jewel.
 With "scale": 2 the PNGs carry twice the texels of the layout (and mipmaps), the
@@ -16,11 +20,13 @@ in layout pixels with the scale alongside, so code and art cannot drift.
 
 Seeded and deterministic: the same spec writes the same bytes. The game owns this
 painter (only Pillow is needed); it records its outputs in asset_manifest.json with
-"tool": "script", so the manifest says how each file was made.
+"tool": "script", so the manifest says how each file was made. A file whose bytes come
+out as they were is left alone, and so is its manifest entry (its "updated" stamp too).
 """
 
 from __future__ import annotations
 
+import io
 import json
 import math
 import os
@@ -90,6 +96,28 @@ CONSOLE = {
     "lip": {"catch": 0.25, "shade": 0.4, "shade_width": 2},
     # The console's shadow on the world: how far it reaches and how dark it starts.
     "cast": {"reach": 5, "dark": 0.45},
+    # The screens' pieces. The panel is a nine-slice whose middle tiles: `tile` (width,
+    # height) layout pixels of stone that repeat both ways between `margin`s, wider than
+    # tall because panels are, the silhouette `inset` from
+    # the texture's edge (room for its shadow) with corners of `radius`. Its stone is the
+    # console's made quieter for text to sit on (`stone` overrides the console's: smaller
+    # clouds, so a tile holds several and its repeat does not show; `macro_cell` and
+    # `meso_cell` are their sizes), falling from stone_top under the top rim to
+    # `stone_base` over `stone.ramp` pixels, all inside the margin.
+    "panel": {"tile": [256, 128], "margin": 32, "inset": 8, "radius": 12, "content": [22, 20, 22, 20],
+              "stone_base": "#29241e",
+              "stone": {"ramp": 18, "macro": 0.055, "meso": 0.06, "fine": 0.045, "pits": 0.12, "macro_cell": 22,
+                        "meso_cell": 9}},
+    # The jewel that crowns a panel: its canvas, and the height (from its top) of the line
+    # it seats on, the panel's top edge.
+    "jewel": {"size": [136, 64], "seat": 40},
+    "card_frame": {"size": [96, 96], "radius": 8, "rim": 4, "margin": 16, "content": [14, 12, 14, 12]},
+    # An arched window for a portrait on a card: the window, the stone round it, the shadow.
+    "portrait_plate": {"window": [112, 120], "border": 18, "moulding": 8, "shadow": 6},
+    "field": {"size": [64, 40], "radius": 5, "rim": 3, "margin": 10, "content": [12, 6, 12, 6], "height": 30,
+              "code": {"cell": [30, 38], "gap": 5, "dash": 14}},
+    "bar": {"trough": [64, 18], "fill": [48, 10], "inset": [4, 4]},
+    "divider": [128, 6],
 }
 _S = 2  # painting scale: twice the output scale, box-filtered down
 _LIGHT = (-0.42, -0.78, 0.46)
@@ -191,10 +219,25 @@ def _field(img):
     return [v / 255.0 for v in _px(img)]
 
 
-def _noise(w, h, cell, seed, period_x=None):
-    """Smooth value noise in [0, 1] from an upscaled random grid; repeats every period_x."""
+def _noise(w, h, cell, seed, period_x=None, period_y=None):
+    """Smooth value noise in [0, 1] from an upscaled random grid; repeats every period_x
+    (and with period_y, down too: a tile that repeats both ways)."""
     rng = random.Random(seed)
-    if period_x:
+    if period_x and period_y:
+        gx, gy = max(1, round(period_x / cell)), max(1, round(period_y / cell))
+        grid = Image.new("L", (gx, gy))
+        grid.putdata([rng.randrange(256) for _ in range(gx * gy)])
+        tiled = Image.new("L", (gx * 3, gy * 3))
+        for i in range(3):
+            for j in range(3):
+                tiled.paste(grid, (i * gx, j * gy))
+        tile = tiled.resize((period_x * 3, period_y * 3), Image.BICUBIC).crop(
+            (period_x, period_y, period_x * 2, period_y * 2))
+        img = Image.new("L", (w, h))
+        for y in range(0, h, period_y):
+            for x in range(0, w, period_x):
+                img.paste(tile, (x, y))
+    elif period_x:
         gw, gh = max(1, round(period_x / cell)), h // cell + 4
         grid = Image.new("L", (gw, gh))
         grid.putdata([rng.randrange(256) for _ in range(gw * gh)])
@@ -214,11 +257,11 @@ def _noise(w, h, cell, seed, period_x=None):
     return _field(img)
 
 
-def _octaves(w, h, seed, period_x=None, base=40, octaves=4):
+def _octaves(w, h, seed, period_x=None, base=40, octaves=4, period_y=None):
     total = [0.0] * (w * h)
     amp, norm, cell = 1.0, 0.0, base
     for o in range(octaves):
-        n = _noise(w, h, max(2, int(cell)), seed * 31 + o, period_x)
+        n = _noise(w, h, max(2, int(cell)), seed * 31 + o, period_x, period_y)
         for i in range(w * h):
             total[i] += n[i] * amp
         norm += amp
@@ -352,7 +395,8 @@ def _polygon(draw, k, pts, fill=255):
 class _Relief:
     """A silhouette plus relief, lit as weathered bronze over stone."""
 
-    def __init__(self, width, height, mask, seed, material, period_x=None, band=6.0, grooves=(), look=None):
+    def __init__(self, width, height, mask, seed, material, period_x=None, band=6.0, grooves=(), look=None,
+                 period_y=None):
         self.w, self.h = width * _S, height * _S
         self.width, self.height = width, height
         self.mask_img = mask
@@ -361,6 +405,7 @@ class _Relief:
         self.m = material
         self.look = look or {k: CONSOLE[k] for k in ("stone", "lip", "cast")}
         self.period_x = period_x * _S if period_x else None
+        self.period_y = period_y * _S if period_y else None  # with period_x: the stone tiles both ways
         self.wells = []  # (field, depth, colour, window, wall)
         self.ornament = [0.0] * (self.w * self.h)
         self.bronze = [0.0] * (self.w * self.h)
@@ -493,17 +538,20 @@ class _Relief:
                     ytop[x] = y
                     break
 
-        tone = _octaves(w, h, self.seed, self.period_x, base=36 * _S)
-        grain = _noise(w, h, 2 * _S, self.seed + 5, self.period_x)
-        blotch = _octaves(w, h, self.seed + 9, self.period_x, base=14 * _S, octaves=2)
-        streak = _noise(w, h, 22 * _S, self.seed + 17, self.period_x)
+        py = self.period_y
+        tone = _octaves(w, h, self.seed, self.period_x, base=36 * _S, period_y=py)
+        grain = _noise(w, h, 2 * _S, self.seed + 5, self.period_x, py)
+        blotch = _octaves(w, h, self.seed + 9, self.period_x, base=14 * _S, octaves=2, period_y=py)
+        streak = _noise(w, h, 22 * _S, self.seed + 17, self.period_x, py)
         # The stone's value noise, each scale normalised so its strength is what the spec says:
         # broad clouds (40-80 px), knots (10-20 px) and a fine grain (2-3 px), plus pits.
         st, lip = self.look["stone"], self.look["lip"]
-        macro = _normal(_octaves(w, h, self.seed + 13, self.period_x, base=56 * _S, octaves=2))
-        meso = _normal(_octaves(w, h, self.seed + 21, self.period_x, base=14 * _S, octaves=2))
-        fine = _normal(_noise(w, h, max(2, round(2.5 * _S)), self.seed + 6, self.period_x))
-        pits = _noise(w, h, max(2, round(1.5 * _S)), self.seed + 23, self.period_x)
+        macro = _normal(_octaves(w, h, self.seed + 13, self.period_x, base=st.get("macro_cell", 56) * _S, octaves=2,
+                                 period_y=py))
+        meso = _normal(_octaves(w, h, self.seed + 21, self.period_x, base=st.get("meso_cell", 14) * _S, octaves=2,
+                                period_y=py))
+        fine = _normal(_noise(w, h, max(2, round(2.5 * _S)), self.seed + 6, self.period_x, py))
+        pits = _noise(w, h, max(2, round(1.5 * _S)), self.seed + 23, self.period_x, py)
         flat = 0.36 + 1.1 * _L[2]  # how the light shades a flat face: the stone's colours are what shows
 
         glow = [0.0] * n  # warm light from an amber gem
@@ -676,7 +724,15 @@ def _gem(img, gx, gy, gr):
     return Image.alpha_composite(img, layer)
 
 
-def _stylebox(path: Path, res: str, margin, content, expand=0, stretch=2, scale=1) -> None:
+def _write(path: Path, data: bytes) -> bool:
+    """Writes `data` to `path` unless it already holds exactly that; True when it changed."""
+    if path.exists() and path.read_bytes() == data:
+        return False
+    path.write_bytes(data)
+    return True
+
+
+def _stylebox(path: Path, res: str, margin, content, expand=0, stretch=2, scale=1) -> bool:
     """A StyleBoxTexture; margins are given in layout pixels and written in texels."""
     m = margin if isinstance(margin, (tuple, list)) else (margin,) * 4
     c = content if isinstance(content, (tuple, list)) else (content,) * 4
@@ -687,7 +743,7 @@ def _stylebox(path: Path, res: str, margin, content, expand=0, stretch=2, scale=
     if expand:
         lines += [f"expand_margin_{s} = {float(expand * scale)}" for s in ("left", "top", "right", "bottom")]
     lines += [f"axis_stretch_horizontal = {stretch}", f"axis_stretch_vertical = {stretch}", ""]
-    path.write_text("\n".join(lines))
+    return _write(path, "\n".join(lines).encode())
 
 
 _MIPMAP_IMPORT = """[remap]
@@ -724,19 +780,25 @@ class _Console:
         self.seed = int(self.spec["seed"])
         self.scale = max(1, int(self.spec["scale"]))
         self.written: list[Path] = []
+        self.unchanged: set[Path] = set()  # written files whose bytes came out as they were
         self.layout: dict = {}
 
     def save(self, name: str, img: Image.Image, width: int, height: int) -> None:
         path = self.dest / name
-        _down(img, width * self.scale, height * self.scale).save(path)
+        data = io.BytesIO()
+        _down(img, width * self.scale, height * self.scale).save(data, format="PNG")
+        if not _write(path, data.getvalue()):
+            self.unchanged.add(path)
         if self.scale > 1:
             _mipmapped(path)
         self.written.append(path)
 
     def stylebox(self, name: str, margin, content, expand=0, stretch=2) -> None:
-        _stylebox(self.dest / f"{name}.tres", self.res + f"{name}.png", margin, content, expand=expand,
-                  stretch=stretch, scale=self.scale)
-        self.written.append(self.dest / f"{name}.tres")
+        path = self.dest / f"{name}.tres"
+        if not _stylebox(path, self.res + f"{name}.png", margin, content, expand=expand, stretch=stretch,
+                         scale=self.scale):
+            self.unchanged.add(path)
+        self.written.append(path)
 
     def relief(self, width, height, mask, seed_offset, period_x=None):
         return _Relief(width, height, mask, self.seed + seed_offset, self.m, period_x, band=self.spec["rim"],
@@ -881,7 +943,7 @@ class _Console:
         self.save("plate.png", piece.paint(), width, height)
         self.layout["plate"] = {"size": [width, height], "text": [30, 54, width - 60, height - 80]}
 
-    def portrait_bg(self, ww, wh, pad):
+    def portrait_bg(self, ww, wh, pad, name="portrait_bg.png"):
         """Behind the portrait model: a dark warm vignette with a soft key light behind the
         model's upper half, so a silhouette of any colour reads against it. Shaped like the
         window and `pad` larger all round, so it can clip the portrait to the arch."""
@@ -902,7 +964,7 @@ class _Console:
                 t = 0.95 + 0.1 * tone[y * w + x]
                 px[x, y] = (*(int(min(255, (c[k] + key[k] * light) * t)) for k in range(3)),
                             int(255 * shape[y * w + x]))
-        self.save("portrait_bg.png", img, bw, bh)
+        self.save(name, img, bw, bh)
 
     def well_shade(self):
         """Inner shadow over the minimap: the socket's top and left lip shade its picture."""
@@ -1028,6 +1090,129 @@ class _Console:
         # The fill's noise does not repeat, so the middle stretches rather than tiles.
         self.stylebox(name, margin, content, stretch=0)
 
+    # the screens outside a match
+
+    def panel(self):
+        """The screens' large panel (the Builders kit, Join, the loading and results plates):
+        a slab in the console's material whose stone tiles both ways, so a nine-slice grows
+        it to any size without stretching the grain (whole tiles, a little scaled to fit:
+        Godot's tile-fit). Its silhouette sits `inset` inside the texture, which the
+        StyleBox's expand margin draws outside the control: the control's rect is the bronze
+        edge, and the shadow falls outside it."""
+        sp = self.spec["panel"]
+        (tx, ty), margin, inset, radius = sp["tile"], sp["margin"], sp["inset"], sp["radius"]
+        width, height = 2 * margin + tx, 2 * margin + ty
+        mask = _shape_mask(width, height, lambda d, k: _rrect(d, k, inset, inset, width - 2 * inset,
+                                                              height - 2 * inset, radius))
+        look = {"stone": dict(self.spec["stone"], **sp["stone"]), "lip": self.spec["lip"], "cast": self.spec["cast"]}
+        material = dict(self.m, stone_base=hex_to_rgb(sp["stone_base"]))
+        piece = _Relief(width, height, mask, self.seed + 40, material, period_x=tx, band=self.spec["rim"],
+                        grooves=self.spec["grooves"], look=look, period_y=ty)
+        self.save("panel.png", piece.paint(), width, height)
+        self.stylebox("panel", margin, sp["content"], expand=inset, stretch=2)
+        self.layout["panel"] = {"margin": margin, "expand": inset, "tile": [tx, ty], "content": sp["content"]}
+
+    def panel_jewel(self):
+        """The crest's jewel on its own (keystone, amber gem, two swept flanges), to crown the
+        one panel a screen is about: drawn with its `seat` on the panel's top edge."""
+        sp = self.spec["jewel"]
+        width, height = sp["size"]
+        seat, cx, far = sp["seat"], width / 2, 2000
+        piece = self.relief(width, height, Image.new("L", (width * _S, height * _S), 0), 41)
+        flanges = dict(self.spec["centre"]["flanges"], to=self.spec["centre"]["flanges"]["to"] + 6)
+        piece.extend(self.jewel(piece, width, height, cx, seat + far, far, self.spec["centre"]["keystone"], flanges))
+        self.save("panel_jewel.png", piece.paint(), width, height)
+        self.layout["panel_jewel"] = {"size": [width, height], "seat": [cx, seat]}
+
+    def portrait_plate(self):
+        """An arched, moulded window cut in a stone slab, for a Builder's portrait on a card
+        (loading, Builders): the window is open, so the portrait drawn under the plate shows
+        through, and `portrait_plate_bg` goes behind the portrait."""
+        sp = self.spec["portrait_plate"]
+        ww, wh = sp["window"]
+        border, shadow = sp["border"], sp["shadow"]
+        width, height = ww + 2 * (border + shadow), wh + 2 * (border + shadow)
+        slab = _shape_mask(width, height, lambda d, k: _arch(d, k, shadow, shadow, ww + 2 * border, wh + 2 * border,
+                                                             height))
+        piece = self.relief(width, height, slab, 42)
+        window = _shape_mask(width, height, lambda d, k: _arch(d, k, shadow + border, shadow + border, ww, wh, height))
+        piece.add_well(window, depth=5.0, window=True)
+        piece.add_frame(window, sp["moulding"], height=3.2)
+        self.save("portrait_plate.png", piece.paint(), width, height)
+        pad = 3
+        wx, wy = shadow + border, height - shadow - border - wh
+        self.layout["portrait_plate"] = {"size": [width, height], "window": [wx, wy, ww, wh],
+                                         "backdrop": [wx - pad, wy - pad, ww + 2 * pad, wh + 2 * pad]}
+        self.portrait_bg(ww, wh, pad, name="portrait_plate_bg.png")
+
+    def bar(self):
+        """A progress bar: a sunk trough (a nine-slice) and a gilt fill drawn `inset` inside
+        it; the fill stretches, and the HUD may tint it (amber for Slow)."""
+        sp = self.spec["bar"]
+        tw, th = sp["trough"]
+        self.plate_9("bar_trough", (tw, th), th / 2 - 1, 3, (9, 7, 6), 255, (th // 2, th // 2 - 1, th // 2, th // 2 - 1),
+                     0, inset=True)
+        fw, fh = sp["fill"]
+        w, h = fw * _S, fh * _S
+        mask = _field(_shape_mask(fw, fh, lambda d, k: _rrect(d, k, 0, 0, fw, fh, fh / 2 - 0.5)))
+        dark, base, light = (hex_to_rgb(c) for c in GILT)
+        tone = _noise(w, h, 6 * _S, self.seed + 45)
+        data = []
+        for y in range(h):
+            v = (y + 0.5) / h  # 0 at the top: the light catches the top, the base falls dark
+            if v < 0.3:
+                c = _mix(light, base, _smooth(v / 0.3))
+            else:
+                c = _mix(base, dark, _smooth((v - 0.3) / 0.7) * 0.8)
+            for x in range(w):
+                i = y * w + x
+                t = 0.92 + 0.16 * tone[i]
+                data.append((*(int(max(0, min(255, ch * t))) for ch in c), int(255 * mask[i])))
+        img = Image.new("RGBA", (w, h))
+        img.putdata(data)
+        self.save("bar_fill.png", img, fw, fh)
+        self.stylebox("bar_fill", (fh // 2 + 1, 0, fh // 2 + 1, 0), 0, stretch=0)
+        self.layout["bar"] = {"height": th, "fill_height": fh, "inset": sp["inset"]}
+
+    def divider(self):
+        """An incised line across a panel between its sections: a dark cut with the light
+        caught on its lower lip, fading in at both ends."""
+        width, height = self.spec["divider"]
+        w, h = width * _S, height * _S
+        worn = self.m["worn"]
+        fade_px = 24 * _S
+        img = Image.new("RGBA", (w, h))
+        px = img.load()
+        for y in range(h):
+            yy = (y + 0.5) / _S
+            for x in range(w):
+                fade = _smooth(min(x + 0.5, w - 0.5 - x) / fade_px)
+                if 2.0 <= yy < 3.0:
+                    px[x, y] = (12, 8, 4, int(255 * 0.8 * fade))
+                elif 3.0 <= yy < 4.0:
+                    px[x, y] = (*worn, int(255 * 0.3 * fade))
+        self.save("divider.png", img, width, height)
+        self.stylebox("divider", (28, 0, 28, 0), 0, stretch=0)
+        self.layout["divider"] = {"height": height}
+
+    def screens(self):
+        """Every piece the screens outside a match add to the console's."""
+        self.panel()
+        self.panel_jewel()
+        cf = self.spec["card_frame"]
+        for name, glow in (("card_frame", None), ("card_frame_lit", (255, 190, 90))):
+            self.plate_9(name, cf["size"], cf["radius"], cf["rim"], (24, 19, 15), 255, cf["margin"], cf["content"],
+                         glow=glow)
+        self.layout["card_frame"] = {"margin": cf["margin"], "content": cf["content"]}
+        self.portrait_plate()
+        fd = self.spec["field"]
+        for name, glow in (("field", None), ("field_focus", (255, 190, 90))):
+            self.plate_9(name, fd["size"], fd["radius"], fd["rim"], (11, 9, 8), 255, fd["margin"], fd["content"],
+                         glow=glow, inset=True)
+        self.layout["field"] = {"height": fd["height"], "content": fd["content"], "code": fd["code"]}
+        self.bar()
+        self.divider()
+
     def paint(self) -> list[Path]:
         self.dest.mkdir(parents=True, exist_ok=True)
         self.wing(False)
@@ -1047,22 +1232,29 @@ class _Console:
         self.plate_9("button_disabled", self.spec["button"], 6, 4, (22, 19, 17), 255, 12, (16, 6, 16, 6))
         card = self.spec["card"]
         self.layout.update({"socket": [card["socket"], card["socket"]], "gap": card["gap"], "scale": self.scale})
+        self.screens()
         layout = self.dest / "layout.json"
-        layout.write_text(json.dumps(self.layout, indent=2) + "\n")
+        if not _write(layout, (json.dumps(self.layout, indent=2) + "\n").encode()):
+            self.unchanged.add(layout)
         self.written.append(layout)
         return self.written
 
 
-def console(spec: dict | None, dest: Path, res_base: str) -> list[Path]:
+def console(spec: dict | None, dest: Path, res_base: str, unchanged: set | None = None) -> list[Path]:
     """Paints every console piece into the folder `dest` (see CONSOLE for the spec's keys and
     defaults) and returns the files written: PNGs, StyleBoxTextures and layout.json. With
     "scale": 2 the PNGs carry twice the texels of the layout (and mipmaps), the .tres margins
-    are in texels, and layout.json stays in layout pixels with its "scale" alongside."""
+    are in texels, and layout.json stays in layout pixels with its "scale" alongside. A set
+    passed as `unchanged` receives the files whose bytes came out as they were."""
     global _S
     scale = max(1, int((spec or {}).get("scale", CONSOLE["scale"])))
     previous, _S = _S, 2 * scale
     try:
-        return _Console(spec or {}, dest, res_base).paint()
+        painter = _Console(spec or {}, dest, res_base)
+        written = painter.paint()
+        if unchanged is not None:
+            unchanged.update(painter.unchanged)
+        return written
     finally:
         _S = previous
 
@@ -1073,13 +1265,18 @@ MANIFEST = "asset_manifest.json"
 LICENSE = "generated by the game's own script; owned by the project"
 
 
-def record(project: Path, files: list[Path], entry: dict) -> None:
-    """Records each written file in asset_manifest.json, as the kit records its own."""
+def record(project: Path, files: list[Path], entry: dict, keep=()) -> None:
+    """Records each written file in asset_manifest.json, as the kit records its own. A file
+    in `keep` (its bytes did not change) whose entry already says the same keeps its entry."""
     path = project / MANIFEST
     manifest = json.loads(path.read_text()) if path.exists() else {"version": 1, "assets": {}}
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     for f in files:
-        manifest["assets"][f.relative_to(project).as_posix()] = {**entry, "license": LICENSE, "updated": stamp}
+        key = f.relative_to(project).as_posix()
+        old = manifest["assets"].get(key)
+        if f in keep and old and all(old.get(k) == v for k, v in {**entry, "license": LICENSE}.items()):
+            continue
+        manifest["assets"][key] = {**entry, "license": LICENSE, "updated": stamp}
     manifest["assets"] = dict(sorted(manifest["assets"].items()))
     tmp = project / f".{MANIFEST}.tmp{os.getpid()}"
     tmp.write_text(json.dumps(manifest, indent=2) + "\n")
@@ -1091,11 +1288,12 @@ def main(argv: list[str]) -> int:
     spec_rel = argv[0] if argv else "art_src/ui/console.json"
     dest_rel = argv[1] if len(argv) > 1 else "ui/console"
     spec = json.loads((project / spec_rel).read_text())
-    written = console(spec, project / dest_rel, f"res://{dest_rel}")
+    unchanged: set[Path] = set()
+    written = console(spec, project / dest_rel, f"res://{dest_rel}", unchanged)
     script = Path(__file__).resolve().relative_to(project).as_posix()
     record(project, [f for f in written if f.suffix in (".png", ".tres", ".json")],
            {"tool": "script", "script": script, "spec": spec_rel, "dest": dest_rel,
-            "regen": f"python3 {script} {spec_rel} {dest_rel}"})
+            "regen": f"python3 {script} {spec_rel} {dest_rel}"}, keep=unchanged)
     for f in written:
         print(f"wrote {f.relative_to(project).as_posix()}")
     return 0

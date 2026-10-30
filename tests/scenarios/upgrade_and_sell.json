@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "upgrade_and_sell",
   "seed": 1,
   "watch": {
@@ -28,7 +29,7 @@
       "msg": "the info panel names the selected tower"
     },
     {
-      "key": "U"
+      "key": "Q"
     },
     {
       "wait_until": "scene.settled()",
@@ -36,25 +37,25 @@
     },
     {
       "assert": "scene.tower_at(Vector2i(6, 4)).level == 2",
-      "msg": "U upgrades the selected tower (fork branch A)"
+      "msg": "Q forks my selected tower to branch A"
     },
     {
       "assert": "Game.gold == 200 - 70 - 80",
-      "msg": "the upgrade costs 80"
+      "msg": "the fork costs 80"
     },
     {
       "assert": "scene.tower_at(Vector2i(6, 4)).stats.damage == 40.0",
-      "msg": "level 2 uses the upgrade stats"
+      "msg": "the Great Cannon stands with branch A's numbers"
     },
     {
-      "key": "U"
+      "key": "Q"
     },
     {
       "wait": 4
     },
     {
       "assert": "Game.gold == 50",
-      "msg": "a second upgrade is not possible"
+      "msg": "a fork is final: Q again changes nothing"
     },
     {
       "key": "S"

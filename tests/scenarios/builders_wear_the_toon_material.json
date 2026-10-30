@@ -1,0 +1,28 @@
+{
+  "name": "builders_wear_the_toon_material",
+  "description": "Every Builder model, the full figure and the portrait bust, imports with the Builders' own two-tone toon material (materials/builder_toon.tres over builder_toon.gdshader), not the towers' painted one, and the portrait frames a bust head and shoulders.",
+  "scene": "res://scenes/main.tscn",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 2},
+    {"eval": "resource('res://models/builders/lamplighter.glb').instantiate()", "as": "tamsin"},
+    {"eval": "tamsin.find_children('*', 'MeshInstance3D', true, false)[0]", "as": "tamsin_mesh"},
+    {"assert": "tamsin_mesh.get_active_material(0).resource_path == 'res://materials/builder_toon.tres'", "msg": "Tamsin wears the toon material"},
+    {"assert": "tamsin_mesh.get_active_material(0).shader.resource_path == 'res://materials/builder_toon.gdshader'", "msg": "over the Builders' toon shader"},
+    {"assert": "tamsin_mesh.mesh.get_surface_count() == 2", "msg": "two materials: the toon and the lantern's glow"},
+    {"eval": "scene.add_child(tamsin)"},
+    {"eval": "resource('res://models/builders/lamplighter_bust.glb').instantiate()", "as": "tamsin_bust"},
+    {"assert": "tamsin_bust.find_children('*', 'MeshInstance3D', true, false)[0].get_active_material(0).resource_path == 'res://materials/builder_toon.tres'", "msg": "Tamsin's bust wears the toon material"},
+    {"eval": "scene.add_child(tamsin_bust)"},
+    {"eval": "resource('res://models/builders/lookout.glb').instantiate()", "as": "edda"},
+    {"assert": "edda.find_children('*', 'MeshInstance3D', true, false)[0].get_active_material(0).resource_path == 'res://materials/builder_toon.tres'", "msg": "Edda wears the toon material"},
+    {"eval": "scene.add_child(edda)"},
+    {"eval": "resource('res://models/builders/lookout_bust.glb').instantiate()", "as": "edda_bust"},
+    {"assert": "edda_bust.find_children('*', 'MeshInstance3D', true, false)[0].get_active_material(0).resource_path == 'res://materials/builder_toon.tres'", "msg": "Edda's bust wears the toon material"},
+    {"eval": "scene.add_child(edda_bust)"},
+    {"eval": "node('Portrait').show_model('res://models/builders/lamplighter_bust.glb')"},
+    {"wait": 2},
+    {"assert": "node('Portrait')._camera.position.length() < 3.0", "msg": "the portrait frames the bust head and shoulders"}
+  ]
+}

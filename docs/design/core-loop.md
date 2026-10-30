@@ -381,9 +381,9 @@ Spawn intervals are authored in ticks (shown here in seconds). Counts never chan
 |---|---|---|---|
 | 1 | Gourdling ×10 @0.9 | Swarm | Wave 1 · Gourdlings |
 | 2 | Gourdling ×18 @0.45 | Swarm | Wave 2 · A swarm of Gourdlings |
-| 3 | Scuttler ×12 @0.5 | Swift | Wave 3 · Scuttlers |
+| 3 | Scuttler ×12 @0.7 | Swift | Wave 3 · Scuttlers |
 | 4 | Gourdling ×8 @0.7, Thornback ×4 @1.4 | Armored | Wave 4 · Thornbacks |
-| 5 | Duskmoth ×8 @0.9 | Winged | Wave 5 · Duskmoths |
+| 5 | Duskmoth ×8 @1.2 | Winged | Wave 5 · Duskmoths |
 | 6 | Thornback ×3 @1.2, Bristlesow ×1 | Boss, Armored | Wave 6 · The Bristlesow |
 | 7 | Gourdling ×20 @0.4, Scuttler ×10 @0.4 | Swarm, Swift | |
 | 8 | Thornback ×6 @1.1, Duskmoth ×8 @0.7 | Armored, Winged | |
@@ -392,7 +392,9 @@ Spawn intervals are authored in ticks (shown here in seconds). Counts never chan
 | 11 | Gourdling ×16 @0.35, Scuttler ×10 @0.4, Thornback ×5 @1.0, Duskmoth ×8 @0.6 | all four | Wave 11 · The heart of Hollowtide |
 | 12 | Duskmoth ×6 @0.7, Thornback ×4 @1.0, the Hollowtide Crest | Boss, Winged, Armored | Final wave · The Hollowtide Crest |
 
-Each check is taught alone (waves 1 to 5), tested as exactly one Builder's strong pair (7 to 10), then all at once
+Waves 3 and 5 were tuned by the M2 balance gates (§4.4) from @0.5 and @0.9, which ended both waves in about twenty
+seconds; `content.gd` says why beside each tuned number. Each check is taught alone (waves 1 to 5), tested as exactly
+one Builder's strong pair (7 to 10), then all at once
 (11). Each boss is announced a window ahead. Nothing is hidden: hovering the wave label lists every remaining wave
 as rows of creep icons.
 
@@ -404,7 +406,7 @@ as rows of creep icons.
 | Scuttler | 16 | 2.0 | 0 | 2 | 1 | ground | exists |
 | Thornback | 80 | 0.85 | 4 | 6 | 2 | ground | exists; gains armour |
 | **Duskmoth** | 30 | 1.5 | 0 | 3 | 1 | **winged**: hovers about 1 m over the road; only `air` towers can target it | **new**: a Blender build script with a flap cycle |
-| **Bristlesow** | 900 | 0.7 | 6 | 50 | 5 | ground, boss, 30% control resistance | the Thornback model at 2× scale with a darker tint; no new mesh |
+| **Bristlesow** | 500 | 0.7 | 6 | 50 | 5 | ground, boss, 30% control resistance | the Thornback model at 2× scale with a darker tint; no new mesh |
 | The Hollowtide Crest | 700 | 0.6 | 4 | 60 | 10 | ground, boss, 50% control resistance | exists |
 
 - The Duskmoth is a large grey-brown moth whose wings glow orange, drawn up through Wickhollow's sunken field gate
@@ -414,20 +416,24 @@ as rows of creep icons.
   build script, as `AGENTS.md` asks.
 - **Control resistance** scales slows and turns stuns on bosses into a 50% slow of the same length: a 45% slow on
   the Hollowtide Crest is 22.5%.
-- **Health growth:** each wave adds 20% of base health (wave 12 creeps have 3.2× base health; today 22% over 8
-  waves).
+- **Health growth:** each wave adds 25% of base health (wave 12 creeps have 3.75× base health; classic keeps M1's
+  22% over 8 waves).
+- Tuned by the M2 balance gates (§4.4): the Bristlesow from 900 health and the growth from 20% (at 20% every bot
+  lost nothing but the Bristlesow).
 
 ### 2.5 Player-count scaling (High Water and each Race team)
 
 | Players on the hollow | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|
-| Creep health (per mille) | 1000 | 1850 | 2650 | 3400 |
+| Creep health (per mille) | 1000 | 2000 | 2650 | 3400 |
 | First window | 15 s | 25 s | 25 s | 25 s |
 | Later windows | 10 s | 15 s | 15 s | 15 s |
 | Start gold, each | 120 | 120 | 120 | 120 |
 | Lives | 20 | 20 | 20 | 20 |
 
-Each extra player brings a full solo income (§4.1), so the team has n times the gold. Health grows a little slower
+Two players were tuned by the M2 balance gates (§4.4) from 1850: a Lamplighter and a Lookout cleared the waves so
+fast that their match fell short of eleven minutes. Each extra player brings a full solo income (§4.1), so the team
+has n times the gold. Health grows a little slower
 than n, because coordination costs time and the best tiles are shared; team effects push the other way. Seats
 held by a caretaker count. The balance gates (§4.4) run every player count, so none can drift.
 
@@ -475,15 +481,17 @@ There is **no attack and armour table to learn**. Two rules carry the checks:
 
 | Effect | Comes from | On | Rule |
 |---|---|---|---|
-| Slow | Frost Spire; also Pinning Ballista, Drowsy Clay Hive, Sky Toll on fliers | creep | the strongest active slow applies, scaled by control resistance; its duration refreshes to the longest |
+| Slow | Frost Spire; also Pinning Ballista, Drowsy Clay Hive, Sky Toll on fliers | creep | the strongest active slow applies, scaled by control resistance, for its own time; a weaker slow with time left waits under it and takes over when it lapses |
 | Stun | Toll Tower | creep | speed 0 for the duration; then 1 s of stun immunity, so stuns cannot chain; on a boss, a 50% slow instead |
-| Mark | Owl's Eye | creep | takes +X% from every tower; the strongest mark applies; lasts while the Eye keeps it in range, plus 1 s |
+| Mark | Owl's Eye | creep | takes +X% from every tower; the strongest mark applies (of two as strong, the one lasting longest, and its player earns the Help); lasts while the Eye keeps it in range, plus 1 s, so an Eye that re-picks leaves its last creep marked for that second (a lingering mark, not a stacked one) |
 | Crack | Chime Post | creep | armour reduced by X while inside the post's radius; the strongest applies |
 | Haste | Hive Hum | tower | cooldown divided by (1 + X); the strongest hive in range applies; recomputed when any tower or hive is built, forked or sold |
 
 **Help.** When a hit lands on a creep that another player's tower has slowed, stunned, marked or cracked, or comes
 from a tower another player's hive hastens, the damage dealt is added to that player's **Help**, in full, once
-for each distinct helper. Results show Help next to damage, so support is visible.
+for each distinct helper. Damage and Help count what each hit dealt, the last hit's overkill included, as the Damage
+column has since M1 (it is in every match's state, classic's recorded hashes among them). Results show Help next to
+damage, so support is visible.
 
 **Targeting** (ties always go to the lower creep id): towers fire at the creep furthest along the road and keep it
 until it dies or leaves range; the Hawk Roost and the Apiary prefer winged creeps; the Owl's Eye marks the highest
@@ -669,8 +677,8 @@ const SIM_VERSION := 1
 const RULES := {
 	"high_water": {
 		"teams": 1, "seats": [1, 4], "map": "hollow", "waves": "hollow12", "clock": "hollow",
-		"start_gold": 120, "lives": 20, "hp_growth_pm": 200,
-		"hp_by_seats_pm": [1000, 1850, 2650, 3400],
+		"start_gold": 120, "lives": 20, "hp_growth_pm": 250,
+		"hp_by_seats_pm": [1000, 2000, 2650, 3400],
 		"window_first_t": [900, 1500, 1500, 1500], "window_t": [600, 900, 900, 900],
 		"sell_pm": 700, "clear_bonus": [8, 2], "ready_pays": true, "cap_t": 0,
 	},
@@ -710,8 +718,8 @@ text. It is the matchmaking key (§6.9).
 
 | Knob | Start | Effect when raised |
 |---|---|---|
-| `hp_growth_pm` | 200 per wave | later waves harder; armour matters relatively less |
-| `hp_by_seats_pm` | 1000 / 1850 / 2650 / 3400 | multiplayer harder |
+| `hp_growth_pm` | 250 per wave | later waves harder; armour matters relatively less |
+| `hp_by_seats_pm` | 1000 / 2000 / 2650 / 3400 | multiplayer harder |
 | Window lengths | 15/10 s solo, 25/15 s team | more thinking time, longer match |
 | `lives` | 20 | more forgiving |
 | Tolls | 1 / 1 / 2 / 1 / 5 / 10 | leaks hurt more |
@@ -1348,7 +1356,7 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 | 14 | `NOTICE` | S→C | u8 code, u32 argument; the connection stays |
 | 15 | `BYE` | both | |
 | 20 | `PARTY` | C→S | u8 op and its arguments: create(mode), join(5 bytes code), leave, remove(member), mode(mode), builders(main, backup), ready(on), team(member, team), open(on), start, cancel |
-| 21 | `PARTY_STATE` | S→C | 5 bytes code, u8 mode, u8 flags (open, LAN), u8 leader, u8 phase, u32 countdown ms, u8 n, then per member: u8 member, u8 team, u8 main, u8 backup, u8 state, u16 RTT, u32 build_seq, u64 rules_hash, u8 + name. A full snapshot on every change |
+| 21 | `PARTY_STATE` | S→C | 5 bytes code, u8 mode, u8 flags (open, LAN), u8 leader, u8 you (the recipient's member), u8 phase, u32 countdown ms, u8 n, then per member: u8 member, u8 team, u8 main, u8 backup, u8 state, u16 RTT, u32 build_seq, u64 rules_hash, u8 + name. A full snapshot on every change |
 | 22 | `QUEUE` | C→S | u8 op (enter, leave, start_with_caretakers) |
 | 23 | `QUEUE_STATE` | S→C | u8 state (idle, entering, queued, leaving), u32 elapsed ms, u8 caretaker offer |
 | 24 | `MATCH_FOUND` | S→C | u32 match id, u8 mode, u8 seats, u8 accepted, u32 ms left |

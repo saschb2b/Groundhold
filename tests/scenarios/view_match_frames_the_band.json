@@ -1,0 +1,27 @@
+{
+  "name": "view_match_frames_the_band",
+  "description": "A match opens with the camera on what the players defend and where they build: the Welling, the Holdfast and every cell the two Builders' plans build on (the band between the road's two lower stretches, z 11 to 14) stand inside the window, under the strips at the top and above the console, whose wings rise layout.json's wing height from the bottom edge and whose crest the centre's height in the portrait's arch.",
+  "scene": "res://scenes/main.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"wait": 2},
+    {"eval": "resource('res://ui/console/layout.json').data", "as": "layout"},
+    {"eval": "720 - layout['wing'][1]", "as": "console_top"},
+    {"eval": "720 - layout['centre'][1]", "as": "crest_top"},
+    {"eval": "640 - layout['centre'][0] / 2 + layout['backdrop'][0]", "as": "arch_left"},
+    {"eval": "640 - layout['centre'][0] / 2 + layout['backdrop'][0] + layout['backdrop'][2]", "as": "arch_right"},
+    {"eval": "screen_pos(node('Welling'))", "as": "welling"},
+    {"eval": "screen_pos(node('Holdfast'))", "as": "holdfast"},
+    {"eval": "[screen_pos(scene.cell_center(Vector2i(4, 11))), screen_pos(scene.cell_center(Vector2i(8, 11))), screen_pos(scene.cell_center(Vector2i(14, 11))), screen_pos(scene.cell_center(Vector2i(6, 12))), screen_pos(scene.cell_center(Vector2i(15, 12))), screen_pos(scene.cell_center(Vector2i(6, 14))), screen_pos(scene.cell_center(Vector2i(12, 14)))]", "as": "band"},
+    {"assert": "welling.x > 280 and welling.x < 1250 and welling.y > 80 and welling.y < console_top", "msg": "the Welling, where the Tide wells up, clear of the party strip at the top left"},
+    {"assert": "holdfast.x > 30 and holdfast.x < 1250 and holdfast.y > 60 and holdfast.y < console_top", "msg": "the Holdfast the players keep, above the console"},
+    {"assert": "band[0].y < console_top and band[1].y < console_top and band[2].y < console_top and band[3].y < console_top and band[4].y < console_top and band[5].y < console_top and band[6].y < console_top", "msg": "every row of the build band above the console's wings"},
+    {"assert": "band[0].x > 30 and band[4].x < 1250 and band[5].x > 30 and band[6].x < 1250", "msg": "and inside the window's width"},
+    {"assert": "(band[5].x < arch_left or band[5].x > arch_right or band[5].y < crest_top) and (band[6].x < arch_left or band[6].x > arch_right or band[6].y < crest_top) and (band[3].x < arch_left or band[3].x > arch_right or band[3].y < crest_top)", "msg": "and none behind the portrait's arch"},
+    {"capture": "match_opens_on_the_band_and_the_holdfast"},
+    {"key": "Home"},
+    {"wait": 1},
+    {"assert": "screen_pos(node('Holdfast')).y < console_top", "msg": "Home's overview keeps it in view too"}
+  ]
+}

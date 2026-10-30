@@ -1,0 +1,27 @@
+{
+  "name": "flow_own_row_by_you",
+  "description": "A game finds its own party row by PARTY_STATE's `you`, the member number the server gives each recipient (rows are 0 to 3, the lowest free one, never the connection's session). Two windows on one computer share a profile, so here the one who joins has my very name, and its row number happens to equal my session's: the server says row 0 is mine, so I lead, my row is gold and my one button is Start. A leave answers with the no-party state: still connected, the hub is a party of one again.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})", "as": "started"},
+    {"assert": "Session.connect_to('play.loopback.test')", "msg": "a server address: the game makes a party there"},
+    {"wait_until": "Session.party_size() == 1 and not Session.party.is_empty()", "timeout": 120},
+    {"eval": "Session.get_node('LoopbackHub').member('Sascha', 'lookout')"},
+    {"wait_until": "Session.party_size() == 2", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Session.me == 0", "msg": "the server's `you`: I made the party, so row 0 is mine, though the second row shares my name and my session's number"},
+    {"assert": "Session.is_leader()", "msg": "I lead"},
+    {"assert": "node('HubPanel').lines() == ['diamond Sascha lamplighter leader', 'circle Sascha lookout', '+ invite', '+ invite']", "msg": "my row has the crown"},
+    {"assert": "node('Member1').get_node('Name').get_theme_color('font_color') == Color('#ffd36a') and node('Member2').get_node('Name').get_theme_color('font_color') != Color('#ffd36a')", "msg": "the first row is mine, in gold"},
+    {"assert": "node('HubPanel').primary_text() == 'Start' and node('PrimaryLine').text == 'Waiting for Sascha'", "msg": "the leader's one button is Start, waiting for the other"},
+    {"eval": "Session._party('leave')"},
+    {"wait_until": "Session.party.is_empty()", "timeout": 60},
+    {"assert": "Session.party_size() == 1 and Session.me == -1 and Session.state_name() == 'HUB' and node('HubPanel').primary_text() == 'Play'", "msg": "the server's no-party state: still connected, a party of one again, and Play plays at once"}
+  ]
+}

@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "sim_tick_exact",
   "description": "The same orders on the same ticks give the same state at 1 and at 8 ticks per frame: nothing in the match depends on frames.",
   "seed": 1,

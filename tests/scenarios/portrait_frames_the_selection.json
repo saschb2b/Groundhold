@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "portrait_frames_the_selection",
   "seed": 2,
   "ticks_per_frame": 2,

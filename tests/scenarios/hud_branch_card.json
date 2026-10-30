@@ -1,0 +1,70 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_branch_card",
+  "description": "The command card is positional (design 5.7): Q W E place the Builder's three towers and A S D are Signal, Sell and Ready, each slot showing its key. On my own unforked tower Q and W show its two branches with the hammer, the fork's cost and the glyph of the check a branch lifts, and E empties; W buys branch B. On the forked tower the branch taken stays lit, the other greys, and a fork key says a fork is final. A Lookout plays her own kit on the same keys.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lookout'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"set": "Game.gold", "value": 400},
+    {"set": "Game.countdown", "value": 60},
+    {"wait": 1},
+    {"eval": "node('Hud').card()", "as": "card"},
+    {
+      "assert": "[card[0].key, card[1].key, card[2].key, card[3].key, card[4].key, card[5].key] == ['Q', 'W', 'E', 'A', 'S', 'D'] and card[0].key_shown and card[5].key_shown",
+      "msg": "every slot shows its key: Q W E over A S D"
+    },
+    {
+      "assert": "[card[0].what, card[1].what, card[2].what, card[3].what, card[4].what, card[5].what] == ['perch_ballista', 'hawk_roost', 'owls_eye', 'signal', 'sell', 'ready'] and card[0].icon == 'res://ui/icons/perch_ballista.png' and card[2].icon == 'res://ui/icons/owls_eye.png'",
+      "msg": "Q W E hold the Lookout's three towers with their icons; A signals, S sells, D is Ready"
+    },
+    {"assert": "card[0].cost == '75' and not card[0].hammer and card[0].glyph == ''", "msg": "a tower to place shows its price, no hammer"},
+    {"key": "Q"},
+    {"assert": "node('BuildController').mode == 'perch_ballista' and node('Hud').card()[0].active", "msg": "Q takes up her first tower, its slot lit"},
+    {"click": "scene.cell_center(Vector2i(8, 3))"},
+    {"wait_until": "scene.settled()", "timeout": 12},
+    {"click": "scene.cell_center(Vector2i(8, 3))"},
+    {"wait": 1},
+    {"eval": "node('Hud').card()", "as": "card"},
+    {
+      "assert": "card[0].what == 'siege_perch' and card[1].what == 'pinning_ballista' and card[0].hammer and card[1].hammer and card[0].icon == 'res://ui/icons/siege_perch.png' and card[1].icon == 'res://ui/icons/pinning_ballista.png'",
+      "msg": "on her own unforked tower Q and W show its two branches, each with the hammer"
+    },
+    {"assert": "card[0].cost == '90' and card[1].cost == '90' and card[0].state == 'ok' and card[1].state == 'ok'", "msg": "both at the fork's price"},
+    {"assert": "card[1].glyph == 'swift' and card[0].glyph == ''", "msg": "the branch that patches a weak check carries its glyph (the Pinning Ballista lifts Swift)"},
+    {"assert": "card[2].what == '' and not card[2].key_shown and card[2].icon == '' and card[2].state == 'idle'", "msg": "E empties: there is no third branch"},
+    {"assert": "card[4].state == 'ok' and card[4].cost == '+53'", "msg": "S sells it for 70% of the 75 paid, rounded half up"},
+    {"capture": "card_on_perch_ballista"},
+    {"hover": "node('CardW')"},
+    {"wait": 1},
+    {
+      "assert": "node('Tooltip').visible and screen_has('Pinning Ballista') and screen_has('(W)') and screen_has('Damage 32.0 to 36.0 · slow 0% to 50%') and node('TooltipHelps').visible and screen_has('Lifts Swift to passable')",
+      "msg": "the branch's tooltip: its name and key, what changes in numbers, and the check it lifts"
+    },
+    {"capture": "branch_tooltip"},
+    {"key": "W"},
+    {"wait_until": "scene.settled()", "timeout": 12},
+    {"wait": 1},
+    {"assert": "scene.tower_at(Vector2i(8, 3)).form == 'pinning_ballista' and Game.gold == 400 - 75 - 90", "msg": "W buys branch B"},
+    {
+      "assert": "node('Title').text == 'Pinning Ballista' and node('Title').size.x > 100 and node('TitleGlyph').visible and node('TitleGlyph').get_meta('check') == 'swift' and node('TitleGlyph').get_global_rect().position.x >= node('Title').get_global_rect().end.x",
+      "msg": "the selection is named for its branch, the glyph of the check it lifts beside the name"
+    },
+    {"assert": "screen_has('SLOW') and screen_has('PIERCE') and screen_has('50%')", "msg": "its numbers show the slow it adds and the armour it pierces"},
+    {"eval": "node('Hud').card()", "as": "card"},
+    {
+      "assert": "card[1].state == 'lit' and card[1].active and card[1].cost == '' and card[0].state == 'idle' and not card[0].active and not card[0].hammer",
+      "msg": "the forked tower: the branch taken stays lit, the other greys"
+    },
+    {"hover": [640, 300]},
+    {"key": "Q"},
+    {"wait": 4},
+    {"assert": "node('Notice').visible and node('Notice').text == 'A fork is final' and scene.settled() and scene.tower_at(Vector2i(8, 3)).form == 'pinning_ballista'", "msg": "a fork key on it orders nothing: a fork is final"},
+    {"key": "Escape"},
+    {"wait": 1},
+    {"eval": "node('Hud').card()", "as": "card"},
+    {"assert": "[card[0].what, card[1].what, card[2].what] == ['perch_ballista', 'hawk_roost', 'owls_eye'] and card[2].key_shown", "msg": "with nothing selected the card holds her towers again"}
+  ]
+}

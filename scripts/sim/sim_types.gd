@@ -1,7 +1,10 @@
 ## The simulation's shared vocabulary: command types, refusal reasons, event types,
 ## hollow phases, seat states and the debug writes an offline match may log. The turn
 ## sources, the server's sequencer and the views all use these numbers, so they are
-## part of the contract between the tracks (design 6.4 and 6.5).
+## part of the contract between the tracks (design 6.4 and 6.5). Every number here is
+## append only: a new type, reason or effect takes the next free number and no existing
+## one ever changes (the M2/M3 contract, docs/design/contract-m2m3.md, added the team
+## effects, EV_STATUS and EV_HELP).
 ##
 ## A command is a Dictionary {seat, seq, type, a, b, c}: the seat that sent it (255 for
 ## the server's system commands), its sequence number from that seat, the type and three
@@ -80,6 +83,9 @@ const REFUSE_NO_SUCH_TOWER := 13
 const REFUSE_BAD_COMMAND := 14
 ## The seat is played by the caretaker until the next build window.
 const REFUSE_CARETAKEN := 15
+# (M2 adds no reason: a fork on a teammate's tower is NOT_YOURS, a second fork
+# ALREADY_FORKED, a branch or kit slot that does not exist BAD_COMMAND. Append any new
+# reason after 15 and to REFUSAL_NAMES.)
 
 const REFUSAL_NAMES := [
 	"",
@@ -101,14 +107,22 @@ const REFUSAL_NAMES := [
 ]
 
 # ── Events (drain_events); each is a Dictionary with "type" and "tick" ──
+# A comment lists the event's fields. "(M2)" marks fields and events the M2/M3 contract
+# fixes (docs/design/contract-m2m3.md) and M2 starts to send; a reader treats a missing
+# one as its default (0, "", false). Kinds are base tower ids; tower_form() gives the form.
 const EV_SPAWN := 1  # id, hollow, kind
-const EV_FIRE := 2  # tower, shot, target, kind, flight, land (road micrometres, -1 when homing)
-const EV_HIT := 3  # creep, shot, tower, seat, kind, dmg, splash
+## tower, shot, target, kind, flight, land (road micrometres, -1 when homing);
+## (M2) from: the creep a bounce leaves (0: the tower), form: the firing tower's form id
+const EV_FIRE := 2
+## creep, shot, tower, seat, kind, dmg, splash; (M2) raw: the damage before armour, mark
+## included; armor: what armour took off (raw - dmg, hundredths); bounce: the strike's
+## bounce number (0 for the first creep)
+const EV_HIT := 3
 const EV_EFFECT := 4  # what ("splash"), shot, hollow, x, z, r (millimetres)
 const EV_DIE := 5  # id, kind, hollow, tower, seat, bounty
 const EV_LEAK := 6  # id, kind, hollow, team, toll
 const EV_BUILT := 7  # id, seat, seq, kind, hollow, x, z
-const EV_FORKED := 8  # id, seat, seq, branch
+const EV_FORKED := 8  # id, seat, seq, branch; (M2) form: the branch's TOWER_IDS id
 const EV_SOLD := 9  # id, seat, seq, refund, hollow, x, z
 const EV_GOLD := 10  # seat, gold, change, why
 const EV_LIVES := 11  # team, lives, change
@@ -117,6 +131,17 @@ const EV_READY := 13  # seat, on
 const EV_SIGNAL := 14  # seat, x, z, target
 const EV_SEAT := 15  # seat, state
 const EV_REJECTED := 16  # seat, seq, cmd, reason
+## (M2) An effect took hold, was replaced by a stronger one or refreshed: effect (an
+## EFFECT_* id), creep (0 for a tower's), tower (the one that gave it; for haste the
+## hastened one), seat (whose tower gave it), amount (per mille for slow, mark and
+## haste, 1000 for a stun, hundredths of armour for crack), until (the tick it ends)
+const EV_STATUS := 17
+## (M2) Help (design 3.2): a hit landed on a creep another seat's tower had slowed,
+## stunned, marked or cracked, or came from a tower another seat's hive hastens; the
+## damage dealt is that seat's Help, in full, once per distinct helper. seat (the
+## helper), by (the seat whose hit it was), creep, effect (the EFFECT_* that helped; the
+## strongest when several did), dmg (hundredths credited, added to the helper's help_c)
+const EV_HELP := 18
 
 const EVENT_TYPES := {
 	"SPAWN": EV_SPAWN,
@@ -135,7 +160,20 @@ const EVENT_TYPES := {
 	"SIGNAL": EV_SIGNAL,
 	"SEAT": EV_SEAT,
 	"REJECTED": EV_REJECTED,
+	"STATUS": EV_STATUS,
+	"HELP": EV_HELP,
 }
+
+# ── Team effects (design 3.2): EV_STATUS and EV_HELP "effect", and the per-effect
+# fields of SimCreep (slow_*, stun_*, mark_*, crack_*) and SimTower (haste_*). A creep or
+# tower holds one of each; effects never stack, the strongest applies. The names are
+# what content.gd's TOWERS "team" key says. ──
+const EFFECT_SLOW := 1
+const EFFECT_STUN := 2  # M6: Toll Tower; on a boss a slow instead
+const EFFECT_MARK := 3
+const EFFECT_CRACK := 4  # M6: Chime Post
+const EFFECT_HASTE := 5  # M6: Hive Hum, on towers
+const EFFECT_NAMES := ["", "slow", "stun", "mark", "crack", "haste"]
 
 # ── Hollow phases ──
 const PHASE_PREP := 0
@@ -179,6 +217,15 @@ static func event_type(name: String) -> int:
 
 static func refusal_name(reason: int) -> String:
 	return REFUSAL_NAMES[reason] if reason >= 0 and reason < REFUSAL_NAMES.size() else str(reason)
+
+
+## The EFFECT_* id for a name such as "mark" (a TOWERS "team" value), or 0.
+static func effect(name: String) -> int:
+	return maxi(0, EFFECT_NAMES.find(name))
+
+
+static func effect_name(id: int) -> String:
+	return EFFECT_NAMES[id] if id > 0 and id < EFFECT_NAMES.size() else ""
 
 
 ## The order a sequencer lists a turn's commands in (design 6.3): system commands first,

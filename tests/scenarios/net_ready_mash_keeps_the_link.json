@@ -1,4 +1,5 @@
 {
+  "scene": "res://scenes/main.tscn",
   "name": "net_ready_mash_keeps_the_link",
   "description": "Mashing N (Ready) 40 times at 30 a second keeps the link: one READY is on its way at a time and the last press wins, so far fewer than the server's 10-command burst go out. Orders beyond the mirrored command bucket are refused here with 'Not so fast', not by the server. A game that sends around the bucket is refused by the server with ERROR 8, and the strip gives the server's reason.",
   "seed": 1,

@@ -1,0 +1,24 @@
+{
+  "name": "flow_hub_boots_offline",
+  "description": "The game boots into the hub, offline: the main scene is the hub, a first launch asks for a name prefilled with a generated one, and the party is one row (me, my Builder). Play is the one button, and it reaches a running offline match with my main Builder in under 300 frames.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"assert": "scene_path() == 'res://scenes/hub.tscn' and Session.state_name() == 'OFFLINE'", "msg": "the main scene is the hub, offline"},
+    {"assert": "node('NamePrompt').visible and node('NameField').text == Session.profile.player_name and Session.profile.player_name != ''", "msg": "a first launch asks for a name, prefilled with a generated one"},
+    {"key": "Enter"},
+    {"wait": 2},
+    {"assert": "not node('NamePrompt').visible and Session.profile.named", "msg": "Enter keeps the name"},
+    {"assert": "node('Place').text == 'Offline'", "msg": "the strip says where the party lives: offline"},
+    {"assert": "node('HubPanel').lines() == ['diamond %s lamplighter' % Session.profile.player_name, '+ invite', '+ invite', '+ invite']", "msg": "a party of one: my row and three open ones"},
+    {"assert": "(node('HubPanel').primary_text() == 'Play') and (not node('Primary').disabled)", "msg": "the one button says Play"},
+    {"eval": "frame", "as": "pressed_at"},
+    {"click": "node('Primary')"},
+    {"wait_until": "scene_path() == 'res://scenes/main.tscn'", "timeout": 290},
+    {"wait_until": "Game.sim.tick > 0", "timeout": 290},
+    {"assert": "frame - pressed_at < 300", "msg": "Play reaches a running match in under 300 frames"},
+    {"assert": "Session.state_name() == 'IN_MATCH' and Game.sim.seats.size() == 1 and Game.sim.seat(1).builder == 'lamplighter'", "msg": "an offline match of one with my main"},
+    {"assert": "Game.source.allows_debug() and Game.source.get_script().resource_path == 'res://scripts/net/local_sequencer.gd'", "msg": "with in-process turns"}
+  ]
+}

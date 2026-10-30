@@ -6,6 +6,15 @@
 ## top right. The pieces are painted by art_src/ui/console.py from
 ## art_src/ui/console.json at twice the layout's resolution and drawn at half size, so
 ## they stay crisp on large screens; layout.json gives the wells and windows.
+##
+## The command card (design 5.7) has six slots in fixed places with the same keys for
+## every Builder, Game.CARD_KEYS: Q, W, E hold my Builder's three towers; on my own
+## unforked tower they become its two branches (the hammer on their frames, the check a
+## branch lifts in their corner) and E empties; on my forked tower the branch taken stays
+## lit and the other greys. A signals, S sells (greyed on a teammate's tower: it is
+## theirs), D is Ready. The strip shows the next wave's checks, each glyph with the
+## portrait of the creep that brings it (during a wave, the current wave's), and
+## hovering the wave lists every wave still to come.
 class_name Hud
 extends CanvasLayer
 
@@ -23,9 +32,12 @@ const BODY_FONT := preload("res://fonts/NotoSerif-Regular.ttf")
 const GREY := preload("res://shaders/hud_grey.gdshader")
 const ART := "res://ui/console/"
 const ICONS := "res://ui/icons/"
+## The card's slots in place order, by the names their buttons carry.
+const SLOTS := ["q", "w", "e", "signal", "sell", "ready"]
+const SLOT_NODES := ["CardQ", "CardW", "CardE", "Signal", "Sell", "Ready"]
 ## How light a greyed command stays: readable when only unaffordable, darker when it
-## does not apply (nothing selected, fully upgraded, a wave running). An idle command
-## keeps a fifth of its colour, so it still reads as a command and not a hole.
+## does not apply (nothing selected, a fork already taken, a wave running). An idle
+## command keeps a fifth of its colour, so it still reads as a command and not a hole.
 const POOR_VALUE := 0.72
 const IDLE_VALUE := 0.6
 const IDLE_GREY := 0.8
@@ -34,6 +46,11 @@ const BANNER_HOLD := 1.8
 const NOTICE_HOLD := 0.9
 ## Titles: how far below the top edge they stand, above the first row of towers.
 const BANNER_TOP := 24
+## The strip's check glyphs and creep portraits, and the wave list's.
+const GLYPH_SIZE := 22.0
+const FACE_SIZE := 24.0
+const ROW_GLYPH := 18.0
+const ROW_FACE := 20.0
 
 var controller: BuildController
 
@@ -44,6 +61,9 @@ var _gold: Label
 var _lives: Label
 var _wave: Label
 var _countdown: Label
+var _checks: HBoxContainer
+var _wave_list: PanelContainer
+var _wave_rows: VBoxContainer
 var _ready_button: Button
 var _banner: TitleBanner
 var _notice: Label
@@ -51,6 +71,7 @@ var _notice_tween: Tween
 var _portrait: Portrait
 var _creep_shown := []
 var _title: Label
+var _title_glyph: TextureRect
 var _subtitle: Label
 var _stats: HBoxContainer
 var _caps: FontVariation
@@ -61,6 +82,10 @@ var _tooltip_key: Label
 var _tooltip_cost: Label
 var _tooltip_coin: TextureRect
 var _tooltip_body: Label
+var _tooltip_helps: HBoxContainer
+var _tooltip_glyph: TextureRect
+var _tooltip_helps_text: Label
+var _hammer: Texture2D
 var _hovered := ""
 var _end_panel: Control
 var _end_label: Label
@@ -124,7 +149,7 @@ func _process(_delta: float) -> void:
 	var creep := controller.selected_creep
 	if creep and is_instance_valid(creep) and not creep.dead:
 		# Only when what it shows changes, not every frame.
-		if _creep_shown != [ceili(creep.hp), creep.slow_factor < 1.0]:
+		if _creep_shown != _creep_key(creep):
 			_describe_creep(creep)
 	elif creep:
 		controller.select_creep(null)
@@ -152,6 +177,37 @@ func show_notice(text: String) -> void:
 	_notice_tween.tween_callback(func() -> void: _notice.visible = false)
 
 
+## What each card slot shows now, in place order, for tests: {"what" (a tower or form
+## id, "", "signal", "sell" or "ready"), "state" ("ok", "poor", "idle" or "lit"), "cost",
+## "key", "icon" (its texture's path, "" when empty), "glyph" (the check it lifts, or ""),
+## "hammer" (a fork), "active" (its ring lit)}.
+func card() -> Array:
+	var out := []
+	for slot: String in SLOTS:
+		var button: Button = _card[slot]
+		var icon: TextureRect = button.get_node("Icon")
+		var glyph: TextureRect = button.get_node("Glyph")
+		out.append(
+			{
+				"what": str(button.get_meta("what", "")),
+				"state": str(button.get_meta("state", "ok")),
+				"cost": (button.get_node("Cost") as Label).text,
+				"key": (button.get_node("KeyTab/Hotkey") as Label).text,
+				"key_shown": (button.get_node("KeyTab") as Control).visible,
+				"icon": icon.texture.resource_path if icon.visible and icon.texture else "",
+				"glyph": str(glyph.get_meta("check", "")) if glyph.visible else "",
+				"hammer": (button.get_node("Hammer") as Control).visible,
+				"active": (button.get_node("Ring") as Control).visible,
+			}
+		)
+	return out
+
+
+## The strip's checks as shown, for tests: [[check, creep], ..., ["boss", creep]].
+func checks_shown() -> Array:
+	return _checks.get_meta("shown", []) if _checks.visible else []
+
+
 # ── Layout ──
 
 
@@ -159,6 +215,7 @@ func _build(main: Node) -> void:
 	_caps = FontVariation.new()
 	_caps.base_font = BOLD_FONT
 	_caps.spacing_glyph = 1
+	_hammer = _tight(ICONS + "upgrade.png")
 	var root := Control.new()
 	root.name = "Root"
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -169,6 +226,7 @@ func _build(main: Node) -> void:
 	add_child(root)
 	_build_console(root, main)
 	_build_strip(root)
+	_build_wave_list(root)
 	_build_party(root, main)
 	_build_banner(root)
 	_build_notice(root)
@@ -232,45 +290,46 @@ func _build_console(root: Control, main: Node) -> void:
 	_place(shade, _rect("map_well"))
 	left.add_child(shade)
 
-	# Right wing: the command card, every slot a command, each in a fixed place.
+	# Right wing: the command card, six slots in fixed places with fixed keys.
 	var right := _piece(console, "WingRight", 1.0, -wing.x, wing)
 	right.add_child(_art("wing_right.png", true))
-	var card := Control.new()
-	card.name = "CommandCard"
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_place(card, _rect("card_well"))
-	right.add_child(card)
-	var commands := []
-	for kind: String in ["arrow", "cannon", "frost"]:
-		var data: Dictionary = Game.TOWERS[kind]
-		var button := _card_button(
-			"Build%s" % kind.capitalize(), str(data["hotkey"]), str(data["icon"])
-		)
-		button.pressed.connect(controller.set_mode.bind(kind))
-		commands.append([button, kind])
-	var upgrade := _card_button("Upgrade", "U", ICONS + "upgrade.png")
-	upgrade.pressed.connect(controller.upgrade_selected)
-	commands.append([upgrade, "upgrade"])
-	var sell := _card_button("Sell", "S", ICONS + "sell.png")
-	sell.pressed.connect(controller.sell_selected)
-	commands.append([sell, "sell"])
-	# The war horn: Ready. When every seat is Ready the next wave comes at once.
-	_ready_button = _card_button("Ready", "N", ICONS + "next_wave.png")
-	_ready_button.pressed.connect(func() -> void: controller.toggle_ready())
-	commands.append([_ready_button, "ready"])
+	var card_well := Control.new()
+	card_well.name = "CommandCard"
+	card_well.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(card_well, _rect("card_well"))
+	right.add_child(card_well)
 	var socket := _vec("socket")
 	var gap := _vec("gap")
-	for i in commands.size():
-		var button: Button = commands[i][0]
-		var what: String = commands[i][1]
+	for i in SLOTS.size():
+		var slot: String = SLOTS[i]
+		var button := _card_button(SLOT_NODES[i], Game.CARD_KEYS[i])
 		button.position = Vector2(i % 3, i / 3) * (socket + gap)
-		button.mouse_entered.connect(_hover.bind(what))
+		button.pressed.connect(_press.bind(i))
+		button.mouse_entered.connect(_hover.bind(slot))
 		button.mouse_exited.connect(_hover.bind(""))
-		card.add_child(button)
-		_card[what] = button
+		card_well.add_child(button)
+		_card[slot] = button
+	_ready_button = _card["ready"]
+	_set_icon(_card["signal"], Game.SIGNAL_ICON)
+	_set_icon(_card["sell"], ICONS + "sell.png")
+	# The war horn: Ready. When every seat is Ready the next wave comes at once.
+	_set_icon(_ready_button, ICONS + "next_wave.png")
 
 
-## One title, one line under it and one row of numbers, clipped to the shoulder's text area.
+func _press(slot: int) -> void:
+	match slot:
+		0, 1, 2:
+			controller.press_slot(slot)
+		3:
+			controller.arm_signal()
+		4:
+			controller.sell_selected()
+		5:
+			controller.toggle_ready()
+
+
+## One title (with the glyph of the check it brings or answers), one line under it and
+## one row of numbers, clipped to the shoulder's text area.
 func _build_info() -> Control:
 	var info := VBoxContainer.new()
 	info.name = "Info"
@@ -278,11 +337,22 @@ func _build_info() -> Control:
 	info.clip_contents = true
 	info.add_theme_constant_override("separation", 0)
 	_place(info, _rect("text"))
+	var head := HBoxContainer.new()
+	head.name = "Head"
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_theme_constant_override("separation", 6)
+	info.add_child(head)
+	# (no trimming: a trimmed label has no width of its own in a row; the text area clips)
 	_title = _label("", TITLE_FONT, 21, GOLD)
 	_title.name = "Title"
-	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_title.add_theme_constant_override("outline_size", 3)
-	info.add_child(_title)
+	_title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	head.add_child(_title)
+	_title_glyph = _icon_rect(Vector2(20, 20))
+	_title_glyph.name = "TitleGlyph"
+	_title_glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_title_glyph.visible = false
+	head.add_child(_title_glyph)
 	_subtitle = _label("", BOLD_FONT, 13, DIM)
 	_subtitle.name = "Subtitle"
 	_subtitle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -296,8 +366,9 @@ func _build_info() -> Control:
 	return info
 
 
-## Gold, lives and the wave on a strip hanging from the top right. It is a nine-slice
-## that grows leftwards, so big numbers widen it instead of spilling past its art.
+## Gold, lives, the wave and its checks on a strip hanging from the top right. It is a
+## nine-slice that grows leftwards, so big numbers widen it instead of spilling past its
+## art. Hovering the wave lists every wave still to come.
 func _build_strip(root: Control) -> void:
 	var strip := ResourceStrip.new()
 	strip.name = "TopBar"
@@ -316,15 +387,57 @@ func _build_strip(root: Control) -> void:
 	# The Holdfast, its head only and glowing (on Wickhollow the hearth's lamp): what the lives keep.
 	_lives = _resource(row, "Lives", _tight(ICONS + "res_lives.png", 0.6), TEXT, 30, true)
 	_gap(row, 12)
+	# The wave, what comes next and when: hovered, it lists the waves to come.
+	var area := HBoxContainer.new()
+	area.name = "WaveArea"
+	area.mouse_filter = Control.MOUSE_FILTER_PASS
+	area.add_theme_constant_override("separation", 5)
+	area.mouse_entered.connect(_show_wave_list.bind(true))
+	area.mouse_exited.connect(_show_wave_list.bind(false))
+	row.add_child(area)
 	_wave = _label("", BOLD_FONT, 15, TEXT)
 	_wave.name = "Wave"
 	_wave.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(_wave)
+	area.add_child(_wave)
 	_countdown = _label("", BODY_FONT, 15, TEXT)
 	_countdown.name = "Countdown"
 	_countdown.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_countdown.custom_minimum_size.x = 98
-	row.add_child(_countdown)
+	area.add_child(_countdown)
+	_checks = HBoxContainer.new()
+	_checks.name = "WaveChecks"
+	_checks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_checks.add_theme_constant_override("separation", 6)
+	area.add_child(_checks)
+
+
+## The waves still to come, one row each: its number, the glyphs of its checks and the
+## portraits of its creeps with their counts. Under the strip, on the tooltip plate.
+func _build_wave_list(root: Control) -> void:
+	_wave_list = PanelContainer.new()
+	_wave_list.name = "WaveList"
+	_wave_list.add_theme_stylebox_override(
+		"panel", HdStyleBox.new(load(ART + "tooltip.tres"), _k)
+	)
+	_wave_list.anchor_left = 1.0
+	_wave_list.anchor_right = 1.0
+	_wave_list.offset_right = -14
+	_wave_list.offset_left = -14
+	_wave_list.offset_top = float(_layout["strip"]["height"]) + 2
+	_wave_list.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_wave_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_wave_list.visible = false
+	root.add_child(_wave_list)
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 4)
+	_wave_list.add_child(box)
+	box.add_child(_label("Waves to come", TITLE_FONT, 16, GOLD))
+	_wave_rows = VBoxContainer.new()
+	_wave_rows.name = "WaveRows"
+	_wave_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_wave_rows.add_theme_constant_override("separation", 3)
+	box.add_child(_wave_rows)
 
 
 ## The party strip, top left: a plate per player while more than one seat plays, and
@@ -381,7 +494,7 @@ func _build_notice(root: Control) -> void:
 
 
 ## Above the command card, like a strategy game's command tooltip: the name and its key,
-## the cost on the same line, then what it does.
+## the cost on the same line, then what it does, and for a branch the check it lifts.
 func _build_tooltip(root: Control) -> void:
 	_tooltip = PanelContainer.new()
 	_tooltip.name = "Tooltip"
@@ -421,10 +534,22 @@ func _build_tooltip(root: Control) -> void:
 	_tooltip_cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(_tooltip_cost)
 	_tooltip_body = _label("", BODY_FONT, 14, TEXT)
+	_tooltip_body.name = "TooltipBody"
 	_tooltip_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tooltip_body.custom_minimum_size.x = 262
 	_tooltip_body.add_theme_constant_override("outline_size", 0)
 	tip_box.add_child(_tooltip_body)
+	_tooltip_helps = HBoxContainer.new()
+	_tooltip_helps.name = "TooltipHelps"
+	_tooltip_helps.add_theme_constant_override("separation", 6)
+	_tooltip_helps.visible = false
+	tip_box.add_child(_tooltip_helps)
+	_tooltip_glyph = _icon_rect(Vector2(ROW_GLYPH, ROW_GLYPH))
+	_tooltip_glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_tooltip_helps.add_child(_tooltip_glyph)
+	_tooltip_helps_text = _label("", BOLD_FONT, 13, GOLD)
+	_tooltip_helps_text.add_theme_constant_override("outline_size", 0)
+	_tooltip_helps.add_child(_tooltip_helps_text)
 
 
 func _build_end_panel(root: Control) -> void:
@@ -479,35 +604,10 @@ func _refresh() -> void:
 	_lives.add_theme_color_override("font_color", _health_tone(Game.lives, Game.max_lives()))
 	_wave.text = "Wave %d/%d" % [Game.wave, Game.total_waves()]
 	_wave.visible = Game.wave > 0  # before the first, the countdown says it all
-	var over := _over()
-	# (networked, orders go nowhere before START or after the link went: every command
-	# greys, as it does once the match is over)
-	var live := Game.accepts_commands()
-	_live = live
-	for kind: String in ["arrow", "cannon", "frost"]:
-		var cost := Game.tower_cost(kind)
-		_command(_card[kind], not over and live, Game.can_afford(cost), str(cost))
-		_set_active(_card[kind], controller.mode == kind)
+	_refresh_checks()
+	_refresh_card()
 	var tower := controller.selected
 	var has_tower := tower != null and is_instance_valid(tower)
-	# (only a tower's builder upgrades or sells it)
-	var mine := has_tower and tower.owner_seat == Game.seat
-	var upgrade_cost := tower.upgrade_cost() if has_tower else -1
-	if has_tower and upgrade_cost < 0:
-		_command(_card["upgrade"], false, true, "Max")
-	else:
-		_command(
-			_card["upgrade"],
-			upgrade_cost > 0 and mine and live,
-			Game.can_afford(upgrade_cost),
-			str(upgrade_cost) if upgrade_cost > 0 else ""
-		)
-	_command(
-		_card["sell"], mine and live, true, "+%d" % tower.sell_value() if has_tower else ""
-	)
-	var can_call := Game.state == Game.State.PREP and Game.wave < Game.total_waves() and live
-	_command(_ready_button, can_call, true, (_ready_button.get_node("Cost") as Label).text)
-	_set_active(_ready_button, can_call and controller.wants_ready())
 	var creep := controller.selected_creep
 	var has_creep := creep != null and is_instance_valid(creep) and not creep.dead
 	if has_creep:
@@ -520,10 +620,172 @@ func _refresh() -> void:
 		_describe_holdfast()
 	if _hovered != "":
 		_show_tooltip(_hovered)
+	if _wave_list.visible:
+		_fill_wave_list()
+
+
+## The six slots as the selection makes them (design 5.7's table).
+func _refresh_card() -> void:
+	var over := _over()
+	# (networked, orders go nowhere before START or after the link went: every command
+	# greys, as it does once the match is over)
+	var live := Game.accepts_commands()
+	_live = live
+	var tower := controller.selected
+	var has_tower := tower != null and is_instance_valid(tower)
+	# (only a tower's builder forks or sells it)
+	var mine := has_tower and tower.owner_seat == Game.seat
+	for i in 3:
+		var button: Button = _card[SLOTS[i]]
+		var use := controller.slot_use(i)
+		if use == "build" and Game.kit_tower(i) == "":
+			use = "idle"  # (a kit with no tower on this slot: an empty socket)
+		_reset_slot(button)
+		match use:
+			"build":
+				var kind := Game.kit_tower(i)
+				button.set_meta("what", kind)
+				_set_icon(button, str(Game.TOWERS[kind]["icon"]))
+				var cost := Game.tower_cost(kind)
+				_command(button, not over and live, Game.can_afford(cost), str(cost))
+				_set_active(button, controller.mode == kind)
+			"branch":
+				var form := SimContent.tower_form(tower.kind, i)
+				button.set_meta("what", form)
+				_set_icon(button, str(Game.TOWERS[form]["icon"]))
+				_set_glyph(button, SimContent.branch_helps(Game.builder(), form))
+				(button.get_node("Hammer") as Control).visible = true
+				var cost := tower.upgrade_cost()
+				var waiting := controller.fork_pending(tower.cell)
+				_command(button, not over and live and not waiting, Game.can_afford(cost), str(cost))
+			"forked":
+				var form := SimContent.tower_form(tower.kind, i)
+				button.set_meta("what", form)
+				_set_icon(button, str(Game.TOWERS[form]["icon"]))
+				_set_glyph(button, SimContent.branch_helps(Game.builder(), form))
+				if tower.branch == i:
+					_lit(button)
+				else:
+					_command(button, false, true, "")
+			_:
+				# (E on my own tower: nothing to do there, an empty socket)
+				button.set_meta("what", "")
+				(button.get_node("Icon") as Control).visible = false
+				(button.get_node("KeyTab") as Control).visible = false
+				_command(button, false, true, "")
+	_card["signal"].set_meta("what", "signal")
+	_command(_card["signal"], not over and live, true, "")
+	_set_active(_card["signal"], controller.signaling)
+	_card["sell"].set_meta("what", "sell")
+	_command(_card["sell"], mine and live, true, "+%d" % tower.sell_value() if mine else "")
+	_ready_button.set_meta("what", "ready")
+	var can_call := Game.state == Game.State.PREP and Game.wave < Game.total_waves() and live
+	_command(_ready_button, can_call, true, (_ready_button.get_node("Cost") as Label).text)
+	_set_active(_ready_button, can_call and controller.wants_ready())
 
 
 func _over() -> bool:
 	return Game.state == Game.State.WON or Game.state == Game.State.LOST
+
+
+## The wave the strip speaks of: the next one in a build window, the current one while
+## it runs (0-based), or -1 when none is left to show.
+func _strip_wave() -> int:
+	if Game.sim == null or _over():
+		return -1
+	if Game.state == Game.State.WAVE:
+		return Game.wave - 1
+	return Game.wave if Game.wave < Game.total_waves() else -1
+
+
+## The glyph of each check the strip's wave brings with the portrait of the creep that
+## brings it, then the portraits of its bosses. Rebuilt only when the wave changes.
+func _refresh_checks() -> void:
+	var index := _strip_wave()
+	var shown := []
+	if index >= 0:
+		shown = Game.wave_checks(index)
+		for boss: String in Game.wave_bosses(index):
+			shown.append(["boss", boss])
+	_checks.visible = not shown.is_empty()
+	if _checks.get_meta("shown", []) == shown and _checks.get_child_count() == shown.size():
+		return
+	_checks.set_meta("shown", shown)
+	for child in _checks.get_children():
+		child.free()
+	for pair: Array in shown:
+		var group := HBoxContainer.new()
+		group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		group.add_theme_constant_override("separation", 1)
+		if pair[0] != "boss":
+			var glyph := _icon_rect(Vector2(GLYPH_SIZE, GLYPH_SIZE))
+			glyph.name = "Glyph_%s" % pair[0]
+			glyph.texture = Game.icon(str(Game.CHECKS[pair[0]]["icon"]))
+			glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			group.add_child(glyph)
+		var face := _icon_rect(Vector2(FACE_SIZE, FACE_SIZE))
+		face.name = "Face_%s" % pair[1]
+		face.texture = Game.icon(str(Game.CREEPS[pair[1]].get("icon", "")))
+		face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		group.add_child(face)
+		_checks.add_child(group)
+
+
+func _show_wave_list(on: bool) -> void:
+	_wave_list.visible = on and Game.sim != null and Game.total_waves() > 0 and not _over()
+	if _wave_list.visible:
+		_fill_wave_list()
+
+
+## Every wave from the strip's on: "5", its checks' glyphs, its creeps' portraits with
+## their counts; the one running now is marked.
+func _fill_wave_list() -> void:
+	var first := _strip_wave()
+	var key := [first, Game.state]
+	if _wave_rows.get_meta("shown", []) == key:
+		return
+	_wave_rows.set_meta("shown", key)
+	for child in _wave_rows.get_children():
+		child.free()
+	if first < 0:
+		return
+	for index in range(first, Game.total_waves()):
+		var row := HBoxContainer.new()
+		row.name = "WaveRow%d" % (index + 1)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 4)
+		var now := Game.state == Game.State.WAVE and index == Game.wave - 1
+		var number := _label(str(index + 1), BOLD_FONT, 14, GOLD if now else TEXT)
+		number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		number.custom_minimum_size.x = 20
+		row.add_child(number)
+		var glyphs := HBoxContainer.new()
+		glyphs.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		glyphs.add_theme_constant_override("separation", 1)
+		# (a column the width of the four glyphs, so the portraits line up)
+		glyphs.custom_minimum_size.x = ROW_GLYPH * 4 + 3
+		for pair: Array in Game.wave_checks(index):
+			var glyph := _icon_rect(Vector2(ROW_GLYPH, ROW_GLYPH))
+			glyph.texture = Game.icon(str(Game.CHECKS[pair[0]]["icon"]))
+			glyph.tooltip_text = str(Game.CHECKS[pair[0]]["name"])
+			glyphs.add_child(glyph)
+		row.add_child(glyphs)
+		for group: Dictionary in Game.wave_groups(index):
+			var face := _icon_rect(Vector2(ROW_FACE, ROW_FACE))
+			face.texture = Game.icon(str(Game.CREEPS[group["creep"]].get("icon", "")))
+			face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(face)
+			var count := int(group["count"])
+			var boss := bool(SimContent.CREEPS[group["creep"]].get("boss", false))
+			var words := "boss" if boss else "×%d" % count
+			var label := _label(words, BOLD_FONT if boss else BODY_FONT, 12, NOTICE if boss else DIM)
+			label.add_theme_constant_override("outline_size", 0)
+			row.add_child(label)
+		if now:
+			var mark := _label("now", BOLD_FONT, 12, GOLD)
+			mark.add_theme_constant_override("outline_size", 0)
+			row.add_child(mark)
+		_wave_rows.add_child(row)
 
 
 ## Nothing selected: the Holdfast the player keeps, how it stands and what comes next.
@@ -535,6 +797,7 @@ func _describe_holdfast() -> void:
 	elif Game.state == Game.State.PREP and Game.wave < Game.total_waves():
 		line = "Next: " + _wave_brings(Game.wave)
 	_head("The Holdfast", line)
+	_set_glyph_title("")
 	_set_stats(
 		[
 			[
@@ -562,42 +825,66 @@ func _wave_brings(index: int) -> String:
 
 
 func _describe_build(kind: String) -> void:
-	var data: Dictionary = Game.tower_stats(kind, 1)
+	var data := Game.form_stats(kind, -1, Game.my_range_bonus())
 	var cost := int(data["cost"])
-	_show_tower_portrait(kind, 1)
-	_head(str(data["name"]), "%d gold" % cost, DIM if Game.can_afford(cost) else SHORT)
+	_show_tower_portrait(kind)
+	var line := "%d gold" % cost
+	if data["air"]:
+		line += " · reaches the sky"
+	_head(str(data["name"]), line, DIM if Game.can_afford(cost) else SHORT)
+	_set_glyph_title("")
 	_set_stats(_tower_stats(data))
 
 
+## A tower: its form's name (the check a patch branch lifts beside it), whose it is when
+## it is a teammate's ("Seat 2's"), whether it reaches the sky, its kills; its numbers.
 func _describe_tower(tower: Tower) -> void:
-	var data: Dictionary = Game.TOWERS[tower.kind]
-	_show_tower_portrait(tower.kind, tower.level)
-	var kills := "%d %s" % [tower.kills, "kill" if tower.kills == 1 else "kills"]
-	_head(str(data["name"]), "Level %d · %s" % [tower.level, kills])
+	var data: Dictionary = Game.TOWERS[tower.form]
+	_show_tower_portrait(tower.form)
+	var parts := PackedStringArray()
+	if tower.owner_seat != Game.seat:
+		parts.append("%s's" % Game.seat_name(tower.owner_seat))
+	if tower.stats.get("air", false):
+		parts.append("reaches the sky")
+	parts.append("%d %s" % [tower.kills, "kill" if tower.kills == 1 else "kills"])
+	_head(str(data["name"]), " · ".join(parts))
+	var owner: SimRecords.SimSeat = Game.sim.seat(tower.owner_seat) if Game.sim else null
+	_set_glyph_title(SimContent.branch_helps(owner.builder, tower.form) if owner else "")
 	_set_stats(_tower_stats(tower.stats))
 
 
+## A creep: its name with the glyph of the check it brings, what holds it (winged,
+## slowed, stunned, marked) and its numbers.
 func _describe_creep(creep: Creep) -> void:
-	_creep_shown = [ceili(creep.hp), creep.slow_factor < 1.0]
+	_creep_shown = _creep_key(creep)
 	var data: Dictionary = Game.CREEPS[creep.kind]
 	_portrait.show_model(str(data["model"]))
-	_head(
-		str(data["name"]), "Wave %d%s" % [Game.wave, " · slowed" if creep.slow_factor < 1.0 else ""]
-	)
+	var parts := PackedStringArray(["Wave %d" % Game.wave])
+	if creep.winged:
+		parts.append("winged")
+	if creep.stunned:
+		parts.append("stunned")
+	elif creep.slow_factor < 1.0:
+		parts.append("slowed")
+	if creep.mark > 0.0:
+		parts.append("marked +%d%%" % roundi(creep.mark * 100.0))
+	_head(str(data["name"]), " · ".join(parts))
+	_set_glyph_title(str(data.get("check", "")))
 	var fraction := creep.hp / creep.max_hp
-	_set_stats(
-		[
-			[
-				"Health",
-				"%d/%d" % [ceili(creep.hp), ceili(creep.max_hp)],
-				_health_tone(fraction, 1.0)
-			],
-			["Speed", "%.1f" % (creep.speed * creep.slow_factor)],
-			["Bounty", str(creep.bounty)],
-			# What it takes from the Holdfast if it gets there.
-			["Toll", "–%d" % creep.lives_cost, Color("#ff9a7a")],
-		]
-	)
+	var cells := [
+		["Health", "%d/%d" % [ceili(creep.hp), ceili(creep.max_hp)], _health_tone(fraction, 1.0)],
+		["Speed", "%.1f" % creep.pace],
+	]
+	if creep.armor > 0.0:
+		cells.append(["Armour", _num(creep.armor)])
+	cells.append(["Bounty", str(creep.bounty)])
+	# What it takes from the Holdfast if it gets there.
+	cells.append(["Toll", "–%d" % creep.lives_cost, Color("#ff9a7a")])
+	_set_stats(cells)
+
+
+func _creep_key(creep: Creep) -> Array:
+	return [ceili(creep.hp), creep.slow_factor < 1.0, creep.stunned, creep.mark]
 
 
 func _head(title: String, line: String, tone := DIM) -> void:
@@ -608,31 +895,53 @@ func _head(title: String, line: String, tone := DIM) -> void:
 	_subtitle.add_theme_color_override("font_color", tone)
 
 
-func _show_tower_portrait(kind: String, level: int) -> void:
-	var data: Dictionary = Game.TOWERS[kind]
-	var model: String = data.get("model_2", data["model"]) if level >= 2 else data["model"]
-	_portrait.show_model(model, str(data.get("head", "")), float(data.get("head_height", 0.0)))
+## The check glyph beside the title, or none.
+func _set_glyph_title(check: String) -> void:
+	_title_glyph.visible = Game.CHECKS.has(check)
+	if _title_glyph.visible:
+		_title_glyph.texture = Game.icon(str(Game.CHECKS[check]["icon"]))
+		_title_glyph.set_meta("check", check)
 
 
+func _show_tower_portrait(form: String) -> void:
+	var data: Dictionary = Game.TOWERS[form]
+	_portrait.show_model(
+		str(data["model"]), str(data.get("head", "")), float(data.get("head_height", 0.0))
+	)
+
+
+## The numbers a tower shows: damage (or, for a tower that marks, the mark), range,
+## cooldown (or how many it marks), then what it adds: splash, slow, pierce, bounces.
 func _tower_stats(s: Dictionary) -> Array:
-	var stats := [
-		["Damage", str(s["damage"])],
-		["Range", str(s["range"])],
-		["Cooldown", "%ss" % s["cooldown"]]
-	]
+	var stats := []
+	var marks := s.has("mark") and float(s["damage"]) <= 0.0
+	if marks:
+		stats.append(["Mark", "+%d%%" % roundi(float(s["mark"]) * 100.0)])
+	else:
+		stats.append(["Damage", str(s["damage"])])
+	stats.append(["Range", str(s["range"])])
+	if marks:
+		stats.append(["Marks", str(s.get("marks", 1))])
+	else:
+		stats.append(["Cooldown", "%ss" % s["cooldown"]])
 	if s.has("splash"):
 		stats.append(["Splash", str(s["splash"])])
-	elif s.has("slow"):
-		stats.append(["Slow", "%d%%" % int(float(s["slow"]) * 100)])
+	if s.has("slow"):
+		stats.append(["Slow", "%d%%" % roundi(float(s["slow"]) * 100.0)])
+	if s.has("pierce"):
+		stats.append(["Pierce", _num(float(s["pierce"]))])
+	if s.has("bounces"):
+		stats.append(["Bounces", str(s["bounces"])])
 	return stats
 
 
 ## One row of numbers, each a bold value over its name in small capitals. Rebuilt only
-## when the values change.
+## when the values change; five cells sit closer than four.
 func _set_stats(cells: Array) -> void:
 	if _stats.get_meta("cells", []) == cells:
 		return
 	_stats.set_meta("cells", cells)
+	_stats.add_theme_constant_override("separation", 28 if cells.size() <= 4 else 16)
 	for child in _stats.get_children():
 		child.free()
 	for cell: Array in cells:
@@ -665,63 +974,87 @@ func _hover(what: String) -> void:
 		_refresh()
 		return
 	_show_tooltip(what)
-	if what in Game.TOWERS and controller.selected == null:
-		_describe_build(what)
+	var slot := SLOTS.find(what)
+	var use := controller.slot_use(slot) if slot >= 0 and slot < 3 else ""
+	if use == "build" and controller.selected == null and Game.kit_tower(slot) != "":
+		_describe_build(Game.kit_tower(slot))
 
 
 func _show_tooltip(what: String) -> void:
 	if _over():
 		return
 	_tooltip.visible = true
+	_tooltip_helps.visible = false
 	var tower := controller.selected
 	var has_tower := tower != null and is_instance_valid(tower)
+	var slot := SLOTS.find(what)
+	_tooltip_key.text = "(%s)" % Game.CARD_KEYS[slot]
 	var cost := 0
 	_tooltip_cost.text = ""
-	if what in Game.TOWERS:
-		var data: Dictionary = Game.TOWERS[what]
-		_tooltip_title.text = str(data["name"])
-		_tooltip_key.text = "(%s)" % data["hotkey"]
-		cost = Game.tower_cost(what)
-		_tooltip_body.text = str(data["description"])
-	elif what == "upgrade":
-		_tooltip_title.text = "Upgrade"
-		_tooltip_key.text = "(U)"
-		var can := has_tower and tower.upgrade_cost() > 0
-		cost = tower.upgrade_cost() if can else 0
-		_tooltip_body.text = (
-			_upgrade_gains(tower)
-			if can
-			else ("Fully upgraded." if has_tower else "Select a tower to upgrade it.")
-		)
-		if can and tower.owner_seat != Game.seat:
-			_tooltip_body.text = "Only the one who built it can upgrade it."
-	elif what == "sell":
-		_tooltip_title.text = "Sell"
-		_tooltip_key.text = "(S)"
-		_tooltip_cost.text = "+%d" % tower.sell_value() if has_tower else ""
-		_tooltip_body.text = (
-			"Returns most of what the tower cost." if has_tower else "Select a tower to sell it."
-		)
-		if has_tower and tower.owner_seat != Game.seat:
-			_tooltip_body.text = "Only the one who built it can sell it."
-	else:
-		_tooltip_title.text = "Ready"
-		_tooltip_key.text = "(N)"
-		var bonus := Game.early_gold()
-		_tooltip_cost.text = "+%d" % bonus if bonus > 0 and not _ready_button.disabled else ""
-		var everyone := "you are" if Game.seat_count() == 1 else "everyone is"
-		_tooltip_body.text = (
-			(
-				"Sounds the horn when %s Ready: the next wave comes at once, and each second left on the countdown pays one gold."
-				% everyone
+	var use := controller.slot_use(slot) if slot < 3 else what
+	if use == "build" and Game.kit_tower(slot) == "":
+		use = "idle"
+	match use:
+		"build":
+			var kind := Game.kit_tower(slot)
+			var data: Dictionary = Game.TOWERS[kind]
+			_tooltip_title.text = str(data["name"])
+			cost = Game.tower_cost(kind)
+			# (the Builders screen shows this very body: Game.kit_tip)
+			_tooltip_body.text = Game.kit_tip(Game.builder(), slot, Game.my_range_bonus())
+		"branch", "forked":
+			var form := SimContent.tower_form(tower.kind, slot)
+			_tooltip_title.text = str(Game.TOWERS[form]["name"])
+			if use == "branch":
+				cost = tower.upgrade_cost()
+				_tooltip_body.text = _fork_gains(tower, slot)
+			elif tower.branch == slot:
+				_tooltip_body.text = "This tower stands as the %s." % Game.TOWERS[form]["name"]
+			else:
+				_tooltip_body.text = (
+					"A fork is final: this tower stands as the %s." % Game.TOWERS[tower.form]["name"]
+				)
+			var helps := SimContent.branch_helps(Game.builder(), form)
+			if helps != "":
+				_tooltip_helps.visible = true
+				_tooltip_glyph.texture = Game.icon(str(Game.CHECKS[helps]["icon"]))
+				_tooltip_helps_text.text = "Lifts %s to passable" % Game.CHECKS[helps]["name"]
+		"idle":
+			_tooltip.visible = false
+			return
+		"signal":
+			_tooltip_title.text = "Signal"
+			_tooltip_body.text = (
+				"Then click the ground, a creep or a tower: a ring there shows everyone where to look. Alt+click signals at once."
 			)
-			if not _ready_button.disabled
-			else (
-				"The horn waits until this wave is cleared."
-				if Game.accepts_commands()
-				else Game.command_refusal() + "."
+		"sell":
+			_tooltip_title.text = "Sell"
+			_tooltip_cost.text = "+%d" % tower.sell_value() if has_tower else ""
+			_tooltip_body.text = (
+				"Returns most of what the tower cost." if has_tower else "Select a tower to sell it."
 			)
-		)
+			if has_tower and tower.owner_seat != Game.seat:
+				_tooltip_cost.text = ""
+				_tooltip_body.text = (
+					"That tower is %s's: only its builder sells it." % Game.seat_name(tower.owner_seat)
+				)
+		_:
+			_tooltip_title.text = "Ready"
+			var bonus := Game.early_gold()
+			_tooltip_cost.text = "+%d" % bonus if bonus > 0 and not _ready_button.disabled else ""
+			var everyone := "you are" if Game.seat_count() == 1 else "everyone is"
+			_tooltip_body.text = (
+				(
+					"Sounds the horn when %s Ready: the next wave comes at once, and each second left on the countdown pays one gold. N and Space too."
+					% everyone
+				)
+				if not _ready_button.disabled
+				else (
+					"The horn waits until this wave is cleared."
+					if Game.accepts_commands()
+					else Game.command_refusal() + "."
+				)
+			)
 	if cost > 0:
 		_tooltip_cost.text = str(cost)
 	_tooltip_cost.add_theme_color_override(
@@ -731,25 +1064,39 @@ func _show_tooltip(what: String) -> void:
 	_tooltip_coin.visible = _tooltip_cost.visible
 
 
-## What the next level changes, in numbers: "Damage 8.0 to 16.0 · range 3.2 to 3.6".
-func _upgrade_gains(tower: Tower) -> String:
-	var after := Game.tower_stats(tower.kind, tower.level + 1)
+## What a fork to `branch` changes, in numbers: "Damage 8.0 to 16.0 · range 3.2 to 3.6",
+## and "reaches the sky" when it starts to.
+func _fork_gains(tower: Tower, branch: int) -> String:
+	var after := Game.form_stats(tower.kind, branch, Game.sim.range_bonus(tower.owner_seat))
+	var was: Dictionary = tower.stats
 	var parts := PackedStringArray()
-	for key: String in ["damage", "range", "cooldown", "splash", "slow"]:
-		if not tower.stats.has(key) or is_equal_approx(tower.stats[key], after[key]):
+	for key: String in ["damage", "range", "cooldown", "splash", "slow", "pierce", "bounces", "mark", "marks"]:
+		if not after.has(key) and not was.has(key):
 			continue
-		var was: float = tower.stats[key]
-		var now: float = after[key]
-		if key == "slow":
-			parts.append("slow %d%% to %d%%" % [roundi(was * 100), roundi(now * 100)])
-		elif key == "cooldown":
-			parts.append("cooldown %ss to %ss" % [was, now])
-		else:
-			parts.append("%s %s to %s" % [key, was, now])
+		var before := float(was.get(key, 0.0))
+		var now := float(after.get(key, 0.0))
+		if is_equal_approx(before, now):
+			continue
+		match key:
+			"slow", "mark":
+				parts.append("%s %d%% to %d%%" % [key, roundi(before * 100), roundi(now * 100)])
+			"cooldown":
+				parts.append("cooldown %ss to %ss" % [was[key], after[key]])
+			"pierce", "bounces", "marks":
+				parts.append("%s %s to %s" % [key, _num(before), _num(now)])
+			_:
+				parts.append("%s %s to %s" % [key, was.get(key, 0.0), after.get(key, 0.0)])
+	if bool(after["air"]) and not bool(was.get("air", false)):
+		parts.append("reaches the sky")
 	if parts.is_empty():
 		return ""
 	var text := " · ".join(parts)
 	return text[0].to_upper() + text.substr(1)
+
+
+## A whole number without its ".0", any other with one decimal.
+func _num(value: float) -> String:
+	return str(roundi(value)) if is_equal_approx(value, roundf(value)) else "%.1f" % value
 
 
 func _on_state(state: int) -> void:
@@ -758,6 +1105,7 @@ func _on_state(state: int) -> void:
 		controller.set_mode("")
 		_hovered = ""
 		_tooltip.visible = false
+		_wave_list.visible = false
 		_end_panel.visible = true
 		_banner.hide_title()
 		_notice.visible = false
@@ -869,6 +1217,16 @@ func _label(text: String, font: Font, size: int, color: Color) -> Label:
 	return label
 
 
+## A small icon that keeps its aspect inside `size`.
+func _icon_rect(size: Vector2) -> TextureRect:
+	var rect := TextureRect.new()
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rect.custom_minimum_size = size
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rect
+
+
 ## An icon and its number; `glow` lays a warm light behind the icon.
 func _resource(
 	parent: Node, name: String, icon: Texture2D, color: Color, tall: float, glow := false
@@ -903,8 +1261,10 @@ func _resource(
 ## A command: the bevelled icon is the button. It brightens and leaks warm light on
 ## hover, sinks when pressed, glows while active, greys with a red cost when the gold is
 ## short, and greys darker when it does not apply. The hotkey sits on a dark tab in the
-## corner and the cost on the icon's shaded foot, so neither is painted over the subject.
-func _card_button(name: String, hotkey: String, icon_path: String) -> Button:
+## top left corner and the cost on the icon's shaded foot, so neither is painted over the
+## subject; a fork carries the hammer in its lower left corner and, when it lifts a check,
+## that check's glyph in its upper right.
+func _card_button(name: String, hotkey: String) -> Button:
 	var button := Button.new()
 	button.name = name
 	button.focus_mode = Control.FOCUS_NONE
@@ -925,7 +1285,6 @@ func _card_button(name: String, hotkey: String, icon_path: String) -> Button:
 	button.add_child(ring)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
-	icon.texture = load(icon_path)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_SCALE
 	icon.size = button.size
@@ -935,6 +1294,25 @@ func _card_button(name: String, hotkey: String, icon_path: String) -> Button:
 	icon.material = material
 	button.add_child(icon)
 	button.draw.connect(_style_command.bind(button, icon, material))
+	var hammer := TextureRect.new()
+	hammer.name = "Hammer"
+	hammer.texture = _hammer
+	hammer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hammer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hammer.position = Vector2(2, button.size.y - 19)
+	hammer.size = Vector2(17, 17)
+	hammer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hammer.visible = false
+	button.add_child(hammer)
+	var glyph := TextureRect.new()
+	glyph.name = "Glyph"
+	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glyph.position = Vector2(button.size.x - 20, 2)
+	glyph.size = Vector2(18, 18)
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glyph.visible = false
+	button.add_child(glyph)
 	var tab := Panel.new()
 	tab.name = "KeyTab"
 	var tab_box := StyleBoxFlat.new()
@@ -962,6 +1340,32 @@ func _card_button(name: String, hotkey: String, icon_path: String) -> Button:
 	return button
 
 
+## Back to a plain slot before the selection dresses it: its icon and key shown, no
+## hammer, no glyph, no ring.
+func _reset_slot(button: Button) -> void:
+	(button.get_node("Icon") as Control).visible = true
+	(button.get_node("KeyTab") as Control).visible = true
+	(button.get_node("Hammer") as Control).visible = false
+	(button.get_node("Glyph") as Control).visible = false
+	_set_active(button, false)
+
+
+func _set_icon(button: Button, path: String) -> void:
+	var icon: TextureRect = button.get_node("Icon")
+	var texture := Game.icon(path)
+	if icon.texture != texture:
+		icon.texture = texture
+
+
+## The glyph of the check a branch lifts, in the slot's corner; "" hides it.
+func _set_glyph(button: Button, check: String) -> void:
+	var glyph: TextureRect = button.get_node("Glyph")
+	glyph.visible = Game.CHECKS.has(check)
+	if glyph.visible:
+		glyph.texture = Game.icon(str(Game.CHECKS[check]["icon"]))
+		glyph.set_meta("check", check)
+
+
 ## Sets a command's state: usable, short of gold (grey, red cost) or not applicable
 ## (darker grey, the cost line shows only a note such as "Max").
 func _command(button: Button, applies: bool, affordable: bool, cost_text: String) -> void:
@@ -979,16 +1383,24 @@ func _command(button: Button, applies: bool, affordable: bool, cost_text: String
 	button.queue_redraw()
 
 
+## The branch a forked tower took: in full colour with its ring, but nothing to press.
+func _lit(button: Button) -> void:
+	button.disabled = true
+	button.set_meta("state", "lit")
+	(button.get_node("Cost") as Label).text = ""
+	_set_active(button, true)
+	button.queue_redraw()
+
+
 func _style_command(button: Button, icon: TextureRect, material: ShaderMaterial) -> void:
 	var mode := button.get_draw_mode()
 	var pressed := mode == BaseButton.DRAW_PRESSED or mode == BaseButton.DRAW_HOVER_PRESSED
 	icon.position = Vector2(0, 1) if pressed else Vector2.ZERO
 	var state: String = button.get_meta("state", "ok")
-	material.set_shader_parameter(
-		"grey", 0.0 if state == "ok" else (1.0 if state == "poor" else IDLE_GREY)
-	)
+	var bright := state == "ok" or state == "lit"
+	material.set_shader_parameter("grey", 0.0 if bright else (1.0 if state == "poor" else IDLE_GREY))
 	material.set_shader_parameter("value", POOR_VALUE if state == "poor" else IDLE_VALUE)
-	if state != "ok":
+	if not bright or state == "lit":
 		icon.modulate = Color.WHITE
 	elif pressed:
 		icon.modulate = Color(0.8, 0.76, 0.7)

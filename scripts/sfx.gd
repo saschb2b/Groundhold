@@ -8,6 +8,10 @@ extends Node
 const SOUNDS := {
 	"arrow": ["res://sfx/arrow_1.wav", "res://sfx/arrow_2.wav", "res://sfx/arrow_3.wav"],
 	"cannon": ["res://sfx/cannon.wav"],
+	"mortar": ["res://sfx/mortar.wav"],
+	"ballista": ["res://sfx/ballista.wav"],
+	"hawk": ["res://sfx/hawk.wav"],
+	"mark": ["res://sfx/mark.wav"],
 	"explosion": ["res://sfx/explosion_1.wav", "res://sfx/explosion_2.wav"],
 	"frost": ["res://sfx/frost_1.wav", "res://sfx/frost_2.wav"],
 	"hit": ["res://sfx/hit_1.wav", "res://sfx/hit_2.wav", "res://sfx/hit_3.wav"],
