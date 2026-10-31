@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.0 · TBD
+## 0.6.0 · 2026-10-31
 
 Ship it (M5): online play on the official server, desktop builds, a server to download, and the release that makes
 them all from one tag. This version also carries M2, M3 and M4 below, everything since 0.5.0.
