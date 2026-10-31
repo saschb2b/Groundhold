@@ -1,0 +1,20 @@
+{
+  "name": "builders",
+  "description": "README and site: the Builders screen (B). Tamsin Wick, the Lamplighter, stands in the arch as a whole figure; the roster marks the main and the backup; hovering her first tower shows the command card's tooltip with both fork branches.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"set": "node('Causeway').drift", "value": 40.0},
+    {"key": "B"},
+    {"wait": 20},
+    {"assert": "node('BuildersScreen').visible and node('BuildersScreen').selected == 'lamplighter'", "msg": "the Builders screen, Tamsin selected"},
+    {"hover": "node('Tower1')"},
+    {"wait": 4},
+    {"assert": "node('TowerTip').visible", "msg": "the tower's tooltip, both branches"},
+    {"capture": "builders"}
+  ]
+}

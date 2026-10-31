@@ -1,0 +1,61 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "net_restart_rejoins_live",
+  "description": "Against the real server (a dev match, classic:2): the second seat's game is a whole process, started by tests/net/restart_driver.gd with the topology client's own user://. Once a checkpoint past tick 0 is kept it is killed (SIGKILL: no goodbye, no close frame), so the server holds its seat, the seat goes AWAY after 5 s of silence and the caretaker plays it. Its seat was noted in user://net.cfg (Identity.hold_seat), but not offered while its game ran. Then the game is started again, the same way: it finds the device key and the seat, says a resume HELLO naming them (the same identity token), gets MATCH_CONFIG(rejoin) and RESYNC(rejoin) from the latest agreed checkpoint, builds the match from the config, loads the checkpoint, catches up, says shown, is BACK, and gets its seat back at the next build window. The server logged the drop and the rejoin; the other game saw the seat go away and come back; the hash streams (the first run's, then the second's from its checkpoint on, against the steady game's) are equal at every tick both printed; neither run printed an error.",
+  "seed": 1,
+  "timeout_frames": 12000,
+  "compare_hashes": true,
+  "topology": {
+    "server": {
+      "cmd": ["{python}", "server/main.py", "--port", "0", "--host", "127.0.0.1", "--dev-match", "classic:2", "--seed", "5", "--event-log", "{out}/events.jsonl"],
+      "cwd": ".",
+      "ready": "listening.*port\\D*(?P<port>\\d+)"
+    },
+    "clients": [
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Steady", "--hash-log", "--bot"],
+        "steps": [
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 1200},
+          {"wait_until": "scene.sim.seat(3 - scene.client.seat).state == 1", "timeout": 4200},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.connection_state()[0] == 0", "msg": "the killed game's silence put its seat AWAY; my world is live"},
+          {"wait_until": "scene.sim.seat(3 - scene.client.seat).state == 0", "timeout": 4800},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH'", "msg": "the seat came back to the game started again, and the match runs on"},
+          {"wait": 300},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.resyncs.is_empty()", "msg": "no desync, and nothing resynced me"}
+        ]
+      },
+      {
+        "scene": "res://tests/net/restart_driver.tscn",
+        "args": [],
+        "steps": [
+          {"eval": "scene.launch('first', ['--join=127.0.0.1:{port}', '--name=Restarts', '--hash-log', '--bot'])", "as": "first_pid"},
+          {"assert": "first_pid > 0", "msg": "the first run started"},
+          {"wait_until": "scene.said('first', 'MATCH ')", "timeout": 1200},
+          {"assert": "scene.seats_noted('127.0.0.1:{port}') == 1 and scene.held_seat('127.0.0.1:{port}').is_empty()", "msg": "its seat is noted in user://net.cfg, and not offered while its game runs"},
+          {"wait_until": "scene.hash_tick('first') >= 2400", "timeout": 3600},
+          {"assert": "scene.kill('first')", "msg": "the first run killed mid-match"},
+          {"wait_until": "not scene.running('first')", "timeout": 300},
+          {"eval": "scene.held_seat('127.0.0.1:{port}')", "as": "held"},
+          {"assert": "held.size() == 3 and held[0] >= 1 and held[1] >= 0 and held[1] <= 1 and held[2] >= 0", "msg": "now that its game is gone, its match, wire seat and sequence floor are there to ask back"},
+          {"wait": 420},
+          {"eval": "scene.launch('again', ['--join=127.0.0.1:{port}', '--name=Restarts', '--hash-log', '--bot'])", "as": "again_pid"},
+          {"assert": "again_pid > 0", "msg": "started again"},
+          {"wait_until": "scene.said('again', 'RESUME match')", "timeout": 1200},
+          {"assert": "scene.line('again', 'RESUME match') == 'RESUME match %d seat %d' % [held[0], held[1] + 1]", "msg": "the game started again asks the noted seat back with its first HELLO"},
+          {"wait_until": "scene.said('again', 'RESYNC rejoin') or scene.said('again', 'NET FAILED')", "timeout": 2400},
+          {"eval": "scene.line('again', 'RESYNC rejoin').split(' ')[2].to_int()", "as": "rejoined_at"},
+          {"assert": "rejoined_at > 0 and not scene.said('again', 'NET FAILED')", "msg": "MATCH_CONFIG(rejoin) built the match and RESYNC(rejoin) loaded a checkpoint past tick 0"},
+          {"assert": "scene.file_has('{out}/events.jsonl', '\"event\": \"drop\"') and scene.file_has('{out}/events.jsonl', '\"event\": \"rejoin\"')", "msg": "the server held the dropped seat and gave it back to the same identity"},
+          {"wait_until": "scene.hash_tick('again') >= rejoined_at + 3600", "timeout": 6000},
+          {"assert": "scene.running('again') and not scene.said('again', 'NET FAILED') and not scene.said('again', 'MATCH_END')", "msg": "the game started again plays on"},
+          {"assert": "scene.errors('first').is_empty() and scene.errors('again').is_empty()", "msg": "neither run printed an error"},
+          {"assert": "scene.seats_noted('127.0.0.1:{port}') == 1", "msg": "one seat noted: the second run's note replaced the first's"},
+          {"eval": "scene.stop_all()"},
+          {"wait_until": "not scene.running('again')", "timeout": 300}
+        ]
+      }
+    ],
+    "timeout": 420
+  },
+  "steps": []
+}

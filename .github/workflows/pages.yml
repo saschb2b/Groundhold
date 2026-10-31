@@ -95,6 +95,10 @@ jobs:
           rm templates.tpz
       - name: The server's unit tests
         run: python3 -m unittest discover -s server/tests -t server/tests
+      - name: The shaper's, the smoke's and the play page's unit tests
+        run: |
+          python3 -m unittest tools/net/test_shaper.py tools/net/test_smoke.py
+          python3 -m unittest discover -s tests/web -t tests/web
       - name: Import the project
         run: ~/godot/godot --headless --path . --import
       # The real server and two headless games play a whole classic match (turns of
@@ -103,10 +107,19 @@ jobs:
         run: |
           export GODOT_PATH="$HOME/godot/godot"
           python3 tools/net/smoke.py --mode classic --clients 2 --turn-ms 10 --timeout 600 --out smoke
-      - name: Real-socket scenarios (convergence, a stalled client, a party by code)
+      # One topology at a time: a drop, a game killed and started again, a minority
+      # resynced, two seats apart with their dumps, a party by code, and M1's.
+      - name: Real-socket scenarios (convergence, faults, desyncs, a party by code)
         run: |
           export GODOT_PATH="$HOME/godot/godot"
-          python3 .kit/bin/godot-agent scenario . tests/net/live --headless --timeout 300
+          python3 .kit/bin/godot-agent scenario . tests/net/live --headless -j 1 --timeout 600
+      # One client through tools/net/shaper.py: its link cut for 8 s (it rejoins and
+      # finishes), then 150 +- 50 ms and a 3 s stall (the other's tick rate never drops).
+      - name: Faults and a bad network against the real server
+        run: |
+          export GODOT_PATH="$HOME/godot/godot"
+          python3 tools/net/smoke.py --faults --turn-ms 10 --timeout 600 --out smoke-faults
+          python3 tools/net/smoke.py --shaper --turn-ms 10 --timeout 600 --out smoke-shaper
       # Two games boot into the hub against the real server's lobby: a party by code,
       # Ready and Start, loading, a High Water match (called wave by wave), the results,
       # and both back in the party.
@@ -120,6 +133,8 @@ jobs:
           name: net-smoke
           path: |
             smoke
+            smoke-faults
+            smoke-shaper
             smoke-flow
           retention-days: 14
 

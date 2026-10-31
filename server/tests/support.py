@@ -17,6 +17,24 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "server"))
 
+# A test that loops on a condition the code under test never meets (for instance new tests
+# run against the code before the change, to see them fail) must fail, not take the machine
+# down: the test process may use at most this much memory (GROUNDHOLD_TEST_MEMORY_GB).
+try:
+    import os
+    import resource
+    _CAP = int(float(os.environ.get("GROUNDHOLD_TEST_MEMORY_GB", "4")) * 1024 ** 3)
+    _soft, _hard = resource.getrlimit(resource.RLIMIT_AS)
+    if _soft == resource.RLIM_INFINITY or _soft > _CAP:
+        resource.setrlimit(resource.RLIMIT_AS, (_CAP, _hard))
+except (ImportError, ValueError, OSError):   # (not POSIX, or a lower limit already set)
+    pass
+
+# ... and every helper here that reads until something comes reads at most this many messages and
+# fails past them, so a server that keeps sending everything but what a test waits for makes the
+# test fail rather than spin (and grow a transcript's record) for ever.
+MOST_MESSAGES = 100_000
+
 from groundhold_server import protocol, websocket   # noqa: E402
 from groundhold_server.app import Server            # noqa: E402
 from groundhold_server.protocol import SPEC         # noqa: E402
@@ -35,9 +53,11 @@ def masked(data, opcode=2, mask=b"test"):
     return header + mask + bytes(value ^ mask[i % 4] for i, value in enumerate(data))
 
 
-def hello(name="Tamsin", token=None, version=None, flags=0, rules_hash=RULES, build_seq=7):
+def hello(name="Tamsin", token=None, version=None, flags=0, rules_hash=RULES, build_seq=7, match=0,
+          seat=SPEC["system_seat"]):
     return protocol.encode("HELLO", version=SPEC["version"] if version is None else version, build_seq=build_seq,
-                           rules_hash=rules_hash, token=token or bytes(range(1, 17)), flags=flags, name=name)
+                           rules_hash=rules_hash, token=token or bytes(range(1, 17)), flags=flags, name=name,
+                           match=match, seat=seat)
 
 
 def upgrade_request(path=None, subprotocol=None, origin=None, key=b"0123456789abcdef"):
@@ -106,13 +126,15 @@ class Client:
         return protocol.decode(data)
 
     async def until(self, name, timeout=2, skip=()):
-        """Messages up to the first `name`; any other than `skip` fails."""
+        """Messages up to the first `name`; any other than `skip` fails, and
+        so do MOST_MESSAGES of `skip` without it."""
         deadline = time.monotonic() + timeout
-        while True:
+        for _ in range(MOST_MESSAGES):
             got, fields = await self.next(max(0.01, deadline - time.monotonic()))
             if got == name:
                 return fields
             assert got in skip, f"expected {name}, got {got} {fields}"
+        raise AssertionError(f"no {name} among {MOST_MESSAGES} messages")
 
     async def quiet(self, wait=0.05):
         """Nothing arrives for `wait` seconds."""
@@ -292,6 +314,140 @@ class HubTest:
 
 async def party(client, op, **fields):
     await client.send_message("PARTY", op=op, **fields)
+
+
+# -- resilience (M4): checkpoints, resyncs, rejoins
+
+RESUME = SPEC["hello_flags"]["resume"]
+CHECKPOINT = SPEC["hash_flags"]["checkpoint"]
+REASONS = SPEC["resync_reasons"]
+VISIBLE = SPEC["visibility_states"]
+
+
+def state_bytes(size, salt=0):
+    """A stand-in for SimCodec's bytes: `size` bytes the server never decodes."""
+    return bytes((index * 7 + salt) % 251 for index in range(size))
+
+
+async def drain(client, wait=0.05):
+    """Every message that arrives until `wait` seconds pass without one,
+    decoded (and kept in `client.inbox`)."""
+    out = []
+    for _ in range(MOST_MESSAGES):
+        try:
+            data = await client.raw(wait)
+        except asyncio.TimeoutError:
+            break
+        out.append(("CLOSE", None) if data is None else protocol.decode(data))
+        if data is None:
+            break
+    else:
+        raise AssertionError(f"still sending after {MOST_MESSAGES} messages")
+    client.inbox = getattr(client, "inbox", []) + out
+    return out
+
+
+async def sync(client):
+    """A PING through and its PONG back: the server has read everything the
+    game sent before. Returns what the game got meanwhile (kept in
+    `client.inbox` too)."""
+    client.pings = getattr(client, "pings", 0) + 1
+    await client.send_message("PING", client_ms=client.pings, rtt_ms=0)
+    out = []
+    for _ in range(MOST_MESSAGES):
+        name, fields = await client.next()
+        if name == "PONG" and fields["client_ms"] == client.pings:
+            break
+        out.append((name, fields))
+        assert name != "CLOSE", out
+    else:
+        raise AssertionError(f"no PONG among {MOST_MESSAGES} messages")
+    client.inbox = getattr(client, "inbox", []) + out
+    return out
+
+
+async def news(client):
+    """Everything the game got since the last news(), a sync's worth
+    included: what MatchTest.play read on the way counts too, since which
+    game's report decides a tick (and so who reads its outcome during play)
+    is the server's to order."""
+    await sync(client)
+    mark = getattr(client, "mark", 0)
+    client.mark = len(client.inbox)
+    return client.inbox[mark:]
+
+
+def named(messages, *names):
+    return [fields for name, fields in messages if name in names]
+
+
+def turn_numbers(messages):
+    return [fields["turn"] for name, fields in messages if name == "TURN"]
+
+
+async def upload(client, tick, data, **change):
+    """A game's answer to CHECKPOINT_ASK: its bytes in parts (protocol.checkpoint_parts)."""
+    for message in protocol.checkpoint_parts(tick, data):
+        if change:
+            _, fields = protocol.decode(message)
+            message = protocol.encode("CHECKPOINT_PART", **dict(fields, **change))
+        await client.send(message)
+
+
+class MatchTest:
+    """A mixin for IsolatedAsyncioTestCase: a dev-match server on a
+    ManualClock and the games of its match, each `client.seat` its wire seat.
+    `play` moves the turns and sends each game's HASH at every hash tick, so
+    no seat falls silent; `seen` reads what a game got meanwhile."""
+
+    async def asyncSetUp(self):
+        self.clock = ManualClock()
+        self.clients = []
+        self.server = None
+
+    async def asyncTearDown(self):
+        for client in self.clients:
+            await client.drop()
+        if self.server:
+            await self.server.close()
+
+    async def start(self, dev_match="classic:3", **options):
+        options.setdefault("clock", self.clock)
+        self.server = server(dev_match=dev_match, **options)
+        self.port = await self.server.start("127.0.0.1", 0)
+        return self.server
+
+    async def join(self, name, number, **options):
+        client = Client()
+        self.clients.append(client)
+        answer = await client.hello(self.port, name, token=bytes((number,)) * 16, **options)
+        client.answer = answer
+        return client
+
+    async def seated(self, *names, **options):
+        """A dev match of `names` (the server's seats), through the barrier
+        to turn 0's opening. Returns their games."""
+        await self.start("classic:%d" % len(names), **options)
+        games = [await self.join(name, index + 1) for index, name in enumerate(names)]
+        await start_match(self.clock, games)
+        for index, game in enumerate(games):
+            game.seat = index
+        return games
+
+    def match(self):
+        return next(iter(self.server.matches.values()))
+
+    async def play(self, first, last, games, digest=lambda game, tick: b"h" * 8, flags=lambda game, tick: 0,
+                   talking=()):
+        """Hash ticks `first` to `last`: a second of turns before each, then
+        each of `games` sends HASH(tick, digest(game, tick), flags(game, tick))
+        and the server has read them all (each of `talking` only PINGs)."""
+        for tick in range(first, last + 1, SPEC["hash_every"]):
+            await self.clock.turns(SPEC["hash_every"] // SPEC["turn_ticks"])
+            for game in games:
+                await game.send_message("HASH", tick=tick, hash=digest(game, tick), flags=flags(game, tick))
+            for game in list(games) + list(talking):
+                await sync(game)
 
 
 async def state(client, skip=("PONG",)):

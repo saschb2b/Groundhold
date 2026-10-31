@@ -9,15 +9,39 @@
 ##   turn k sealed at frame origin + 3(k + 1): system commands first, then the seats in
 ##   rotation from seat (k mod seats), then by sequence number; PING -> PONG; LINKS every
 ##   2 s; AWAY after 5 s of silence and BACK on the next message; LEAVE_MATCH -> LEFT;
-##   the hash referee (all equal, or with three seats or more a strict majority, agree;
-##   two seats apart or no majority end the match "desynced", a minority is only logged);
+##   the hash referee (all equal, or with three voters or more a strict majority of the
+##   seats present, agree, a tick waiting while the voters still to report could make
+##   one; two seats apart or no majority end the match "desynced");
 ##   the result referee (a RESULT a strict majority of the present seats sent ends the
 ##   match; short of that it plays on while the present seats still playing, a HASH in
 ##   the last 10 s, could still form one: on their way to a claimed tick, or on an end of
 ##   their own); TURN_REQUEST answered from the turn log, a window at most, at most once
 ##   per half of the game's own asking interval; the CMD bucket (ERROR 8 when empty);
 ##   match messages that were on their way when MATCH_END went out are let pass.
-## Not here (as in M1's server): the queue, checkpoints, RESYNC, resume.
+## Resilience (M4, shared/net/README.md Resilience; `resilience = false` keeps M1's
+## server, which only logs a minority's hashes):
+##   checkpoints: once the seats agree on a tick a HASH flagged, CHECKPOINT_ASK goes to one
+##   seat in rotation (present, shown, not catching up); its CHECKPOINT_PARTs are checked
+##   in order and kept (the last two) only when their digest is the agreed hash, else
+##   dropped and the next seat asked, as after checkpoint_wait frames without them;
+##   RESYNC (rejoin, desync, behind) from the latest kept checkpoint (tick 0 without one):
+##   RESYNC, the parts, the turns since, then the live turns, all paced from the next
+##   catchup_ms boundary as catchup.py does (whole messages within catchup_bytes a pump, the
+##   first always, while the link's unsent output, its bytes in flight, stays within
+##   catchup_output); after it the seat's HASHes count from the checkpoint tick, and
+##   a desync's from the first one the re-run sends (tick + 60), so the reports still on
+##   their way from before it are not taken for a second desync;
+##   VISIBILITY: hidden and catching_up in LINKS; either holds BACK until shown, and
+##   brings RESYNC(behind) when a kept checkpoint is past the seat's last HASH tick (for a
+##   seat started without, once its LOADED came);
+##   a minority's desync: RESYNC(desync) once (max_resyncs), then MATCH_END(desynced,
+##   desynced_twice) to that seat alone, LEFT in the turns;
+##   rejoin: a resume HELLO naming a seat its token holds takes it back (ERROR 12 to an old
+##   link still open; PARTY_STATE in lobby mode, MATCH_CONFIG(rejoin), RESYNC(rejoin); while
+##   the match still loads, MATCH_CONFIG as at the start, and it loads like any seat); a
+##   seat not held gets NOTICE no_held_seat. A dropped link holds its seat (AWAY after its
+##   silence), as the server does; a goodbye is LEFT.
+## Not here: the queue.
 ##
 ## Lobby mode (`lobby = true`, M3: the hub and loading scripting, design 5.2 and 6.6):
 ## HELLO only welcomes; PARTY makes the one party (code `party_code`) or joins it, sets the
@@ -98,11 +122,42 @@ var final_tick := 0
 ## System commands injected, as [turn, name, seat], for assertions.
 var system_log: Array = []
 ## Fields written over every seat's entry of MATCH_CONFIG (a broken or hostile server's
-## {"team": 7}).
+## {"team": 7}; {"flags": 1} makes every seat the caretaker's).
 var seat_override := {}
+## The dev match's Builders by seat (default: Lamplighters).
+var seat_builders: Array = []
 ## TURN_REQUESTs answered, and ignored for coming too soon after the last answer.
 var resends := 0
 var resends_ignored := 0
+
+# Resilience (M4; see the top of this file).
+var resilience := true
+## Checkpoints kept: their ticks, oldest first, and tick -> bytes.
+var checkpoint_ticks: Array = []
+var checkpoints := {}
+## The upload asked for now: {"tick", "seat", "at" (frame), "data", "parts", "tried"}; {}.
+var asking := {}
+## Every upload dropped, as [tick, wire seat, why ("digest", "timeout")].
+var uploads_dropped: Array = []
+## Every upload kept, as [tick, wire seat].
+var uploads_kept: Array = []
+## Every RESYNC sent, as [open turn, wire seat, reason, checkpoint tick].
+var resync_log: Array = []
+## Rejoins taken (resume HELLOs that got their seat back), and no_held_seat notices.
+var rejoins := 0
+var no_held_seat := 0
+## Seats ended alone (MATCH_END desynced_twice), by wire seat.
+var ended_alone: Array = []
+var checkpoint_wait := 300
+var catchup_every := 3
+var catchup_bytes := 2048
+var catchup_output := 4096
+var max_resyncs := 1
+## The MATCH_CONFIG each seat was sent, by wire seat (a rejoin gets it again).
+var configs := {}
+## The tick-0 hash the seats LOADED with (the agreed hash of tick 0).
+var tick0 := PackedByteArray()
+var _ask_next := 0
 
 # Lobby mode (see the top of this file).
 var lobby := false
@@ -114,17 +169,29 @@ var countdown_frames := 180
 var slow_after := 900
 ## Frames of silence after which a hub connection is closed, as the server does it.
 var silence_frames := NetProtocol.number("silence_ms") * FRAMES_PER_SECOND / 1000
+## ... and one whose last VISIBILITY was hidden after this many (hidden_silence_ms).
+var hidden_silence_frames := NetProtocol.number("hidden_silence_ms") * FRAMES_PER_SECOND / 1000
 ## The members whose connection was closed for silence, by name, for assertions.
 var silenced: Array = []
 ## Frames of loading after which the leader may start without the slow seats (§6.6).
 var start_without_frames := 30 * FRAMES_PER_SECOND
-## The leader started without the seats still loading.
+## A match of strangers (a dev match, not lobby mode) starts by itself with the seats
+## loaded after this many frames of loading (§6.6's 45 s); -1 never.
+var strangers_start_frames := 45 * FRAMES_PER_SECOND
+## The leader started without the seats still loading (or the strangers' timer did).
 var started_without := false
 var load_every := 60
+## The build_seq scripted members count from (add_member's build_offset); a test sets it to
+## the game's own (Session.build_seq()).
+var build_base := 0
+## Members told NOTICE needs_reload, by name, in order.
+var reload_notices: Array = []
 ## Every PARTY op received, as [member, op name], for assertions.
 var party_log: Array = []
 var _next_load_state := 0
 
+## Ticks a HASH flagged as checkpoint ticks.
+var flagged := {}
 var _pending: Array = []
 var _system: Array = []
 var _system_seq := 0
@@ -142,6 +209,11 @@ func _init(owner_world: Variant, seat_count := 2, match_mode := "classic", seed_
 	resend_every = NetProtocol.number("turn_request_ms") / 2 * FRAMES_PER_SECOND / 1000
 	resend_turns = NetProtocol.number("turn_request_turns")
 	result_wait = NetProtocol.number("result_wait_ms") * FRAMES_PER_SECOND / 1000
+	checkpoint_wait = NetProtocol.number("checkpoint_wait_ms") * FRAMES_PER_SECOND / 1000
+	catchup_every = maxi(1, NetProtocol.number("catchup_ms") * FRAMES_PER_SECOND / 1000)
+	catchup_bytes = NetProtocol.number("catchup_bytes")
+	catchup_output = NetProtocol.number("catchup_output")
+	max_resyncs = NetProtocol.number("max_resyncs")
 
 
 ## A client's link opened.
@@ -176,8 +248,24 @@ func accept(link: Variant) -> void:
 		"back": true,
 		"virtual": false,
 		"reload": false,
+		# (the HELLO's build; whether it was told NOTICE needs_reload since it last did not need one)
+		"build_seq": 0,
+		"told_reload": false,
 		"per_mille": 0,
 		"virtual_loaded": false,
+		# (M4: the HELLO's token; VISIBILITY's last state; the catch-up queue of whole
+		# messages; RESYNCs taken; the tick whose HASH the re-run after a desync's RESYNC
+		# sends first, -1 none; out of the match alone after desynced_twice)
+		"token": PackedByteArray(),
+		"visibility": 0,
+		"catchup": [],
+		"resyncs": 0,
+		"restart_at": -1,
+		# (the checkpoint tick of its last RESYNC(behind): never the same one twice, as
+		# match.py's behind_from)
+		"behind_from": 0,
+		"asked": [],
+		"out": false,
 	}
 	link.conn = conn
 	conns.append(conn)
@@ -239,6 +327,12 @@ func _receive(conn: Dictionary, bytes: PackedByteArray) -> void:
 	var fields: Dictionary = message["fields"]
 	var type: String = message["type"]
 	conn["heard"] = world.frame
+	if type == "VISIBILITY":
+		if int(fields["state"]) > 2:
+			_refuse(conn, 6, "VISIBILITY outside its limits")
+			return
+		# (the state counts before the word does: catching_up holds BACK back)
+		conn["visibility"] = int(fields["state"])
 	if conn["seat"] >= 0:
 		_heard(conn)
 	match type:
@@ -255,8 +349,13 @@ func _receive(conn: Dictionary, bytes: PackedByteArray) -> void:
 			conn["loaded"] = [fields["rules_hash"], fields["tick0_hash"]]
 			if conn.get("late", false) and phase == "playing":
 				conn["late"] = false  # (started without it: its LOADED brings it back)
-				conn["state"] = "present"
-				_inject("BACK", conn["seat"])
+				if resilience and int(conn["visibility"]) == 2:
+					# (catching up: shown brings it BACK; a kept checkpoint gets it there)
+					if _latest_kept() > maxi(0, int(conn["behind_from"])):
+						_resync(conn, "behind")
+				else:
+					conn["state"] = "present"
+					_inject("BACK", conn["seat"])
 			_broadcast_load_state()
 		"PARTY":
 			if lobby:
@@ -266,12 +365,19 @@ func _receive(conn: Dictionary, bytes: PackedByteArray) -> void:
 		"CMD":
 			_command(conn, fields)
 		"HASH":
-			if phase == "ended":
+			if phase == "ended" or conn["out"]:
 				return  # (sent before its MATCH_END arrived: let pass)
 			if int(fields["flags"]) & ~1:
 				_refuse(conn, 6, "HASH outside its limits")
 				return
-			_hash(conn, int(fields["tick"]), (fields["hash"] as PackedByteArray).hex_encode())
+			var tick := int(fields["tick"])
+			if int(conn["restart_at"]) >= 0:
+				if tick != int(conn["restart_at"]):
+					return  # (a report from before the RESYNC, still on its way)
+				conn["restart_at"] = -1
+			if int(fields["flags"]) & 1 and tick > 0:
+				flagged[tick] = true
+			_hash(conn, tick, (fields["hash"] as PackedByteArray).hex_encode())
 			_judge()
 		"RESULT":
 			_result(conn, fields)
@@ -288,16 +394,41 @@ func _receive(conn: Dictionary, bytes: PackedByteArray) -> void:
 			if conn["seat"] >= 0 and phase != "ended":
 				_leave(conn)
 		"VISIBILITY":
-			pass
+			if resilience and int(fields["state"]) == 2 and phase == "playing":
+				var waits: bool = conn.get("late", false)
+				var past := maxi(int(conn["hash_tick"]), int(conn["behind_from"]))
+				if not waits and _latest_kept() > past and (conn["catchup"] as Array).is_empty():
+					_resync(conn, "behind")
+		"CHECKPOINT_PART":
+			_part(conn, fields)
 
 
 func _hello(conn: Dictionary, fields: Dictionary) -> void:
 	if conn["hello"]:
 		_refuse(conn, 1, "Expected one HELLO")
 		return
+	var held_seat := int(fields["seat"])
+	if (held_seat > 3 and held_seat != 255) or (held_seat <= 3 and int(fields["match"]) == 0):
+		_refuse(conn, 1, "HELLO names no seat")
+		return
 	conn["hello"] = true
 	conn["name"] = fields["name"]
 	conn["rules_hash"] = fields["rules_hash"]
+	conn["build_seq"] = int(fields["build_seq"])
+	conn["token"] = fields["token"]
+	if resilience and int(fields["flags"]) & 1 and held_seat <= 3:
+		_welcome(conn, fields)
+		_rejoin(conn, int(fields["match"]), held_seat)
+		return
+	_welcome(conn, fields)
+	if lobby:
+		return  # (parties form matches)
+	var waiting := conns.filter(func(c: Dictionary) -> bool: return c["hello"] and c["seat"] < 0 and not c.get("replaced", false))
+	if phase == "waiting" and waiting.size() >= seats:
+		_begin(waiting.slice(0, seats))
+
+
+func _welcome(conn: Dictionary, fields: Dictionary) -> void:
 	_send(
 		conn,
 		"WELCOME",
@@ -312,11 +443,6 @@ func _hello(conn: Dictionary, fields: Dictionary) -> void:
 			"motd": "",
 		}
 	)
-	if lobby:
-		return  # (parties form matches)
-	var waiting := conns.filter(func(c: Dictionary) -> bool: return c["hello"] and c["seat"] < 0)
-	if phase == "waiting" and waiting.size() >= seats:
-		_begin(waiting.slice(0, seats))
 
 
 func _begin(players: Array) -> void:
@@ -329,29 +455,32 @@ func _begin(players: Array) -> void:
 		conn["seat"] = i
 		conn["heard"] = world.frame
 		var builder: int = conn["main"] if lobby else 0
+		if not lobby and i < seat_builders.size():
+			builder = NetProtocol.enum_value("builders", str(seat_builders[i]))
 		var entry := {"seat": i, "team": 0, "builder": builder, "flags": 0, "name": conn["name"]}
 		entry.merge(seat_override, true)
 		listed.append(entry)
 	for conn: Dictionary in players:
-		_send(
-			conn,
-			"MATCH_CONFIG",
-			{
-				"match": 1,
-				"mode": int(party["mode"]) if lobby else int(NetProtocol.spec()["modes"][mode]["id"]),
-				"map": 0,
-				"seed": match_seed,
-				"rules_hash": _rules_of(players),
-				"your_seat": conn["seat"],
-				"seats": listed,
-			}
-		)
+		var config := {
+			"match": 1,
+			"mode": int(party["mode"]) if lobby else int(NetProtocol.spec()["modes"][mode]["id"]),
+			"map": 0,
+			"seed": match_seed,
+			"rules_hash": _rules_of(players),
+			"your_seat": conn["seat"],
+			"seats": listed,
+			"flags": 0,
+		}
+		configs[int(conn["seat"])] = config
+		_send(conn, "MATCH_CONFIG", config)
 	_broadcast_load_state()
 
 
 func _check_start() -> void:
 	var players := _seated()
 	var ready := players.filter(func(c: Dictionary) -> bool: return not _loaded_of(c).is_empty())
+	if not lobby and strangers_start_frames >= 0 and world.frame - configured_at >= strangers_start_frames:
+		started_without = true  # (45 s: a strangers' match starts with the seats loaded)
 	if ready.is_empty() or (ready.size() < players.size() and not started_without):
 		return
 	var first: Array = _loaded_of(ready[0])
@@ -367,6 +496,7 @@ func _check_start() -> void:
 			return
 	if world.frame < configured_at + (loading_min if players.size() > 1 else 0):
 		return
+	tick0 = first[1]
 	phase = "playing"
 	origin = world.frame + start_delay
 	_next_links = origin + links_every
@@ -427,44 +557,110 @@ func _hash(conn: Dictionary, tick: int, hex: String) -> void:
 	if agreed.has(tick):
 		if agreed[tick] != hex:
 			disagreements.append([tick, {conn["seat"]: hex, -1: agreed[tick]}])
-			_desync(tick)
+			_desync(tick, [conn])
 		return
 	if not hashes.has(tick):
 		hashes[tick] = [world.frame, {}]
-	hashes[tick][1][conn["seat"]] = hex
-	if _present().all(func(c: Dictionary) -> bool: return (hashes[tick][1] as Dictionary).has(c["seat"])):
+	var by: Dictionary = hashes[tick][1]
+	by[conn["seat"]] = hex
+	if _voters(tick, by).all(func(c: Dictionary) -> bool: return by.has(c["seat"])):
 		_decide(tick)
 
 
-## Every present seat reported the tick (or 2 s passed): all equal, or with three seats or
-## more a strict majority, is agreement; the seats that differ from it are a desync.
+## The server's Match.voters: the seats whose word decides `tick`, the present ones that
+## reported it and the present ones that may still (their last HASH below it, and in the
+## last result_wait frames); a minority on its way back from a RESYNC does not vote.
+func _voters(tick: int, by: Dictionary) -> Array:
+	return _present().filter(
+		func(c: Dictionary) -> bool:
+			if int(c["restart_at"]) >= 0:
+				return false
+			return by.has(c["seat"]) or (int(c["hash_tick"]) < tick and world.frame - int(c["hashed"]) < result_wait)
+	)
+
+
+## The server's Match.decide: every voter reported the tick (or 2 s passed): all equal, or
+## with three voters or more a strict majority of the voters (not of the reports so far),
+## is agreement, and the seats that differ from it are a desync. Short of that the tick
+## waits while the voters still to report could make one; when none can, the match ends
+## "desynced".
 func _decide(tick: int) -> void:
-	var by: Dictionary = hashes[tick][1]
+	var entry: Array = hashes[tick]
+	var by: Dictionary = entry[1]
 	hashes.erase(tick)
-	if by.size() >= 2:
-		compared += 1
+	var voting := []
+	for c: Dictionary in _voters(tick, by):
+		voting.append(int(c["seat"]))
+	if voting.is_empty():
+		voting = by.keys()  # (nobody votes any more: the reports there decide)
+	var votes := []
+	for seat_no: int in voting:
+		if by.has(seat_no):
+			votes.append(by[seat_no])
+	if votes.is_empty():
+		hashes[tick] = entry  # (only seats that do not vote reported it: it waits)
+		return
 	var best := ""
 	var most := 0
-	for value: String in by.values():
-		var count := by.values().count(value)
+	for value: String in votes:
+		var count := votes.count(value)
 		if count > most:
 			best = value
 			most = count
-	if most == by.size() or (by.size() >= 3 and most * 2 > by.size()):
+	var missing := voting.size() - votes.size()
+	if most == voting.size() or (voting.size() >= 3 and most * 2 > voting.size()):
+		if by.size() >= 2:
+			compared += 1
 		agreed[tick] = best
-		if most != by.size():
+		var minority := []
+		for seat_no: int in by:
+			if by[seat_no] != best:
+				minority.append(seat_conn(seat_no))
+		if not minority.is_empty():
 			disagreements.append([tick, by])
-			_desync(tick)
+			_desync(tick, minority)
+		if resilience and flagged.has(tick) and phase == "playing":
+			_ask_checkpoint(tick, [])
 		return
+	if missing > 0:
+		var need := voting.size() / 2 + 1 if voting.size() >= 3 else voting.size()
+		if most == votes.size() or (voting.size() >= 3 and most + missing >= need):
+			hashes[tick] = entry
+			return
+	if by.size() >= 2:
+		compared += 1
 	disagreements.append([tick, by])
 	_end("desynced", "desync", tick)
 
 
-## Seats whose hash differs from the agreed one: with three seats or more a minority (only
-## logged, as in M1's server; M4 resyncs it), with two the match ends "desynced".
-func _desync(tick: int) -> void:
+## Seats whose hash differs from the agreed one: with three seats or more a minority,
+## resynced once and then ended alone (M1's server only logged it), with two the match
+## ends "desynced".
+func _desync(tick: int, minority: Array) -> void:
 	if seats < 3:
 		_end("desynced", "desync", tick)
+		return
+	if not resilience:
+		return
+	for conn: Dictionary in minority:
+		if conn.is_empty() or conn["out"] or conn["state"] == "left":
+			continue
+		if int(conn["resyncs"]) < max_resyncs:
+			conn["resyncs"] = int(conn["resyncs"]) + 1
+			_drop_reports(conn)
+			_resync(conn, "desync")
+		else:
+			_end_alone(conn, tick)
+
+
+## A seat's reports still waiting to be decided are its parted simulation's (a desync's
+## RESYNC), or its old connection's (a rejoin): let go, as the server does.
+func _drop_reports(conn: Dictionary) -> void:
+	for tick: int in hashes.keys():
+		var by: Dictionary = hashes[tick][1]
+		by.erase(conn["seat"])
+		if by.is_empty():
+			hashes.erase(tick)
 
 
 ## RESULT: bounded like HASH (no later than the sealed turns, no earlier than the seat's
@@ -546,6 +742,8 @@ func _resend(conn: Dictionary, first: int) -> void:
 	if int(conn["resent"]) >= 0 and world.frame - int(conn["resent"]) < resend_every:
 		resends_ignored += 1
 		return
+	if not (conn["catchup"] as Array).is_empty():
+		return  # (a seat catching up is not answered: its catch-up brings every turn, in order)
 	conn["resent"] = world.frame
 	resends += 1
 	var start := maxi(first, (int(conn["hash_tick"]) + 1) / 3)
@@ -561,8 +759,14 @@ func _tend() -> void:
 		if conn["state"] == "present" and world.frame - int(conn["heard"]) >= away_after:
 			conn["state"] = "away"
 			_inject("AWAY", conn["seat"])
+	if not asking.is_empty() and world.frame - int(asking["at"]) >= checkpoint_wait:
+		uploads_dropped.append([asking["tick"], asking["seat"], "timeout"])
+		_ask_checkpoint(int(asking["tick"]), asking["tried"])
+	if (world.frame - origin) % catchup_every == 0:
+		for conn: Dictionary in _seated():
+			_pump(conn)
 	for tick: int in hashes.keys():
-		if world.frame - int(hashes[tick][0]) >= hash_wait:
+		if phase == "playing" and hashes.has(tick) and world.frame - int(hashes[tick][0]) >= hash_wait:
 			_decide(tick)
 	# (a seat gone AWAY or LEFT no longer holds the results up)
 	_judge()
@@ -570,8 +774,10 @@ func _tend() -> void:
 		_next_links += links_every
 		var listed := []
 		for conn: Dictionary in _seated():
-			var silent := 2 if conn["state"] != "present" else 0
-			listed.append({"seat": conn["seat"], "rtt_ms": int(conn["rtt"]), "flags": silent})
+			var silent := 2 if conn["state"] != "present" or conn["link"].is_dropped() else 0
+			var shown := int(conn["visibility"])
+			var flags := silent | (1 if shown == 1 else 0) | (4 if shown == 2 else 0)
+			listed.append({"seat": conn["seat"], "rtt_ms": int(conn["rtt"]), "flags": flags})
 		_broadcast("LINKS", {"seats": listed})
 
 
@@ -590,7 +796,12 @@ func _seal(k: int) -> void:
 	while turns.size() < k:
 		turns.append([])
 	turns.append(entries)
-	_broadcast_bytes(_turn_bytes(k, entries))
+	var bytes := _turn_bytes(k, entries)
+	for conn: Dictionary in _seated():
+		if (conn["catchup"] as Array).is_empty():
+			_send_bytes(conn, bytes)
+		else:
+			(conn["catchup"] as Array).append(bytes)  # (behind its catch-up, in order)
 
 
 func _turn_bytes(k: int, entries: Array) -> PackedByteArray:
@@ -610,6 +821,8 @@ func _inject(name: String, seat: int) -> void:
 func _heard(conn: Dictionary) -> void:
 	conn["heard"] = world.frame
 	if conn["state"] == "away" and phase == "playing" and not conn.get("late", false):
+		if resilience and int(conn["visibility"]) != 0:
+			return  # (catching up, or hidden: only shown brings it BACK)
 		conn["state"] = "present"
 		_inject("BACK", conn["seat"])
 
@@ -672,12 +885,203 @@ func finish(result := "won") -> void:
 	_end(result, "result", turn * 3)
 
 
+# ── Resilience (M4) ──
+
+
+## The latest checkpoint tick kept, 0 for none.
+func _latest_kept() -> int:
+	return int(checkpoint_ticks[-1]) if not checkpoint_ticks.is_empty() else 0
+
+
+## CHECKPOINT_ASK(tick) to the next seat in rotation that is present, shown and not
+## catching up, and not among `tried`; none left: nothing is kept for that tick.
+func _ask_checkpoint(tick: int, tried: Array) -> void:
+	asking = {}
+	if tick <= _latest_kept():
+		return
+	var order := _seated()
+	for i in order.size():
+		var conn: Dictionary = order[(_ask_next + i) % order.size()]
+		var seat_no := int(conn["seat"])
+		if tried.has(seat_no) or conn["state"] != "present" or conn["out"] or conn["link"].is_dropped():
+			continue
+		if int(conn["visibility"]) != 0 or not (conn["catchup"] as Array).is_empty():
+			continue
+		_ask_next = (_ask_next + i + 1) % order.size()
+		asking = {"tick": tick, "seat": seat_no, "at": world.frame, "data": PackedByteArray(), "parts": 0, "tried": tried + [seat_no]}
+		(conn["asked"] as Array).append(tick)
+		_send(conn, "CHECKPOINT_ASK", {"tick": tick})
+		return
+
+
+## A CHECKPOINT_PART from a seat: in order, whole, then kept only if its digest is the
+## agreed hash (shared/net/README.md Resilience).
+func _part(conn: Dictionary, fields: Dictionary) -> void:
+	var tick := int(fields["tick"])
+	var mine := not asking.is_empty() and int(asking["tick"]) == tick and int(asking["seat"]) == int(conn["seat"])
+	if not mine:
+		if not (conn["asked"] as Array).has(tick):
+			_refuse(conn, 1, "Unknown or out-of-order message")
+		return  # (a tick it stopped waiting for: let pass)
+	var data: PackedByteArray = fields["data"]
+	var parts := int(fields["parts"])
+	var got: PackedByteArray = asking["data"]
+	var size := NetProtocol.number("checkpoint_part")
+	if (
+		int(fields["part"]) * size != got.size()
+		or parts > NetProtocol.number("max_checkpoint_parts")
+		or int(fields["part"]) >= parts
+		or (int(asking["parts"]) > 0 and parts != int(asking["parts"]))
+	):
+		_refuse(conn, 6, "CHECKPOINT_PART outside its limits")
+		return
+	got.append_array(data)
+	asking["data"] = got
+	asking["parts"] = parts
+	if int(fields["part"]) < parts - 1:
+		return
+	if Checkpointing.digest(got).hex_encode() != str(agreed.get(tick, "")):
+		uploads_dropped.append([tick, int(conn["seat"]), "digest"])
+		_ask_checkpoint(tick, asking["tried"])
+		return
+	uploads_kept.append([tick, int(conn["seat"])])
+	checkpoints[tick] = got
+	checkpoint_ticks.append(tick)
+	while checkpoint_ticks.size() > NetProtocol.number("checkpoints_kept"):
+		checkpoints.erase(checkpoint_ticks.pop_front())
+	asking = {}
+
+
+## RESYNC to one seat from the latest kept checkpoint (tick 0 without one), its parts and
+## the turns since, behind which its live turns queue until the catch-up drains.
+func _resync(conn: Dictionary, reason: String) -> void:
+	var tick := _latest_kept()
+	var bytes: PackedByteArray = checkpoints.get(tick, PackedByteArray())
+	var digest: PackedByteArray = tick0 if tick == 0 else str(agreed[tick]).hex_decode()
+	var parts := Checkpointing.split(tick, bytes)
+	var first := tick / SimTypes.TURN_TICKS
+	var queue := [
+		NetProtocol.encode(
+			"RESYNC",
+			{
+				"checkpoint_tick": tick,
+				"first_turn": first,
+				"reason": NetProtocol.enum_value("resync_reasons", reason),
+				"open_turn": turn,
+				"checkpoint_hash": digest,
+				"parts": parts.size(),
+			}
+		)
+	]
+	for part: Dictionary in parts:
+		queue.append(NetProtocol.encode("CHECKPOINT_PART", part))
+	for k in range(first, turn):
+		queue.append(_turn_bytes(k, turns[k]))
+	conn["catchup"] = queue
+	# (a rejoin's new connection counts from the checkpoint tick itself, as match.py's
+	# tick - 1; the others from it, their reports on the way from before it let pass)
+	conn["hash_tick"] = tick - 1 if reason == "rejoin" else tick
+	conn["result"] = []
+	conn["restart_at"] = tick + 60 if reason == "desync" else -1
+	if reason == "behind":
+		conn["behind_from"] = tick
+	resync_log.append([turn, int(conn["seat"]), reason, tick])
+	# (nothing goes before the next catchup_ms boundary: match.py's feed pumps it there)
+
+
+## Once per catchup_ms, as catchup.py's pump: whole messages in order while this pump's
+## bytes stay within catchup_bytes (the first message always goes) and the link's unsent
+## output with the message, its bytes in flight, stays within catchup_output (a message
+## larger than that only into an empty output).
+func _pump(conn: Dictionary) -> void:
+	var queue: Array = conn["catchup"]
+	if queue.is_empty() or conn["link"].is_dropped():
+		return
+	var link = conn["link"]
+	var spent := 0
+	while not queue.is_empty():
+		var message: PackedByteArray = queue[0]
+		if spent > 0 and spent + message.size() > catchup_bytes:
+			break
+		var unsent: int = link.in_flight() if link.has_method("in_flight") else 0
+		if unsent > 0 and unsent + message.size() > catchup_output:
+			break
+		queue.pop_front()
+		spent += message.size()
+		_send_bytes(conn, message)
+
+
+## The same seat desynced again past max_resyncs: MATCH_END(desynced, desynced_twice) to
+## it alone, LEFT in the turns, the caretaker keeps it; the others play on.
+func _end_alone(conn: Dictionary, tick: int) -> void:
+	_send(
+		conn,
+		"MATCH_END",
+		{
+			"outcome": NetProtocol.enum_value("outcomes", "desynced"),
+			"reason": NetProtocol.enum_value("end_reasons", "desynced_twice"),
+			"final_tick": tick,
+		}
+	)
+	ended_alone.append(int(conn["seat"]))
+	_leave(conn)
+	conn["out"] = true
+	conn["catchup"] = []
+
+
+## A resume HELLO naming `seat` of match `match_id`: the seat back if this token holds it
+## and it has not left; else NOTICE no_held_seat.
+func _rejoin(conn: Dictionary, match_id: int, seat_no: int) -> void:
+	var held := {}
+	for c: Dictionary in conns:
+		if c != conn and int(c["seat"]) == seat_no and c["token"] == conn["token"]:
+			held = c
+	if match_id != 1 or held.is_empty() or held["state"] == "left" or held["out"] or phase not in ["loading", "playing"]:
+		no_held_seat += 1
+		_send(conn, "NOTICE", {"code": NetProtocol.enum_value("notices", "no_held_seat"), "argument": 0})
+		return
+	if not held["link"].is_dropped():
+		_send(held, "ERROR", {"code": NetProtocol.enum_value("errors", "replaced"), "text": "Replaced by another session"})
+		held["link"].drop("Replaced by another session", 1008)
+	for key: String in held:
+		if key not in ["link", "hello", "token", "name"]:
+			conn[key] = held[key]
+	held["seat"] = -1
+	held["replaced"] = true
+	if lobby and not party.is_empty():
+		var members: Array = party["members"]
+		var i := members.find(held)
+		if i >= 0:
+			members[i] = conn
+	conn["heard"] = world.frame
+	conn["catchup"] = []
+	_drop_reports(conn)  # (the old connection's, still waiting: its old simulation's)
+	rejoins += 1
+	if lobby:
+		_broadcast_party()
+	if phase == "loading":
+		# (the match still loads: MATCH_CONFIG as at the start, and it loads like any seat)
+		conn["loaded"] = []
+		conn["per_mille"] = 0
+		conn["visibility"] = 0
+		_send(conn, "MATCH_CONFIG", configs[seat_no])
+		_broadcast_load_state()
+		return
+	conn["visibility"] = 2  # (a rejoin counts as catching up until it says shown)
+	var config: Dictionary = (configs[seat_no] as Dictionary).duplicate()
+	config["flags"] = NetProtocol.enum_value("config_flags", "rejoin")
+	_send(conn, "MATCH_CONFIG", config)
+	_resync(conn, "rejoin")
+
+
 # ── The lobby (lobby mode) ──
 
 
 ## A member without a client, named `who`, with `main` as its Builder: it hosts the party
-## when there is none, otherwise joins it. Returns its connection record.
-func add_member(who: String, main := "lamplighter") -> Dictionary:
+## when there is none, otherwise joins it. Its build is `build_base` + `build_offset`, and
+## its rules hash this game's (`other_rules` 0) or another build's (1, 2, ...: each its own
+## hash). Returns its record.
+func add_member(who: String, main := "lamplighter", build_offset := 0, other_rules := 0) -> Dictionary:
 	var link := QuietLink.new()
 	accept(link)
 	var conn: Dictionary = link.conn
@@ -685,6 +1089,8 @@ func add_member(who: String, main := "lamplighter") -> Dictionary:
 	conn["hello"] = true
 	conn["name"] = who
 	conn["main"] = NetProtocol.enum_value("builders", main)
+	conn["build_seq"] = maxi(0, build_base + build_offset)
+	conn["rules_hash"] = rules_hash_of(other_rules)
 	if party.is_empty():
 		_create_party(conn, int(NetProtocol.spec()["modes"][mode]["id"]))
 	else:
@@ -694,16 +1100,56 @@ func add_member(who: String, main := "lamplighter") -> Dictionary:
 	return conn
 
 
-## Sets a member's "ready", "reload" (another rules version) or "main" (a Builder id).
+## Sets a member's "ready", "reload" (needs to reload, whatever its build), "main" (a
+## Builder id) or "build" ([offset from build_base, other_rules]: it reloaded another build).
 func set_member(who: String, key: String, value: Variant) -> void:
 	var conn := member_conn(who)
 	if conn.is_empty():
 		return
 	if key == "main":
 		conn["main"] = NetProtocol.enum_value("builders", str(value))
+	elif key == "build":
+		conn["build_seq"] = maxi(0, build_base + int(value[0]))
+		conn["rules_hash"] = rules_hash_of(int(value[1]))
 	else:
 		conn[key] = value
 	_broadcast_party()
+
+
+## A build's rules hash: this game's for 0, another for each other number.
+func rules_hash_of(other_rules: int) -> PackedByteArray:
+	if other_rules == 0:
+		return SimContent.rules_hash()
+	return PackedByteArray([0xEE, 0xEE, 0xEE, 0xEE, 0x0D, 0x0D, 0x0D, other_rules & 0xFF])
+
+
+## A scripted member says goodbye: out of the party at once.
+func remove_member(who: String) -> void:
+	var conn := member_conn(who)
+	if conn.is_empty():
+		return
+	_drop_member(conn)
+	conns.erase(conn)
+	_broadcast_party()
+
+
+## The rules hash the party plays: the newest build's (the highest build_seq, the leader's
+## on a tie, then the earliest to join), as party.py's reference().
+func _reference() -> PackedByteArray:
+	var best := {}
+	var members: Array = party.get("members", [])
+	for m: Dictionary in members:  # (in joining order: the earlier wins a tie)
+		if best.is_empty() or int(m["build_seq"]) > int(best["build_seq"]):
+			best = m
+		elif int(m["build_seq"]) == int(best["build_seq"]) and int(m["member"]) == int(party["leader"]):
+			best = m
+	return best.get("rules_hash", PackedByteArray())
+
+
+## Whether a member needs to reload: another rules hash than the newest build's (or a
+## test's "reload").
+func _needs_reload(conn: Dictionary) -> bool:
+	return bool(conn["reload"]) or (conn["rules_hash"] as PackedByteArray) != _reference()
 
 
 ## A scripted member's loading: its per mille, and whether it has loaded (with the same
@@ -772,9 +1218,9 @@ func _party_op(conn: Dictionary, fields: Dictionary) -> void:
 					started_without = true
 				return
 			var others_ready := members.all(
-				func(m: Dictionary) -> bool: return m == conn or (m["ready"] and not m["reload"])
+				func(m: Dictionary) -> bool: return m == conn or (m["ready"] and not _needs_reload(m))
 			)
-			if not leads or party["phase"] != "forming" or not others_ready or conn["reload"]:
+			if not leads or party["phase"] != "forming" or not others_ready or _needs_reload(conn):
 				return
 			party["phase"] = "countdown"
 			party["countdown_at"] = world.frame + countdown_frames
@@ -794,8 +1240,12 @@ func _close_silent() -> void:
 			continue
 		if world.frame - int(conn["heard"]) < silence_frames:
 			continue
+		if resilience and int(conn["visibility"]) == 1 and world.frame - int(conn["heard"]) < hidden_silence_frames:
+			continue  # (a hidden tab's loop sleeps: its link is kept, design 6.8, hidden_silence_ms)
 		silenced.append(conn["name"])
 		conn["link"].drop("Silent too long", 1001)
+		if conn["seat"] >= 0 and phase == "playing" and resilience:
+			continue  # (a dropped seat is held, AWAY after its silence: a resume takes it back)
 		if conn["seat"] >= 0 and phase == "playing":
 			_leave(conn)
 		_drop_member(conn)
@@ -837,6 +1287,11 @@ func _begin_party() -> void:
 	origin = -1
 	hashes = {}
 	agreed = {}
+	flagged = {}
+	checkpoint_ticks = []
+	checkpoints = {}
+	asking = {}
+	configs = {}
 	disagreements = []
 	compared = 0
 	outcome = ""
@@ -858,6 +1313,12 @@ func _begin_party() -> void:
 		conn["last_seq"] = -1
 		conn["state"] = "present"
 		conn["resent"] = -1
+		conn["catchup"] = []
+		conn["resyncs"] = 0
+		conn["restart_at"] = -1
+		conn["behind_from"] = 0
+		conn["asked"] = []
+		conn["out"] = false
 	_next_load_state = world.frame + load_every
 	_broadcast_party()
 	_begin(party["members"])
@@ -869,7 +1330,7 @@ func _broadcast_party() -> void:
 	var listed := []
 	for conn: Dictionary in party["members"]:
 		var state := "here"
-		if conn["reload"]:
+		if _needs_reload(conn):
 			state = "needs_reload"
 		elif party["phase"] in ["loading", "in_match"] or not conn["back"]:
 			state = "in_match"
@@ -886,7 +1347,7 @@ func _broadcast_party() -> void:
 				"backup": conn["backup"],
 				"state": NetProtocol.enum_value("member_states", state),
 				"rtt_ms": int(conn["rtt"]),
-				"build_seq": 0,
+				"build_seq": int(conn["build_seq"]),
 				"rules_hash": hash_bytes,
 				"name": conn["name"],
 			}
@@ -904,6 +1365,15 @@ func _broadcast_party() -> void:
 	for conn: Dictionary in party["members"]:
 		fields["you"] = conn["member"]  # (each member told its own row, as the server does)
 		_send_bytes(conn, NetProtocol.encode("PARTY_STATE", fields))
+	# NOTICE needs_reload (its member number) to each member that needs it now and did not
+	# at the last change, as lobby.py's tell_reload
+	for conn: Dictionary in party["members"]:
+		var needs := _needs_reload(conn)
+		if needs and not conn["told_reload"]:
+			reload_notices.append(str(conn["name"]))
+			var code := NetProtocol.enum_value("notices", "needs_reload")
+			_send(conn, "NOTICE", {"code": code, "argument": int(conn["member"])})
+		conn["told_reload"] = needs
 
 
 ## The no-party state the server sends after a leave: five zero bytes, leader 255, nobody.
@@ -987,7 +1457,8 @@ func _broadcast(type: String, fields: Dictionary) -> void:
 
 func _broadcast_bytes(bytes: PackedByteArray) -> void:
 	for conn: Dictionary in _seated():
-		_send_bytes(conn, bytes)
+		if not conn["out"]:
+			_send_bytes(conn, bytes)
 
 
 func _send(conn: Dictionary, type: String, fields: Dictionary) -> void:

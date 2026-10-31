@@ -191,8 +191,10 @@ func my_tower_selected() -> bool:
 func set_mode(kind: String) -> void:
 	if kind != "" and Game.state in [Game.State.WON, Game.State.LOST]:
 		return
-	if kind != "" and not Game.accepts_commands():
-		_refuse(Game.command_refusal())
+	if kind != "" and Game.order_refusal() != "":
+		# (the match, the link, or my seat still the caretaker's: before the gold, which the
+		# caretaker may have spent)
+		_refuse(Game.order_refusal())
 		kind = ""
 	elif kind != "" and not Game.can_afford(Game.tower_cost(kind)):
 		Sfx.play("error")
@@ -218,7 +220,7 @@ func set_mode(kind: String) -> void:
 
 func can_build(kind: String, cell: Vector2i) -> bool:
 	return (
-		Game.accepts_commands()
+		Game.order_refusal() == ""
 		and _cell_free(cell)
 		and Game.can_afford(Game.tower_cost(kind))
 		and Game.state not in [Game.State.WON, Game.State.LOST]
@@ -229,8 +231,8 @@ func can_build(kind: String, cell: Vector2i) -> bool:
 ## the gold does not allow it. The tower appears when the command runs.
 func build(kind: String, cell: Vector2i) -> bool:
 	if not can_build(kind, cell):
-		if not Game.accepts_commands():
-			_refuse(Game.command_refusal())
+		if Game.order_refusal() != "":
+			_refuse(Game.order_refusal())
 		elif not _cell_free(cell):
 			_refuse("Cannot build there")
 		else:
@@ -291,8 +293,8 @@ func upgrade_selected() -> bool:
 func fork_selected(branch: int) -> bool:
 	if selected == null or not is_instance_valid(selected):
 		return false
-	if not Game.accepts_commands():
-		_refuse(Game.command_refusal())
+	if Game.order_refusal() != "":
+		_refuse(Game.order_refusal())
 		return false
 	if selected.owner_seat != Game.seat:
 		_refuse(_not_yours(selected))
@@ -317,8 +319,8 @@ func fork_selected(branch: int) -> bool:
 func sell_selected() -> bool:
 	if selected == null or not is_instance_valid(selected):
 		return false
-	if not Game.accepts_commands():
-		_refuse(Game.command_refusal())
+	if Game.order_refusal() != "":
+		_refuse(Game.order_refusal())
 		return false
 	if selected.owner_seat != Game.seat:
 		_refuse(_not_yours(selected))
@@ -341,8 +343,8 @@ func _not_yours(tower: Tower) -> String:
 
 ## A: the next left click on the ground, a creep or a tower signals there.
 func arm_signal() -> bool:
-	if not Game.accepts_commands():
-		_refuse(Game.command_refusal())
+	if Game.order_refusal() != "":
+		_refuse(Game.order_refusal())
 		return false
 	set_mode("")
 	signaling = true
@@ -359,8 +361,8 @@ func signal_at(screen: Vector2) -> bool:
 	signaling = false
 	if was:
 		mode_changed.emit(mode)
-	if not Game.accepts_commands():
-		_refuse(Game.command_refusal())
+	if Game.order_refusal() != "":
+		_refuse(Game.order_refusal())
 		return false
 	var at := _ground_at(screen)
 	if at == Vector3.INF:
@@ -389,8 +391,8 @@ func signal_at(screen: Vector2) -> bool:
 func toggle_ready() -> bool:
 	if Game.state != Game.State.PREP or Game.wave >= Game.total_waves():
 		return false
-	if not Game.accepts_commands():
-		_refuse(Game.command_refusal())
+	if Game.order_refusal() != "":
+		_refuse(Game.order_refusal())
 		return false
 	var want := not wants_ready()
 	ready_wanted = 1 if want else 0

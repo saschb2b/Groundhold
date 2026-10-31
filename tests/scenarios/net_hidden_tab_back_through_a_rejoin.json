@@ -1,0 +1,30 @@
+{
+  "name": "net_hidden_tab_back_through_a_rejoin",
+  "description": "Client 2's tab is hidden for 15 s and its link drops meanwhile, so when the tab is shown it comes back through the reconnect path: a resume HELLO, RESYNC(rejoin) from the latest checkpoint, and the catch-up (no checkpoint is kept meanwhile: client 1's uploads go up spoilt, so the catch-up starts well back). The tab's own return does not start a second catch-up over the rejoin's: the rejoin's re-run sends its HASHes from the checkpoint on (none is held back), so the rejoined state is checked as it runs, and they agree.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 9,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "tick2": "scene.tick(2)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 9, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(2).sim.tick >= 2100 and seq.checkpoint_ticks.size() >= 1 and seq.checkpoint_ticks[-1] > 0', 6000)", "as": "kept"},
+    {"assert": "kept", "msg": "a checkpoint past tick 0 is kept"},
+    {"eval": "scene.seq.checkpoint_ticks[-1]", "as": "kept_tick"},
+    {"eval": "scene.corrupt_uploads(1, true)"},
+    {"eval": "scene.hide(2, 900)"},
+    {"eval": "scene.run_frames(300)"},
+    {"eval": "scene.cut(2, 0)"},
+    {"eval": "scene.run_until('not client(2).hidden', 900)"},
+    {"eval": "scene.run_until('client(2).rejoins == 1', 900)", "as": "rejoined"},
+    {"assert": "rejoined and scene.client(2).resyncs[0][0] == 'rejoin'", "msg": "shown, it found its link gone, reconnected and rejoined"},
+    {"eval": "scene.client(2).resyncs[0][1]", "as": "from_tick"},
+    {"eval": "scene.client(2).catch_up_goal", "as": "goal"},
+    {"eval": "scene.run_until('not client(2).catching_up', 1800)", "as": "caught_up"},
+    {"assert": "caught_up and (from_tick == kept_tick) and (goal == scene.client(2).resyncs[0][2] * 3) and (goal > from_tick + 600) and scene.client(2).sent_hashes.has(from_tick + 60) and scene.client(2).sent_hashes.has(from_tick + 120)", "msg": "the rejoin's catch-up kept its goal, the open turn, and its re-run sent its HASHes from the checkpoint on: no second catch-up held them back or cut the goal short"},
+    {"assert": "scene.client(2).resyncs.size() == 1", "msg": "one RESYNC, the rejoin's"},
+    {"eval": "scene.run_turns(300)"},
+    {"assert": "scene.sent_hashes_agree_from(from_tick) and scene.seq.disagreements.is_empty()", "msg": "every hash from the checkpoint on agrees"}
+  ]
+}

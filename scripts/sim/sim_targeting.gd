@@ -50,8 +50,51 @@ static func pick(m: SimMatch, t: SimRecords.SimTower) -> int:
 
 
 ## The creep furthest along the road in the tower's reach (winged ones only, when
-## `winged_only`), or 0.
+## `winged_only`), or 0. In stage 5 it walks the match's creeps furthest first
+## (SimMatch.by_distance) and takes the first in reach: the same creep the scan below
+## finds, since that order puts ties to the lower id first.
 static func furthest(m: SimMatch, t: SimRecords.SimTower, winged_only: bool) -> int:
+	var reach := t.intervals
+	var n := reach.size()
+	if n == 0:
+		return 0
+	if m.by_distance():
+		var idx := m.order_idx
+		var dist := m.order_dist
+		var hi := reach[n - 1]
+		# The first creep not past the farthest point in reach (distances descend).
+		var k := 0
+		var top := dist.size()
+		while k < top:
+			var mid := (k + top) / 2
+			if dist[mid] > hi:
+				k = mid + 1
+			else:
+				top = mid
+		# Then the creeps and the tower's stretches walk down the road together: `j`
+		# starts the farthest stretch a creep from here on can still be in.
+		var j := n - 2
+		while k < dist.size():
+			var d := dist[k]
+			if d < reach[j]:
+				j -= 2  # nearer than this stretch: so is every creep after it
+				if j < 0:
+					return 0
+				continue
+			if d > reach[j + 1]:
+				k += 1  # between two stretches
+				continue
+			var c := m.creeps[idx[k]]
+			k += 1
+			if c.hollow != t.hollow:
+				continue
+			if c.winged:
+				if not t.air:
+					continue
+			elif winged_only:
+				continue
+			return c.id
+		return 0
 	var best: SimRecords.SimCreep = null
 	for c in m.creeps:
 		if winged_only and not c.winged:

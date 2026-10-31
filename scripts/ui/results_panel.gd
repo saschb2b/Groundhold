@@ -5,7 +5,12 @@
 ## the player's best stat relative to the team (ties go to the lower seat; no line
 ## repeats; no MVP). Every number comes from the simulation, so every client shows the
 ## same. Play again goes back to the hub with the party kept; Hub does the same.
-## It never times out into the hub.
+## It never times out into the hub. A desynced match adds a plain line that the games
+## disagreed and a button for the report its game saved (Show report, Save report in the
+## browser), never its user:// path. A match this game lost its link to (`link_lost`: the
+## others play on) says so in its title and why in a plain line (shown["said"]). A match
+## that stopped (desynced, called off, the link lost) says in which wave, not how many
+## waves the mode has.
 class_name ResultsPanel
 extends CanvasLayer
 
@@ -15,7 +20,15 @@ const TITLES := {
 	"desynced": "The Lands Fell Out of Step",
 	"aborted": "The Match Was Called Off",
 	"draw": "The Tide Stands Still",
+	"link_lost": "Your Link Was Lost",
 }
+## Under a lost link's line when the reconnect gave up: the server holds the seat, and the
+## caretaker plays it (design 6.7).
+const CARETAKER_LINE := "The caretaker plays your seat to the end of the match."
+## The outcomes of a match that stopped before its end, for this game at least.
+const STOPPED := ["desynced", "aborted", "link_lost"]
+## Under a desynced match's line, when the game wrote its report (shown["report"]).
+const REPORT_LINE := "The games disagreed, so the match was stopped. A report was saved."
 ## The positive lines, in the list's order: [key, text]. "most_<creep>" keys are filled
 ## per creep kind; "held" names the wave.
 const LINES := ["held", "help", "kills", "damage", "most_creep", "towers", "unsold"]
@@ -59,6 +72,9 @@ static func compute(sim: SimMatch, names: Array, outcome: String, tally: Diction
 	]
 	if outcome == "lost":
 		detail = "%s · fell in wave %d of %d · %d:%02d" % [Profile.mode_name(shown_mode), reached, waves, minutes, seconds]
+	elif outcome in STOPPED:
+		var where := "stopped in wave %d of %d" % [reached, waves] if reached > 0 else "stopped before the first wave"
+		detail = "%s · %s · %d:%02d" % [Profile.mode_name(shown_mode), where, minutes, seconds]
 	return {
 		"outcome": outcome,
 		"title": str(TITLES.get(outcome, "The Ebb")),
@@ -198,6 +214,19 @@ func show_results(shown: Dictionary) -> void:
 	detail.name = "ResultsDetail"
 	detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(detail)
+	var report := str(shown.get("report", ""))
+	if report != "":
+		# (a desync: what happened, in plain words; the report is behind a button)
+		var said := Shell.label(REPORT_LINE, Shell.BODY_FONT, 14, Shell.DIM)
+		said.name = "ResultsReport"
+		said.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(said)
+	elif str(shown.get("said", "")) != "":
+		# (a lost link: what happens now, in plain words)
+		var said := Shell.label(str(shown["said"]), Shell.BODY_FONT, 14, Shell.DIM)
+		said.name = "ResultsSaid"
+		said.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(said)
 	var lives := LivesLine.new()
 	lives.values = shown.get("lives", [])
 	lives.top = int(shown.get("max_lives", 20))
@@ -245,6 +274,28 @@ func show_results(shown: Dictionary) -> void:
 		hub.add_theme_stylebox_override(st, StyleBoxEmpty.new())
 	hub.pressed.connect(func() -> void: Session.to_hub())
 	foot.add_child(hub)
+	if report != "":
+		var keep := Button.new()
+		keep.name = "ResultsShowReport"
+		keep.text = "Save report" if OS.has_feature("web") else "Show report"
+		keep.tooltip_text = "This game's state and the match's turns, where the games parted. Send it to whoever fixes the game, with the other players' reports"
+		keep.focus_mode = Control.FOCUS_NONE
+		keep.flat = true
+		keep.add_theme_color_override("font_color", Shell.DIM)
+		for st: String in ["normal", "hover", "pressed", "hover_pressed"]:
+			keep.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+		keep.pressed.connect(func() -> void: show_report(report))
+		foot.add_child(keep)
+
+
+## The desync report at `path` (a user:// file): in the browser a download of it (its
+## user:// lives in IndexedDB, out of reach); on the desktop its folder opens with the
+## file selected.
+static func show_report(path: String) -> void:
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(FileAccess.get_file_as_bytes(path), "groundhold-" + path.get_file())
+	else:
+		OS.shell_show_in_file_manager(ProjectSettings.globalize_path(path), true)
 
 
 ## The player rows as one line each, for tests: "Sascha Lamplighter 12 Most kills".

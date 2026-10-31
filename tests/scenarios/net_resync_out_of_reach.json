@@ -1,0 +1,19 @@
+{
+  "name": "net_resync_out_of_reach",
+  "description": "A RESYNC whose open turn is further past the turns complete than any TURN may be (an hour of turns, RemoteSequencer.MAX_TURNS_AHEAD; here 80,000 turns) is refused at once: the client fails its link with the reason instead of starting the download. Loaded, such a checkpoint would rebase the turn log to its first turn, an array that many entries long (a checkpoint near the u32 limit would ask for gigabytes), so the bound is the client's memory. A RESYNC within reach is taken as before (net_minority_desync_resyncs), and the other client plays on.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 6,
+  "timeout_frames": 600,
+  "watch": {"tick2": "scene.tick(2)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 6, 'latency_turns': [1, 1]})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_turns(20)"},
+    {"eval": "scene.push_resync(1, (scene.client(1).source.complete_upto + 80000) * 3 / 60 * 60, (scene.client(1).source.complete_upto + 80000))"},
+    {"eval": "scene.run_turns(2)"},
+    {"assert": "scene.client(1).phase_name() == 'FAILED' and scene.client(1).error_text == 'The server sent a RESYNC outside its limits'", "msg": "a RESYNC out of reach fails the link with the reason"},
+    {"assert": "scene.client(1).checkpoints.download_progress() == [0, 0] and scene.client(1).resyncs.is_empty() and scene.client(1).source.turns.size() < 100", "msg": "no download began and the turn log never grew toward it"},
+    {"eval": "scene.run_turns(20)"},
+    {"assert": "scene.client(2).phase_name() == 'IN_MATCH' and scene.tick(2) > 100", "msg": "the other client plays on"}
+  ]
+}

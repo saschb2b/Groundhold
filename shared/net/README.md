@@ -46,7 +46,8 @@ as an `int`, so no value needs 64 unsigned bits. `JSON.parse_string` gives every
 
 ## The handshake
 
-1. The game opens the socket and sends `HELLO` within 5 s of connecting.
+1. The game opens the socket and sends `HELLO` within 5 s of connecting. Its `match` and `seat` name
+   the match seat a resume asks back (Resilience, below); 0 and 255 name none.
 2. The server checks, in order: the version (`ERROR` 2 when the game is older, 17 when the server is),
    the shape, a non-zero token (9), the name (5); then maintenance (16, with the host's line), a ban
    (10), the allowlist (11), a kick (14, with the minutes left) and room (7). A refusal is `ERROR`,
@@ -61,7 +62,9 @@ as an `int`, so no value needs 64 unsigned bits. `JSON.parse_string` gives every
    server's name and line. Flag `dev_match` says the server forms a match from the first `HELLO`s
    (`--dev-match`), so `MATCH_CONFIG` follows with no hub.
 4. `PING` every 2 s carries the game's clock and its last measured round trip; `PONG` echoes the
-   clock and says the open turn. 15 s without any message closes the connection.
+   clock and says the open turn. 15 s without any message closes the connection, except one whose
+   last `VISIBILITY` is `hidden`: a browser tab in the background says nothing, and its link is kept
+   up to `hidden_silence_ms` (10 minutes) of silence (Visibility, below).
 5. `BYE` (or a close frame) is a goodbye: in a match it is `LEFT`, in a party it frees the row at once.
 
 **The token** (identity without accounts, design §6.12). The game makes a random 16-byte device key
@@ -191,18 +194,22 @@ turns a refused command into a `REJECTED` event. Simulation ids start at 1, so 0
 (`SIGNAL`'s target). A command outside its shape ends the connection with `ERROR` 6.
 
 **Hashes.** Every 60 ticks each game sends `HASH(tick, 8 bytes, flags)`: the tick is a multiple of
-60, at most 3 × the turns sealed, and increases per seat; flags hold only `checkpoint`. Once every present seat has reported a tick, or
-2 s after the first report, the server compares: all equal, or with three seats or more a strict
-majority, is agreement. Two seats apart (or no majority) end the match `desynced`
-(`MATCH_END`, reason `desync`, the tick). A report arriving after its tick was agreed is compared
-with the agreed hash. (With three seats or more, a minority is only logged in M1; M4 sends it
-`RESYNC`.)
+60, at most 3 × the turns sealed, and increases per seat; flags hold only `checkpoint`. The voters of a
+tick are the present seats (not away, left, dropped or a minority on its way back) that reported it
+or still may: their last `HASH` is below it and came in the last `result_wait_ms` (10 s). Once every
+voter has reported a tick, or 2 s after the first report, the server compares: all equal, or with
+three voters or more a strict majority of the voters (not of the reports so far), is agreement.
+Short of that the tick stays open while the voters still to report could make one, until they do or
+stop voting; so a lone early report never decides for seats that report it late. Two seats apart (or
+no majority that can still form) end the match `desynced` (`MATCH_END`, reason `desync`, the tick).
+A report arriving after its tick was agreed is compared with the agreed hash, and so is one from a
+seat that does not vote. (With three seats or more, a minority is resynced: Resilience, below.)
 
 **Absence.** A seat silent for 5 s (no message of any kind) gets `AWAY(seat)` in the next turn, and
 the caretaker plays it. The next message on the same connection brings `BACK(seat)`; the simulation
 hands control back at the next build window. `LEAVE_MATCH` or `BYE` brings `LEFT(seat)`: the caretaker
-keeps the seat to the end. A dropped connection is held as `AWAY` (the resume `HELLO` comes in M4).
-The match ends when no seat has a connection.
+keeps the seat to the end. A dropped connection is held as `AWAY` until the match ends; a resume
+`HELLO` naming the seat takes it back (Resilience, below). The match ends when no seat has a connection.
 
 **The end.** Each game sends `RESULT(final tick, hash, outcome per team)` once, its tick no later than
 3 × the turns sealed and no earlier than its own last `HASH`. The seats present now vote (a seat away,
@@ -229,8 +236,8 @@ seats, teams and Builders as they were. A member who sends `LEAVE_MATCH` during 
 the hub at once (the caretaker keeps its seat). A match that ends before it starts (tick-0 hashes
 apart, nobody loaded at the ceiling) brings everyone back at once, with no results plate.
 
-**Links.** Every 2 s `LINKS` gives each seat's round trip (from its `PING`) and flags: `hidden` (its
-`VISIBILITY`) and `silent` (away, left or dropped).
+**Links.** Every 2 s `LINKS` gives each seat's round trip (from its `PING`) and flags: `hidden` and
+`catching_up` (its last `VISIBILITY` said so) and `silent` (away, left or dropped).
 
 **Gaps.** `TURN_REQUEST(first missing)` re-sends the sealed turns from there, at most
 `turn_request_turns` (100, 5 s of turns) per request, never one below the seat's last `HASH` tick / 3
@@ -246,11 +253,109 @@ repair of 100 turns every 300 ms).
 with `ERROR` 8, and a seat is held. A connection whose unsent output passes 64 KiB is dropped, and
 its seat is held.
 
-**Not served yet** (their layouts are fixed here): `CHECKPOINT_PART` (M4) is answered with `ERROR` 1;
-the server never sends `MATCH_FOUND` (the queue, M6), `CHECKPOINT_ASK` or `RESYNC` (M4). A `--dev-match`
-server has no hub: `PARTY`, `QUEUE` and `ACCEPT` are `ERROR` 1 there. One profile may connect twice,
-because two windows on one computer share their `user://` key (`ERROR` 12 and a match seat's resume
-come with M4's reconnect; M3's resume bit takes back a party row).
+**Not served yet** (its layout is fixed here): the server never sends `MATCH_FOUND` (the queue, M6).
+A `--dev-match` server has no hub: `PARTY`, `QUEUE` and `ACCEPT` are `ERROR` 1 there, and a resume
+`HELLO` there takes back a match seat only. One profile may connect twice, because two windows on one
+computer share their `user://` key; that is why a resume names its seat.
+
+## Resilience (M4)
+
+What follows is fixed by the M4 contract (`docs/design/contract-m4.md`, design §6.7 and §6.8), and
+the server serves all of it: `server/tests/` holds each rule (`test_hash_referee`,
+`test_checkpoint_accept`, `test_catchup_budget`, `test_away_back`, `test_rejoin`, `test_resync`,
+`test_versions`), and the transcript `m4_resilience` is the server saying it.
+
+**Checkpoints.** A checkpoint tick is a hash tick T that is a multiple of `checkpoint_ticks` (1,800),
+or at which a hollow's wave number differs from the one at T − 60 (the first hash tick at or after a
+horn). The server cannot see waves: each game reads it from its own simulation, sets `HASH`'s
+`checkpoint` flag on it and keeps its serialized state there (SimCodec's bytes) for the last
+`checkpoints_kept` (2) checkpoint ticks. The bytes' digest, `SHA-256(bytes)[:8]` (`protocol.digest`,
+`Checkpointing.digest`), is the state hash the game sent. Once the seats agree on a flagged tick, the
+server sends `CHECKPOINT_ASK(tick)` to one seat in rotation that is present, not hidden and not
+catching up. It answers with the bytes in `CHECKPOINT_PART`s, parts 0 to n − 1 in order, every one but
+the last exactly 1,024 bytes, at most `max_checkpoint_parts` (64); a game that no longer keeps the
+tick sends nothing. The server keeps an upload only if its digest is the agreed hash, keeps the last
+two it accepted, never decodes them and tells nobody; an upload with another digest, or not whole
+`checkpoint_wait_ms` (5 s) after the ask, is dropped and the next seat is asked. Parts for a tick the
+server stopped waiting for are let pass; parts for a tick it never asked of that seat are `ERROR` 1,
+and a part out of order, past the limit or with a changed `parts` is `ERROR` 6. Tick 0 is never
+uploaded: its agreed hash is `LOADED`'s, and every game builds it from `MATCH_CONFIG`.
+
+**RESYNC** brings one seat to the open turn from the latest checkpoint the server kept (tick 0 when
+none): `RESYNC(checkpoint_tick, first_turn, reason, open_turn, checkpoint_hash, parts)`, where
+`first_turn` is `checkpoint_tick / 3`; then the checkpoint's `parts` `CHECKPOINT_PART`s (none for tick
+0); then `TURN`s `first_turn` to `open_turn` − 1; then the live turns, all paced (Catch-up). The game
+puts the parts together, checks their digest against `checkpoint_hash` (a mismatch fails the link),
+loads them (or builds tick 0), drops what it simulated past them and runs the turns; a turn it
+already holds is a repeat. The reasons (`resync_reasons`): `rejoin` (a resume took the seat back),
+`desync` (a minority's hash differed) and `behind` (a game catching up from further back than the
+latest kept checkpoint). After a `RESYNC` the seat's `HASH` ticks count again from the checkpoint
+tick, each compared with the agreed hash as a late report; the `HASH`es and `RESULT` a desynced
+minority sent before its first `HASH` from the checkpoint are its parted simulation's, and the server
+lets them pass uncompared.
+
+**Visibility.** `VISIBILITY(state)` (`visibility_states`): `shown` 0; `hidden` 1, a browser tab in
+the background, whose loop and so whose `PING`s stop (5 s later its seat is `AWAY`; its link is
+kept past the 15 s silence rule, up to `hidden_silence_ms`, 10 minutes, while the browser holds what
+arrives and `TURN_REQUEST` repairs any gap, design §6.8); `catching_up` 2,
+a game running turns it missed, more than 20 turns (a second) behind. A game says `hidden` as its tab
+hides, `catching_up` as it comes back behind, and `shown` once it has run every turn it holds; a
+value past 2 is `ERROR` 6. To a game that says `catching_up` the server sends `RESYNC(behind)` when
+the latest checkpoint it kept is past the seat's last `HASH` tick (for a seat the match started
+without, once its `LOADED` has come), so a catch-up starts at most about 1,800 ticks back. The game
+sends a `PING` right behind its `catching_up` (or that `LOADED`) and sends no `HASH` or `RESULT` until it
+knows the answer, even once its own catch-up has ended: every turn sealed after a `RESYNC` comes behind
+it (Catch-up), so a `TURN` numbered at or past that `PONG`'s `turn` with no `RESYNC` before it says none
+is coming. A `HASH` past the checkpoint sent before the `RESYNC` arrived would make the re-run's first
+`HASH` go back, below the seat's last ("HASH ticks must increase").
+
+**BACK.** A seat `AWAY` comes `BACK` in the next turn with the next message on its connection (M1), or
+with its `LOADED` when the match started without it (M3); but while the connection's last `VISIBILITY`
+is `catching_up` or `hidden`, only `shown` brings it `BACK` (a tab back from the background may send a
+`PING` or a `TURN_REQUEST` first; the game says `catching_up` or `shown` before them, and neither
+brings the seat back on its own). The simulation then hands the seat back at the next build window. A
+game knows it was started without when `START` comes before it sent `LOADED`.
+
+**Rejoin.** A game whose link dropped during a match reconnects every `reconnect_ms` (2 s) with a
+resume `HELLO`: the `resume` flag, the same token, and the `match` id and the wire `seat` it held (a
+seat past 3, or a seat with match 0, is `ERROR` 1). A link that brings nothing for `away_ms` (5 s) in a
+match while its tab shows has dropped too, though no close came (the server speaks every turn): the
+game drops it without a close and reconnects. From the loss until its `RESYNC(rejoin)` is loaded the
+game sends no `HASH` or `RESULT` of the turns it still runs: after the rejoin the server counts the
+seat's `HASH`es from the checkpoint tick on, and that run's are below it. If that identity holds that seat in that match
+and the seat has not left, the server seats the new connection there: an old connection still open
+gets `ERROR` 12 (replaced) and closes; the new one gets the party's `PARTY_STATE` (as any resume takes
+the row back), `MATCH_CONFIG` with the `rejoin` flag and the match as it began, then `RESYNC(rejoin)`
+and the catch-up. It counts as `catching_up` until it says `shown`, which brings it `BACK`; it sends
+no `LOADING` or `LOADED`. Its reports still waiting to be decided from the old connection are let
+go (its old simulation's). A resume `HELLO` that names a seat the identity does not hold gets `NOTICE
+no_held_seat` (argument 0) after `WELCOME`: the match ended, the seat left, or the game's rules hash is
+not the match's. During maintenance a resume `HELLO` that names a held seat is let in, past a full
+server too (it takes its own seat's place); every other `HELLO` gets `ERROR` 16. A rejoin while the
+match still loads gets `MATCH_CONFIG` as at the start (no flag) and loads like any seat. A checkpoint
+asked of a connection that drops, leaves or is replaced is asked of the next seat at once. A game
+started again after a kill or a crash does the same with the seat it noted on the device (the game's
+side: `Identity.held_seat`): its first `HELLO` is that resume, it builds the match from
+`MATCH_CONFIG(rejoin)`, and it numbers its `CMD`s above every number its earlier run may have sent (a
+seat's numbers increase across its connections); after `NOTICE no_held_seat` it says a plain `HELLO`
+on a new connection.
+
+**Desyncs.** With three seats or more, each seat of a minority whose hash differs from the agreed one
+gets `RESYNC(desync)` (`/stats` counts a desync). A seat that differs again after `max_resyncs` (1)
+resync gets `MATCH_END(desynced, desynced_twice, tick)` and is back in the hub as after `LEAVE_MATCH`;
+the turns say `LEFT` and the caretaker keeps its seat. Two seats apart, or no majority, end the match
+`desynced` for everyone, as in M1. A game whose match ended desynced, either way, writes
+`user://desync/<match>-<seat>.bin` (the seat 1 to 4; its layout is `scripts/net/desync_dump.gd`'s:
+the last agreed checkpoint, the latest kept before the first bad hash tick, and every turn since),
+and the results plate says the games disagreed and offers the report (Show report; Save report in
+the browser).
+
+**Catch-up.** A `RESYNC` and everything behind it go out at most `catchup_bytes` (2,048) per
+`catchup_ms` (50 ms), whole messages in order, and only while the connection's unsent output is under
+`catchup_output` (4,096 bytes); turns sealed meanwhile queue behind them (`catchup.py`). The shares
+go out on `catchup_ms` boundaries of the server's clock from turn 0's opening, so a dev match's
+shorter turns pace no faster. A seat catching up gets no answer to `TURN_REQUEST`: its catch-up brings
+every turn in order. The 64 KiB output cap applies outside a catch-up only.
 
 ## The LAN beacon
 
@@ -278,7 +383,7 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 
 | Id | Message | Dir | Bucket | Bytes | Payload after the type byte |
 |---|---|---|---|---|---|
-| 1 | `HELLO` | C→S | hub | 33 to 49 | u16 version, u32 build_seq, 8 bytes rules_hash, 16 bytes token, u8 flags, u8 + UTF-8 name (≤ 16 bytes) |
+| 1 | `HELLO` | C→S | hub | 38 to 54 | u16 version, u32 build_seq, 8 bytes rules_hash, 16 bytes token, u8 flags, u8 + UTF-8 name (≤ 16 bytes), u32 match, u8 seat |
 | 2 | `WELCOME` | S→C |  | 29 to 253 | u32 session, 16 bytes identity, u16 turn_ms, u8 turn_ticks, u16 hash_every, u8 flags, u8 + UTF-8 server_name (≤ 64 bytes), u8 + UTF-8 motd (≤ 160 bytes) |
 | 5 | `ERROR` | S→C |  | 3 to 123 | u8 code, u8 + UTF-8 text (≤ 120 bytes) |
 | 6 | `PING` | C→S | net | 7 | u32 client_ms, u16 rtt_ms |
@@ -296,7 +401,7 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 
 | Id | Message | Dir | Bucket | Bytes | Payload after the type byte |
 |---|---|---|---|---|---|
-| 30 | `MATCH_CONFIG` | S→C |  | 21 to 105 | u32 match, u8 mode, u8 map, u32 seed, 8 bytes rules_hash, u8 your_seat, u8 n, then n × seats [u8 seat, u8 team, u8 builder, u8 flags, u8 + UTF-8 name (≤ 16 bytes)] (n ≤ 4) |
+| 30 | `MATCH_CONFIG` | S→C |  | 22 to 106 | u32 match, u8 mode, u8 map, u32 seed, 8 bytes rules_hash, u8 your_seat, u8 n, then n × seats [u8 seat, u8 team, u8 builder, u8 flags, u8 + UTF-8 name (≤ 16 bytes)] (n ≤ 4), u8 flags |
 | 31 | `LOADING` | C→S | net | 3 | u16 per_mille |
 | 32 | `LOAD_STATE` | S→C |  | 4 to 20 | u8 n, then n × seats [u8 seat, u16 per_mille, u8 state] (n ≤ 4), u16 seconds |
 | 33 | `LOADED` | C→S | hub | 17 | 8 bytes rules_hash, 8 bytes tick0_hash |
@@ -311,9 +416,9 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 | 42 | `HASH` | C→S | net | 14 | u32 tick, 8 bytes hash, u8 flags |
 | 43 | `CHECKPOINT_ASK` | S→C |  | 5 | u32 tick |
 | 44 | `CHECKPOINT_PART` | both | net | 11 to 1035 | u32 tick, u16 part, u16 parts, u16 + bytes data (≤ 1024) |
-| 45 | `RESYNC` | S→C |  | 9 | u32 checkpoint_tick, u32 first_turn |
+| 45 | `RESYNC` | S→C |  | 24 | u32 checkpoint_tick, u32 first_turn, u8 reason, u32 open_turn, 8 bytes checkpoint_hash, u16 parts |
 | 46 | `TURN_REQUEST` | C→S | net | 5 | u32 first_missing |
-| 47 | `VISIBILITY` | C→S | net | 2 | u8 hidden |
+| 47 | `VISIBILITY` | C→S | net | 2 | u8 state |
 | 48 | `RESULT` | C→S | hub | 14 to 16 | u32 tick, 8 bytes hash, u8 n, then n × outcomes [u8 outcome] (n ≤ 2) |
 | 49 | `MATCH_END` | S→C |  | 7 | u8 outcome, u8 reason, u32 final_tick |
 | 50 | `LEAVE_MATCH` | C→S | hub | 1 | nothing |
@@ -346,9 +451,9 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 | Key | Values |
 |---|---|
 | `errors` | protocol 1, game_older 2, bad_name 5, out_of_limits 6, full 7, rate 8, bad_token 9, banned 10, allowlist 11, replaced 12, kicked 14, maintenance 16, server_older 17 |
-| `notices` | party_full 1, no_such_party 2, removed 3, match_dissolved 4, needs_reload 5, caretakers_offered 6, tick0_mismatch 7, parties_full 8 |
+| `notices` | party_full 1, no_such_party 2, removed 3, match_dissolved 4, needs_reload 5, caretakers_offered 6, tick0_mismatch 7, parties_full 8, no_held_seat 9 |
 | `outcomes` | won 0, lost 1, draw 2, desynced 3, aborted 4 |
-| `end_reasons` | result 0, desync 1, tick0_mismatch 2, rules_mismatch 3, everyone_left 4, timeout 5, server_closing 6 |
+| `end_reasons` | result 0, desync 1, tick0_mismatch 2, rules_mismatch 3, everyone_left 4, timeout 5, server_closing 6, desynced_twice 7 |
 | `load_states` | connecting 0, loading 1, checking 2, ready 3, slow 4, gone 5 |
 | `member_states` | here 0, ready 1, away 2, needs_reload 3, in_match 4 |
 | `party_phases` | forming 0, countdown 1, queued 2, loading 3, in_match 4, results 5 |
@@ -359,8 +464,11 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 | `welcome_flags` | maintenance 1, dev_match 2 |
 | `seat_flags` | caretaker 1 |
 | `hash_flags` | checkpoint 1 |
-| `link_flags` | hidden 1, silent 2 |
+| `link_flags` | hidden 1, silent 2, catching_up 4 |
 | `party_flags` | open 1, lan 2 |
+| `config_flags` | rejoin 1 |
+| `visibility_states` | shown 0, hidden 1, catching_up 2 |
+| `resync_reasons` | rejoin 0, desync 1, behind 2 |
 | `maps` | hollow 0 |
 | `builders` | lamplighter 0, lookout 1, bellfounder 2, beekeeper 3 |
 | `modes` | classic 0 (1 team, 1 to 4 seats), high_water 1 (1 team, 1 to 4 seats), tide_race 2 (2 teams, 2 to 4 seats), undertow 3 (2 teams, 2 to 2 seats) |
@@ -372,18 +480,19 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 `transcripts/*.bin` are byte streams recorded from the real server on a hand-moved clock
 (`python3 server/tools/record_transcripts.py`; a server test fails when re-recording would change a
 byte). Each `.json` beside one lists the same records decoded, which is what the GDScript codec must
-produce (`protocol_golden_m1`, `protocol_golden_m3`), and encoding those values must give the same
-bytes back. The `m3_*` ones are also the hub's conversations in order, for testing the game's
-session against the real server's answers.
+produce (`protocol_golden_m1`, `protocol_golden_m3`, `protocol_golden_m4`), and encoding those values
+must give the same bytes back. The `m3_*` and `m4_*` ones are also the server's conversations in
+order, for testing the game's session against the real server's answers.
 
 | File | What it holds |
 |---|---|
 | `m1_handshake` | `HELLO`, `WELCOME`, `PING`, `PONG`, `VISIBILITY`, `BYE`; refused `HELLO`s: an older game (`ERROR` 2), a newer one (17), a bad name (5), a zero token (9) |
 | `m1_dev_match` | a whole `--dev-match classic:2`: `MATCH_CONFIG`, every `LOAD_STATE` of the barrier, `START`, turns with every command type and both rotations, `PONG`, `TURN_REQUEST`, `HASH`, `LINKS`, `AWAY`, `BACK`, `LEFT`, `TIMEOUT`, `RESULT`, `MATCH_END`, `BYE` |
-| `m1_codec` | every message of `protocol.json` once with canonical values: each `PARTY` op, each command type, every system command in one `TURN`, a 1,024-byte `CHECKPOINT_PART`, UTF-8 beyond ASCII in a `motd` |
+| `m1_codec` | every message of `protocol.json` once with canonical values: each `PARTY` op, each command type, every system command in one `TURN`, a 1,024-byte `CHECKPOINT_PART`, UTF-8 beyond ASCII in a `motd`; M4's fields: a resume `HELLO` naming its seat, a `rejoin` `MATCH_CONFIG`, a whole `RESYNC`, `VISIBILITY catching_up` |
 | `m3_party` | the hub (party codes from `random.Random(20261030)`): `create`, a wrong code (`NOTICE no_such_party`), a `join` in lower case, `builders`, an older build (`NOTICE needs_reload`), `ready`, a refused `start`, `remove` (`NOTICE removed`, the no-party state, a refused rejoin), `mode` and `team` in a Race, `open`, `QUEUE` answered idle, the countdown, its `cancel`, and the countdown's end: `PARTY_STATE` loading, `MATCH_CONFIG` with each member's main |
 | `m3_barrier` | a party's barrier: `LOADING`, `LOADED`, `slow` at 15 s, `seconds` 30, the leader's start without the slow seat, `START`, `PARTY_STATE` in_match, `AWAY` in turn 0 and `BACK` after her `LOADED` |
 | `m3_back` | a party's match to its end and back: a member joining during the match, `RESULT` and `MATCH_END`, the results plate, `LEAVE_MATCH` and a `ready` back to forming; a dropped member held (`away`) and taken back by a resume `HELLO`; another's row freed 40 s after its drop |
+| `m4_resilience` | a `--dev-match classic:3`'s resilience (empty `TURN`s read but not listed): a flagged `HASH` agreed, `CHECKPOINT_ASK` and the upload's `CHECKPOINT_PART`s; a minority's `RESYNC(desync)` from tick 0; a hidden tab and a frozen game `AWAY`; a resume `HELLO` naming its seat, `ERROR` 12 to the old link, `MATCH_CONFIG` with `rejoin`, `RESYNC(rejoin)` and the parts; `BACK` at `shown`; a tab back `catching_up`, `RESYNC(behind)`, `LINKS` with `catching_up`; `MATCH_END(desynced, desynced_twice)` and `LEFT`; `NOTICE no_held_seat` |
 
 The `.bin` layout, big-endian: `"GHTX"`, u8 format (1), u16 protocol version, u8 clients, u32
 records; then per record u8 direction (0 game to server, 1 server to game), u8 client, u16 length and
@@ -404,6 +513,12 @@ lists are arrays of objects and `PARTY`'s `op` is its name.
 - Load states: `connecting` (nothing yet), `loading` (a `LOADING` came), `checking` (`LOADED`, waiting for
   the others), `ready`, `slow` (M3, 15 s), `gone`.
 - Welcome flags: `maintenance` (draining: only resumes are let in; M4) and `dev_match`.
+- M4: a resume `HELLO` names the seat it held (`match`, `seat`), since two windows on one computer
+  share an identity; `MATCH_CONFIG`'s trailing `flags` say `rejoin`, so a game waits for `RESYNC`
+  instead of sending `LOADED`; `RESYNC` also carries its reason, the open turn (the catch-up's goal,
+  for the progress bar), the checkpoint's hash and its count of parts; `VISIBILITY`'s byte is a state,
+  not a flag, so `BACK` can wait for a game that is live again; a checkpoint tick is each game's call
+  from its simulation, flagged in `HASH`.
 - Silence for `AWAY` counts from `START`; any message counts as a word, WebSocket pings included
   (but a seat started without its player comes back only with its `LOADED`).
 - The hub (M3): "back to the party" is `LEAVE_MATCH` after `MATCH_END`; "start without Ben" is the

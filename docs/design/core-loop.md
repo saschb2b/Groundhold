@@ -1068,7 +1068,10 @@ The console stays as it is. Three additions and one change.
 ```
 
   "The lands fell out of step" ends the match on the results plate when the server declares a desync (§6.7), with
-  "A report was saved" and the path of the dump.
+  the usual line of the match, "The games disagreed, so the match was stopped. A report was saved." and a Show
+  report button (Save report in the browser). Back from another tab or a dropped link while the caretaker still
+  holds the seat, the plate says "Welcome back" and when it hands back (after this wave, or after the coming one
+  while a window is open), and the seat's own orders are refused for that before any gold check.
 
 ### 5.8 Results (the Ebb)
 
@@ -1348,7 +1351,7 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 
 | Id | Message | Dir | Payload |
 |---|---|---|---|
-| 1 | `HELLO` | C→S | u16 version, u32 build_seq, u64 rules_hash, 16 bytes token, u8 flags (resume, web), u8 + name |
+| 1 | `HELLO` | C→S | u16 version, u32 build_seq, u64 rules_hash, 16 bytes token, u8 flags (resume, web), u8 + name, u32 match and u8 seat a resume asks back (0 and 255: none) |
 | 2 | `WELCOME` | S→C | u32 session, 16 bytes public identity, u16 turn_ms, u8 turn_ticks, u16 hash_every, u8 flags (maintenance), u8 + server name, u8 + motd |
 | 5 | `ERROR` | S→C | u8 code, u8 + text; the connection closes |
 | 6 | `PING` | C→S | u32 client ms, u16 last measured RTT in ms |
@@ -1366,7 +1369,7 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 
 | Id | Message | Dir | Payload |
 |---|---|---|---|
-| 30 | `MATCH_CONFIG` | S→C | u32 match id, u8 mode, u8 map, u32 seed, u64 rules_hash, u8 your seat, u8 n, then per seat: u8 seat, u8 team, u8 Builder, u8 flags (caretaker), u8 + name |
+| 30 | `MATCH_CONFIG` | S→C | u32 match id, u8 mode, u8 map, u32 seed, u64 rules_hash, u8 your seat, u8 n, then per seat: u8 seat, u8 team, u8 Builder, u8 flags (caretaker), u8 + name; u8 flags (rejoin) |
 | 31 | `LOADING` | C→S | u16 per mille (at most 4 a second) |
 | 32 | `LOAD_STATE` | S→C | u8 n, then per seat: u8 seat, u16 per mille, u8 state; u16 seconds elapsed |
 | 33 | `LOADED` | C→S | u64 rules_hash, 8 bytes tick-0 state hash |
@@ -1381,13 +1384,13 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 | 42 | `HASH` | C→S | u32 tick, 8 bytes hash, u8 flags (checkpoint tick) |
 | 43 | `CHECKPOINT_ASK` | S→C | u32 tick |
 | 44 | `CHECKPOINT_PART` | both | u32 tick, u16 part, u16 parts, u16 length, bytes (at most 1,024) |
-| 45 | `RESYNC` | S→C | u32 checkpoint tick, u32 first turn after it; then parts and turns follow |
+| 45 | `RESYNC` | S→C | u32 checkpoint tick, u32 first turn after it, u8 reason (rejoin, desync, behind), u32 open turn, 8 bytes checkpoint hash, u16 parts; then parts and turns follow |
 | 46 | `TURN_REQUEST` | C→S | u32 first missing turn |
-| 47 | `VISIBILITY` | C→S | u8 hidden |
+| 47 | `VISIBILITY` | C→S | u8 state (shown, hidden, catching up) |
 | 48 | `RESULT` | C→S | u32 final tick, 8 bytes hash, u8 outcome per team |
 | 49 | `MATCH_END` | S→C | u8 outcome (won, lost, draw, desynced, aborted), u8 reason, u32 final tick |
 | 50 | `LEAVE_MATCH` | C→S | |
-| 52 | `LINKS` | S→C | every 2 s: u8 n, then per seat: u8 seat, u16 RTT ms, u8 flags (hidden, silent) |
+| 52 | `LINKS` | S→C | every 2 s: u8 n, then per seat: u8 seat, u16 RTT ms, u8 flags (hidden, silent, catching up) |
 
 **Commands** (`CMD.type`), all validated by the simulation:
 
@@ -1410,13 +1413,16 @@ connection), the **sequence** (increasing) and the **rate**; everything else is 
 server full, 8 too many messages, 9 bad token, 10 banned, 11 not on the allowlist, 12 replaced by another session of
 the same profile, 14 kicked (minutes left), 16 maintenance (with the host's line), 17 the server is older. **Notice
 codes** (non-fatal) are new: party full, no such party, removed from the party, match dissolved ("you keep your
-place"), a member needs to reload, caretakers offered.
+place"), a member needs to reload, caretakers offered, no held seat for a resume. M4's additions are
+[`contract-m4.md`](contract-m4.md)'s.
 
 **Rate limits** (token buckets per connection): hub and party messages, burst 40, refill 30 a second (Cyberworld's
 values); `CMD`, burst 10, refill 5 a second (a TD player never needs more); network traffic (`PING`, `HASH`,
 `LOADING`, `CHECKPOINT_PART`, `TURN_REQUEST`, `VISIBILITY`), burst 150, refill 120 a second. An empty bucket closes
-the connection with error 8, and the seat is held. 15 s of silence closes a connection. A client whose output
-buffer passes 64 KiB outside a paced catch-up is dropped, and its seat is held.
+the connection with error 8, and the seat is held. 15 s of silence closes a connection, except a hidden tab's
+(its last `VISIBILITY` hidden), which is kept up to 10 minutes of silence (§6.8). A client whose output
+buffer passes 64 KiB outside a paced catch-up is dropped, its socket aborted rather than left to flush to a peer
+that may never read, and its seat is held.
 
 ### 6.6 The loading barrier
 
@@ -1445,12 +1451,17 @@ scenarios the fake sequencer counts them in turns, so they stay deterministic.
 
 - **Hashes.** Every present seat sends `HASH(tick, 8 bytes)` every 60 ticks. The server compares a tick once every
   present seat has reported (or 2 s after the first report). Agreement means all equal, or, with 3 or more seats,
-  a strict majority.
+  a strict majority of the seats present, not of the reports so far: short of one the tick waits for the seats
+  still to report (or until they go away, leave or stop hashing), so one early report never decides for seats
+  that report late.
 - **Checkpoints.** A checkpoint tick is the first hash tick at or after a wave starts, and in any case every 1,800
   ticks (30 s). Every client keeps its own serialized state for the last two checkpoint ticks. The server asks one
   seat in rotation (`CHECKPOINT_ASK`) to upload in parts of at most 1,024 bytes, and keeps the upload only if
-  `SHA-256(bytes)[:8]` equals the hash the seats agreed for that tick. Expected size: under 10 KB (200 creeps of
-  about 30 bytes, 60 towers of about 40, the seats).
+  `SHA-256(bytes)[:8]` equals the hash the seats agreed for that tick. Expected size: under 10 KB. `SimCodec`
+  writes about 72 bytes per creep, 35 per tower and 47 per shot in flight, besides the seats, and a wave brings
+  at most about 40 creeps: over the whole of wave 11 with four seats the largest checkpoint measured 3.9 KB with
+  the caretaker's 27 towers, 5.0 KB with four players' 59, and 9.0 KB with a forked tower on every one of the 206
+  buildable cells (M4 review). A mode that puts 200 creeps on the road would pass 14 KB on the creeps alone.
 - **Away.** A seat silent for 5 s (no message at all; `PING` runs every 2 s) gets `AWAY(seat)` in the next turn.
   The simulation's **caretaker** then plays it: it follows the Builder's plan with the seat's own gold, forks for
   the checks the team lacks, is always Ready, and never sells. Towers keep firing throughout, because every client
@@ -1468,8 +1479,10 @@ scenarios the fake sequencer counts them in turns, so they stay deterministic.
   the turns since to the minority seats; they reload and catch up, and `/stats` counts a desync. The same seat
   desyncing twice in one match is handed to the caretaker (`LEFT`) and returned to the hub with a dump.
 - **Desync, 2 seats, or no majority:** the match ends "desynced" (`MATCH_END`). Both clients write a dump to
-  `user://desync/<match>-<seat>.bin`: the last agreed checkpoint, every turn since, their state at the first bad
-  hash tick and their hash stream. The results plate names the file.
+  `user://desync/<match>-<seat>.bin`: the last agreed checkpoint (the latest kept before the first bad hash tick,
+  even when that tick is itself a checkpoint tick), every turn since, their state at the first bad hash tick and
+  their hash stream. The results plate says the games disagreed and offers the report (Show report on the
+  desktop, Save report in the browser), never Godot's `user://` path.
 - **The end.** Each client sends `RESULT(final tick, hash, outcome)`; the server ends the match with the agreed
   outcome by the same rule, and the party returns to the hub.
 - **Replays** come free: a client holds every turn it received, so at the end it can save
@@ -1481,6 +1494,9 @@ scenarios the fake sequencer counts them in turns, so they stay deterministic.
 - **Hidden tabs.** When a tab is hidden, Godot's main loop stops while the browser keeps delivering WebSocket
   messages into the engine's inbound buffer, which drops whole messages once full. Under lockstep the traffic is
   about 0.2 KB/s, so the raised 1 MiB buffer holds well over an hour of turns, and `TURN_REQUEST` repairs any gap.
+  The server keeps a hidden tab's link through its silence, up to 10 minutes (`hidden_silence_ms`); past that it
+  closes it and the game comes back through the reconnect path. Back, the game says `catching_up` or `shown`
+  before anything else, and only `shown` brings its seat `BACK`.
   The client sends `VISIBILITY` from `visibilitychange` (a `JavaScriptBridge.create_callback`), so others see "In
   another tab". Its `PING`s stop with the loop, so after 5 s the caretaker takes the seat; when the tab returns,
   the client catches up (a progress bar) and gets the seat back at the next window.

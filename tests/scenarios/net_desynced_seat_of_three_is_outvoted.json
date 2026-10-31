@@ -1,12 +1,12 @@
 {
   "name": "net_desynced_seat_of_three_is_outvoted",
-  "description": "Three seats. A bug writes client 3's lives down to 1: its hashes part from the others (a minority: logged, resynced from M4) and its Holdfast falls early, so it sends RESULT(lost) long before the others. Clients 1 and 2 agree, run past that tick and play on; their agreed RESULT at the real end decides (design 6.7). With two seats the same would end 'desynced'.",
+  "description": "Three seats. A bug writes client 3's lives down to 1: its hashes part from the others (a minority: here the sequencer keeps M1's referee, which only logs it; M4 resyncs it, net_minority_desync_resyncs) and its Holdfast falls early, so it sends RESULT(lost) long before the others. Clients 1 and 2 agree, run past that tick and play on; their agreed RESULT at the real end decides (design 6.7). With two seats the same would end 'desynced'.",
   "scene": "res://tests/net/loopback_match.tscn",
   "seed": 7,
   "timeout_frames": 900,
   "watch": {"tick1": "scene.tick(1)", "tick3": "scene.tick(3)"},
   "steps": [
-    {"eval": "scene.start({'mode': 'classic', 'clients': 3, 'seed': 7, 'latency_turns': [2, 1, 3]})"},
+    {"eval": "scene.start({'mode': 'classic', 'clients': 3, 'seed': 7, 'latency_turns': [2, 1, 3], 'resilience': false})"},
     {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
     {"eval": "scene.run_turns(60)"},
     {"eval": "scene.corrupt(3, 'lives', 1)"},

@@ -1,0 +1,25 @@
+{
+  "name": "net_two_seat_desync_at_checkpoint_tick",
+  "description": "net_two_seat_desync_ends_with_dumps with the bug written just before tick 1,800, a checkpoint tick (1,800 is a multiple of 1,800): the first bad hash tick is a checkpoint tick, and each game has already kept its own, parted state there. The dump must still hold the last agreed checkpoint, the one before the bad tick (design 6.7), not the parted bytes: from it client 2's turns replay to client 1's hash, not its own, so the dumps show the turns were the same and the state went apart outside them.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 11,
+  "timeout_frames": 600,
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 11, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(2).sim.tick >= 1770', 4000)"},
+    {"eval": "scene.corrupt(2, 'gold', 777)"},
+    {"eval": "scene.run_until('client(1).phase_name() == \"ENDED\" and client(2).phase_name() == \"ENDED\"', 600)", "as": "ended"},
+    {"eval": "scene.seq.final_tick", "as": "bad_tick"},
+    {"assert": "ended and (scene.client(2).outcome == 'desynced') and (bad_tick == 1800)", "msg": "the match ended desynced at the checkpoint tick 1,800"},
+    {"assert": "scene.client(2).checkpoints.has_tick(1800)", "msg": "client 2 kept its own, parted state at the bad tick"},
+    {"eval": "scene.dump(1)", "as": "d1"},
+    {"eval": "scene.dump(2)", "as": "d2"},
+    {"assert": "(d1['checkpoint_tick'] < bad_tick) and (d2['checkpoint_tick'] < bad_tick) and (d1['checkpoint_tick'] == d2['checkpoint_tick'])", "msg": "both dumps hold the last agreed checkpoint, before the bad tick"},
+    {"assert": "(d2['checkpoint_tick'] > 0) and (scene.digest_hex(d2['checkpoint']) == d1['hashes'][d2['checkpoint_tick']])", "msg": "and it is the state both games hashed alike there"},
+    {"assert": "(d1['turns'][0]['turn'] == d1['checkpoint_tick'] / 3) and (d1['turns'].size() >= (1800 - d1['checkpoint_tick']) / 3)", "msg": "every turn from it to the bad tick"},
+    {"assert": "(scene.digest_hex(d1['state']) == d1['hashes'][1800]) and (d1['hashes'][1800] != d2['hashes'][1800])", "msg": "client 1's state at the bad tick is the state it hashed, apart from client 2's"},
+    {"assert": "(scene.replay_hash(d2, 1800) == d1['hashes'][1800]) and (scene.digest_hex(d2['state']) != d2['hashes'][1800])", "msg": "client 2's turns replay to client 1's hash, not its own: its state went apart outside the turns"}
+  ]
+}

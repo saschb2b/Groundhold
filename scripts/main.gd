@@ -30,9 +30,19 @@
 ## Play again goes back to the hub with the party. Booted on its own (its flags, a test)
 ## it plays as before and ends on the console's end plate.
 ##
+## Networked (M4, design 6.7 and 6.8): the connection overlay (scripts/ui/
+## connection_overlay.gd) says when this world is not live (reconnecting, catching up, in
+## another tab, desynced) from MatchClient.connection_state(); a RESYNC's checkpoint
+## replaces the simulation and the views are built again from its records (_rebuild_views);
+## orders wait while the client catches up (its RemoteSequencer is closed, and
+## Game.command_refusal() says "Catching up"); the web build's WebBridge reports the tab's
+## visibility to the client and flashes the page title while the tab is hidden; a desynced
+## match's results name the dump.
+##
 ## Helpers for tests and tools: cell_center(cell), build(kind, cell), fork(cell, branch),
 ## sell(cell), tower_at(cell), spawn(kind), settled(), state_hash_hex(), hash_at(tick),
-## record(), replay_matches(), schedule(tick, name, a, b, c).
+## record(), replay_matches(), schedule(tick, name, a, b, c), tab_hidden(hidden),
+## overlay().
 extends Node3D
 
 const MAP_FILE := "res://data/hollow.txt"
@@ -43,6 +53,10 @@ const MODE := "classic"
 const TICKS_PER_FRAME_META := &"godot_agent_ticks_per_frame"
 ## How often (physics frames) the --bot flag's plan bot takes its next steps.
 const BOT_EVERY := 15
+## The connection overlay's canvas layer: over the HUD (1), under the results (10).
+const OVERLAY_LAYER := 5
+## What the page title flashes while the tab is hidden in a match (web build).
+const FLASH_TEXT := "Groundhold · the caretaker keeps your seat"
 
 var map: HollowMap
 var sim: SimMatch
@@ -75,6 +89,12 @@ var _session_client := false
 var _results: ResultsPanel
 ## The Esc menu (scripts/ui/match_menu.gd); an offline match waits while it is open.
 var _menu: MatchMenu
+## Why this world is not live (networked); hidden offline.
+var _overlay: ConnectionOverlay
+## The browser around the web build (inert on desktop).
+var _bridge := WebBridge.new()
+## Whether "LINK LOST" was printed for the reconnect going on.
+var _said_reconnecting := false
 ## What the results count from the match's events: kills by seat and creep kind and by
 ## seat and wave, towers sold by seat, and the team's lives after each wave.
 var _tally := {"kind_kills": {}, "wave_kills": {}, "sold": {}, "lives": []}
@@ -117,6 +137,14 @@ func _ready() -> void:
 	_menu = MatchMenu.new()
 	add_child(_menu)
 	_menu.setup(self)
+	var overlay_layer := CanvasLayer.new()
+	overlay_layer.name = "ConnectionLayer"
+	overlay_layer.layer = OVERLAY_LAYER
+	add_child(overlay_layer)
+	_overlay = ConnectionOverlay.new()
+	overlay_layer.add_child(_overlay)
+	_bridge.visibility_changed.connect(_on_tab_hidden)
+	_bridge.start()
 	_frame_camera()
 	_set_the_scene()
 	Game.announce(MAP_NAME)
@@ -125,6 +153,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	_bridge.stop()
 	if client and _session_client:
 		_unhook(client)  # (the session keeps its connection for the hub)
 	elif client:
@@ -173,6 +202,8 @@ func begin(
 func _physics_process(_delta: float) -> void:
 	if client:
 		client.poll()
+		_show_connection()
+	_bridge.poll(Time.get_ticks_msec())
 	if sim == null or paused():
 		return
 	source.poll()
@@ -304,6 +335,9 @@ func _join_server(address: String) -> void:
 	var joining := Session.direct_client(str(options.get("name", "")), address)
 	play_through(joining)
 	print("JOIN %s as %s" % [NetAddress.url(address), client.player_name])
+	if client.boot_resume:
+		# (started again after a kill or a crash: its first HELLO asks the seat back)
+		print("RESUME match %d seat %d" % [client.held_match, client.held_seat + 1])
 	client.join(address)
 
 
@@ -323,6 +357,8 @@ func play_through(joining: MatchClient) -> void:
 	client.started.connect(func() -> void: Game.announce("The tide turns at " + MAP_NAME))
 	client.ended.connect(_on_net_ended)
 	client.failed.connect(_on_net_failed)
+	client.resynced.connect(_on_resynced)
+	client.connection_changed.connect(_on_connection_changed)
 
 
 func _on_net_configured() -> void:
@@ -337,12 +373,14 @@ func _on_net_ended(outcome: String, reason: String) -> void:
 	controller.forget_pending()
 	# (no order goes out any more: the placement grid, the ghost and the lit slot go too)
 	controller.set_mode("")
-	if outcome == "desynced":
+	if client.dump_path != "":
+		print("DESYNC REPORT %s" % ProjectSettings.globalize_path(client.dump_path))
+	if _session_client:
+		_show_results(outcome)  # (its title says it: no banner over it)
+	elif outcome == "desynced":
 		Game.announce("The lands fell out of step")
 	elif outcome == "aborted":
 		Game.announce("The match was called off")
-	if _session_client:
-		_show_results(outcome)
 	if options.has("quit-after-match"):
 		if _hash_file:
 			_hash_file.flush()
@@ -351,22 +389,101 @@ func _on_net_ended(outcome: String, reason: String) -> void:
 
 func _on_net_failed(text: String) -> void:
 	print("NET FAILED %s" % text)
-	Game.announce(text)
 	controller.forget_pending()
 	controller.set_mode("")
 	if _session_client:
-		_show_results("aborted")  # (the way back to the hub)
+		# (the way back to the hub: the link is this game's, the match goes on for the others,
+		# and the plate says so in its own words, with no banner over it; a reconnect that
+		# gave up leaves the seat to the caretaker, any other failure says its reason)
+		_show_results("link_lost", ResultsPanel.CARETAKER_LINE if client.gave_up else text)
+	else:
+		Game.announce(text)
 	if options.has("quit-after-match"):
 		get_tree().quit(1)
 
 
 ## Disconnects this scene from a client the session keeps.
 func _unhook(kept: MatchClient) -> void:
-	for sig: Signal in [kept.configured, kept.started, kept.ended, kept.failed]:
+	for sig: Signal in [
+		kept.configured, kept.started, kept.ended, kept.failed, kept.resynced, kept.connection_changed
+	]:
 		for c: Dictionary in sig.get_connections():
 			var target: Callable = c["callable"]
 			if target.get_object() == self:
 				sig.disconnect(target)
+
+
+# ── Resilience (M4) ──
+
+
+## The overlay follows the client: reconnecting, catching up, in another tab, desynced.
+func _show_connection() -> void:
+	if _overlay == null:
+		return
+	var now: Array = client.connection_state()
+	if _results != null:
+		now = [ConnectionOverlay.State.NONE, -1, ""]  # (the results plate says it all)
+	if now != [_overlay.state, _overlay.progress_pm, _overlay.detail]:
+		_overlay.show_state(now[0], now[1], now[2])
+
+
+## Reconnecting or catching up, no order goes out: the placement mode and the ghosts go,
+## as when the link fails.
+func _on_connection_changed() -> void:
+	if client.reconnecting and not _said_reconnecting:
+		print("LINK LOST reconnecting")  # (for tools/net/smoke.py --faults)
+	_said_reconnecting = client.reconnecting
+	if client.reconnecting or client.catching_up:
+		controller.forget_pending()
+		controller.set_mode("")
+
+
+## The client loaded a RESYNC's checkpoint: its simulation replaces this one, and every
+## creep and tower view is built again from the records (no event says they are there).
+func _on_resynced() -> void:
+	sim = client.sim
+	print("RESYNC %s %d" % [str(client.resyncs[-1][0]), sim.tick])  # (smoke.py --faults reads it)
+	_rebuild_views()
+	hud.clear_messages()  # (a refusal while reconnecting, a wave's title: from before the jump)
+	for t: int in hashes.keys():
+		if t > sim.tick:
+			hashes.erase(t)
+
+
+func _rebuild_views() -> void:
+	for view: Node in creep_views.values() + tower_views.values():
+		view.queue_free()
+	creep_views.clear()
+	tower_views.clear()
+	controller.forget_pending()
+	if controller.selected != null:
+		controller.select(null)
+	Game.attach(sim, source, seat)
+	for rec in sim.towers:
+		_built({"id": rec.id}, true)
+	for rec in sim.creeps:
+		_spawned(rec.id, true)
+
+
+## The web build's tab was hidden or shown: the client tells the server, and the page
+## title flashes while the tab is hidden in a match.
+func _on_tab_hidden(now_hidden: bool) -> void:
+	if client == null:
+		return
+	client.set_hidden(now_hidden)
+	if now_hidden and client.phase == MatchClient.Phase.PLAYING:
+		_bridge.flash_title(FLASH_TEXT)
+	else:
+		_bridge.stop_flash()
+
+
+## Hides or shows the tab as the browser would (WebBridge's handler; for tests).
+func tab_hidden(now_hidden: bool) -> void:
+	_bridge.changed_to(now_hidden)
+
+
+func overlay() -> ConnectionOverlay:
+	return _overlay
 
 
 # ── Results ──
@@ -374,16 +491,23 @@ func _unhook(kept: MatchClient) -> void:
 
 ## The match is over in a session's match: the results overlay on the finished hollow,
 ## instead of the console's end plate.
-func _show_results(outcome: String) -> void:
+func _show_results(outcome: String, said := "") -> void:
 	if _results or sim == null:
 		return
 	controller.set_mode("")
+	hud.results_shown()  # (no notice or banner over the plate)
 	var plate := hud.find_child("EndPanel", true, false) as Control
 	if plate:
 		plate.visible = false
 	var names: Array = _spec.get("names", []) if _spec.has("offline") else Array(client.names)
 	var shown_mode := str(_spec.get("shown_mode", Session.profile.mode))
 	var shown := ResultsPanel.compute(sim, names, outcome, _tally, shown_mode)
+	if said != "":
+		shown["said"] = said
+	if client and client.dump_path != "":
+		# (a desynced match's plate offers the report each game wrote, design 6.7: a button,
+		# not Godot's user:// path, which nobody could find)
+		shown["report"] = client.dump_path
 	_results = ResultsPanel.new()
 	add_child(_results)
 	_results.show_results(shown)
@@ -462,7 +586,7 @@ func _show(events: Array) -> void:
 				Fx.ring(get_tree(), at, 0.9, Color(1.0, 0.85, 0.4, 0.9), 0.6)
 
 
-func _spawned(id: int) -> void:
+func _spawned(id: int, quiet := false) -> void:
 	var rec := sim.creep(id)
 	if rec == null:
 		return  # spawned and gone within one frame
@@ -471,6 +595,8 @@ func _spawned(id: int) -> void:
 	view.setup(rec, _road_points)
 	creeps.add_child(view)
 	creep_views[id] = view
+	if quiet:
+		return  # (built again from a checkpoint: it was already on the road)
 	Fx.burst(
 		get_tree(),
 		_road_points[0] + Vector3(0, 0.4, 0),
@@ -483,7 +609,7 @@ func _spawned(id: int) -> void:
 	)
 
 
-func _built(e: Dictionary) -> void:
+func _built(e: Dictionary, quiet := false) -> void:
 	var rec := sim.tower(int(e["id"]))
 	if rec == null:
 		return
@@ -491,9 +617,12 @@ func _built(e: Dictionary) -> void:
 	var view := Tower.new()
 	view.name = "%s_%d_%d" % [rec.kind, cell.x, cell.y]
 	towers.add_child(view)
-	view.setup(rec, terrain.surface(cell), creep_views)
+	# (built again from a checkpoint, quiet: it already stood, so it neither rises nor dusts)
+	view.setup(rec, terrain.surface(cell), creep_views, not quiet)
 	tower_views[rec.id] = view
 	decor.clear_cell(cell)
+	if quiet:
+		return
 	Fx.burst(
 		get_tree(),
 		terrain.surface(cell) + Vector3(0, 0.1, 0),

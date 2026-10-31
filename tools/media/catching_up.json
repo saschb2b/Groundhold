@@ -1,0 +1,31 @@
+{
+  "name": "catching_up",
+  "description": "README and site: what a player sees coming back after a drop. A High Water match on Wickhollow from the hub (I am the Lamplighter, played by the plan bot; Ana's Lookout seat is the caretaker's), held in wave 5 as the Duskmoths come. Then the world as a returning game shows it while it runs the turns it missed: the connection overlay's plate above the console says Catching up with its bar at 62%, and my plate on the party strip says away, since the caretaker still holds my seat until the next build window. Ana's seat is shown present, as a party's would be. The plate is the client track's (scripts/ui/connection_overlay.gd, Main.overlay()); the scenario sets its state, as view_connection_overlay does.",
+  "seed": 1,
+  "ticks_per_frame": 64,
+  "timeout_frames": 3000,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.play_offline('lamplighter', false, 1, 'lookout')"},
+    {"eval": "Session.match_spec['names'].set(1, 'Ana')"},
+    {"wait_until": "scene_path() == 'res://scenes/main.tscn'", "timeout": 120},
+    {"wait_until": "Game.sim != null", "timeout": 120},
+    {"eval": "resource('res://tests/bot.gd').new()", "as": "bot"},
+    {"repeat": 2000, "steps": [{"eval": "bot.step(scene)"}, {"wait": 1}], "until": "Game.wave == 5 and Game.spawns_left() <= 5"},
+    {"set_ticks_per_frame": 2},
+    {"wait": 60},
+    {"set_ticks_per_frame": 0},
+    {"assert": "Game.sim.seat(2).builder == 'lookout' and Game.sim.seat(2).state == 3", "msg": "the caretaker plays the Lookout's seat"},
+    {"set": "Game.sim.seat(2).state", "value": 0},
+    {"set": "Game.sim.seat(1).state", "value": 1},
+    {"eval": "node('BuildController').select_creep(group('creeps')[0])"},
+    {"eval": "scene.camera.look_from(Vector3(9.5, 0, 7.6), 13.0)"},
+    {"eval": "scene.overlay().show_state(2, 620, '')"},
+    {"wait": 160},
+    {"assert": "scene.overlay().visible and scene.overlay().text() == 'Catching up 62%'", "msg": "the plate says Catching up, 62%"},
+    {"assert": "node('PartyStrip').lines()[0].begins_with('Sascha ') and 'away' in node('PartyStrip').lines()[0]", "msg": "my plate says away"},
+    {"capture": "catching_up"}
+  ]
+}

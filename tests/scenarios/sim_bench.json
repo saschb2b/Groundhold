@@ -1,0 +1,35 @@
+{
+  "name": "sim_bench",
+  "description": "How fast the simulation steps natively at a busy moment (design 6.8, M4): four seats (two Lamplighters, two Lookouts, played by the caretaker from tick 0) at wave 11 of High Water, loaded from the checkpoint at its horn and stepped through 1,800 ticks, the longest catch-up, with events drained every tick. Reports native ticks per second (best of three runs) and fails below the floor in tests/sim/sim_bench.gd, set from the first measurement (about 4,300 to 5,200 with M3's scan of every creep, 12,000 to 15,000 with the look along the road; the floor of 4,000 leaves room for a CI runner). The load is the caretaker's: 27 towers at wave 11's horn, about half of the 59 that four players spending their gold stood in the M4 review's probes (design 6.7's '60 towers'), so the rate here reads about twice a four-player board's (the review measured 12,632 against 6,826 ticks a second on one machine). The floor cannot tell a tick that lost the walk along the road (the scan alone steps about 4,100 to 4,300 here), so the bench also counts the ticks whose own stage 5 sorted the creeps (SimMatch.walks, in measure()) and fails unless nearly all did. On the same ticks it times stage 5's walk along the road against the scan it replaced and fails unless the walk is at least three times faster (about 8.7 measured), which holds on any machine. Each run reaches the same state hash. A timing, so --determinism leaves it out. Measured with the four M4 tracks merged (the measured key): 15,779 native ticks a second, the walk 8.5 times faster than the scan, a 2,583-byte checkpoint at the end and 3,866 bytes the largest at any hash tick on the way (measured after the M4 review), well under the design's 10 KB.",
+  "measured": {
+    "when": "2026-10-31, the four M4 tracks merged (integration)",
+    "where": "the 16-thread Linux laptop the floor was set on, headless, sim_bench alone, three runs",
+    "native_ticks_per_second": 15779,
+    "best_of_three_each_run": [15550, 15779, 15598],
+    "walk_faster_than_scan": 8.5,
+    "checkpoint_bytes": 2583,
+    "largest_checkpoint_bytes": 3866,
+    "web_export": "not measured yet (design 6.8's 2,000 ticks a second, by hand)"
+  },
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "deterministic": false,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/sim/sim_bench.gd')", "as": "Bench"},
+    {"eval": "Bench.wave_load()", "as": "load"},
+    {"eval": "[load['tick'], load['wave'], load['lives'], load['towers']]", "as": "at_horn"},
+    {"assert": "load['wave'] == 11 and load['towers'] >= 24", "msg": "four seats reached wave 11's horn with their towers standing"},
+    {"eval": "Bench.measure(load, 1800, 3)", "as": "bench"},
+    {"eval": "bench['ticks_per_second']", "as": "ticks_per_second"},
+    {"eval": "Bench.look(load, 1800)", "as": "look"},
+    {"eval": "print('SIM_BENCH native ticks_per_second=%d runs=%s creeps<=%d shots<=%d checkpoint_bytes=%d largest_checkpoint_bytes=%d look_walk_us=%d look_scan_us=%d look_speedup_pc=%d walk_ticks=%d' % [bench['ticks_per_second'], str(bench['runs']), bench['most_creeps'], bench['most_shots'], bench['checkpoint_bytes'], bench['largest_checkpoint_bytes'], look['walk_us'], look['scan_us'], look['speedup_pc'], bench['walk_ticks']])"},
+    {"assert": "bench['most_creeps'] >= 20 and bench['most_shots'] >= 5", "msg": "the wave is on the road: creeps walking and shots in the air"},
+    {"assert": "bench['same_hash']", "msg": "every run of the same checkpoint reaches the same state"},
+    {"assert": "bench['largest_checkpoint_bytes'] < 10240 and bench['largest_checkpoint_bytes'] >= bench['checkpoint_bytes']", "msg": "every checkpoint at this load, at each hash tick of the 1,800, is under 10 KB (design 6.7)"},
+    {"assert": "bench['walk_ticks'] * 1000 >= bench['ticks'] * Bench.WALK_FLOOR_PM", "msg": "a real tick looks along the road: SimMatch.step()'s stage 5 sorted the creeps on nearly every tick it stepped (SimMatch.walks), not only look(), which opens the look itself"},
+    {"assert": "look['ticks'] == 1800 and look['looks'] > 20000 and look['differ'] == 0", "msg": "the walk and the scan picked the same creep in every look"},
+    {"assert": "look['speedup_pc'] >= Bench.LOOK_FLOOR_PC", "msg": "stage 5's walk along the road is at least three times faster than a scan of every creep"},
+    {"assert": "ticks_per_second >= Bench.FLOOR", "msg": "the simulation steps at least the floor's ticks a second natively"}
+  ]
+}

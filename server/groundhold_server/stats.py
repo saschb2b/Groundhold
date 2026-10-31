@@ -4,14 +4,19 @@ personal data, served at `GET /stats`.
 
 A day counts its joins; its distinct public identities, as a number only
 (a set held in memory for the day and dropped at its end, never written
-and never served); the most players online at once; the matches started
+and never served; it holds at most SEEN_MAX of them, since anyone can mint
+tokens: past that each join of an identity not in it counts as a new one,
+an upper bound in bounded memory); the most players online at once; the matches started
 and finished per mode (finished: ended by an agreed result); the desyncs,
 the health gauge of the lockstep choice (every disagreement the hash or
 result referee found, a minority of three included); the reconnects (a
-party seat taken back after a drop); the caretaker seats (each seat of a
-match the caretaker played, once a match); and the HELLOs by the protocol
-version they carry, those of another version refused (so the older and
-newer games that tried show here).
+party seat taken back after a drop); the resyncs (every RESYNC sent: a
+rejoin's, a minority's after a desync, a game's catching up from further
+back than the latest checkpoint); the rejoins (match seats taken back by
+a resume HELLO); the caretaker seats (each seat of a match the caretaker
+played, once a match); and the HELLOs by the protocol version they carry,
+those of another version refused (so the older and newer games that
+tried show here).
 
 Each day is written once, a line of `stats.jsonl` in the state directory,
 at its end or as the server stops. A restart on the same day takes that
@@ -33,7 +38,8 @@ from .identity import rewrite_log, state_lock
 LOG = "stats.jsonl"
 SHOWN = 30              # the days /stats serves besides today
 VERSIONS = 16           # protocol versions counted apart; the rest as "other"
-COUNTS = ("joins", "peak", "desyncs", "reconnects", "caretaker_seats")
+SEEN_MAX = 100_000      # a day's distinct identities held in memory (about 10 MB at most)
+COUNTS = ("joins", "peak", "desyncs", "reconnects", "resyncs", "rejoins", "caretaker_seats")
 TABLES = ("started", "finished", "versions")     # per mode, per mode, per protocol version
 
 
@@ -81,6 +87,7 @@ class Daily:
         self.days, self.clock = days, clock
         self.today = fresh(day_of(clock()))
         self.seen = set()       # today's public identities: counted, never written
+        self.beyond = 0         # ... joins of others once it holds SEEN_MAX (each counted as new)
         self.before = 0         # ... and those of today's line before a restart
         self.past = []          # the days written, oldest first (the last SHOWN kept)
         self.load()
@@ -120,7 +127,13 @@ class Daily:
 
     def join(self, identity, players):
         self.today["joins"] += 1
-        self.seen.add(bytes(identity))
+        identity = bytes(identity)
+        if identity in self.seen:
+            pass
+        elif len(self.seen) < SEEN_MAX:
+            self.seen.add(identity)
+        else:
+            self.beyond += 1    # (a flood of fresh tokens grows no memory past SEEN_MAX)
         self.today["peak"] = max(self.today["peak"], players)
 
     def count(self, field):
@@ -131,7 +144,7 @@ class Daily:
     def snapshot(self):
         """Today so far: its totals, the identities as a number."""
         day = dict(self.today, **{table: dict(self.today[table]) for table in TABLES})
-        day["identities"] = self.before + len(self.seen)
+        day["identities"] = self.before + len(self.seen) + self.beyond
         return day
 
     def public(self):
@@ -148,7 +161,7 @@ class Daily:
             return None
         ended = self.snapshot()
         self.past = (self.past + [ended])[-SHOWN:]
-        self.today, self.seen, self.before = fresh(day), set(), 0
+        self.today, self.seen, self.beyond, self.before = fresh(day), set(), 0, 0
         return ended
 
     def write(self, entry):

@@ -11,7 +11,8 @@ values back into the same bytes.
   m1_dev_match   a whole --dev-match classic:2: MATCH_CONFIG, the loading barrier, START,
                  turns with every command type, TURN_REQUEST, HASH, LINKS, AWAY, BACK,
                  LEFT, TIMEOUT, RESULT, MATCH_END, BYE
-  m1_codec       every message of protocol.json once (each PARTY op, each command type),
+  m1_codec       every message of protocol.json once (each PARTY op, each command type; M4's
+                 resume HELLO, rejoin MATCH_CONFIG, RESYNC and VISIBILITY catching_up),
                  encoded by server/groundhold_server/protocol.py with canonical values
   m3_party       the hub: a party created and joined by a lenient code, a wrong code, another
                  rules hash, Builders, Ready, a refused start, a removal, mode and team, open
@@ -21,6 +22,11 @@ values back into the same bytes.
   m3_back        a party's match to its end and back: a member who left mid-match, RESULT,
                  MATCH_END, the results plate, LEAVE_MATCH and Ready back to forming; a drop
                  held and taken back by a resume HELLO; a hold that runs out after 40 s
+  m4_resilience  a --dev-match classic:3's resilience: a checkpoint asked and uploaded, a
+                 minority's RESYNC(desync), a silent seat AWAY, a rejoin by a resume HELLO
+                 naming its seat (ERROR 12 to the old link, MATCH_CONFIG rejoin, RESYNC rejoin
+                 with the parts), BACK at shown, a hidden tab's RESYNC(behind) with LINKS
+                 catching_up, desynced_twice, and NOTICE no_held_seat (empty TURNs unlisted)
 
 The .bin format (all big-endian): "GHTX", u8 format (1), u16 protocol version,
 u8 clients, u32 records; then each record: u8 direction (0 game to server,
@@ -52,6 +58,7 @@ TRANSCRIPTS = ROOT / "shared" / "net" / "transcripts"
 MAGIC = b"GHTX"
 FORMAT = 1
 RULES = bytes.fromhex("47726f756e646831")  # "Groundh1"
+CATCHUP_TURNS = 2000                        # (m4_resilience's waits for a catch-up: 100 s of turns)
 TICK0 = bytes.fromhex("9e3779b97f4a7c15")
 HASH_60 = bytes.fromhex("0123456789abcdef")
 FINAL = bytes.fromhex("fedcba9876543210")
@@ -74,7 +81,7 @@ async def handshake(record):
         await tamsin.hello(port, "Tamsin", token=TAMSIN, build_seq=7, rules_hash=RULES)
         await tamsin.send_message("PING", client_ms=1000, rtt_ms=0)
         await tamsin.until("PONG")
-        await tamsin.send_message("VISIBILITY", hidden=1)
+        await tamsin.send_message("VISIBILITY", state=1)
         await tamsin.bye()
         refusals = ((dict(name="Old", version=0, subprotocol="groundhold.v0"), 1),
                     (dict(name="New", version=2, subprotocol="groundhold.v2"), 2),
@@ -155,7 +162,7 @@ async def dev_match(record):
         await turns(17)
         for client in both:
             await client.send_message("HASH", tick=60, hash=HASH_60, flags=0)
-        await edda.send_message("VISIBILITY", hidden=1)
+        await edda.send_message("VISIBILITY", state=1)
         # (read by the server before the clock moves on: her silence counts from here)
         match = next(iter(game.matches.values()))
         await until(lambda: match.seats[1].player.hidden and 60 in match.agreed)
@@ -169,7 +176,7 @@ async def dev_match(record):
         await tamsin.until("PONG")
         await edda.send_message("PING", client_ms=900, rtt_ms=0)
         await edda.until("PONG")
-        await edda.send_message("VISIBILITY", hidden=0)
+        await edda.send_message("VISIBILITY", state=0)
         await arrived(0, 1)
         await turns(1)
         await edda.send_message("LEAVE_MATCH")
@@ -383,6 +390,152 @@ async def back_to_party(record):
     return 4
 
 
+class Listed(list):
+    """m4_resilience's records: every message but an empty TURN from the
+    server (6 bytes, no commands). Its seats run hundreds of turns between
+    the steps, and m1_dev_match lists those already."""
+
+    def append(self, entry):
+        direction, _, data = entry
+        if direction == 1 and data[0] == protocol.MESSAGES["TURN"].id and len(data) == 6:
+            return
+        super().append(entry)
+
+
+async def resilience(record):
+    clock = ManualClock()
+    game = server(clock=clock, dev_match="classic:3", **options())
+    port = await game.start("127.0.0.1", 0)
+    tamsin, edda, ottilie = Client(record, 0), Client(record, 1), Client(record, 2)
+    again, late = Client(record, 3), Client(record, 4)
+    three = (tamsin, edda, ottilie)
+    resume = SPEC["hello_flags"]["resume"]
+    flag = SPEC["hash_flags"]["checkpoint"]
+    shown, hidden, catching_up = (SPEC["visibility_states"][name] for name in ("shown", "hidden", "catching_up"))
+    # (SimCodec's bytes stand-ins, two parts each; their digests are the agreed hashes)
+    early, later = bytes(range(256)) * 4 + b"tick 60's state", bytes(range(255, -1, -1)) * 5 + b"tick 360"
+    odd = bytes.fromhex("0ddba11cafe5eed5")
+
+    async def turns(count, clients):
+        """`count` turns, one wake each, every one of `clients` reading each."""
+        for _ in range(count):
+            await clock.turns(1)
+            for client in clients:
+                await client.until("TURN", skip=("LINKS",))
+
+    async def until_caught_up(index, clients):
+        """Turns, each read by `clients`, until the server's catch-up of seat
+        `index` is done: at most CATCHUP_TURNS of them, so a catch-up that
+        never ends fails the recording instead of running (and growing the
+        record) for ever."""
+        for _ in range(CATCHUP_TURNS):
+            if match.seats[index].catchup is None:
+                return
+            await turns(1, clients)
+        raise AssertionError(f"seat {index}'s catch-up still running after {CATCHUP_TURNS} turns")
+
+    async def caught_up(client, first):
+        """A RESYNC's parts and its turns from `first` to the open turn, read
+        once the server's catch-up (paced on its side) is done."""
+        resync = await client.until("RESYNC", skip=("TURN", "LINKS"))
+        for _ in range(resync["parts"]):
+            await client.until("CHECKPOINT_PART", skip=("LINKS",))
+        for _ in range(match.loop.turn - first):
+            await client.until("TURN", skip=("LINKS",))
+
+    try:
+        for client, name, token in zip(three, ("Tamsin", "Edda", "Ottilie"), (TAMSIN, EDDA, OTTILIE)):
+            await client.hello(port, name, token=token, build_seq=8, rules_hash=RULES)
+        await each("MATCH_CONFIG", three)
+        await each("LOAD_STATE", three)
+        for client in three:
+            await client.send_message("LOADED", rules_hash=RULES, tick0_hash=TICK0)
+            await each("LOAD_STATE", three)
+        await each("LOAD_STATE", three)
+        await clock.advance(SPEC["loading_min_ms"])
+        await each("START", three)
+        await clock.advance(SPEC["start_delay_ms"])
+        match = next(iter(game.matches.values()))
+        # Tick 60, flagged a checkpoint: Ottilie's hash is the odd one of
+        # three, so she is resynced from tick 0, and Tamsin uploads the tick.
+        await clock.turns(20)
+        for client in three:
+            for _ in range(20):
+                await client.until("TURN")
+        for client in (tamsin, edda):
+            await client.send_message("HASH", tick=60, hash=protocol.digest(early), flags=flag)
+        await ottilie.send_message("HASH", tick=60, hash=odd, flags=flag)
+        await tamsin.until("CHECKPOINT_ASK")
+        for message in protocol.checkpoint_parts(60, early):
+            await tamsin.send(message)
+        await until(lambda: match.checkpoints)
+        await turns(1, (tamsin, edda))
+        await caught_up(ottilie, 0)
+        # (her game ran it again from tick 0: tick 60 is the agreed hash this time)
+        await ottilie.send_message("HASH", tick=60, hash=protocol.digest(early), flags=flag)
+        # Ottilie's tab goes to the background and Edda's game freezes: five
+        # seconds without a word from either is AWAY (Tamsin's PING keeps her).
+        await ottilie.send_message("VISIBILITY", state=hidden)
+        await until(lambda: match.seats[2].player.hidden and match.seats[2].hash_tick == 60
+                    and not match.seats[2].muted)
+        for half in range(2):
+            await clock.advance(SPEC["away_ms"] // 2)
+            for _ in range(SPEC["away_ms"] // 2 // SPEC["turn_ms"]):
+                await tamsin.until("TURN", skip=("LINKS",))
+            if not half:
+                await tamsin.send_message("PING", client_ms=3000, rtt_ms=40)
+                await tamsin.until("PONG")
+        # Tick 360, a checkpoint only Tamsin reports: the one seat present agrees with itself.
+        await tamsin.send_message("HASH", tick=360, hash=protocol.digest(later), flags=flag)
+        await tamsin.until("CHECKPOINT_ASK")
+        for message in protocol.checkpoint_parts(360, later):
+            await tamsin.send(message)
+        await until(lambda: len(match.checkpoints) == 2)
+        # Edda's game, in a new window, comes back with a resume HELLO naming
+        # her seat: the frozen link is replaced, and the new one catches up
+        # from tick 360, at most two kilobytes a turn, then says shown: BACK.
+        await again.hello(port, "Edda", token=EDDA, build_seq=8, rules_hash=RULES, flags=resume,
+                          match=match.id, seat=1)
+        await again.until("MATCH_CONFIG")
+        await edda.until("ERROR", skip=("TURN", "LINKS"))
+        await edda.drop()
+        await until_caught_up(1, (tamsin,))
+        await caught_up(again, 120)
+        await again.send_message("VISIBILITY", state=shown)
+        await until(lambda: match.seats[1].state == "present")
+        await turns(1, (tamsin, again))
+        # Ottilie's tab comes back behind: catching_up resyncs her from tick
+        # 360, LINKS shows it, and her shown brings her BACK.
+        await ottilie.send_message("VISIBILITY", state=catching_up)
+        await until(lambda: match.seats[2].catchup is not None)
+        await until_caught_up(2, (tamsin, again))
+        await caught_up(ottilie, 120)
+        await clock.advance(SPEC["links_ms"])
+        for client in (tamsin, again, ottilie):
+            await client.until("LINKS")
+            for _ in range(SPEC["links_ms"] // SPEC["turn_ms"]):
+                await client.until("TURN")
+        await ottilie.send_message("VISIBILITY", state=shown)
+        await until(lambda: match.seats[2].state == "present")
+        await turns(1, (tamsin, again, ottilie))
+        # Tick 420: Ottilie apart again after her resync is out of the match
+        # (desynced_twice) and LEFT in the turns; the caretaker keeps her seat.
+        for client, digest in ((tamsin, HASH_60), (again, HASH_60), (ottilie, odd)):
+            await client.send_message("HASH", tick=420, hash=digest, flags=0)
+        await ottilie.until("MATCH_END")
+        await turns(1, (tamsin, again))
+        await ottilie.bye()
+        # Her game tries to take the seat back: it is not held any more.
+        await late.hello(port, "Ottilie", token=OTTILIE, build_seq=8, rules_hash=RULES, flags=resume,
+                         match=match.id, seat=2)
+        await late.until("NOTICE")
+        for client in (late, tamsin, again):
+            await client.bye()
+    finally:
+        await game.close()
+    return 5
+
+
 def codec_records():
     """Every message once, with canonical values (and each PARTY op, each command type)."""
     rules, token, identity = RULES, TAMSIN, bytes(range(16, 32))
@@ -398,7 +551,8 @@ def codec_records():
               for i, (name, spec) in enumerate(SPEC["system_commands"].items())]
     stamped = [dict(seat=1, seq=c["seq"], type=c["type"], a=c["a"], b=c["b"], c=c["c"]) for c in commands]
     records = [
-        ("HELLO", dict(version=1, build_seq=0xffffffff, rules_hash=rules, token=token, flags=3, name="Tamsin Wick")),
+        ("HELLO", dict(version=1, build_seq=0xffffffff, rules_hash=rules, token=token, flags=3, name="Tamsin Wick",
+                       match=9, seat=2)),
         ("WELCOME", dict(session=1, identity=identity, turn_ms=50, turn_ticks=3, hash_every=60, flags=2,
                          server_name="Groundhold", motd="Hüte den Grund bis zur Ebbe")),
         ("ERROR", dict(code=2, text="A newer version is out: reload")),
@@ -414,7 +568,8 @@ def codec_records():
         ("QUEUE_STATE", dict(state=2, elapsed_ms=61000, caretaker_offer=1)),
         ("MATCH_FOUND", dict(match=9, mode=2, seats=4, accepted=3, ms_left=15000)),
         ("ACCEPT", dict(match=9, yes=1)),
-        ("MATCH_CONFIG", dict(match=9, mode=2, map=0, seed=0xdeadbeef, rules_hash=rules, your_seat=2, seats=seats)),
+        ("MATCH_CONFIG", dict(match=9, mode=2, map=0, seed=0xdeadbeef, rules_hash=rules, your_seat=2, seats=seats,
+                              flags=1)),
         ("LOADING", dict(per_mille=750)),
         ("LOAD_STATE", dict(seats=[dict(seat=i, per_mille=pm, state=state) for i, (pm, state) in
                                    enumerate(((1000, 3), (1000, 2), (420, 1), (0, 4)))], seconds=16)),
@@ -427,9 +582,10 @@ def codec_records():
         ("CHECKPOINT_ASK", dict(tick=1800)),
         ("CHECKPOINT_PART", dict(tick=1800, part=0, parts=2, data=bytes(range(256)) * 4)),
         ("CHECKPOINT_PART", dict(tick=1800, part=1, parts=2, data=b"\x00\xff")),
-        ("RESYNC", dict(checkpoint_tick=1800, first_turn=600)),
+        ("RESYNC", dict(checkpoint_tick=1800, first_turn=600, reason=2, open_turn=1234, checkpoint_hash=HASH_60,
+                        parts=2)),
         ("TURN_REQUEST", dict(first_missing=600)),
-        ("VISIBILITY", dict(hidden=1)),
+        ("VISIBILITY", dict(state=2)),
         ("RESULT", dict(tick=43200, hash=FINAL, outcomes=[dict(outcome=0), dict(outcome=1)])),
         ("MATCH_END", dict(outcome=3, reason=1, final_tick=1860)),
         ("LEAVE_MATCH", {}),
@@ -509,8 +665,16 @@ async def record_all(directory):
             ("m3_back", back_to_party,
              "A party's match and back: Ottilie waits in the hub, the two players' RESULT ends it, the results "
              "plate, LEAVE_MATCH (Play again) and a Ready back to forming; Edda's link drops and her resume "
-             "HELLO takes her row back; Ottilie's drops and her row is freed 40 s later.")):
-        records = []
+             "HELLO takes her row back; Ottilie's drops and her row is freed 40 s later."),
+            ("m4_resilience", resilience,
+             "A --dev-match classic:3's resilience on a hand-moved clock (empty TURNs read but not listed): "
+             "tick 60 a checkpoint, Ottilie's odd hash resynced from tick 0 (RESYNC desync) while Tamsin "
+             "uploads it; Ottilie's tab hides and Edda's game freezes, AWAY after 5 s; Tamsin's tick 360 "
+             "uploaded; Edda's new window resumes her seat (ERROR 12 to the old link, MATCH_CONFIG rejoin, "
+             "RESYNC rejoin with the parts, paced) and shown brings her BACK; Ottilie's tab comes back "
+             "catching_up (RESYNC behind, LINKS) and shown brings her BACK; apart again at tick 420 she is "
+             "out (MATCH_END desynced_twice, LEFT), and her resume hears no_held_seat.")):
+        records = Listed() if name == "m4_resilience" else []
         clients = await script(records)
         write(directory, name, records, clients, note)
     return sorted(path.name for path in directory.iterdir())

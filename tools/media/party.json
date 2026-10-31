@@ -1,0 +1,28 @@
+{
+  "name": "party",
+  "description": "README and site: a party of three on a LAN server, joined by its code (the fake sequencer in lobby mode stands in for the server, tests/net/loopback_hub.gd). Ana leads as the Lamplighter, Ben is Ready, I am Ready as the Lookout, so Edda Greyplume stands in the arch and the coverage row lights all four checks; the strip says LAN and the party code.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"set": "node('Causeway').drift", "value": 40.0},
+    {"eval": "Session.set_main('lookout')"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.get_node('LoopbackHub').host('Ana', 'lamplighter')"},
+    {"eval": "Session.connect_to('192.168.1.20', 'K7Q4M')"},
+    {"wait_until": "Session.party_size() == 2 and Session.me >= 0", "timeout": 120},
+    {"eval": "Session.get_node('LoopbackHub').member('Ben', 'lamplighter')"},
+    {"eval": "Session.get_node('LoopbackHub').set_member('Ben', 'ready', true)"},
+    {"wait_until": "Session.party_size() == 3", "timeout": 120},
+    {"click": "node('Primary')"},
+    {"wait_until": "Session.my_ready()", "timeout": 60},
+    {"wait": 20},
+    {"assert": "node('Place').text == 'LAN · 192.168.1.20' and node('Code').text == 'K7Q-4M'", "msg": "a LAN party, its code on the strip"},
+    {"assert": "node('PartyCount').text == '3/4' and node('CoverageRow').dim() == []", "msg": "three of four, every check covered"},
+    {"capture": "party"}
+  ]
+}

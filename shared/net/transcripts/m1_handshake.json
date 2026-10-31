@@ -15,7 +15,9 @@
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
     "flags": 0,
-    "name": "Tamsin"
+    "name": "Tamsin",
+    "match": 0,
+    "seat": 255
    }
   },
   {
@@ -56,7 +58,7 @@
    "client": 0,
    "type": "VISIBILITY",
    "fields": {
-    "hidden": 1
+    "state": 1
    }
   },
   {
@@ -75,7 +77,9 @@
     "rules_hash": "47726f756e646831",
     "token": "01010101010101010101010101010101",
     "flags": 0,
-    "name": "Old"
+    "name": "Old",
+    "match": 0,
+    "seat": 255
    }
   },
   {
@@ -97,7 +101,9 @@
     "rules_hash": "47726f756e646831",
     "token": "02020202020202020202020202020202",
     "flags": 0,
-    "name": "New"
+    "name": "New",
+    "match": 0,
+    "seat": 255
    }
   },
   {
@@ -119,7 +125,9 @@
     "rules_hash": "47726f756e646831",
     "token": "03030303030303030303030303030303",
     "flags": 0,
-    "name": "bad<name>"
+    "name": "bad<name>",
+    "match": 0,
+    "seat": 255
    }
   },
   {
@@ -141,7 +149,9 @@
     "rules_hash": "47726f756e646831",
     "token": "00000000000000000000000000000000",
     "flags": 0,
-    "name": "Zero"
+    "name": "Zero",
+    "match": 0,
+    "seat": 255
    }
   },
   {

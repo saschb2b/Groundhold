@@ -1,0 +1,28 @@
+{
+  "name": "net_restarted_game_rejoins_while_loading",
+  "description": "Two seats; client 1 is slow to load, so the match still loads when client 2's game, which has loaded and notes its seat (as a --join game does), is killed and started again. Its first HELLO is a resume naming the seat; the sequencer, as the server does, takes the seat back while the match loads and sends MATCH_CONFIG as at the start (no rejoin flag), and the game loads again like any seat: LOADED, START once client 1 has loaded too, and the match plays with both seats, its overlay showing nothing, its orders going out, and the hashes agreeing.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 7,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "tick2": "scene.tick(2)"},
+  "steps": [
+    {"eval": "resource('res://scripts/session/identity.gd')", "as": "Id"},
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 7, 'latency_turns': [1, 2], 'late': [1], 'remember': [2]})"},
+    {"eval": "scene.run_until('client(2).loaded_sent and seq.phase == \"loading\"', 600)", "as": "loading"},
+    {"assert": "loading and Id.held_seat('ws://loopback/causeway').slice(0, 2) == [1, 1]", "msg": "client 2 has loaded and noted its seat; client 1 still loads"},
+    {"eval": "scene.kill_game(2)"},
+    {"eval": "scene.run_frames(30)"},
+    {"eval": "scene.boot_again(2)"},
+    {"assert": "scene.client(2).boot_resume", "msg": "started again, its first HELLO asks the seat back"},
+    {"eval": "scene.run_until('client(2).phase_name() == \"LOADING\" and client(2).loaded_sent', 300)", "as": "reloaded"},
+    {"assert": "reloaded and not scene.client(2).boot_resume and scene.seq.rejoins == 1 and scene.seq.no_held_seat == 0", "msg": "the seat was taken back while the match loads: a plain MATCH_CONFIG, and it loaded again as any seat"},
+    {"assert": "scene.seq.phase == 'loading'", "msg": "the match still waits for client 1"},
+    {"eval": "scene.load(1)"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 900},
+    {"eval": "scene.run_turns(400)"},
+    {"assert": "scene.client(2).connection_state()[0] == 0 and scene.client(2).source.accepts_commands() and scene.client(2).phase_name() == 'IN_MATCH'", "msg": "it plays its seat: no overlay, its orders go out"},
+    {"assert": "not scene.system_sent('AWAY', 1)", "msg": "the seat never went AWAY: it was loaded when the match started"},
+    {"assert": "scene.seq.hashes_agree() and scene.client(2).error_code == 0", "msg": "every hash agrees, and nothing was refused"}
+  ]
+}

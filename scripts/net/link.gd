@@ -78,6 +78,16 @@ func receive() -> Array[PackedByteArray]:
 	return out
 
 
+## Drops the link at once, with no closing handshake: a link gone silent, whose peer would
+## never answer a close. The server learns of it by its own silence rule, as of a cable
+## pulled.
+func abort(reason: String) -> void:
+	if _socket and _status in [Status.CONNECTING, Status.OPEN]:
+		_socket.close(-1)
+	close_code = 1006
+	_close_with(reason)
+
+
 func close(code := 1000, reason := "") -> void:
 	if _socket and _status in [Status.CONNECTING, Status.OPEN]:
 		_socket.close(code, reason)

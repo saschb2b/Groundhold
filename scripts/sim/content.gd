@@ -22,6 +22,12 @@ class_name SimContent
 extends RefCounted
 
 const SIM_VERSION := 1
+## How the caretaker plays a seat, outside the tables (caretaker.gd): 2 since M4, which takes
+## a seat over mid-match at its plan cursor, over the towers its player built. The rules hash
+## covers it, so builds whose caretakers decide differently never share a match; SIM_VERSION,
+## which the codec writes, does not move for it, since that would move every recorded state
+## hash.
+const CARETAKER_VERSION := 2
 
 const RULES := {
 	"classic":
@@ -588,10 +594,11 @@ static func perk_value(builder: String, perk_id: String, key: String, otherwise:
 
 
 ## The first 8 bytes of SHA-256 over every table that changes the rules, every Builder's
-## plans and every mode's map: the matchmaking key (design 6.9). One per build, whatever
-## the mode: HELLO carries it before the party's leader picks a mode, and a party's
-## MATCH_CONFIG and LOADED repeat it for any mode. JSON with sorted keys is the dump.
-static func rules_hash() -> PackedByteArray:
+## plans, every mode's map and the caretaker's version (`caretaker`, this build's but for a
+## test): the matchmaking key (design 6.9). One per build, whatever the mode: HELLO carries
+## it before the party's leader picks a mode, and a party's MATCH_CONFIG and LOADED repeat it
+## for any mode. JSON with sorted keys is the dump.
+static func rules_hash(caretaker := CARETAKER_VERSION) -> PackedByteArray:
 	var plans := []
 	var maps := []
 	for mode: String in MODE_IDS:
@@ -609,7 +616,8 @@ static func rules_hash() -> PackedByteArray:
 			WAVES,
 			hashed_builders(),
 			plans,
-			maps
+			maps,
+			caretaker
 		],
 		"",
 		true

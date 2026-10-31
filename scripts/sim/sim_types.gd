@@ -17,6 +17,10 @@ const TICKS_PER_SECOND := 60
 const TURN_TICKS := 3
 ## Clients hash the state every 60 ticks (design 6.7).
 const HASH_EVERY := 60
+## A hash tick is a checkpoint tick at least this often, and at the first hash tick after
+## a horn (protocol.json checkpoint_ticks; docs/design/contract-m4.md). The simulation
+## never reads it: the clients keep their serialized state at those ticks.
+const CHECKPOINT_EVERY := 1800
 ## Seat number the sequencer stamps on its own commands (AWAY, BACK, LEFT, TIMEOUT).
 const SYSTEM_SEAT := 255
 
@@ -182,11 +186,19 @@ const PHASE_DONE := 2
 const PHASE_FALLEN := 3
 
 # ── Seat states: every state but PRESENT is played by the caretaker ──
+# PRESENT: its player commands it. AWAY: the server's AWAY (silence, a dropped link, a
+# start without it); the caretaker plays it. RETURNING: the server's BACK came; the
+# caretaker still plays it, and its own commands are refused with CARETAKEN, until the
+# next build window opens (SimWaves.open_window hands it back: PRESENT). CARETAKER: a seat
+# with no player from tick 0 (MATCH_CONFIG's caretaker flag, the bots of the balance
+# gates). LEFT: the server's LEFT; the caretaker keeps it to the end. M4 adds no state
+# (docs/design/contract-m4.md).
 const SEAT_PRESENT := 0
 const SEAT_AWAY := 1
 const SEAT_RETURNING := 2
 const SEAT_CARETAKER := 3
 const SEAT_LEFT := 4
+const SEAT_NAMES := ["present", "away", "returning", "caretaker", "left"]
 
 # ── Debug writes: an offline match's scenario setters, logged with their tick ──
 const DBG_GOLD := 1  # a seat, b gold
@@ -226,6 +238,16 @@ static func effect(name: String) -> int:
 
 static func effect_name(id: int) -> String:
 	return EFFECT_NAMES[id] if id > 0 and id < EFFECT_NAMES.size() else ""
+
+
+## A seat state's name ("returning"), as scenarios and the party strip read it; "" if none.
+static func seat_state_name(state: int) -> String:
+	return SEAT_NAMES[state] if state >= 0 and state < SEAT_NAMES.size() else ""
+
+
+## The SEAT_* number for a name such as "away", or -1.
+static func seat_state(name: String) -> int:
+	return SEAT_NAMES.find(name)
 
 
 ## The order a sequencer lists a turn's commands in (design 6.3): system commands first,

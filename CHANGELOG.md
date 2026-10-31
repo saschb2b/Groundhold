@@ -2,6 +2,78 @@
 
 ## Unreleased
 
+Resilience (M4): a dropped connection, a browser tab in the background or a game that fell out of step no longer
+ends anyone's match.
+
+What a player sees:
+
+- When the connection drops, your world keeps running and a small bronze plate above the console says
+  "Reconnecting... your towers keep firing". The game tries again every 2 s and gives up after 30 s. While you
+  are gone the caretaker plays your seat with your gold. Once you are back in, the game loads the latest
+  checkpoint everyone agreed on, the plate says "Catching up" with a bar, and your seat is yours again at the
+  next build window. A party match keeps its party through all of it.
+- A game joined straight to a server (`--join`) that crashed, or was closed or killed in the middle of a match,
+  takes its seat back when you start it again the same way: it remembers the match and the seat on this
+  computer until the match ends. If the match is over by then, it simply joins as a new game. (A game started
+  again from the hub does not do this yet.)
+- In the browser, a tab in the background tells the others ("in another tab") and flashes the page title. When
+  you come back the game catches up, fetches any turns a full buffer lost, and says the caretaker keeps the seat
+  until the next build window.
+- With three or more players, a game whose state parts from the others' is reloaded from the latest agreed
+  checkpoint and plays on; the same game parting a second time is taken out (the caretaker keeps its seat) and
+  goes back to the party. Two players apart still end the match "out of step". Each game then saves a report,
+  `user://desync/<match>-<seat>.bin`, and the plate names it: the report holds enough to replay that game's side
+  up to the tick where they parted.
+- Orders wait while the game reconnects or catches up, and the card says why.
+
+The server:
+
+- It compares every seat's state hash each second. At each checkpoint (every 30 s, and as each wave starts) it
+  asks one game in turn to upload its state, and keeps the upload only if its fingerprint is the hash everyone
+  agreed on; it keeps the last two and never reads them.
+- It holds a dropped seat until the match ends, during maintenance and on a full server too, and gives it back
+  to a resume from the same profile; a second window of that profile takes the seat over from the first.
+- It sends a catch-up at 2 KB per 50 ms while the connection's unsent output stays under 4 KB, a pace a browser
+  keeps up with, and the live turns queue behind it. A tab back from the background, or a player the party
+  started without, catches up from the latest checkpoint when that is nearer, and gets control back only once
+  its game says it is level.
+- `/stats` counts desyncs, resyncs and rejoins.
+
+The simulation:
+
+- The caretaker takes over a seat mid-match without undoing the player's work: a plan step whose cell already
+  holds one of the seat's towers counts as done, and it forks only the kind of tower its plan built on a cell.
+- A seat changes state only when AWAY, BACK or LEFT or the next build window moves it, and the party strip hears
+  of it only then.
+- Each tick the creeps are sorted along the road once and every tower walks that order, instead of testing every
+  creep: a busy tick (four seats at wave 11) steps at about 13,000 ticks a second natively, up from about 5,000,
+  so 30 s of turns take about a seventh of a second. Every match plays exactly as before, down to its state
+  hashes.
+
+Fixes:
+
+- A game started with `--join` (or any match flag) no longer prints an engine error as it leaves the hub for the
+  match: the scene change waits for the hub to finish loading.
+- A resync from a server further away than an hour of turns is refused instead of growing the turn log toward it.
+- Every test loop that waits for something has a bound and says what never came (the server's tests also cap
+  their own memory at 4 GB), after one such loop ran the machine out of memory.
+
+For developers:
+
+- The real-server topologies in `tests/net/live/` now cover the faults: a socket dropped mid-match, a whole game
+  killed and started again, a minority of three resynced, and two seats apart ending with both dumps checked.
+  `tools/net/shaper.py` puts latency, stalls and cuts in front of one game, and `smoke.py --shaper` and
+  `--faults` play whole matches through it. The protocol's transcripts gained `m4_resilience`, recorded from the
+  server. `sim_bench` measures the simulation's speed at a busy moment.
+- `docs/design/contract-m4.md` fixed what the four tracks shared. The protocol stays version 1 (nothing has
+  shipped): `HELLO`, `MATCH_CONFIG` and `RESYNC` got longer, so a game and a server from before M4 cannot talk
+  to ones from after it.
+
+The README and the site describe Groundhold as it is now: the hub, the Builders, parties, High Water on Wickhollow
+and the results, each with a new screenshot drawn as the browser build draws it; how to play together (in the
+browser online only, on desktop over your network, two windows on one computer); and what a player sees when a
+link drops, in another tab and out of step. `play/?join=K7Q4M` hands a party code on to the game in its frame.
+
 Builders and checks (M2): High Water is playable. Tamsin Wick, the Lamplighter, and Edda Greyplume, the Lookout,
 hold Wickhollow together through twelve waves.
 

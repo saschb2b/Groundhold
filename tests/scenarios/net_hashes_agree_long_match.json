@@ -1,0 +1,24 @@
+{
+  "name": "net_hashes_agree_long_match",
+  "description": "Four clients over links of 1 to 4 turns with jitter play a whole High Water match (hollow12) to its end: two Lamplighters and two Lookouts, each seat played by its plan bot through the turns. Every client flags the same checkpoint ticks and keeps its last two; the sequencer asks for them in rotation and keeps every one it is sent, each with the agreed hash as its digest. Every hash any client sends agrees with the others', all four run every wave to the last, their agreed RESULT ends the match, and all four stop at the same final tick in the same state.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 21,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "hash1": "scene.hash_hex(1)", "wave1": "scene.client(1).sim.hollows[0].wave if scene.client(1).sim else 0"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'clients': 4, 'seed': 21, 'latency_turns': [1, 2, 3, 4], 'jitter_turns': 1, 'builders': ['lamplighter', 'lookout', 'lamplighter', 'lookout'], 'names': ['Tamsin', 'Edda', 'Wren', 'Ottilie']})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"assert": "scene.client(4).seat == 4 and scene.client(1).sim.seats.size() == 4 and scene.client(2).sim.seat(2).builder == 'lookout' and scene.client(1).sim.total_waves() == 12", "msg": "four seats, two Lamplighters and two Lookouts, on hollow12's twelve waves"},
+    {"eval": "scene.run_until('seq.phase == \"ended\"', 90000)", "as": "ended"},
+    {"assert": "ended and scene.seq.end_reason == 'result' and scene.seq.disagreements.is_empty()", "msg": "the match ran to its end, decided by the agreed RESULT, with no hash apart"},
+    {"eval": "scene.run_frames(30)"},
+    {"eval": "[scene.client(1).sim.hollows[0].wave, scene.client(1).outcome, scene.seq.final_tick, scene.seq.compared]", "as": "summary"},
+    {"assert": "summary[0] == 12 or summary[1] == 'lost'", "msg": "the hollow went through every wave, or the Holdfast fell"},
+    {"assert": "scene.all_ended(summary[1], summary[2])", "msg": "all four were told the same outcome and stopped at the agreed final tick, in the same state"},
+    {"assert": "summary[2] > 20000 and scene.common_hash_ticks().size() >= 400 and scene.sent_hashes_agree()", "msg": "the four hash streams, hundreds of ticks long, are equal tick for tick"},
+    {"assert": "scene.seq.uploads_kept.size() >= 12 and scene.seq.uploads_dropped.is_empty() and scene.kept_digests_agree() and scene.flagged_ticks_ok()", "msg": "every checkpoint asked for was kept, each with the agreed hash as its digest, at the contract's ticks"},
+    {"assert": "scene.uploaders() == [0, 1, 2, 3]", "msg": "asked in rotation, every seat uploaded"},
+    {"assert": "scene.all_kept_two_unresynced()", "msg": "each kept its last two checkpoints and none needed a resync"}
+  ]
+}

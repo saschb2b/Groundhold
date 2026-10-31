@@ -1,0 +1,16 @@
+{
+  "name": "protocol_golden_m4",
+  "description": "The GDScript codec decodes every message of the M4 golden transcript (a dev match's resilience recorded from the Python server: a checkpoint uploaded, RESYNC for a desync, a rejoin and a tab behind, ERROR 12, desynced_twice and no_held_seat) into the listed values, and encodes each back to the same bytes.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://scripts/net/protocol.gd')", "as": "codec"},
+    {"eval": "resource('res://tests/net/golden.gd').check(['m4_resilience'])", "as": "report"},
+    {"assert": "report['mismatches'] == []", "msg": "no record differs"},
+    {"assert": "report['records'] == 93 and report['decoded'] == 93 and report['reencoded'] == 93", "msg": "all 93 records decode and re-encode byte for byte"},
+    {"assert": "report['version'] == codec.number('version')", "msg": "the transcript speaks this game's protocol version"},
+    {"assert": "report['types']['RESYNC'] == 3 and report['types']['CHECKPOINT_ASK'] == 2 and report['types']['CHECKPOINT_PART'] == 8", "msg": "the checkpoints, their parts both ways and the three RESYNCs are in"},
+    {"assert": "report['types']['VISIBILITY'] == 4 and report['types']['ERROR'] == 1 and report['types']['NOTICE'] == 1 and report['types']['MATCH_END'] == 1", "msg": "the visibility states, the replaced link, no_held_seat and desynced_twice are in"}
+  ]
+}

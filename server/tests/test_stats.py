@@ -1,8 +1,8 @@
 """The daily totals and GET /stats (docs/design/core-loop.md §6.10, §6.12):
 joins, identities as a count, the peak, matches started and finished per
-mode, desyncs, reconnects, caretaker seats and HELLOs per protocol version;
-a day written at its end and as the server stops, taken up again after a
-restart the same day, and kept stats_days.
+mode, desyncs, reconnects, resyncs, rejoins, caretaker seats and HELLOs per
+protocol version; a day written at its end and as the server stops, taken up
+again after a restart the same day, and kept stats_days.
 
 Adapted from Cyberworld Endless's server/tests/test_stats.py (MIT, Sascha
 Becker), with Groundhold's counts."""
@@ -13,7 +13,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from support import RULES, TICK0, Client, HubTest, until
+from support import RULES, TICK0, Client, HubTest, start_match, sync, until
 from groundhold_server import stats
 from groundhold_server.protocol import SPEC
 from groundhold_server.retention import Retention
@@ -140,6 +140,23 @@ class StatsTests(HubTest, unittest.IsolatedAsyncioTestCase):
         self.assertEqual([day["day"] for day in daily.public()["days"]], ["2026-10-01", "2026-10-21"])
         self.assertEqual(Retention().stats_days, 365)
 
+    def test_the_identities_held_in_memory_are_bounded(self):
+        # (anyone can mint tokens: a flood of fresh ones grows the day's set to
+        # SEEN_MAX and no further, and each join past it counts as a new identity)
+        daily = stats.Daily(None, 365, self.wall)
+        old, stats.SEEN_MAX = stats.SEEN_MAX, 3
+        try:
+            for n in range(10):
+                daily.join(bytes((n,)) * 32, 1)
+            daily.join(bytes((1,)) * 32, 1)     # (one already held: not counted again)
+        finally:
+            stats.SEEN_MAX = old
+        self.assertEqual(len(daily.seen), 3)
+        self.assertEqual((daily.snapshot()["joins"], daily.snapshot()["identities"]), (11, 10))
+        self.wall.now += 86400
+        self.assertEqual(daily.rollover()["identities"], 10)
+        self.assertEqual((len(daily.seen), daily.snapshot()["identities"]), (0, 0))
+
     async def test_a_reconnect_counts(self):
         await self.start()
         (tamsin, edda), _ = await self.party_of("Tamsin", "Edda")
@@ -150,6 +167,25 @@ class StatsTests(HubTest, unittest.IsolatedAsyncioTestCase):
         await again.hello(self.port, "Edda", token=bytes((2,)) * 16, flags=SPEC["hello_flags"]["resume"])
         await again.until("PARTY_STATE")
         self.assertEqual((await self.served())["today"]["reconnects"], 1)
+
+    async def test_resyncs_and_rejoins_count(self):
+        # (M4: a minority of three is resynced, a dropped seat taken back by a
+        # resume HELLO, whose own RESYNC counts too)
+        await self.start(dev_match="classic:3")
+        games = [await self.join(name, number) for number, name in enumerate(("Tamsin", "Edda", "Ottilie"), 1)]
+        await start_match(self.clock, games)
+        await self.clock.turns(20)
+        for game, digest in zip(games, (b"a" * 8, b"a" * 8, b"b" * 8)):
+            await game.send_message("HASH", tick=60, hash=digest, flags=0)
+        for game in games:
+            await sync(game)
+        await games[1].drop()
+        await until(lambda: next(iter(self.server.matches.values())).seats[1].player is None)
+        match = next(iter(self.server.matches.values()))
+        await self.join("Edda", 2, flags=SPEC["hello_flags"]["resume"], match=match.id, seat=1)
+        today = (await self.served())["today"]
+        self.assertEqual((today["desyncs"], today["resyncs"], today["rejoins"]), (1, 2, 1))
+        self.assertEqual(stats.checked(dict(stats.fresh("2026-10-22"), resyncs=3, rejoins=-1))["rejoins"], 0)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@
   "ping_ms": 2000,
   "away_ms": 5000,
   "silence_ms": 15000,
+  "hidden_silence_ms": 600000,
   "handshake_ms": 5000,
   "linger_ms": 1000,
   "pending_cap": 16,
@@ -42,6 +43,15 @@
   "turn_request_ms": 500,
   "turn_request_turns": 100,
   "match_cap_ms": 3600000,
+  "checkpoint_ticks": 1800,
+  "checkpoints_kept": 2,
+  "max_checkpoint_parts": 64,
+  "checkpoint_wait_ms": 5000,
+  "catchup_bytes": 2048,
+  "catchup_ms": 50,
+  "catchup_output": 4096,
+  "max_resyncs": 1,
+  "reconnect_ms": 2000,
 
   "buckets": {
     "hub": {"burst": 40, "refill": 30},
@@ -53,8 +63,11 @@
   "welcome_flags": {"maintenance": 1, "dev_match": 2},
   "seat_flags": {"caretaker": 1},
   "hash_flags": {"checkpoint": 1},
-  "link_flags": {"hidden": 1, "silent": 2},
+  "link_flags": {"hidden": 1, "silent": 2, "catching_up": 4},
   "party_flags": {"open": 1, "lan": 2},
+  "config_flags": {"rejoin": 1},
+  "visibility_states": {"shown": 0, "hidden": 1, "catching_up": 2},
+  "resync_reasons": {"rejoin": 0, "desync": 1, "behind": 2},
 
   "modes": {
     "classic": {"id": 0, "teams": 1, "seats": [1, 4]},
@@ -88,7 +101,8 @@
     "needs_reload": 5,
     "caretakers_offered": 6,
     "tick0_mismatch": 7,
-    "parties_full": 8
+    "parties_full": 8,
+    "no_held_seat": 9
   },
   "outcomes": {"won": 0, "lost": 1, "draw": 2, "desynced": 3, "aborted": 4},
   "end_reasons": {
@@ -98,7 +112,8 @@
     "rules_mismatch": 3,
     "everyone_left": 4,
     "timeout": 5,
-    "server_closing": 6
+    "server_closing": 6,
+    "desynced_twice": 7
   },
   "load_states": {"connecting": 0, "loading": 1, "checking": 2, "ready": 3, "slow": 4, "gone": 5},
   "member_states": {"here": 0, "ready": 1, "away": 2, "needs_reload": 3, "in_match": 4},
@@ -130,7 +145,7 @@
   "messages": {
     "HELLO": {"id": 1, "dir": "c2s", "bucket": "hub", "fields": [
       ["version", "u16"], ["build_seq", "u32"], ["rules_hash", "b8"], ["token", "b16"], ["flags", "u8"],
-      ["name", "s8", 16]]},
+      ["name", "s8", 16], ["match", "u32"], ["seat", "u8"]]},
     "WELCOME": {"id": 2, "dir": "s2c", "fields": [
       ["session", "u32"], ["identity", "b16"], ["turn_ms", "u16"], ["turn_ticks", "u8"], ["hash_every", "u16"],
       ["flags", "u8"], ["server_name", "s8", 64], ["motd", "s8", 160]]},
@@ -167,7 +182,8 @@
 
     "MATCH_CONFIG": {"id": 30, "dir": "s2c", "fields": [
       ["match", "u32"], ["mode", "u8"], ["map", "u8"], ["seed", "u32"], ["rules_hash", "b8"], ["your_seat", "u8"],
-      ["seats", "l8", [["seat", "u8"], ["team", "u8"], ["builder", "u8"], ["flags", "u8"], ["name", "s8", 16]], 4]]},
+      ["seats", "l8", [["seat", "u8"], ["team", "u8"], ["builder", "u8"], ["flags", "u8"], ["name", "s8", 16]], 4],
+      ["flags", "u8"]]},
     "LOADING": {"id": 31, "dir": "c2s", "bucket": "net", "fields": [["per_mille", "u16"]]},
     "LOAD_STATE": {"id": 32, "dir": "s2c", "fields": [
       ["seats", "l8", [["seat", "u8"], ["per_mille", "u16"], ["state", "u8"]], 4], ["seconds", "u16"]]},
@@ -183,9 +199,11 @@
     "CHECKPOINT_ASK": {"id": 43, "dir": "s2c", "fields": [["tick", "u32"]]},
     "CHECKPOINT_PART": {"id": 44, "dir": "both", "bucket": "net", "fields": [
       ["tick", "u32"], ["part", "u16"], ["parts", "u16"], ["data", "d16", 1024]]},
-    "RESYNC": {"id": 45, "dir": "s2c", "fields": [["checkpoint_tick", "u32"], ["first_turn", "u32"]]},
+    "RESYNC": {"id": 45, "dir": "s2c", "fields": [
+      ["checkpoint_tick", "u32"], ["first_turn", "u32"], ["reason", "u8"], ["open_turn", "u32"],
+      ["checkpoint_hash", "b8"], ["parts", "u16"]]},
     "TURN_REQUEST": {"id": 46, "dir": "c2s", "bucket": "net", "fields": [["first_missing", "u32"]]},
-    "VISIBILITY": {"id": 47, "dir": "c2s", "bucket": "net", "fields": [["hidden", "u8"]]},
+    "VISIBILITY": {"id": 47, "dir": "c2s", "bucket": "net", "fields": [["state", "u8"]]},
     "RESULT": {"id": 48, "dir": "c2s", "bucket": "hub", "fields": [
       ["tick", "u32"], ["hash", "b8"], ["outcomes", "l8", [["outcome", "u8"]], 2]]},
     "MATCH_END": {"id": 49, "dir": "s2c", "fields": [["outcome", "u8"], ["reason", "u8"], ["final_tick", "u32"]]},

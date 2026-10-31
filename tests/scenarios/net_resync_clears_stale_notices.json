@@ -1,0 +1,27 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "net_resync_clears_stale_notices",
+  "description": "An order refused while the window reconnects leaves its notice ('Reconnecting to the server'), and the wave banner may still name a wave from before the drop. When the RESYNC's checkpoint loads, the world jumps to it: both are cleared, so the screen says only what the connection plate says (catching up).",
+  "seed": 1,
+  "timeout_frames": 12000,
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"},
+    {"eval": "node('LoopbackMain').start({'seed': 3, 'partner_after': 30})"},
+    {"eval": "scene.set('_bot', resource('res://tests/bot.gd').new())"},
+    {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 600},
+    {"wait_until": "scene.sim.tick >= 900 and node('LoopbackMain').seq.checkpoint_ticks.size() >= 1 and node('LoopbackMain').seq.checkpoints.get(node('LoopbackMain').seq._latest_kept(), PackedByteArray()).size() > 0", "timeout": 4000},
+    {"eval": "scene.set('_bot', null)"},
+    {"eval": "node('LoopbackMain').seq.set('catchup_bytes', 40)"},
+    {"eval": "node('LoopbackMain').seq.set('catchup_every', 30)"},
+    {"eval": "node('LoopbackMain').cut(200)"},
+    {"wait_until": "scene.client.checkpoints.download_progress()[1] > 0", "timeout": 900},
+    {"eval": "Game.announce('Wave 1 · Gourdlings')"},
+    {"eval": "scene.controller.set_mode(Game.kit_tower(0))"},
+    {"assert": "node('Notice').visible and node('Notice').text == 'Reconnecting to the server' and node('Banner').visible", "msg": "an order while the link is down is refused with a notice; a banner is up"},
+    {"wait_until": "scene.client.resyncs.size() >= 1", "timeout": 600},
+    {"assert": "not node('Notice').visible and not node('Banner').visible", "msg": "the checkpoint loaded: the stale notice and banner are gone"},
+    {"eval": "node('LoopbackMain').seq.set('catchup_every', 3)"},
+    {"eval": "node('LoopbackMain').seq.set('catchup_bytes', 2048)"}
+  ]
+}

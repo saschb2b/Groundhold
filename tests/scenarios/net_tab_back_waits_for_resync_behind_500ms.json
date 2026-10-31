@@ -1,0 +1,30 @@
+{
+  "name": "net_tab_back_waits_for_resync_behind_500ms",
+  "description": "Three seats; client 3 has 250 ms each way. Its tab hides for 205 frames from tick 1749, across tick 1800, a checkpoint tick: the other two agree on 1800 (a strict majority, 2 s after their reports) and the checkpoint is kept while client 3 is hidden. Shown again about 200 ticks behind, client 3 says catching_up, holds its HASHes and runs the turns it buffered at catch-up speed. The sequencer answers with RESYNC(behind) from 1800 at once, but that reaches the game a round trip later, after its own catch-up has ended and it has said shown. The hold stays until the server's answer is known: the PING sent behind the VISIBILITY names the server's open turn, and a RESYNC queues every later turn behind it, so the RESYNC comes first. No HASH past 1800 goes out from the run it held; the game loads the RESYNC, re-runs from 1800 and stays in the match (review M4 round 2: a HASH past the checkpoint before the RESYNC made the re-run's go back, 'HASH ticks must increase'). The same at a 500 ms round trip.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 12,
+  "timeout_frames": 600,
+  "watch": {"phase3": "scene.client(3).phase_name()", "err3": "scene.client(3).error_text", "resyncs3": "scene.client(3).resyncs", "seq_resyncs": "scene.seq.resync_log", "kept": "scene.seq._latest_kept()"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 3, 'seed': 12, 'latency_turns': [1, 1, 5]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(3).sim.tick >= 1749', 6000)"},
+    {"eval": "scene.client(3).sim.tick", "as": "hid_at"},
+    {"eval": "scene.hide(3, 205)"},
+    {"eval": "scene.run_until('not client(3).hidden', 400)"},
+    {"eval": "scene.seq._latest_kept()", "as": "kept_at_return"},
+    {"assert": "kept_at_return == 1800 and hid_at < 1800", "msg": "setup: the checkpoint past client 3's last hash was kept while it was hidden"},
+    {"eval": "scene.run_until('client(3).said_visibility == 2', 60)", "as": "said_catching_up"},
+    {"assert": "said_catching_up", "msg": "setup: shown again and behind, it said catching_up"},
+    {"eval": "scene.run_until('client(3).said_visibility == 0 or client(3).resyncs.size() >= 1 or client(3).phase_name() == \"FAILED\"', 600)"},
+    {"assert": "scene.client(3).said_visibility == 0 and scene.client(3).resyncs.is_empty()", "msg": "the race: its own catch-up ended, and it said shown, before RESYNC(behind) arrived"},
+    {"eval": "scene.run_until('client(3).sent_hashes.keys().max() > 1800 or client(3).resyncs.size() >= 1 or client(3).phase_name() == \"FAILED\"', 600)"},
+    {"assert": "scene.client(3).resyncs.size() == 1", "msg": "the RESYNC came before any HASH past the checkpoint went out from the run it held"},
+    {"assert": "scene.client(3).resyncs.size() == 1 and scene.client(3).resyncs[0][0] == 'behind' and scene.client(3).resyncs[0][1] == 1800", "msg": "the RESYNC(behind) from 1800 was loaded"},
+    {"eval": "scene.run_until('client(3).phase_name() == \"FAILED\" or not client(3).catching_up', 1200)"},
+    {"eval": "scene.run_turns(200)"},
+    {"assert": "scene.client(3).phase_name() == 'IN_MATCH' and scene.client(3).error_text == ''", "msg": "the tab that came back is still in the match"},
+    {"assert": "scene.sent_hashes_agree_from(1860) and scene.seq.disagreements.is_empty()", "msg": "its re-run's hashes agree with the others' from the checkpoint on"}
+  ]
+}

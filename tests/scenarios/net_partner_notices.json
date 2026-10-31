@@ -1,0 +1,33 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "net_partner_notices",
+  "description": "What a window says about its partner's seat (design 5.7, Notices): Edda's game hangs, and as her seat goes AWAY the notice says her link dropped and a caretaker builds meanwhile; her first word after brings it BACK, and the notice says she is back and the caretaker hands back at the next build window; the window that opens hands it back, and the notice says she builds again. Then her tab goes to the background: once her seat is away the notice says she is in another tab.",
+  "seed": 1,
+  "timeout_frames": 24000,
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"},
+    {"eval": "node('LoopbackMain').start({'seed': 3, 'partner_after': 30})"},
+    {"eval": "scene.set('_bot', resource('res://tests/bot.gd').new())"},
+    {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 600},
+    {"wait_until": "scene.sim.tick >= 600", "timeout": 1200},
+    {"eval": "node('LoopbackMain').stall_partner(420)"},
+    {"wait_until": "scene.sim.seat(2).state == 1", "timeout": 600},
+    {"wait": 2},
+    {"assert": "Game.team_notices[-1] == \"Edda's link dropped: a caretaker builds meanwhile\" and node('Notice').text == Game.team_notices[-1] and node('Notice').visible", "msg": "her seat went AWAY: the notice says so"},
+    {"capture": "partner_link_dropped_notice"},
+    {"wait_until": "scene.sim.seat(2).state == 2", "timeout": 600},
+    {"wait": 2},
+    {"assert": "Game.team_notices[-1] == 'Edda is back: the caretaker hands back at the next build window' and node('Notice').text == Game.team_notices[-1]", "msg": "BACK: she is back, and the caretaker hands back at the next window"},
+    {"capture": "partner_back_notice"},
+    {"wait_until": "scene.sim.seat(2).state == 0", "timeout": 6000},
+    {"wait": 2},
+    {"assert": "Game.team_notices[-1] == 'Edda builds again'", "msg": "the window handed her seat back"},
+    {"eval": "node('LoopbackMain').hide_partner(600)"},
+    {"wait_until": "scene.sim.seat(2).state == 1", "timeout": 600},
+    {"wait": 2},
+    {"assert": "Game.team_notices[-1] == 'Edda is in another tab: a caretaker builds meanwhile'", "msg": "her tab hid, and as her seat went AWAY the notice says she is in another tab"},
+    {"wait_until": "scene.sim.seat(2).state == 0", "timeout": 8000},
+    {"assert": "Game.team_notices.size() == 6 and Game.team_notices[-1] == 'Edda builds again'", "msg": "back again, one notice per change, none for my own seat"}
+  ]
+}

@@ -71,7 +71,8 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
             turns -= step
             for client in clients:
                 await client.send_message("PING", client_ms=0, rtt_ms=5)
-                await client.until("PONG", skip=("TURN", "LINKS"))
+                # (a minority of three gets RESYNC among its turns: M4)
+                await client.until("PONG", skip=("TURN", "LINKS", "RESYNC"))
 
     async def test_the_first_two_hellos_form_a_match_and_the_next_two_another(self):
         await self.start()
@@ -82,7 +83,7 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
         seats = [dict(seat=0, team=0, builder=0, flags=0, name="Tamsin"), dict(seat=1, team=0, builder=0, flags=0, name="Edda")]
         for seat, config in enumerate(configs):
             self.assertEqual(config, dict(match=1, mode=SPEC["modes"]["classic"]["id"], map=0, seed=20261029,
-                                          rules_hash=RULES, your_seat=seat, seats=seats))
+                                          rules_hash=RULES, your_seat=seat, seats=seats, flags=0))
         three = await self.join("Ottilie", 3)
         self.assertTrue(await three.quiet())
         four = await self.join("Sefa", 4)
@@ -229,15 +230,17 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
         error = await one.until("ERROR", skip=("TURN",))
         self.assertEqual(error["code"], SPEC["errors"]["out_of_limits"])
 
-    async def test_a_late_hash_is_compared_with_the_agreed_one(self):
+    async def test_a_late_hash_is_waited_for_and_compared(self):
         await self.start()
         one, two = await self.join("Tamsin", 1), await self.join("Edda", 2)
         await start_match(self.clock, (one, two))
         await self.clock.turns(20)
         await one.send_message("HASH", tick=60, hash=b"a" * 8, flags=0)
         await until(lambda: 60 in self.match().hashes)
-        await self.clock.advance(SPEC["hash_wait_ms"])        # (Edda is late: decided without her)
-        self.assertEqual(self.match().agreed[60], b"a" * 8)
+        # (Edda is late, but present: one report of two seats is no majority, so it waits)
+        await self.clock.advance(SPEC["hash_wait_ms"])
+        self.assertNotIn(60, self.match().agreed)
+        self.assertIn(60, self.match().hashes)
         await two.send_message("HASH", tick=60, hash=b"z" * 8, flags=0)
         end = await two.until("MATCH_END", skip=("TURN", "LINKS"))
         self.assertEqual((end["outcome"], end["final_tick"]), (OUTCOMES["desynced"], 60))
@@ -371,18 +374,23 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_desynced_seat_of_three_does_not_end_the_majoritys_match(self):
         # Ottilie's simulation parts from the others at tick 1,080 (a minority:
-        # logged now, resynced in M4) and thinks the hollow fell at 1,190.
-        # Tamsin and Edda agree with each other and play on past it; their
-        # agreed end decides (§6.7; review M1 protocol 2, must-fix 2).
+        # RESYNC since M4, which her game here never acts on) and thinks the
+        # hollow fell at 1,190. Tamsin and Edda agree with each other and play
+        # on past it; their agreed end decides (§6.7; review M1 protocol 2,
+        # must-fix 2).
         await self.start("classic:3")
         one, two, three = await self.join("Tamsin", 1), await self.join("Edda", 2), await self.join("Ottilie", 3)
         await start_match(self.clock, (one, two, three))
         everyone = ((one, 0), (two, 1), (three, 2))
         await self.play(60, 1140, everyone, digests=lambda index, tick: b"z" * 8 if index == 2 and tick >= 1080 else b"a" * 8)
         self.assertTrue(self.server.matches, "a minority's hashes end nothing")
+        self.assertEqual((self.match().seats[2].resyncs, self.match().seats[2].muted), (1, True))
         await self.talk(20, one, two, three)
         await three.send_message("RESULT", tick=1190, hash=b"z" * 8, outcomes=[dict(outcome=OUTCOMES["lost"])])
-        await until(lambda: self.match().seats[2].result is not None)
+        await three.send_message("PING", client_ms=0, rtt_ms=5)
+        await three.until("PONG", skip=("TURN", "LINKS", "RESYNC"))
+        # (her claim comes from the simulation that parted, before her RESYNC: let pass)
+        self.assertIsNone(self.match().seats[2].result)
         await self.play(1200, 1260, ((one, 0), (two, 1)), talking=(three,), digests=lambda index, tick: b"a" * 8)
         self.assertTrue(self.server.matches, "the majority ran past the minority's end and plays on")
         for client in (one, two):
@@ -441,7 +449,7 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(marked, [(away_turn, [SYSTEM["AWAY"]["type"]])])
         self.assertEqual([seat.state for seat in self.match().seats], ["present", "away"])
         # Any word from her hands the seat BACK (the simulation waits for the next window).
-        await two.send_message("VISIBILITY", hidden=0)
+        await two.send_message("VISIBILITY", state=0)
         await until(lambda: self.match().sequencer.system)
         await self.clock.turns(1)
         turn = await two.until("TURN")
@@ -482,14 +490,15 @@ class GoldenTranscriptTests(unittest.TestCase):
             names = asyncio.run(record_transcripts.record_all(fresh))
             self.assertEqual(names, ["m1_codec.bin", "m1_codec.json", "m1_dev_match.bin", "m1_dev_match.json",
                                      "m1_handshake.bin", "m1_handshake.json", "m3_back.bin", "m3_back.json",
-                                     "m3_barrier.bin", "m3_barrier.json", "m3_party.bin", "m3_party.json"])
+                                     "m3_barrier.bin", "m3_barrier.json", "m3_party.bin", "m3_party.json",
+                                     "m4_resilience.bin", "m4_resilience.json"])
             for name in names:
                 committed = record_transcripts.TRANSCRIPTS / name
                 self.assertEqual(committed.read_bytes(), (fresh / name).read_bytes(), name + " changed: re-record it")
 
     def test_every_record_decodes_to_its_json_and_encodes_back(self):
         seen = set()
-        for path in sorted(record_transcripts.TRANSCRIPTS.glob("m[13]_*.bin")):
+        for path in sorted(record_transcripts.TRANSCRIPTS.glob("m[134]_*.bin")):
             records = record_transcripts.read(path)
             listed = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["records"]
             self.assertEqual(len(records), len(listed))
@@ -500,6 +509,36 @@ class GoldenTranscriptTests(unittest.TestCase):
                 self.assertEqual(protocol.encode(kind, **fields), data)
                 seen.add(kind)
         self.assertEqual(seen, set(SPEC["messages"]))
+
+
+    def test_m4_resilience_is_what_the_server_says_of_resilience(self):
+        """README, Resilience, as the server served it: a checkpoint asked
+        and uploaded, each RESYNC reason with the parts behind it, a rejoin's
+        MATCH_CONFIG and ERROR 12 to the link it replaced, LINKS catching_up,
+        AWAY, BACK and LEFT, desynced_twice and no_held_seat."""
+        records = record_transcripts.read(record_transcripts.TRANSCRIPTS / "m4_resilience.bin")
+        said = [(("c2s", "s2c")[direction], client, *protocol.decode(data)) for direction, client, data in records]
+
+        def sent(name, side="s2c"):
+            return [(client, fields) for direction, client, kind, fields in said if kind == name and direction == side]
+        reasons = SPEC["resync_reasons"]
+        self.assertEqual([(client, f["reason"], f["checkpoint_tick"], f["parts"]) for client, f in sent("RESYNC")],
+                         [(2, reasons["desync"], 0, 0), (3, reasons["rejoin"], 360, 2), (2, reasons["behind"], 360, 2)])
+        self.assertEqual([(client, f["tick"]) for client, f in sent("CHECKPOINT_ASK")], [(0, 60), (0, 360)])
+        self.assertEqual(len(sent("CHECKPOINT_PART", "c2s")), 4)
+        self.assertEqual([(client, f["tick"], f["part"]) for client, f in sent("CHECKPOINT_PART")],
+                         [(3, 360, 0), (3, 360, 1), (2, 360, 0), (2, 360, 1)])
+        self.assertEqual([(c, f["your_seat"], f["flags"]) for c, f in sent("MATCH_CONFIG") if f["flags"]],
+                         [(3, 1, SPEC["config_flags"]["rejoin"])])
+        self.assertEqual([(client, f["code"]) for client, f in sent("ERROR")], [(1, SPEC["errors"]["replaced"])])
+        self.assertEqual([(client, f["code"]) for client, f in sent("NOTICE")], [(4, SPEC["notices"]["no_held_seat"])])
+        self.assertEqual([(client, f["outcome"], f["reason"]) for client, f in sent("MATCH_END")],
+                         [(2, SPEC["outcomes"]["desynced"], SPEC["end_reasons"]["desynced_twice"])])
+        self.assertTrue(any(seat["flags"] & SPEC["link_flags"]["catching_up"]
+                            for _, f in sent("LINKS") for seat in f["seats"]))
+        system = {spec["type"]: name for name, spec in SPEC["system_commands"].items()}
+        commands = [(system[c["type"]], c["a"]) for client, f in sent("TURN") if client == 0 for c in f["commands"]]
+        self.assertEqual(commands, [("AWAY", 1), ("AWAY", 2), ("BACK", 1), ("BACK", 2), ("LEFT", 2)])
 
 
 class ProgramTests(unittest.TestCase):

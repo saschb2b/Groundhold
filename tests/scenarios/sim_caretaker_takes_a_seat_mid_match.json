@@ -1,0 +1,32 @@
+{
+  "name": "sim_caretaker_takes_a_seat_mid_match",
+  "description": "The caretaker takes a seat mid-match where the player's towers already stand (design 6.7, M4 track C). The Lamplighter built a cannon on her plan's first arrow cell and an arrow on its second, then goes AWAY at wave 3 beside a caretaken Lookout. The caretaker starts at her plan's beginning: it counts those two build steps done instead of building the arrows again on the alternative cells a second Lamplighter would take, never forks her cannon as if it were the plan's arrow, forks her arrow where the plan says, builds the rest with her own gold, never sells, and her towers keep firing. Before M4 it built two more arrows on 7,11 and 11,12 and forked the cannon.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "watch": {"hash1": "scene.client(1).state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'builders': ['lamplighter', 'lookout'], 'caretakers': [2], 'clients': 2, 'seed': 3})"},
+    {"eval": "[scene.cmd(1, 'BUILD', 1, 8, 11), scene.cmd(1, 'BUILD', 0, 11, 11)]"},
+    {"eval": "scene.run_ticks(30)"},
+    {"assert": "scene.tower_at(8, 11).kind == 'cannon' and scene.tower_at(11, 11).kind == 'arrow' and scene.tower_at(8, 11).owner == 1 and scene.tower_at(11, 11).owner == 1", "msg": "the player stands a cannon on the plan's first arrow cell and an arrow on its second"},
+    {"repeat": 200, "steps": [{"eval": "scene.run_ticks(60)"}], "until": "scene.client(1).hollows[0].wave >= 3"},
+    {"eval": "scene.client(1).tick", "as": "away_at"},
+    {"eval": "[scene.tower_at(8, 11).shots, scene.tower_at(11, 11).shots]", "as": "shots_then"},
+    {"assert": "scene.client(1).seat(1).plan_cursor == 0", "msg": "the player never left: the seat's plan cursor is at the start"},
+    {"eval": "scene.system('AWAY', 1)"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.seat_state(1) == 'away'", "msg": "AWAY hands the seat to the caretaker"},
+    {"repeat": 100, "steps": [{"eval": "scene.run_ticks(600)"}], "until": "scene.client(1).seat(1).plan_cursor >= 7 or scene.client(1).over"},
+    {"eval": "scene.towers_of(1)", "as": "seat1_towers"},
+    {"eval": "scene.since(scene.events_where('BUILT', {'seat': 1}), away_at).size()", "as": "built_after"},
+    {"assert": "scene.client(1).seat(1).plan_cursor >= 7", "msg": "the caretaker worked past the plan's forks of both cells"},
+    {"assert": "scene.owner_at(7, 11) != 1 and scene.owner_at(11, 12) != 1", "msg": "it built no second arrow for steps the player had done, on the cells a second Lamplighter would take"},
+    {"assert": "scene.tower_at(8, 11).kind == 'cannon' and scene.tower_at(8, 11).branch == -1", "msg": "it did not fork the player's cannon where the plan forks an arrow"},
+    {"assert": "scene.tower_at(11, 11).owner == 1 and scene.tower_at(11, 11).branch != -1", "msg": "it forked the player's arrow where the plan says"},
+    {"assert": "built_after >= 3 and scene.since(scene.events_where('GOLD', {'seat': 1, 'why': 'build'}), away_at).size() == built_after", "msg": "it built the rest of the plan, each build paid from the seat's own gold"},
+    {"assert": "scene.events_where('SOLD', {'seat': 1}).size() == 0", "msg": "it never sells"},
+    {"assert": "scene.tower_at(8, 11).shots > shots_then[0] and scene.tower_at(11, 11).shots > shots_then[1]", "msg": "the player's towers kept firing"},
+    {"assert": "scene.hashes_agree() and scene.record_differences(1, 2) == []", "msg": "both clients decided the same"}
+  ]
+}

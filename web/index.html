@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Groundhold · hold one another's ground</title>
-<meta name="description" content="A small tower defense. Every land was raised out of the Tide, and the Tide wants it back. Three towers, eight waves and the Hollowtide Crest. Play it in your browser.">
+<meta name="description" content="A co-op tower defense for one to four players. Every land was raised out of the Tide, and the Tide wants it back. Pick a Builder, form a party and hold Wickhollow's road through twelve waves. Play it in your browser.">
 <link rel="canonical" href="https://saschb2b.github.io/Groundhold/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Groundhold">
 <meta property="og:url" content="https://saschb2b.github.io/Groundhold/">
 <meta property="og:title" content="Groundhold · hold one another's ground">
-<meta property="og:description" content="Hold Wickhollow's road from the Welling to the Holdfast. Three towers, eight waves and the Hollowtide Crest, in your browser.">
+<meta property="og:description" content="A co-op tower defense for one to four players: pick a Builder, form a party and hold Wickhollow's road from the Welling to the Holdfast through twelve waves.">
 <meta property="og:image" content="https://saschb2b.github.io/Groundhold/media/social.jpg">
-<meta property="og:image:width" content="1280">
-<meta property="og:image:height" content="640">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#1b2438">
 <link rel="icon" href="ui/icons/arrow_tower.png" type="image/png">
@@ -26,7 +26,8 @@
 		<a class="brand" href="./"><img src="ui/icons/arrow_tower.png" alt=""><span>Groundhold</span></a>
 		<nav aria-label="Site">
 			<a href="play/">Play</a>
-			<a href="#towers">Towers</a>
+			<a href="#builders">Builders</a>
+			<a href="#together">Play together</a>
 			<a href="#how">How to play</a>
 			<a href="https://github.com/saschb2b/Groundhold">Source</a>
 		</nav>
@@ -37,56 +38,95 @@
 	<section class="hero">
 		<h1>Groundhold</h1>
 		<p class="pitch">Every land was raised out of the Tide, and the Tide wants it back; Builders from every shore hold one another's ground.
-		A small tower defense: hold Wickhollow's winding road from the Welling to the Holdfast with three towers, through eight waves and the Hollowtide Crest.</p>
+		A co-op tower defense for one to four players: each player is a Builder with three towers of their own, and the party holds one road
+		together, from the Welling to the Holdfast.</p>
 		<div class="actions">
 			<a class="button big" href="play/">Play in your browser</a>
 			<a class="button big" href="https://github.com/saschb2b/Groundhold">Source on GitHub</a>
 		</div>
 		<figure class="shot">
-			<img class="frame" src="media/hero.webp" width="1280" height="720" alt="Wave 7 in Wickhollow: creeps file along the road past arrow, cannon and frost towers; the console shows the minimap, a portrait of the selected Arrow Tower, its stats and the command card">
-			<figcaption>Wave 7 of 8. The console below holds the minimap, a live portrait of what you selected, its stats and the command card.</figcaption>
+			<img class="frame" src="media/high_water.webp" width="1280" height="720" alt="High Water on Wickhollow, wave 10 of 12: Duskmoths fly along the road by the pond towards Edda's Hawk Roosts and Perch Ballistas, Gourdlings behind them; the party strip at the top left shows both players, the console the selected Duskmoth">
+			<figcaption>High Water, wave 10 of 12. Duskmoths fly towards Edda's towers, two of them marked by her Owl's Eye; Gourdlings follow from the Welling.</figcaption>
 		</figure>
 	</section>
 
-	<section id="towers">
-		<h2>Three towers</h2>
+	<section id="hub">
+		<h2>The hub</h2>
+		<div class="split">
+			<figure><img class="frame" src="media/hub.webp" width="1280" height="720" alt="The hub on the Causeway at low water: a wooden road on posts over wet sand under a low sun; the console holds the party, Tamsin Wick in the arch and the Play button"></figure>
+			<div class="inset">
+				<p>The game opens on the Causeway at low water. The console shows your party, your Builder in the arch with the checks
+				the party covers, the modes and one button. Alone, Play starts a match at once.</p>
+				<p class="dim"><kbd>B</kbd> Builders, <kbd>J</kbd> Join, <kbd>Enter</kbd> Play or Ready.</p>
+			</div>
+		</div>
+	</section>
+
+	<section id="builders">
+		<h2>Builders</h2>
 		<div class="cards">
 			<article class="card console">
-				<h3><img src="ui/icons/arrow_tower.png" alt="">Arrow Tower</h3>
-				<p>Quick bolts at the creep closest to the Holdfast. <span class="cost">40 gold.</span></p>
-				<div class="stats"><span>Damage <b>8</b></span><span>Range <b>3.2</b></span><span>Every <b>0.5 s</b></span></div>
-				<p class="dim">Upgrade for 60: 16 damage, range 3.6.</p>
+				<h3><img src="ui/icons/builder_lamplighter.png" alt="">Tamsin Wick</h3>
+				<p>The Lamplighter, a Warden. She covers <b>Swarm</b> and <b>Swift</b>.</p>
+				<div class="stats"><span>Arrow Tower <b>40</b></span><span>Cannon Tower <b>70</b></span><span>Frost Spire <b>60</b></span></div>
+				<p class="dim">Thrifty: her towers sell for 90%, not 70%.</p>
 			</article>
 			<article class="card console">
-				<h3><img src="ui/icons/cannon_tower.png" alt="">Cannon Tower</h3>
-				<p>Slow shells that burst and hit every creep nearby. <span class="cost">70 gold.</span></p>
-				<div class="stats"><span>Damage <b>20</b></span><span>Splash <b>1.1</b></span><span>Every <b>1.5 s</b></span></div>
-				<p class="dim">Upgrade for 80: 40 damage, a bigger blast.</p>
+				<h3><img src="ui/icons/builder_lookout.png" alt="">Edda Greyplume</h3>
+				<p>The Lookout, a Marksman. She covers <b>Armored</b> and <b>Winged</b>.</p>
+				<div class="stats"><span>Perch Ballista <b>75</b></span><span>Hawk Roost <b>55</b></span><span>Owl's Eye <b>65</b></span></div>
+				<p class="dim">Keen Sight: her towers reach 0.4 tiles farther.</p>
 			</article>
-			<article class="card console">
-				<h3><img src="ui/icons/frost_tower.png" alt="">Frost Spire</h3>
-				<p>Ice shards that slow creeps for two seconds. <span class="cost">60 gold.</span></p>
-				<div class="stats"><span>Slow <b>45%</b></span><span>Range <b>2.8</b></span><span>Every <b>0.9 s</b></span></div>
-				<p class="dim">Upgrade for 60: slows by 60%.</p>
-			</article>
-		</div>
-		<figure class="shot" style="margin-top:22px">
-			<img class="frame" src="media/towers.webp" width="1280" height="720" alt="Close up: a cannon tower firing beside two blue-roofed arrow towers, one upgraded with gold trim, and a frost spire with a floating crystal">
-			<figcaption>Upgraded towers wear gold. The cannon turns and recoils, the frost spire's crystal circles with shards.</figcaption>
-		</figure>
-	</section>
-
-	<section id="creeps">
-		<h2>What comes down the road</h2>
-		<div class="creeps console">
-			<div class="creep"><img src="ui/icons/gourdling.png" alt=""><span><b>Gourdling</b>Plenty of them, early and often.</span></div>
-			<div class="creep"><img src="ui/icons/scuttler.png" alt=""><span><b>Scuttler</b>Fast and fragile. Frost buys time.</span></div>
-			<div class="creep"><img src="ui/icons/thornback.png" alt=""><span><b>Thornback</b>Slow, tough, costs two lives.</span></div>
-			<div class="creep"><img src="ui/icons/hollowtide_crest.png" alt=""><span><b>The Hollowtide Crest</b>Wave 8. Ten lives if it gets through.</span></div>
 		</div>
 		<div class="split" style="margin-top:22px">
-			<figure><img class="frame" src="media/combat.webp" width="720" height="286" alt="A few seconds of combat: arrows and cannon shells hit gourdlings, which burst into gold"></figure>
-			<figure><img class="frame" src="media/boss.webp" width="1280" height="720" alt="The Hollowtide Crest, a crowned pumpkin with a glowing face, walking past the Welling; the console shows its health"></figure>
+			<figure><img class="frame" src="media/builders.webp" width="1280" height="720" alt="The Builders screen: Tamsin Wick stands in the arch; above, her kit with each tower's two branches and what they change; a tooltip shows the Arrow Tower's numbers"></figure>
+			<div class="inset">
+				<p>Every tower forks once, for good, into one of two branches: one does more of what the tower does, the other covers
+				something its Builder lacks. Tamsin's Skyward Loft and Rime Spire reach the sky; Edda's Kestrel Flock strikes bounce on to
+				two more creeps. The Owl's Eye marks the toughest creep in reach, and every tower hits it 20% harder.</p>
+				<p class="dim">Builders (<kbd>B</kbd>) shows each kit with both branches. Set your main and backup there, or Try one in a practice match.</p>
+			</div>
+		</div>
+	</section>
+
+	<section id="high-water">
+		<h2>High Water on Wickhollow</h2>
+		<p style="text-align:center">Twelve waves, one pool of 20 lives, each player's own gold. The early waves teach one check each.</p>
+		<div class="creeps console">
+			<div class="creep"><img src="ui/icons/gourdling.png" alt=""><span><b>Swarm</b>Gourdlings, many at once.</span></div>
+			<div class="creep"><img src="ui/icons/scuttler.png" alt=""><span><b>Swift</b>Scuttlers, fast and fragile.</span></div>
+			<div class="creep"><img src="ui/icons/thornback.png" alt=""><span><b>Armored</b>Thornbacks. Armour takes a flat amount off every hit.</span></div>
+			<div class="creep"><img src="ui/icons/duskmoth.png" alt=""><span><b>Winged</b>Duskmoths. Only towers that reach the sky aim at them.</span></div>
+			<div class="creep"><img src="ui/icons/bristlesow.png" alt=""><span><b>The Bristlesow</b>Wave 6. A larger, darker Thornback.</span></div>
+			<div class="creep"><img src="ui/icons/hollowtide_crest.png" alt=""><span><b>The Hollowtide Crest</b>Wave 12. Ten lives if it gets through.</span></div>
+		</div>
+		<div class="split even" style="margin-top:22px">
+			<figure><img class="frame" src="media/party.webp" width="1280" height="720" alt="A party of three on a LAN server: Edda Greyplume in the arch, all four checks lit, the party code K7Q-4M on the strip"></figure>
+			<figure><img class="frame" src="media/results.webp" width="1280" height="720" alt="The results plate: The Holdfast holds, 12 waves, 20 of 20 lives left, a row per player with kills, damage, Help and towers; Play again and Hub"></figure>
+		</div>
+		<p class="dim" style="text-align:center;margin-top:12px">A party's coverage row lights the checks it answers. The results give each player's numbers and a line of praise; Play again goes back to the party.</p>
+	</section>
+
+	<section id="together">
+		<h2>Play together</h2>
+		<div class="inset">
+			<p><b>In the browser</b> the game plays alone, and Try, at once. Parties in the browser are online only: a page served over https
+			cannot reach a server on your home network. The official server goes up with M5, and with it the party's link that opens the game
+			in a friend's browser and joins the party.</p>
+			<p><b>On desktop</b> a party plays over your network. Desktop builds and a packaged server to download come with M5; until then
+			run both from <a href="https://github.com/saschb2b/Groundhold">the repository</a>. One computer runs the server
+			(<code>python3 server/main.py</code>, Python 3.11 or newer); Join (<kbd>J</kbd>) lists it under Nearby, or type the address its
+			banner prints. That makes a party there; the others join with its code.</p>
+		</div>
+		<div class="split" style="margin-top:22px">
+			<figure><img class="frame" src="media/catching_up.webp" width="1280" height="720" alt="A match after a dropped link: above the console a bronze plate reads Catching up, with a gold bar at 62%; on the party strip the player's gold is replaced by away"></figure>
+			<div class="inset">
+				<p><b>A link drops</b>: your towers keep firing, and after 5 s the caretaker plays your seat from your Builder's plan. Your game
+				reconnects, catches up under a bar and gets the seat back at the next build window.</p>
+				<p><b>Another tab</b>: a hidden tab stops the game and the caretaker keeps your seat; the game catches up when you come back.</p>
+				<p><b>The lands fall out of step</b>: with three or more players the odd one out reloads and plays on; with two the match ends
+				and each game saves a report for an issue.</p>
+			</div>
 		</div>
 	</section>
 
@@ -94,12 +134,13 @@
 		<h2>How to play</h2>
 		<div class="inset">
 			<table class="keys">
-				<tr><td><kbd>A</kbd> <kbd>C</kbd> <kbd>F</kbd></td><td>Choose Arrow Tower, Cannon Tower or Frost Spire, then left-click a grass tile. The ghost turns red where you cannot build. Hold <kbd>Shift</kbd> to keep placing.</td></tr>
-				<tr><td>Click a tower</td><td>Select it: its range shows. <kbd>U</kbd> upgrades, <kbd>S</kbd> sells for 70% of what you paid.</td></tr>
-				<tr><td>Click a creep</td><td>See its health, speed and bounty in the console.</td></tr>
-				<tr><td><kbd>N</kbd></td><td>Call the next wave early. The seconds left on the timer are paid as gold.</td></tr>
+				<tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd></td><td>Your three towers: choose one, then left-click a grass tile. Hold <kbd>Shift</kbd> to keep placing. On your own tower that has not forked, they choose a branch.</td></tr>
+				<tr><td>Click a tower or a creep</td><td>Its numbers in the console. A teammate's tower names its owner.</td></tr>
+				<tr><td><kbd>A</kbd>, <kbd>Alt</kbd>+click</td><td>Signal: a ring in your colour that says "look here".</td></tr>
+				<tr><td><kbd>S</kbd></td><td>Sell your selected tower for 70% of what you paid.</td></tr>
+				<tr><td><kbd>D</kbd> <kbd>N</kbd> <kbd>Space</kbd></td><td>Ready. The next wave comes when everyone is Ready; the seconds left are paid as gold.</td></tr>
 				<tr><td>View</td><td>Arrow keys, the mouse wheel, middle-drag, or click the minimap. <kbd>Home</kbd> shows the whole map.</td></tr>
-				<tr><td>Right click, <kbd>Esc</kbd></td><td>Cancel building or the selection.</td></tr>
+				<tr><td>Right click, <kbd>Esc</kbd></td><td>Cancel. With nothing to cancel, <kbd>Esc</kbd> opens the menu.</td></tr>
 			</table>
 		</div>
 		<p class="actions" style="margin-top:22px"><a class="button big" href="play/">Play now</a></p>
@@ -108,11 +149,12 @@
 	<section id="made">
 		<h2>How it is made</h2>
 		<div class="inset">
-			<p>Godot 4.7. Every model, icon, console frame and sound was generated for this game from recipes kept in the repository:
-			low-poly models with painted bricks, shingles and planks, framed command icons rendered from those models, nine-slice frames,
-			and synthesized sound effects. Nothing is taken from another game.</p>
-			<p>Gameplay is checked by deterministic scenarios: a scripted player must win all eight waves, an idle one must lose,
-			and every rule (gold, leaks, waves, placement) has its own test. Fonts: Noto Serif, under the SIL Open Font License.</p>
+			<p>Godot 4.7. Every model, icon, console piece and sound was generated for this game from recipes kept in the repository:
+			low-poly towers with painted bricks, shingles and planks, the Builders as small toon figures built in Blender, the bronze console
+			painted in Python, and synthesized sound effects.</p>
+			<p>The rules run in an integer simulation that every player's game steps the same way from the same turns; a small Python
+			server passes the turns and compares the games' state hashes. Deterministic scenarios check every rule, a scripted party must
+			win High Water and an idle one must lose. Fonts: Noto Serif, under the SIL Open Font License.</p>
 		</div>
 	</section>
 </main>

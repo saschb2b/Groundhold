@@ -40,6 +40,19 @@ var plans := {}
 var _events: Array = []
 var _tower_by_id := {}
 var _creep_by_id := {}
+## Stage 5's look along the road (by_distance()): the creeps, furthest first and ties to
+## the lower id, as indexes into `creeps` with their road distances. Made at most once
+## between open_look() and close_look(), on the first tower that asks: no creep moves,
+## spawns or dies while stage 5 runs. Never part of the state, so the codec leaves it out
+## and the sim harness's record_differences skips it. Read only.
+var order_idx := PackedInt32Array()
+var order_dist := PackedInt64Array()
+var _order_built := false
+var _looking := false
+## How many times by_distance() sorted the creeps for stage 5 since this SimMatch was made
+## or loaded: sim_bench holds with it that a real tick (step(), not a test that opens the
+## look itself) looks along the road. Never state, like the order above.
+var walks := 0
 
 
 ## `seat_list` holds one Dictionary per seat: {"team", "builder", "caretaker"}; seat
@@ -261,6 +274,50 @@ func in_range(t: SimRecords.SimTower, c: SimRecords.SimCreep) -> bool:
 	return SimRoad.covers(t.intervals, c.dist_um)
 
 
+## Stage 5 brackets the towers' look with these (and a test that compares the look with a
+## scan does too): between them the creeps stand still, so by_distance() may sort them
+## once; any other time it says no.
+func open_look() -> void:
+	_looking = true
+	_order_built = false
+
+
+func close_look() -> void:
+	_looking = false
+
+
+## While the towers look (open_look), makes order_idx and order_dist hold the creeps
+## furthest first (ties to the lower id): indexes into `creeps` and their road distances;
+## false at any other time, when positions may still change. Each tower's look then
+## reads two packed arrays from the first creep within its farthest reach and stops at
+## the first in reach, instead of testing every creep (sim_bench: the towers' look was
+## nine tenths of a busy tick).
+func by_distance() -> bool:
+	if not _looking:
+		return false
+	if not _order_built:
+		_order_built = true
+		walks += 1
+		# One integer key per creep, distance first and then the index reversed, so an
+		# ascending sort read backwards gives distance descending and ties by index
+		# (= by id: `creeps` is in id order) ascending. Creeps on the road number far under
+		# 2^16 (a wave brings about 40; the codec writes the count as a u16, unchecked) and
+		# road distances stay far under 2^40, so the key fits.
+		var keys := PackedInt64Array()
+		keys.resize(creeps.size())
+		for i in creeps.size():
+			keys[i] = creeps[i].dist_um * 65536 + (65535 - i)
+		keys.sort()  # sim-lint: allow sort() integers in a total order, never objects
+		var n := keys.size()
+		order_idx.resize(n)
+		order_dist.resize(n)
+		for k in n:
+			var key := keys[n - 1 - k]
+			order_idx[k] = 65535 - (key & 65535)
+			order_dist[k] = key >> 16
+	return true
+
+
 # ── Commands ──
 
 
@@ -450,6 +507,7 @@ func _system(type: int, seat_no: int) -> void:
 	var s := seat(seat_no)
 	if s == null:
 		return
+	var was := s.state
 	match type:
 		SimTypes.SYS_AWAY:
 			if s.state == SimTypes.SEAT_PRESENT or s.state == SimTypes.SEAT_RETURNING:
@@ -459,9 +517,11 @@ func _system(type: int, seat_no: int) -> void:
 				s.state = SimTypes.SEAT_RETURNING
 		SimTypes.SYS_LEFT:
 			s.state = SimTypes.SEAT_LEFT
-		_:
-			return
-	_emit({"type": SimTypes.EV_SEAT, "seat": s.seat, "state": s.state})
+	# (a seat state moves only as design 6.7 says: AWAY takes a present or returning
+	# seat, BACK an away one, LEFT any, and only SimWaves.open_window makes a returning
+	# seat present; EV_SEAT says when it moved, never for a command that left it be)
+	if s.state != was:
+		_emit({"type": SimTypes.EV_SEAT, "seat": s.seat, "state": s.state})
 
 
 func _reject(s: SimRecords.SimSeat, cmd: Dictionary, reason: int) -> void:
@@ -612,15 +672,22 @@ func _caretakers() -> void:
 
 
 func _move_creeps() -> void:
+	var ends := PackedInt64Array()
+	for h in hollows:
+		ends.append(h.road.length_um)
 	var i := 0
 	while i < creeps.size():
 		var c := creeps[i]
-		SimEffects.lapse_slow(self, c)
-		SimEffects.expire(self, c)
-		var road := hollows[c.hollow].road
+		# (the calls change nothing unless a slow ran out with one set or waiting, or a
+		# mark ran out: asked here first, since every creep passes every tick)
+		if c.slow_until <= tick and (c.slow_pm != 0 or not c.slow_next.is_empty()):
+			SimEffects.lapse_slow(self, c)
+		if c.mark_pm != 0 and c.mark_until <= tick:
+			SimEffects.expire(self, c)
+		var end := ends[c.hollow]
 		c.dist_um += speed_now(c)
-		if c.dist_um >= road.length_um:
-			c.dist_um = road.length_um
+		if c.dist_um >= end:
+			c.dist_um = end
 			creeps.remove_at(i)
 			_leak(c)
 		else:
@@ -667,6 +734,7 @@ func _fall(team: SimRecords.SimTeam) -> void:
 ## effect alone (SimEffects.team_tower: the Owl's Eye's marks); the others keep or pick a
 ## target by their aim (SimTargeting) and fire when cooled down.
 func _fire_towers() -> void:
+	open_look()
 	for t in towers:
 		if t.shot_um_t == 0:
 			SimEffects.team_tower(self, t)
@@ -675,6 +743,7 @@ func _fire_towers() -> void:
 		if t.target != 0 and tick >= t.cooldown_until:
 			_fire(t, creep(t.target))
 			t.cooldown_until = tick + _cooldown(t)
+	close_look()
 
 
 func _cooldown(t: SimRecords.SimTower) -> int:

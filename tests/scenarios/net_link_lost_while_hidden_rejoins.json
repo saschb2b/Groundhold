@@ -1,0 +1,32 @@
+{
+  "name": "net_link_lost_while_hidden_rejoins",
+  "description": "Client 2's tab is hidden for 40 s, and its link is lost while it is hidden, at 32 s: the server closes a hidden tab's link past hidden_silence_ms (10 min), and a phone's browser drops a backgrounded socket (the loopback's sequencer has no silence rule outside its lobby, so cut() stands in for the close). Shown again, the game reads the turns its inbound buffer held, finds the link gone and reconnects with a resume HELLO 2 s later. It may run the turns it holds meanwhile, but none of that run's HASHes or a RESULT go out: the RESYNC(rejoin) replaces the run, and the server counts the seat's HASHes from that checkpoint, so a HASH of the old run behind the resume HELLO would be below it and refused ('HASH ticks must increase', review M4 round 2). The game loads the RESYNC, re-runs from its checkpoint, takes its seat back, and the hashes agree from there.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 12,
+  "timeout_frames": 600,
+  "watch": {"phase2": "scene.client(2).phase_name()", "err2": "scene.client(2).error_text", "rejoins2": "scene.client(2).rejoins", "resumes2": "scene.client(2).resumes", "tick2": "scene.tick(2)", "tick1": "scene.tick(1)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 12, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(2).sim.tick >= 900', 3000)"},
+    {"eval": "scene.hide(2, 2400)"},
+    {"eval": "scene.run_frames(1920)"},
+    {"eval": "scene.cut(2, 0)"},
+    {"eval": "scene.run_frames(480)"},
+    {"assert": "not scene.client(2).hidden and scene.client(2).link.is_closed()", "msg": "setup: shown again, the hidden tab's link is gone"},
+    {"eval": "scene.run_until('client(2).reconnecting', 30)", "as": "reconnecting"},
+    {"assert": "reconnecting", "msg": "it saw the loss and reconnects"},
+    {"eval": "[scene.client(2).hashes_sent, scene.client(2).sim.tick]", "as": "at_loss"},
+    {"eval": "scene.run_until('client(2).resumes >= 1', 600)", "as": "resumed"},
+    {"assert": "resumed", "msg": "a resume HELLO went out on a new link"},
+    {"eval": "[scene.client(2).hashes_sent, scene.client(2).sim.tick]", "as": "at_resume"},
+    {"assert": "at_resume[0] == at_loss[0] and scene.client(2).rejoins == 0", "msg": "up to the resume HELLO none of the old run's HASHes went out after the loss"},
+    {"eval": "scene.run_until('client(2).rejoins >= 1 or client(2).phase_name() == \"FAILED\"', 1200)"},
+    {"assert": "scene.client(2).phase_name() == 'IN_MATCH' and scene.client(2).rejoins == 1 and scene.client(2).resyncs[-1][0] == 'rejoin'", "msg": "the RESYNC(rejoin) was loaded: the seat is its own again, not refused for its old run's HASHes"},
+    {"eval": "scene.client(2).resyncs[-1][1]", "as": "rejoined_from"},
+    {"eval": "scene.run_turns(400)"},
+    {"assert": "scene.client(2).phase_name() == 'IN_MATCH' and scene.client(2).error_text == ''", "msg": "still in the match"},
+    {"assert": "scene.sent_hashes_agree_from(rejoined_from + 60) and scene.seq.disagreements.is_empty()", "msg": "the hashes agree from the rejoin's checkpoint on"}
+  ]
+}

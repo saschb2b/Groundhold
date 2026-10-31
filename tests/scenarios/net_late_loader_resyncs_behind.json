@@ -1,0 +1,30 @@
+{
+  "name": "net_late_loader_resyncs_behind",
+  "description": "Three clients; client 3 is still building its hollow when the sequencer starts without it. START before its LOADED tells it so: it says VISIBILITY catching_up and steps nothing, while its seat is AWAY from turn 0 and the caretaker builds for it. Past the second checkpoint its LOADED goes out: the sequencer answers RESYNC(behind) from its latest kept checkpoint, not tick 0. Client 3 sends no HASH while it runs the turns it held from tick 0 (they would reach the server below the checkpoint the RESYNC counts from), loads the checkpoint, catches up with a moving bar, says shown, which brings it BACK, and the next build window hands its seat back. Every hash agrees from the checkpoint on.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 5,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "tick3": "scene.tick(3)", "hash1": "scene.hash_hex(1)", "hash3": "scene.hash_hex(3)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 3, 'seed': 5, 'latency_turns': [1, 2, 4], 'late': [3]})"},
+    {"eval": "scene.bots(true, [1, 2])"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"assert": "scene.client(3).started_without and not scene.client(3).loaded_sent and scene.client(3).said_visibility == 2", "msg": "START came before its LOADED: it knows the match started without it, and says catching_up"},
+    {"assert": "scene.system_sent('AWAY', 2) and scene.seq.system_log[0][0] == 0", "msg": "its seat is AWAY from turn 0"},
+    {"eval": "scene.run_until('seq.checkpoint_ticks.size() == 2', 8000)", "as": "two_kept"},
+    {"assert": "two_kept and scene.tick(3) == 0 and scene.client(3).hashes_sent == 0", "msg": "two checkpoints kept, and the late client has stepped nothing yet"},
+    {"assert": "scene.client(1).sim.seat(3).towers >= 1", "msg": "the caretaker built for the seat meanwhile"},
+    {"eval": "scene.load(3)"},
+    {"eval": "scene.run_until('client(3).resyncs.size() == 1', 600)", "as": "resynced"},
+    {"eval": "scene.seq.resync_log[0]", "as": "resync"},
+    {"assert": "resynced and resync[1] == 2 and resync[2] == 'behind' and resync[3] == scene.seq.checkpoint_ticks[-1] and resync[3] > 0", "msg": "its LOADED brought RESYNC(behind) from the latest kept checkpoint"},
+    {"assert": "scene.client(3).resyncs[0][0] == 'behind' and scene.client(3).resyncs[0][1] == resync[3] and scene.client(3).catching_up", "msg": "it loaded that checkpoint and catches up, orders waiting"},
+    {"eval": "scene.run_until('not client(3).catching_up', 1800)", "as": "caught_up"},
+    {"assert": "caught_up and scene.went_through(3, ['CATCHING_UP', 'NONE']) and scene.bars_seen[2].size() >= 10 and scene.bars_seen[2].max() == 1000", "msg": "the overlay said catching up with a moving bar, then nothing"},
+    {"eval": "scene.run_until('client(1).sim.seat(3).state == 0 and client(3).sim.seat(3).state == 0', 6000)", "as": "handed_back"},
+    {"assert": "handed_back and scene.system_sent('BACK', 2) and scene.client(3).sim.hollows[0].phase == 0", "msg": "shown brought it BACK, and the next build window handed the seat back"},
+    {"eval": "scene.run_turns(300)"},
+    {"assert": "scene.sent_hashes_agree_from(resync[3]) and scene.seq.disagreements.is_empty() and abs(scene.tick(3) - scene.tick(1)) <= 30", "msg": "every hash agrees from the checkpoint on, client 3 level with the others"},
+    {"assert": "scene.client(3).hashes_sent >= 5 and scene.client(3).sent_hashes.keys().min() > resync[3] and scene.client(3).phase_name() == 'IN_MATCH'", "msg": "it never sent a HASH from before the checkpoint, and its link stands"}
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "sim_harness_waits_are_bounded",
+  "description": "The sim harness's waits end when what they wait for cannot come (M4: a test once looped until the machine ran out of memory). With the sequencer paused, play_out stops after one round that ran no tick, with an error, instead of spinning until the run's timeout; catch_up does the same when the turns a stalled client needs are gone, and takes at least one tick a call, so a per_call of 0 still catches up. With the sequencer running again, play_out goes on from where it stopped and the clients agree.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "ignore_errors": ["play_out: no turn for tick", "catch_up: client 3 has no turn"],
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'clients': 3, 'seed': 3})"},
+    {"eval": "scene.run_ticks(600)"},
+    {"set": "scene.seq.paused", "value": true},
+    {"eval": "scene.play_out([1, 2], 30, 120000)", "as": "paused_at"},
+    {"assert": "paused_at == 600 and not scene.client(1).over", "msg": "a paused sequencer: play_out stopped at once, the match neither over nor at its limit"},
+    {"set": "scene.seq.paused", "value": false},
+    {"eval": "scene.stall(2, 90)"},
+    {"eval": "scene.run_ticks(90)"},
+    {"eval": "scene.catch_up(2, 0)", "as": "one_a_call"},
+    {"assert": "one_a_call == 90 and scene.behind(2) == 0", "msg": "a per_call of 0 catches up one tick a call"},
+    {"eval": "scene.stall(3, 90)"},
+    {"eval": "scene.run_ticks(90)"},
+    {"eval": "scene.seq.turns.resize(scene.client(3).tick / 3 + 1)"},
+    {"set": "scene.seq.paused", "value": true},
+    {"eval": "scene.catch_up(3, 8)", "as": "no_turns"},
+    {"assert": "no_turns == -1 and scene.behind(3) > 0", "msg": "turns gone from the log: catch_up gives up with -1 instead of waiting forever"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'clients': 2, 'seed': 3})"},
+    {"eval": "scene.run_ticks(600)"},
+    {"set": "scene.seq.paused", "value": true},
+    {"eval": "scene.play_out([1, 2], 30, 120000)"},
+    {"set": "scene.seq.paused", "value": false},
+    {"eval": "scene.play_out([1, 2], 30, 6000)", "as": "resumed_at"},
+    {"assert": "resumed_at >= 6000 and scene.hashes_agree() and scene.record_differences(1, 2) == []", "msg": "unpaused, play_out goes on from there and the clients agree"}
+  ]
+}

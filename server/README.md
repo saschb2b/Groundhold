@@ -84,6 +84,30 @@ memory. Its rules (design §5.2, §6.6; `shared/net/README.md`, The hub, has the
 - **A dropped link** keeps its party row 40 s ("reconnecting"); the game's resume `HELLO` takes it
   back. A row whose match still runs is kept until 40 s after the match.
 
+## Resilience (M4)
+
+A match (`groundhold_server/match.py`, `catchup.py`; `shared/net/README.md`, Resilience) never
+decodes a state, but it keeps two:
+
+- **Hashes**: once every present seat reported a tick, or 2 s after the first report, all equal or a
+  strict majority of three or more is agreement. A minority of three or more is resynced; the same
+  seat apart again is out of the match (`desynced_twice`), back in the hub, its seat the caretaker's.
+  Two seats apart, or no majority, end the match `desynced`.
+- **Checkpoints**: an agreed tick a game flagged is asked of one seat in rotation (present, not
+  hidden, not catching up, one that flagged that hash). Its parts are kept only if `SHA-256[:8]` of the
+  bytes is the agreed hash; the last two are kept; a wrong digest, 5 s without the whole upload, or the
+  seat's link gone sends the ask to the next seat.
+- **Rejoin**: a dropped seat is held until the match ends. A resume `HELLO` naming it (match id and
+  seat) from the same identity takes it back, during maintenance and on a full server too: `ERROR`
+  12 to an old link still open, `PARTY_STATE`, `MATCH_CONFIG` with `rejoin`, then `RESYNC(rejoin)`
+  from the latest checkpoint, its parts and every turn since. A seat not held hears `NOTICE
+  no_held_seat`.
+- **Catch-up**: a `RESYNC` and everything behind it go out at most 2 KB per 50 ms of the server's
+  clock while the connection's unsent output is under 4 KB; live turns queue behind. A seat catching
+  up comes `BACK` only with its `VISIBILITY shown`; one that says `catching_up` from further back than
+  the latest checkpoint (a tab back from the background, a seat loaded after a start without it) is
+  resynced from there (`RESYNC(behind)`).
+
 There is no public queue yet: `QUEUE` is answered idle and Match Found never comes (M6).
 
 ## The LAN beacon
@@ -160,6 +184,8 @@ Each UTC day the server counts, with no personal data (`stats.py`), and serves a
 | `started`, `finished` | matches begun, and those ended by an agreed result, per mode |
 | `desyncs` | disagreements the hash and result referee found (a minority of three, or a match ended desynced): the health gauge of lockstep |
 | `reconnects` | party rows taken back after a drop |
+| `resyncs` | `RESYNC`s sent: a rejoin's, a minority's after a desync, a game's catching up from further back than the latest checkpoint |
+| `rejoins` | match seats taken back by a resume `HELLO` naming them |
 | `caretaker_seats` | seats the caretaker played, once a match each |
 | `versions` | HELLOs by the protocol version they carry, those refused included (16 apart, the rest as `other`) |
 
@@ -188,8 +214,8 @@ server reads the key only as it starts: restart it after a restore.
 | Milestone | Server work |
 |---|---|
 | M1 | the WebSocket port, `/health`, `HELLO` and its refusals, rate buckets, the turn clock on absolute deadlines, seat stamping, `--dev-match`, the loading barrier, a hash and result referee (a minority of three is outvoted), `AWAY`/`BACK`/`LEFT`/`TIMEOUT`, `LINKS`, `TURN_REQUEST` |
-| M3 (this) | parties with codes, Ready and the countdown, the barrier's timers, results and back to the party, held party rows and the resume bit, the identity key on disk, moderation, retention, `/stats`, backups, the LAN beacon |
-| M4 | checkpoints, `RESYNC` for a minority desync, a match seat's reconnect, paced catch-up, `ERROR` 12 |
+| M3 | parties with codes, Ready and the countdown, the barrier's timers, results and back to the party, held party rows and the resume bit, the identity key on disk, moderation, retention, `/stats`, backups, the LAN beacon |
+| M4 (this) | checkpoints asked, checked and kept, `RESYNC` for a minority desync, a rejoin and a game behind, `desynced_twice`, a match seat's reconnect (`ERROR` 12, `no_held_seat`, through maintenance), paced catch-up, `/stats` resyncs and rejoins |
 | M5 | Dockerfile, Coolify and self-host Compose files, native binaries, the release workflows, the policy page |
 | M6 | the public queue, Match Found, caretakers offered |
 
@@ -201,7 +227,11 @@ python3 -m unittest discover -s server/tests -t server/tests
 
 Each test runs a real server on `127.0.0.1:0` and talks to it over real sockets with a minimal game
 client (`tests/support.py`); every timer runs on a clock the test moves by hand, so they are exact and
-nothing waits on the wall.
+nothing waits on the wall. A test that waits for something the code never does fails rather than runs
+the machine out of memory: the test process may use at most 4 GB (`GROUNDHOLD_TEST_MEMORY_GB`), the
+helpers that read until a message comes read at most `MOST_MESSAGES`, and every loop that waits on a
+condition stops after a bound and fails. Run new tests against the code before a change inside
+`(ulimit -v 4000000; timeout 300 ...)`.
 
 | File | Covers |
 |---|---|
@@ -217,7 +247,16 @@ nothing waits on the wall.
 | `test_identity.py` | origins normalised; a token stable per origin, unlinkable across; the public identity stable per server and across a restart, unlinkable across servers; bans, the allowlist and kicks refuse; a ban drops a connected player; a bad moderation file; a mute drops signals |
 | `test_beacon.py` | the datagram's layout; a mismatched version is not listed; no beacon in a container, on 127.0.0.1 or behind TLS; a real server once a second of its clock, with its open parties |
 | `test_retention.py` | the policy; the pass at the start and hourly; ended kicks go, bans stay; the players' log (none by default); forget; the admin CLI; backups and restores; the real program keeping its state, `--admin`, `--backup`, `--restore` |
-| `test_stats.py` | every count at `/stats`, with no identity, name or address; desyncs; the day written at its end and at the stop, taken up after a restart; no state, no file; reconnects |
+| `test_stats.py` | every count at `/stats`, with no identity, name or address; desyncs; the day written at its end and at the stop, taken up after a restart; no state, no file; reconnects; resyncs and rejoins |
+| `test_hash_referee.py` | all equal or a strict majority of three; the 2 s window; a minority resynced from tick 0; its hashes on their way not compared; apart again is `desynced_twice`; two seats apart and no majority end `desynced` |
+| `test_checkpoint_accept.py` | an agreed checkpoint asked of one seat and kept by its digest; another digest, 5 s, or the link gone ask the next; rotation and the last two kept; who may be asked; tick 0 never; the parts' rules (`ERROR` 1 and 6) |
+| `test_catchup_budget.py` | the pacer: whole messages, 2 KB a share, a large message alone, never over 4 KB unsent; a rejoin's catch-up on the wire with the live turns behind; a dev match's shorter turns paced alike; nothing while 4 KB wait, and the output cap only after |
+| `test_away_back.py` | silence and `AWAY`, the next word `BACK`; `catching_up` holding `BACK` until `shown`; a dropped seat held and resumed from a checkpoint; a seat that left not held; a tab behind resynced once; a seat started without catching up from the latest checkpoint |
+| `test_rejoin.py` | two windows of one identity; a rejoin from tick 0; hashes counted again from the checkpoint; a rejoin while loading; a party member's row then its seat; a resume after the end |
+| `test_resync.py` | a minority from the latest checkpoint before its last hash, or tick 0; a member apart twice back in the hub |
+| `test_versions.py` | older and newer games resuming (2, 17); another rules hash cannot take its seat back; maintenance and a full server let in only a resume for a held seat; a member on another rules hash needs to reload |
+| `test_support_bounds.py` | the harness's own bounds: the 4 GB cap, and `until`, `drain` and `sync` failing after `MOST_MESSAGES` rather than reading for ever |
+| `test_contract_m4.py` | the M4 contract: numbers appended, the new layouts, the digest and parts, a resume's seat, `VISIBILITY` and `LINKS`, `CatchUp`'s interface, the rejoin naming its seat |
 
 `python3 server/tools/record_transcripts.py` re-records `shared/net/transcripts/` (a deliberate step,
 reviewed like any change; `--check` says whether it would change anything).

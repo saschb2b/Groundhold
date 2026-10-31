@@ -1,0 +1,29 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_card_greys_while_the_caretaker_holds",
+  "description": "Tamsin's window loses its link for 7 s in the first build window, long enough for her seat to go AWAY. It rejoins and is back while the window is still open, so the caretaker holds her seat through this window and the next wave (BACK, design 6.7) and every order of hers is refused for that. The command card says so as it does while reconnecting: the tower slots, Signal and Sell grey, and the Ready horn cannot be called and shows no early-gold bonus; the horn's tooltip gives the caretaker's reason. Once the next build window hands the seat back, the card is live again.",
+  "seed": 1,
+  "timeout_frames": 20000,
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"},
+    {"eval": "node('LoopbackMain').start({'seed': 3, 'partner_after': 30})"},
+    {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 600},
+    {"wait_until": "scene.sim.tick >= 60", "timeout": 600},
+    {"assert": "node('Hud').card()[0]['state'] == 'ok' and node('Hud').card()[5]['state'] == 'ok'", "msg": "setup: the window is open and the card is live"},
+    {"eval": "node('LoopbackMain').cut(420)"},
+    {"wait_until": "scene.client.rejoins == 1 and not scene.client.catching_up", "timeout": 2400},
+    {"wait": 12},
+    {"assert": "Game.state == Game.State.PREP and Game.wave == 0 and scene.client.sim.seat(1).state != 0", "msg": "setup: back in the same build window, and the caretaker holds her seat"},
+    {"assert": "Game.accepts_commands() and Game.order_refusal() == 'The caretaker hands back at the next build window'", "msg": "the match and the link take orders; her seat does not yet"},
+    {"eval": "node('Hud').card()", "as": "card"},
+    {"assert": "card[0]['state'] == 'idle' and card[1]['state'] == 'idle' and card[2]['state'] == 'idle'", "msg": "the tower slots grey, as while reconnecting"},
+    {"assert": "card[3]['what'] == 'signal' and card[3]['state'] == 'idle' and card[4]['state'] == 'idle'", "msg": "Signal and Sell grey"},
+    {"assert": "card[5]['what'] == 'ready' and card[5]['state'] == 'idle' and card[5]['cost'] == ''", "msg": "the Ready horn cannot be called, and shows no early-gold bonus"},
+    {"assert": "scene.overlay().state == 5 and scene.overlay().visible", "msg": "the plate welcomes her back"},
+    {"capture": "back_card_greyed_in_build_window"},
+    {"wait_until": "scene.client.sim.seat(1).state == 0", "timeout": 12000},
+    {"wait": 30},
+    {"assert": "Game.order_refusal() == '' and node('Hud').card()[0]['state'] in ['ok', 'poor'] and node('Hud').card()[3]['state'] == 'ok'", "msg": "handed back at the next window: the card is live again"}
+  ]
+}

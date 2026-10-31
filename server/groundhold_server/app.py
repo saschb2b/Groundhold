@@ -49,6 +49,17 @@ MS = 1_000_000
 MATCH_MESSAGES = ("LOADING", "LOADED", "CMD", "HASH", "RESULT", "LEAVE_MATCH", "TURN_REQUEST", "CHECKPOINT_PART")
 # (the hub's: a dev match has no hub, so it refuses them)
 HUB_MESSAGES = ("PARTY", "QUEUE", "ACCEPT")
+# (VISIBILITY catching_up and hidden, whole: the words that do not bring an AWAY seat BACK)
+NOT_BACK = tuple(bytes((protocol.MESSAGES["VISIBILITY"].id, protocol.VISIBILITY[state]))
+                 for state in ("catching_up", "hidden"))
+
+
+def abort(writer):
+    """The connection cut off at once, its unsent output dropped (a slow
+    reader's, or one that never reads): close() would wait to flush it."""
+    transport = writer.transport
+    if transport is not None:
+        transport.abort()
 
 
 @dataclasses.dataclass(eq=False)
@@ -62,7 +73,8 @@ class Player:
     web: bool = False
     resume: bool = False        # HELLO's resume bit: a held party row is taken back (holds.py)
     round_trip: int = 0         # its round trip in ms as its PING says it (LINKS, PARTY_STATE)
-    hidden: bool = False        # VISIBILITY: a browser tab in the background
+    hidden: bool = False        # VISIBILITY hidden: a browser tab in the background
+    catching_up: bool = False   # VISIBILITY catching_up: running the turns it missed (M4)
     match: object = None
     seat: int = -1
     after_match: bool = False   # its match ended: in-flight match messages are let pass
@@ -101,7 +113,8 @@ def dev_match_spec(text):
 class Server:
     def __init__(self, name="Groundhold", motd="", origins=(), event_log=None, player_cap=64,
                  pending_cap=SPEC["pending_cap"], handshake_timeout=SPEC["handshake_ms"] / 1000,
-                 silence_timeout=SPEC["silence_ms"] / 1000, maintenance="", dev_match=None, seed=None,
+                 silence_timeout=SPEC["silence_ms"] / 1000, hidden_timeout=SPEC["hidden_silence_ms"] / 1000,
+                 maintenance="", dev_match=None, seed=None,
                  identity_key=None, clock=None, start_delay_ms=SPEC["start_delay_ms"],
                  loading_min_ms=SPEC["loading_min_ms"], match_cap_ms=SPEC["match_cap_ms"],
                  output_cap=SPEC["output_cap"], observer=None, turn_ms=SPEC["turn_ms"],
@@ -122,6 +135,8 @@ class Server:
         self.player_cap = player_cap
         self.party_cap = party_cap
         self.pending_cap, self.handshake_timeout, self.silence_timeout = pending_cap, handshake_timeout, silence_timeout
+        # (a hidden tab's loop sleeps, so it says nothing: its link is kept this long, §6.8)
+        self.hidden_timeout = max(silence_timeout, hidden_timeout)
         self.maintenance = protocol.maintenance_line(maintenance)
         self.dev_match = dev_match_spec(dev_match) if isinstance(dev_match, str) else dev_match
         # (a shorter turn plays a dev match faster: games pace by WELCOME's
@@ -259,9 +274,13 @@ class Server:
             version = protocol.hello_version(data)
             if version is not None:
                 self.daily.hello(version)
-            player = self.join(writer, protocol.read_hello(data))
+            hello = protocol.read_hello(data)
+            player = self.join(writer, hello)
             await self.welcome(player)
-            if self.dev_match:
+            if player.resume and hello["seat"] != protocol.SYSTEM_SEAT:
+                # (a resume naming the match seat it held: rejoin, or NOTICE no_held_seat; lobby.py)
+                self.lobby.resume(player, hello["match"], hello["seat"])
+            elif self.dev_match:
                 self.dev_join(player)
             elif player.resume:
                 self.lobby.resume(player)
@@ -299,6 +318,10 @@ class Server:
                     with contextlib.suppress(ConnectionError, asyncio.TimeoutError):
                         await asyncio.wait_for(writer.wait_closed(), 2)
                 finally:
+                    # (close() waits to flush what is unsent, and a peer that never
+                    # reads never lets it: past the grace the socket is aborted, so
+                    # it keeps no descriptor or buffers once its handler is gone)
+                    abort(writer)
                     self.connections.discard(task)
 
     async def linger(self, reader, writer):
@@ -321,9 +344,15 @@ class Server:
             await websocket.send(writer, struct.pack("!H", 1008), 8)
 
     def join(self, writer, hello):
-        if self.maintenance:
-            raise ProtocolError(self.maintenance, protocol.ERRORS["maintenance"])
         identity = self.store.identity(hello["token"])
+        flags = SPEC["hello_flags"]
+        # (a resume naming a seat its identity holds comes back to its match:
+        # let in during maintenance, which waits for the matches to end, and
+        # past the player cap, since it takes a seat's place)
+        rejoining = bool(hello["flags"] & flags["resume"]) and self.lobby.held_seat(
+            identity, hello["rules_hash"], hello["match"], hello["seat"]) is not None
+        if self.maintenance and not rejoining:
+            raise ProtocolError(self.maintenance, protocol.ERRORS["maintenance"])
         self.store.refresh()
         if self.store.contains("bans", identity):
             raise ProtocolError("This profile is banned", protocol.ERRORS["banned"])
@@ -334,11 +363,11 @@ class Server:
         if kick:
             minutes = max(1, math.ceil((kick.get("expires", now) - now) / 60))
             raise ProtocolError(f"Kicked by a moderator; try again in {minutes} min", protocol.ERRORS["kicked"])
-        if len(self.players) >= self.player_cap:
+        if len(self.players) >= self.player_cap and not rejoining:
             raise ProtocolError("The server is full", protocol.ERRORS["full"])
         # (one profile may come in twice: two windows on one computer share
-        # their user:// key; "replaced" (12) comes with M4's reconnect)
-        flags = SPEC["hello_flags"]
+        # their user:// key; a resume names its seat, and the connection it
+        # replaces there gets "replaced", 12: match.py)
         player = Player(self.next_id, hello["name"], writer, identity, hello["build_seq"], hello["rules_hash"],
                         web=bool(hello["flags"] & flags["web"]), resume=bool(hello["flags"] & flags["resume"]),
                         lookups=Bucket(LOOKUP_BURST, LOOKUP_REFILL, self.clock.now() / 1e9), joined=now)
@@ -414,7 +443,7 @@ class Server:
         transport = writer.transport
         if transport is not None and transport.get_write_buffer_size() > self.output_cap:
             self.event("slow_reader", id=player.id)
-            writer.close()
+            abort(writer)
 
     def drop(self, player, exc):
         """A moderator's word: ERROR said, then the connection closed; no row held."""
@@ -431,13 +460,17 @@ class Server:
         now = self.clock.now() / 1e9
         buckets = {name: Bucket(spec["burst"], spec["refill"], now) for name, spec in SPEC["buckets"].items()}
         while True:
-            opcode, data = await asyncio.wait_for(websocket.receive(reader), self.silence_timeout)
+            # (silent for silence_ms the connection closes; but a hidden tab's loop sleeps
+            # and says nothing, and its link is kept up to hidden_silence_ms: §6.8)
+            silence = self.hidden_timeout if player.hidden else self.silence_timeout
+            opcode, data = await asyncio.wait_for(websocket.receive(reader), silence)
             now = self.clock.now() / 1e9
             message = protocol.BY_ID.get(data[0]) if opcode == 2 and data else None
             if not buckets[(message and message.bucket) or "hub"].take(now):
                 raise ProtocolError("Message rate exceeded", protocol.ERRORS["rate"])
             if player.match:
-                player.match.heard(player)
+                # (VISIBILITY catching_up or hidden is a word, but says the seat is not back)
+                player.match.heard(player, back=not (opcode == 2 and data in NOT_BACK))
             if opcode == 8:
                 with contextlib.suppress(ConnectionError, asyncio.TimeoutError):
                     await websocket.send(player.writer, struct.pack("!H", 1000), 8)
@@ -462,9 +495,12 @@ class Server:
                 "PONG", client_ms=fields["client_ms"], turn=match.current_turn() if match else 0))
             self.lobby.heard_ping(player)
         elif name == "VISIBILITY":
-            if fields["hidden"] > 1:
+            if fields["state"] not in protocol.VISIBILITY.values():
                 raise ProtocolError("VISIBILITY outside its limits", protocol.ERRORS["out_of_limits"])
-            player.hidden = bool(fields["hidden"])
+            player.hidden = fields["state"] == protocol.VISIBILITY["hidden"]
+            player.catching_up = fields["state"] == protocol.VISIBILITY["catching_up"]
+            if match:
+                match.visibility(player, fields["state"])
         elif name in MATCH_MESSAGES and match:
             await match.receive(player, name, fields)
         elif name == "LEAVE_MATCH" and player.after_match:

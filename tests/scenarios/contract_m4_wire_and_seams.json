@@ -1,0 +1,11 @@
+{
+  "name": "contract_m4_wire_and_seams",
+  "description": "The M4 contract (docs/design/contract-m4.md) holds: protocol.json appends M4's numbers (checkpoints every 1,800 ticks, two kept, at most 64 parts, a 5 s upload wait; the catch-up's 2 KB per 50 ms under 4 KB of output; one resync a seat; reconnects every 2 s), its flags and states (MATCH_CONFIG's rejoin, VISIBILITY's shown, hidden and catching_up, LINKS' catching_up, RESYNC's reasons), NOTICE no_held_seat and MATCH_END's desynced_twice, and the new fields (HELLO's held match and seat, MATCH_CONFIG's flags, RESYNC's reason, open turn, checkpoint hash and parts), with every M1-M3 id where it was; the GDScript codec round-trips them; SimTypes names the five seat states and the checkpoint interval; a checkpoint tick, a checkpoint's digest (the state hash, and protocol.py's digest for the same bytes) and its parts follow the contract; a dump goes to user://desync/<match>-<seat>.bin; and the seams (Checkpointing, DesyncDump, WebBridge, ConnectionOverlay) have the contract's methods and do nothing on desktop.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/net/contract_m4.gd').problems()", "as": "found"},
+    {"assert": "found == []", "msg": "the build keeps the M4 contract"}
+  ]
+}

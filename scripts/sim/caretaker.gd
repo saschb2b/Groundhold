@@ -1,11 +1,19 @@
-## The caretaker plays a seat nobody is at: an AWAY or LEFT player's, or a bot seat from
-## tick 0 (the balance gates' bots are caretakers, design 4.4). It runs inside the
-## simulation, so every client decides the same thing. It plays any Builder: it works down
-## the Builder's plan (data/plans/<builder>.json, SimContent.plan_steps) with the seat's
-## own gold, a step at a time as it can pay; it takes a step's alternative cells when
-## another seat holds the first, skips steps nobody can do any more, takes a patching
-## fork only while the team lacks the check it patches (else the deepening branch), and
-## never sells. Its seat counts as Ready, so it never holds up a horn.
+## The caretaker plays a seat nobody is at: an AWAY, RETURNING or LEFT player's, or a bot
+## seat from tick 0 (the balance gates' bots are caretakers, design 4.4). It runs inside
+## the simulation, so every client decides the same thing. It plays any seat and any
+## Builder: it works down the Builder's plan (data/plans/<builder>.json,
+## SimContent.plan_steps) with the seat's own gold, a step at a time as it can pay; it
+## takes a step's alternative cells when another seat holds the first, skips steps nobody
+## can do any more, takes a patching fork only while the team lacks the check it patches
+## (else the deepening branch), and never sells. Its seat counts as Ready, so it never
+## holds up a horn (SimMatch.ready_count, SimWaves).
+##
+## Taking a seat mid-match (design 6.7, M4), it starts at the seat's plan cursor (0 for a
+## player who never left) over towers the player built: a build step is done where the
+## seat already has a tower on one of the step's cells, so it never builds a step twice
+## or takes a cell meant for a teammate with the same Builder; a fork step forks only a
+## tower of the kind the plan built there, so a player's cannon on an arrow's cell is not
+## forked as if it were the arrow. Its towers keep firing throughout, as every tower does.
 @warning_ignore_start("integer_division")
 class_name Caretaker
 extends RefCounted
@@ -42,7 +50,7 @@ static func decide(
 	var h := m.hollows[s.hollow]
 	if step[0] == 0:
 		var kind := SimContent.kit_tower(s.builder, step[1])
-		if kind == "":
+		if kind == "" or own_on(m, h, s, step):
 			return PackedInt32Array([SKIP])
 		var cell := free_cell(m, h, step, claimed)
 		if cell < 0:
@@ -84,15 +92,39 @@ static func free_cell(
 	return -1
 
 
-## The seat's unforked tower on the first of the step's cells that holds one, or null.
+## Whether the seat has a tower on one of the step's cells: a build step it (or its
+## player) has done already.
+static func own_on(
+	m: SimMatch, h: SimRecords.SimHollow, s: SimRecords.SimSeat, step: PackedInt32Array
+) -> bool:
+	for cell in cells(h, step):
+		var t := m.tower(h.occupied[cell])
+		if t != null and t.owner == s.seat:
+			return true
+	return false
+
+
+## The seat's unforked tower on the first of the step's cells that holds one of the kind
+## the plan builds there (planned_kind), or null.
 static func own_unforked(
 	m: SimMatch, h: SimRecords.SimHollow, s: SimRecords.SimSeat, step: PackedInt32Array
 ) -> SimRecords.SimTower:
+	var kind := planned_kind(m, s.builder, step)
 	for cell in cells(h, step):
 		var t := m.tower(h.occupied[cell])
-		if t != null and t.owner == s.seat and t.branch == -1:
+		if t != null and t.owner == s.seat and t.branch == -1 and (kind == "" or t.kind == kind):
 			return t
 	return null
+
+
+## The tower kind the Builder's plan builds on a fork step's cell: the kit tower of the
+## first build step on the same cell, or "" when the plan builds nothing there (a plan a
+## test writes may fork any tower).
+static func planned_kind(m: SimMatch, builder: String, step: PackedInt32Array) -> String:
+	for other: PackedInt32Array in m.plans.get(builder, []):
+		if other[0] == 0 and other[2] == step[2] and other[3] == step[3]:
+			return SimContent.kit_tower(builder, other[1])
+	return ""
 
 
 ## The branch a fork step takes for seat `s`: the step's own, unless it patches a check

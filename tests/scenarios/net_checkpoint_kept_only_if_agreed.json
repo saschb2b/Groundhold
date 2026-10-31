@@ -1,0 +1,24 @@
+{
+  "name": "net_checkpoint_kept_only_if_agreed",
+  "description": "Three clients. Each flags its HASH at checkpoint ticks (every 1,800 ticks, and the first hash tick after a horn) and keeps its own serialized state there, the last two only, whose digest is the hash it sent. Client 1's uploads reach the sequencer with one byte flipped: whenever it is asked (in rotation), its upload's digest is not the agreed hash, so the sequencer drops it and asks the next seat, whose upload it keeps. Every checkpoint kept has the agreed hash as its digest, the sequencer keeps the last two, and no upload of client 1 was ever kept.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 9,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "hash1": "scene.hash_hex(1)", "kept": "scene.seq.checkpoint_ticks.size() if scene.seq else 0"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 3, 'seed': 9, 'latency_turns': [1, 2, 1]})"},
+    {"eval": "scene.bots(true)"},
+    {"eval": "scene.corrupt_uploads(1)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('seq.uploads_kept.size() >= 6', 20000)", "as": "six"},
+    {"assert": "six", "msg": "six checkpoints were uploaded and kept"},
+    {"eval": "scene.seq.uploads_dropped.duplicate()", "as": "dropped"},
+    {"eval": "scene.seq.uploads_kept.duplicate()", "as": "kept"},
+    {"assert": "dropped.size() >= 2 and scene.checkpoint_drops_are(0, 'digest')", "msg": "client 1 (wire seat 0) was asked and every upload of its was dropped: its digest was not the agreed hash"},
+    {"assert": "scene.retaken_by_others()", "msg": "each dropped tick was asked of the next seat and kept from it"},
+    {"assert": "scene.kept_digests_agree() and scene.seq.checkpoint_ticks.size() == 2", "msg": "every checkpoint kept has the agreed hash as its digest, and the sequencer keeps two"},
+    {"assert": "scene.flagged_ticks_ok()", "msg": "every flagged tick is a multiple of 1,800 or the first hash tick after a horn"},
+    {"assert": "scene.client(2).checkpoints.ticks.size() == 2 and scene.client_digests_match(2)", "msg": "a client keeps its last two checkpoints, each with the digest it sent as its hash"},
+    {"assert": "scene.hashes_agree() and scene.sent_hashes_agree()", "msg": "the corrupted uploads changed no hash"}
+  ]
+}

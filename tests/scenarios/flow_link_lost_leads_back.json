@@ -1,8 +1,8 @@
 {
   "name": "flow_link_lost_leads_back",
-  "description": "When the server's link goes during a party match, the match ends on the results (the match was called off) instead of leaving the player in a hollow that no longer moves, and the way back is to the hub, offline, with the reason said.",
+  "description": "When the server's link goes during a party match and no server answers again, the game keeps its world and says it is reconnecting (orders wait), opens a new link every 2 s, and after 30 s gives up. The link is this game's alone: the others play on and the caretaker plays its seat, so the results plate says so in its own words (Your link was lost; the caretaker plays your seat to the end of the match; the wave it stopped in, or before the first), with no banner or raw link reason over it, neither on the plate's crest nor on the party strip. The way back is to the hub, offline, which says why the party is gone (review M4 round 2).",
   "seed": 1,
-  "timeout_frames": 2400,
+  "timeout_frames": 4000,
   "steps": [
     {"wait": 3},
     {"set": "node('NameField').text", "value": "Sascha"},
@@ -19,13 +19,26 @@
     {"eval": "Session.get_node('LoopbackHub').load_member('Ana', 1000, true)"},
     {"wait_until": "Session.state_name() == 'IN_MATCH'", "timeout": 600},
     {"wait": 20},
-    {"eval": "Session.client.link.drop('The connection closed', 1006)"},
-    {"wait_until": "node('ResultsPanel') != null", "timeout": 120},
-    {"assert": "(node('ResultsTitle').text == 'THE MATCH WAS CALLED OFF') and (Session.state_name() == 'RESULTS')", "msg": "the match ends on the results, called off"},
+    {"eval": "Session.get_node('LoopbackHub').frame", "as": "cut_at"},
+    {"eval": "Session.get_node('LoopbackHub').cut()"},
+    {"wait_until": "Session.client.reconnecting", "timeout": 30},
+    {"wait": 2},
+    {"assert": "Session.state_name() == 'IN_MATCH' and node('ResultsPanel') == null and node('ConnectionOverlay').state == 1 and node('ConnectionOverlay').visible", "msg": "the link is gone: the world stays, and the overlay says it is reconnecting"},
+    {"assert": "not Game.accepts_commands() and Game.command_refusal() == 'Reconnecting to the server'", "msg": "orders wait, and say why"},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 2000},
+    {"assert": "Session.get_node('LoopbackHub').frame - cut_at >= 1800 and Session.client.reconnect_attempts >= 14 and Session.client.resumes == 0", "msg": "it gave up only after 30 s of new links nobody answered"},
+    {"wait": 30},
+    {"assert": "(node('ResultsTitle').text == 'YOUR LINK WAS LOST') and (Session.state_name() == 'RESULTS')", "msg": "the match ends on the results for this game: its link was lost"},
+    {"assert": "node('ResultsSaid').text == 'The caretaker plays your seat to the end of the match.' and (node('ResultsDetail').text.contains(' · stopped in wave ') or node('ResultsDetail').text.contains(' · stopped before the first wave · '))", "msg": "one plain line says what happens to the seat, and the match line says where it stopped"},
+    {"assert": "not node('Banner').visible and not node('Notice').visible", "msg": "no banner or notice over the plate"},
+    {"assert": "node('PartyStrip').get('_status_label').text == ''", "msg": "the party strip leaves it to the plate: no raw 'Link lost' reason"},
+    {"capture": "link_lost_results_plate"},
     {"click": "node('ResultsPlayAgain')"},
     {"wait_until": "scene_path() == 'res://scenes/hub.tscn'", "timeout": 60},
     {"wait": 2},
     {"assert": "(Session.state_name() == 'OFFLINE') and (Session.client == null) and (Session.party_size() == 1)", "msg": "back in the hub, offline, a party of one"},
-    {"assert": "(node('Place').text == 'Offline') and (Session.last_notice == 'The connection closed')", "msg": "and the reason was said"}
+    {"assert": "(node('Place').text == 'Offline') and (Session.last_notice == 'Your link was lost, and the party with it. The caretaker plays your seat to the end.')", "msg": "and the hub says why the party is gone"},
+    {"assert": "node('Notice').visible and node('Notice').text == Session.last_notice and Session.hub_notice == ''", "msg": "on screen, once"},
+    {"capture": "link_lost_hub_notice"}
   ]
 }

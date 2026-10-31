@@ -1,0 +1,58 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "net_minority_desync_resyncs_live",
+  "description": "Against the real server (a dev match, classic:3): once a checkpoint is kept, a bug writes the third game's own gold to 999, so its next hash parts from the other two, a minority of one. The server, seeing a strict majority, sends it RESYNC(desync) from the latest agreed checkpoint, with the parts and the turns since, paced by its catch-up, and logs the desync and the resync. The game checks the parts' digest, loads them, runs the turns again (catching up, its orders waiting), says shown, and plays on level with the others; the other two never resync. A later HASH line for a tick wins in the kit's hash stream, so the third game's hashes run again from the checkpoint replace those it sent while it was wrong: every tick any two printed agrees.",
+  "seed": 1,
+  "timeout_frames": 12000,
+  "compare_hashes": true,
+  "topology": {
+    "server": {
+      "cmd": ["{python}", "server/main.py", "--port", "0", "--host", "127.0.0.1", "--dev-match", "classic:3", "--seed", "7", "--event-log", "{out}/events.jsonl"],
+      "cwd": ".",
+      "ready": "listening.*port\\D*(?P<port>\\d+)"
+    },
+    "clients": [
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Steady", "--hash-log", "--bot"],
+        "steps": [
+          {"eval": "resource('res://tests/net/live_checks.gd')", "as": "Checks"},
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 1200},
+          {"wait_until": "Checks.file_has('{out}/events.jsonl', '\"event\": \"resync\"')", "timeout": 4800},
+          {"wait_until": "Checks.file_has('{out}/events.jsonl', '\"event\": \"caught_up\"')", "timeout": 1800},
+          {"wait": 600},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.resyncs.is_empty() and scene.client.connection_state()[0] == 0", "msg": "one of the majority: never resynced, the match plays on"}
+        ]
+      },
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Steady2", "--hash-log", "--bot"],
+        "steps": [
+          {"eval": "resource('res://tests/net/live_checks.gd')", "as": "Checks"},
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 1200},
+          {"wait_until": "Checks.file_has('{out}/events.jsonl', '\"event\": \"caught_up\"')", "timeout": 6600},
+          {"wait": 600},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.resyncs.is_empty()", "msg": "the other of the majority: never resynced either"}
+        ]
+      },
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Strays", "--hash-log", "--bot"],
+        "steps": [
+          {"eval": "resource('res://tests/net/live_checks.gd')", "as": "Checks"},
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 1200},
+          {"wait_until": "scene.sim.tick >= 2100 and scene.client.checkpoints.ticks.size() >= 1", "timeout": 3600},
+          {"assert": "scene.client.resyncs.is_empty() and scene.client.phase_name() == 'IN_MATCH'", "msg": "every hash agreed so far"},
+          {"eval": "scene.sim.tick", "as": "bad_from"},
+          {"set": "scene.sim.seat(scene.client.seat).gold", "value": 999},
+          {"wait_until": "scene.client.resyncs.size() >= 1 or scene.client.phase_name() != 'IN_MATCH'", "timeout": 1800},
+          {"assert": "scene.client.resyncs.size() == 1 and scene.client.resyncs[0][0] == 'desync' and scene.client.resyncs[0][1] > 0", "msg": "the minority got RESYNC(desync) from a checkpoint past tick 0 and loaded it"},
+          {"assert": "Checks.file_has('{out}/events.jsonl', '\"event\": \"desync\"') and Checks.lines_with('{out}/events.jsonl', '\"event\": \"resync\"') == 1 and Checks.lines_with('{out}/events.jsonl', '\"reason\": \"desync\"') == 1", "msg": "the server logged one desync and resynced one seat, for a desync"},
+          {"wait_until": "not scene.client.catching_up", "timeout": 1800},
+          {"assert": "scene.sim.seat(scene.client.seat).gold != 999 and Game.accepts_commands()", "msg": "level again: its gold is the others' view of it, and its orders go out"},
+          {"wait": 900},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.resyncs.size() == 1 and scene.client.connection_state()[0] == 0", "msg": "every hash since agreed: no second resync, no end"}
+        ]
+      }
+    ],
+    "timeout": 420
+  },
+  "steps": []
+}

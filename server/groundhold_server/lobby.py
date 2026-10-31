@@ -555,15 +555,43 @@ class Lobby:
         # (a new connection is not on the results plate of a match that ended)
         self.back_from_results(member)
 
-    def resume(self, player):
-        """A resume HELLO: the identity's held row, if one is held, taken back."""
-        member = self.holds.find(player.identity)
-        if member is None:
-            return
-        before = self.reloading(member.party)
-        self.take_back(member, player)
-        self.tell_reload(member.party, before)
-        self.broadcast(member.party)
+    def held_seat(self, identity, rules_hash, match_id, index):
+        """The match seat a resume HELLO names, (match, seat), if `identity`
+        holds it in a running match and a game of `rules_hash` can play it;
+        else None (README, Resilience: Rejoin)."""
+        match = self.server.matches.get(match_id) if index != protocol.SYSTEM_SEAT else None
+        seat = match.holds(identity, rules_hash, index) if match else None
+        return (match, seat) if seat else None
+
+    def resume(self, player, match_id=0, index=protocol.SYSTEM_SEAT):
+        """A resume HELLO: the identity's held row, if one is held, taken
+        back. One that names a match seat (`match_id`, `index`) takes that
+        seat back too (a rejoin): its own party row first, so PARTY_STATE
+        comes before MATCH_CONFIG, even from an old connection still open,
+        which the match then replaces (ERROR 12). A named seat not held
+        (the match ended, the seat left, another identity's) gets NOTICE
+        no_held_seat, and the row is taken back as by any resume."""
+        held = self.held_seat(player.identity, player.rules_hash, match_id, index)
+        if index != protocol.SYSTEM_SEAT and held is None:
+            self.notice(player, "no_held_seat")
+        member = None
+        if held:
+            match, seat = held
+            row = seat.member
+            if (row is not None and row.party is not None and row.party is match.party
+                    and (row.player is None or row.player is seat.player)):
+                member = row
+                if row.player is not None:
+                    row.player.member = None    # (the old connection's row comes along: it is replaced)
+        if member is None and not self.server.dev_match:
+            member = self.holds.find(player.identity)
+        if member is not None:
+            before = self.reloading(member.party)
+            self.take_back(member, player)
+            self.tell_reload(member.party, before)
+            self.broadcast(member.party)
+        if held:
+            match.rejoin(seat, player)
 
     def heard_ping(self, player):
         """A PING's round trip shown to the party, at most every links_ms."""

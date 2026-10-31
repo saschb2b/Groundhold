@@ -75,8 +75,10 @@ var _marked := PackedInt32Array()
 var _flying := {}
 
 
-## `creep_views` is the scene's id -> Creep table, read to find the target's model.
-func setup(record: SimRecords.SimTower, world_pos: Vector3, creep_views: Dictionary) -> void:
+## `creep_views` is the scene's id -> Creep table, read to find the target's model. `rise`:
+## the tower was just built and rises out of the ground; a view built again from a loaded
+## checkpoint (a RESYNC) stands at full height at once, since that tower already stood.
+func setup(record: SimRecords.SimTower, world_pos: Vector3, creep_views: Dictionary, rise := true) -> void:
 	rec = record
 	id = record.id
 	kind = record.kind
@@ -86,6 +88,8 @@ func setup(record: SimRecords.SimTower, world_pos: Vector3, creep_views: Diction
 	add_to_group("towers")
 	BlobShadow.under(self, 0.62)
 	_apply_form()
+	if not rise:
+		return
 	# Rise out of the ground, the way a building completes.
 	_base.scale = Vector3(1, 0.05, 1)
 	(

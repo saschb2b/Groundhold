@@ -25,6 +25,9 @@ const BODY_FONT := preload("res://fonts/NotoSerif-Regular.ttf")
 const ART := "res://ui/console/"
 const ICONS := "res://ui/icons/"
 
+## How long the hub's word after a lost link stays (Session.hub_notice), in seconds.
+const HUB_NOTICE_HOLD := 7.0
+
 static var _layout := {}
 static var _caps: FontVariation
 
@@ -71,6 +74,10 @@ func _ready() -> void:
 	Session.changed.connect(refresh)
 	Session.noticed.connect(show_notice)
 	refresh()
+	if Session.hub_notice != "":
+		# (why the party is gone: said once the hub stands, and held long enough to read)
+		show_notice(Session.hub_notice, HUB_NOTICE_HOLD)
+		Session.hub_notice = ""
 	if not Session.profile.named:
 		prompt.open()
 
@@ -116,14 +123,14 @@ func show_builder(builder: String, close := false) -> void:
 
 
 ## A short line over the arch for a moment: a refused code, a lost server.
-func show_notice(text: String) -> void:
+func show_notice(text: String, hold := 2.2) -> void:
 	_notice.text = text
 	_notice.visible = true
 	_notice.modulate.a = 1.0
 	if _notice_tween:
 		_notice_tween.kill()
 	_notice_tween = create_tween()
-	_notice_tween.tween_interval(2.2)
+	_notice_tween.tween_interval(hold)
 	_notice_tween.tween_property(_notice, "modulate:a", 0.0, 0.6)
 	_notice_tween.tween_callback(func() -> void: _notice.visible = false)
 
@@ -194,10 +201,11 @@ func _build_notice() -> void:
 	_notice.anchor_top = 1.0
 	_notice.anchor_bottom = 1.0
 	var above := float(layout()["shoulder"]) + 6
-	_notice.offset_left = -300
-	_notice.offset_right = 300
-	_notice.offset_top = -above - 50
-	_notice.offset_bottom = -above - 26
+	_notice.offset_left = -440
+	_notice.offset_right = 440
+	# (above the arch's crest, which rises past the shoulder: a long notice clears it)
+	_notice.offset_top = -above - 94
+	_notice.offset_bottom = -above - 70
 	_notice.add_theme_constant_override("outline_size", 5)
 	_notice.add_theme_color_override("font_outline_color", INK)
 	_notice.visible = false

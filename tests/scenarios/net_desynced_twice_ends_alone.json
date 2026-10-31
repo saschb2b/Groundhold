@@ -1,0 +1,27 @@
+{
+  "name": "net_desynced_twice_ends_alone",
+  "description": "Three clients. Client 3's gold is corrupted at tick 2,000: RESYNC(desync) brings it back in step. Corrupted again later, it differs a second time, past max_resyncs (1): the sequencer sends it alone MATCH_END(desynced, desynced_twice), LEFT goes into the turns so the caretaker keeps its seat, and clients 1 and 2 play on in agreement. Client 3 writes its dump and is out of the match.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 7,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "hash1": "scene.hash_hex(1)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 3, 'seed': 7, 'latency_turns': [2, 1, 3]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(3).sim.tick >= 2000', 4000)"},
+    {"eval": "scene.corrupt(3, 'gold', 999)"},
+    {"eval": "scene.run_until('client(3).resyncs.size() == 1 and not client(3).catching_up', 1800)", "as": "first"},
+    {"assert": "first and scene.seq.ended_alone.is_empty()", "msg": "the first desync was resynced"},
+    {"eval": "scene.run_turns(200)"},
+    {"eval": "scene.corrupt(3, 'gold', 998)"},
+    {"eval": "scene.run_until('client(3).phase_name() == \"ENDED\"', 600)", "as": "ended"},
+    {"assert": "ended and scene.client(3).outcome == 'desynced' and scene.client(3).end_reason == 'desynced_twice' and scene.seq.ended_alone == [2]", "msg": "the second desync ended the match for client 3 alone: desynced_twice"},
+    {"assert": "scene.client(3).dump_path == 'user://desync/1-3.bin' and scene.dump(3)['seat'] == 3 and scene.dump(3)['bad_tick'] > 2040", "msg": "it wrote its dump"},
+    {"eval": "scene.run_turns(60)"},
+    {"assert": "scene.system_sent('LEFT', 2) and scene.client(1).sim.seat(3).state == 4", "msg": "LEFT went into the turns: the caretaker keeps seat 3"},
+    {"eval": "scene.run_turns(600)"},
+    {"assert": "scene.seq.phase == 'playing' and scene.client(1).phase_name() == 'IN_MATCH' and scene.client(2).phase_name() == 'IN_MATCH'", "msg": "clients 1 and 2 play on"},
+    {"assert": "scene.pair_agrees(1, 2)", "msg": "and their hash streams agree to the end"}
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "view_towers_stand_after_a_resync",
+  "description": "A RESYNC (here a rejoin after a cut) builds every tower view again from the loaded checkpoint. Those towers already stood: they appear at full height, not squashed into the ground to rise again as a tower just built does.",
+  "seed": 1,
+  "timeout_frames": 12000,
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"},
+    {"eval": "node('LoopbackMain').start({'seed': 3, 'partner_after': 30})"},
+    {"eval": "scene.set('_bot', resource('res://tests/bot.gd').new())"},
+    {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 600},
+    {"wait_until": "scene.tower_views.size() >= 3 and node('LoopbackMain').seq.checkpoint_ticks.size() >= 1", "timeout": 6000},
+    {"wait": 30},
+    {"eval": "node('LoopbackMain').cut(120)"},
+    {"wait_until": "scene.client.resyncs.size() >= 1", "timeout": 1200},
+    {"eval": "scene.tower_views.values()", "as": "views"},
+    {"assert": "views.size() >= 2", "msg": "the towers that stood at the checkpoint were built again"},
+    {"assert": "(views[0].get('_base').scale.y > 0.99) and (views[1].get('_base').scale.y > 0.99) and (views[-1].get('_base').scale.y > 0.99)", "msg": "standing at full height the first frame after the RESYNC"},
+    {"capture": "towers_stand_after_resync"}
+  ]
+}

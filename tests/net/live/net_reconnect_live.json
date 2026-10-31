@@ -1,0 +1,51 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "net_reconnect_live",
+  "description": "Against the real server (a dev match, classic:2): once a checkpoint past tick 0 is kept, the second game's link drops (its socket closes at once, without a close frame: a drop, not a goodbye) and the game is busy for 6 s, so the server hears nothing and its seat goes AWAY: the caretaker plays it, and the other game sees it so. Then the game opens a new link with a resume HELLO (the same token, the match and the wire seat it held): MATCH_CONFIG(rejoin), RESYNC(rejoin) from the latest agreed checkpoint, its parts and the turns since, paced by the server's catch-up. It loads the checkpoint, catches up, says shown, is BACK, and gets its seat back at the next build window; both play on, and their hash streams are equal at every tick both printed.",
+  "seed": 1,
+  "timeout_frames": 9000,
+  "compare_hashes": true,
+  "topology": {
+    "server": {
+      "cmd": ["{python}", "server/main.py", "--port", "0", "--host", "127.0.0.1", "--dev-match", "classic:2", "--seed", "5"],
+      "cwd": ".",
+      "ready": "listening.*port\\D*(?P<port>\\d+)"
+    },
+    "clients": [
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Steady", "--hash-log", "--bot"],
+        "steps": [
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 900},
+          {"wait_until": "scene.sim.seat(3 - scene.client.seat).state == 1", "timeout": 3000},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.connection_state()[0] == 0", "msg": "the partner's silence put its seat AWAY; my world is live"},
+          {"wait_until": "scene.sim.seat(3 - scene.client.seat).state == 0", "timeout": 3000},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH'", "msg": "the partner's seat came back, and the match runs on"},
+          {"wait": 300},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.resyncs.is_empty()", "msg": "no desync, and nothing resynced me"}
+        ]
+      },
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Rejoins", "--hash-log", "--bot"],
+        "steps": [
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 900},
+          {"wait_until": "scene.client.checkpoints.ticks.size() >= 1 and scene.sim.tick >= 1900", "timeout": 2400},
+          {"eval": "scene.client.token", "as": "token"},
+          {"eval": "scene.client.link.close(-1, 'Cable pulled')"},
+          {"set": "scene.client.stalled_frames", "value": 360},
+          {"wait_until": "scene.client.reconnecting", "timeout": 600},
+          {"assert": "not Game.accepts_commands() and scene.client.held_match >= 1 and scene.client.held_seat == scene.client.seat - 1 and scene.overlay().state == 1", "msg": "reconnecting, orders waiting, holding its match and seat; the overlay says so"},
+          {"wait_until": "scene.client.rejoins == 1", "timeout": 900},
+          {"assert": "scene.client.resumes >= 1 and scene.client.token == token and scene.client.resyncs[0][0] == 'rejoin' and scene.client.resyncs[0][1] > 0", "msg": "a resume HELLO with the same token took the seat back: RESYNC(rejoin) from a checkpoint past tick 0"},
+          {"wait_until": "not scene.client.catching_up and scene.client.said_visibility == 0", "timeout": 900},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.overlay().state != 1", "msg": "caught up and shown"},
+          {"wait_until": "scene.sim.seat(scene.client.seat).state == 0", "timeout": 3000},
+          {"assert": "Game.accepts_commands() and scene.client.connection_state()[0] == 0", "msg": "its seat was handed back at a build window, and orders go out again"},
+          {"wait": 300},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.resyncs.size() == 1", "msg": "no desync after the rejoin"}
+        ]
+      }
+    ],
+    "timeout": 300
+  },
+  "steps": []
+}

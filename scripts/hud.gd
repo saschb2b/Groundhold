@@ -44,6 +44,8 @@ const IDLE_GREY := 0.8
 ## How long a title stays up, and a notice such as "Not enough gold".
 const BANNER_HOLD := 1.8
 const NOTICE_HOLD := 0.9
+## A teammate's seat changed hands: a longer line, and nobody pressed anything for it.
+const TEAM_NOTICE_HOLD := 3.0
 ## Titles: how far below the top edge they stand, above the first row of towers.
 const BANNER_TOP := 24
 ## The strip's check glyphs and creep portraits, and the wave list's.
@@ -90,8 +92,11 @@ var _hovered := ""
 var _end_panel: Control
 var _end_label: Label
 var _end_detail: Label
-## Whether orders go out (Game.accepts_commands) as the HUD last showed it.
+## Whether my orders would go out (Game.order_refusal() == "": the match and the link take
+## them, and my seat is mine, not the caretaker's) as the HUD last showed it.
 var _live := true
+## The session's results plate is up (results_shown): no notice or banner over it.
+var _results_up := false
 
 
 func setup(main: Node) -> void:
@@ -105,6 +110,7 @@ func setup(main: Node) -> void:
 	Game.state_changed.connect(_on_state)
 	Game.announced.connect(show_banner)
 	Game.noticed.connect(show_notice)
+	Game.team_noticed.connect(func(text: String) -> void: show_notice(text, TEAM_NOTICE_HOLD))
 	Game.ready_changed.connect(_refresh)
 	Game.towers_changed.connect(_refresh)
 	controller.selection_changed.connect(func(_t: Tower) -> void: _refresh())
@@ -115,9 +121,10 @@ func setup(main: Node) -> void:
 
 func _process(_delta: float) -> void:
 	var live := Game.accepts_commands()
-	if live != _live:
-		_live = live
-		_refresh()  # (the match started, or its link went)
+	var orders := Game.order_refusal() == ""
+	if orders != _live:
+		_live = orders
+		_refresh()  # (the match started, its link went, or the caretaker took or gave back my seat)
 	var ready_cost := ""
 	if Game.sim == null or not live:
 		# (networked, before START or after the link went: the world stands still, and
@@ -138,7 +145,7 @@ func _process(_delta: float) -> void:
 			if mine.state == SimTypes.SEAT_PRESENT and controller.wants_ready() != mine.ready:
 				count[0] += 1 if controller.wants_ready() else -1
 			_countdown.text += " · Ready %d/%d" % [count[0], count[1]]
-		if Game.early_gold() > 0 and Game.wave < Game.total_waves():
+		if Game.early_gold() > 0 and Game.wave < Game.total_waves() and orders:
 			ready_cost = "+%d" % Game.early_gold()  # the gold an early horn pays
 	elif Game.state == Game.State.WAVE:
 		var left := Game.creeps_left()
@@ -157,14 +164,15 @@ func _process(_delta: float) -> void:
 
 ## A title for a moment of the game: a wave arriving, a wave cleared, the end.
 func show_banner(text: String) -> void:
-	if _end_panel.visible:
+	if _end_panel.visible or _results_up:
 		return  # the end plate says it already
 	_banner.show_title(text, BANNER_HOLD)
 
 
-## A short line above the selection's name for a refused order, gone in about a second and a half.
-func show_notice(text: String) -> void:
-	if _end_panel.visible:
+## A short line above the selection's name for a refused order, gone in about a second and
+## a half (`hold` seconds before it fades: longer for a teammate's seat).
+func show_notice(text: String, hold := NOTICE_HOLD) -> void:
+	if _end_panel.visible or _results_up:
 		return
 	_notice.text = text
 	_notice.visible = true
@@ -172,9 +180,25 @@ func show_notice(text: String) -> void:
 	if _notice_tween:
 		_notice_tween.kill()
 	_notice_tween = create_tween()
-	_notice_tween.tween_interval(NOTICE_HOLD)
+	_notice_tween.tween_interval(hold)
 	_notice_tween.tween_property(_notice, "modulate:a", 0.0, 0.6)
 	_notice_tween.tween_callback(func() -> void: _notice.visible = false)
+
+
+## The session's results plate is up (main.gd): what the notice and the banner said goes,
+## and nothing more shows under the plate (a teammate's word, a wave's title).
+func results_shown() -> void:
+	_results_up = true
+	clear_messages()
+
+
+## The notice and the banner go at once: the world jumped to a loaded checkpoint (a
+## RESYNC), and what they said is from before it.
+func clear_messages() -> void:
+	if _notice_tween:
+		_notice_tween.kill()
+	_notice.visible = false
+	_banner.hide_title()
 
 
 ## What each card slot shows now, in place order, for tests: {"what" (a tower or form
@@ -627,9 +651,10 @@ func _refresh() -> void:
 ## The six slots as the selection makes them (design 5.7's table).
 func _refresh_card() -> void:
 	var over := _over()
-	# (networked, orders go nowhere before START or after the link went: every command
+	# (networked, orders go nowhere before START or after the link went, nor while the
+	# caretaker holds my seat (away, or back until the next build window): every command
 	# greys, as it does once the match is over)
-	var live := Game.accepts_commands()
+	var live := Game.order_refusal() == ""
 	_live = live
 	var tower := controller.selected
 	var has_tower := tower != null and is_instance_valid(tower)
@@ -1051,8 +1076,8 @@ func _show_tooltip(what: String) -> void:
 				if not _ready_button.disabled
 				else (
 					"The horn waits until this wave is cleared."
-					if Game.accepts_commands()
-					else Game.command_refusal() + "."
+					if Game.order_refusal() == ""
+					else Game.order_refusal() + "."
 				)
 			)
 	if cost > 0:

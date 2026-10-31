@@ -1,0 +1,25 @@
+{
+  "name": "net_tab_back_without_resync_hashes_again",
+  "description": "Two seats. Client 2's tab hides for 240 frames early in the match, before any checkpoint past its last hash is kept, so shown again and about 240 ticks behind it says catching_up, holds its HASHes and catches up from the turns it buffered, and no RESYNC answers: the sequencer has nothing further on to send. The hold ends once the server's answer is known, when the turn its PONG named arrives with no RESYNC before it: then its HASHes go out again, and they agree with client 1's.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 12,
+  "timeout_frames": 600,
+  "watch": {"phase2": "scene.client(2).phase_name()", "hashes2": "scene.client(2).hashes_sent", "tick2": "scene.tick(2)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 12, 'latency_turns': [1, 4]})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(2).sim.tick >= 300', 1200)"},
+    {"eval": "scene.hide(2, 240)"},
+    {"eval": "scene.run_until('not client(2).hidden', 300)"},
+    {"eval": "scene.run_until('client(2).said_visibility == 2', 60)", "as": "said_catching_up"},
+    {"assert": "said_catching_up", "msg": "shown again and behind, it said catching_up"},
+    {"eval": "scene.client(2).hashes_sent", "as": "hashes_at_return"},
+    {"eval": "scene.run_until('not client(2).catching_up', 600)", "as": "caught_up"},
+    {"assert": "caught_up and scene.client(2).resyncs.is_empty() and scene.seq.resync_log.is_empty()", "msg": "it caught up from the turns it buffered, and no RESYNC came"},
+    {"eval": "scene.run_until('client(2).hashes_sent > %d' % hashes_at_return, 300)", "as": "hashing"},
+    {"assert": "hashing", "msg": "with no RESYNC to wait for, its HASHes go out again"},
+    {"eval": "scene.run_turns(200)"},
+    {"assert": "scene.client(2).hashes_sent >= hashes_at_return + 8 and scene.client(2).phase_name() == 'IN_MATCH'", "msg": "and keep going out"},
+    {"assert": "scene.sent_hashes_agree_from(0) and scene.seq.disagreements.is_empty()", "msg": "they agree with client 1's"}
+  ]
+}

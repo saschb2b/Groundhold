@@ -11,6 +11,7 @@ Adapted from Cyberworld Endless's server/cyberworld_server/protocol.py
 and the maintenance line are its; the message set is Groundhold's.
 """
 
+import hashlib
 import json
 import re
 import struct
@@ -33,6 +34,8 @@ NOTICES = SPEC["notices"]
 OUTCOMES = SPEC["outcomes"]
 END_REASONS = SPEC["end_reasons"]
 LOAD_STATES = SPEC["load_states"]
+VISIBILITY = SPEC["visibility_states"]
+RESYNC_REASONS = SPEC["resync_reasons"]
 SYSTEM_SEAT = SPEC["system_seat"]
 NAME = re.compile(SPEC["name_pattern"])
 SCALARS = {"u8": struct.Struct("!B"), "u16": struct.Struct("!H"), "u32": struct.Struct("!I"),
@@ -288,6 +291,9 @@ def read_hello(data):
         raise ProtocolError("A random token is required", ERRORS["bad_token"])
     if not NAME.fullmatch(hello["name"]):
         raise ProtocolError("Use 1-16 ASCII letters, digits, spaces, _ or -", ERRORS["bad_name"])
+    # (a resume names the seat it held: a wire seat and its match, or 255 and 0 for none)
+    if hello["seat"] != SYSTEM_SEAT and (hello["seat"] >= SPEC["max_seats"] or hello["match"] == 0):
+        raise ProtocolError("Malformed HELLO")
     return hello
 
 
@@ -302,6 +308,27 @@ def check_command(kind, a, b, c):
         if not low <= value <= high:
             raise ProtocolError(name + " argument outside its limits", ERRORS["out_of_limits"])
     return name
+
+
+def digest(data):
+    """A state's hash from its bytes: the first 8 bytes of SHA-256, as the
+    game's SimMatch.state_hash() is of SimCodec's bytes. An uploaded
+    checkpoint is kept only when its digest is the hash the seats agreed for
+    its tick (docs/design/contract-m4.md)."""
+    return hashlib.sha256(data).digest()[:SPEC["hash_bytes"]]
+
+
+def checkpoint_parts(tick, data):
+    """A checkpoint's bytes as CHECKPOINT_PART messages: parts of
+    checkpoint_part bytes in order from 0, every one but the last full. A
+    game uploads them so, and a RESYNC sends them so; tick 0 has none (every
+    game builds it from MATCH_CONFIG)."""
+    size = SPEC["checkpoint_part"]
+    chunks = [data[start:start + size] for start in range(0, len(data), size)]
+    if len(chunks) > SPEC["max_checkpoint_parts"]:
+        raise ValueError(f"a checkpoint of {len(data)} bytes is more than max_checkpoint_parts")
+    return [encode("CHECKPOINT_PART", tick=tick, part=index, parts=len(chunks), data=chunk)
+            for index, chunk in enumerate(chunks)]
 
 
 def error(exc):

@@ -1,0 +1,16 @@
+{
+  "name": "hub",
+  "description": "README and site: the hub on the Causeway at low water, offline, a party of one; Tamsin Wick, the Lamplighter, in the arch with the checks she covers, the modes, and Play.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 2},
+    {"set": "node('Causeway').drift", "value": 40.0},
+    {"wait": 30},
+    {"assert": "node('Place').text == 'Offline' and node('HubPanel').primary_text() == 'Play'", "msg": "offline, a party of one, Play"},
+    {"capture": "hub"}
+  ]
+}

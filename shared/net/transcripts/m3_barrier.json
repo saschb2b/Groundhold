@@ -15,7 +15,9 @@
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
     "flags": 0,
-    "name": "Tamsin"
+    "name": "Tamsin",
+    "match": 0,
+    "seat": 255
    }
   },
   {
@@ -79,7 +81,9 @@
     "rules_hash": "47726f756e646831",
     "token": "1112131415161718191a1b1c1d1e1f20",
     "flags": 0,
-    "name": "Edda"
+    "name": "Edda",
+    "match": 0,
+    "seat": 255
    }
   },
   {
@@ -539,7 +543,8 @@
       "flags": 0,
       "name": "Edda"
      }
-    ]
+    ],
+    "flags": 0
    }
   },
   {
@@ -568,7 +573,8 @@
       "flags": 0,
       "name": "Edda"
      }
-    ]
+    ],
+    "flags": 0
    }
   },
   {

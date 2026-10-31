@@ -1,0 +1,33 @@
+{
+  "name": "net_silent_link_reconnects",
+  "description": "A link that goes silent without a close (Wi-Fi lost, a stalled router or hotspot): nothing gets through either way and TCP reports nothing, which on a real network may take minutes. The game notices on its own: in a match the server speaks every turn, so once its link has brought nothing for away_ms (5 s, as long as the server waits before it calls the seat AWAY) the game drops it and reconnects as from a lost link. Within about 5 s of the mute the overlay says reconnecting and orders are refused; the resume HELLO on a new link takes the seat back, and the hashes agree. Before that, the game's own 7 s stall (it neither reads nor steps) is not taken for the server's silence: what came meanwhile is read first.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 12,
+  "timeout_frames": 600,
+  "watch": {"phase2": "scene.client(2).phase_name()", "state2": "scene.states_seen[1]", "rejoins2": "scene.client(2).rejoins", "attempts2": "scene.client(2).reconnect_attempts"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 12, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(2).sim.tick >= 600', 2000)"},
+    {"eval": "scene.stall(2, 140)"},
+    {"eval": "scene.run_frames(460)"},
+    {"assert": "not scene.client(2).reconnecting and scene.client(2).reconnect_attempts == 0 and scene.client(2).link.is_open()", "msg": "its own 7 s stall is not the server's silence: the link is kept"},
+    {"eval": "scene.run_until('client(2).sim.tick >= 1500', 2000)"},
+    {"eval": "scene.frame", "as": "muted_at"},
+    {"eval": "scene.mute(2)"},
+    {"eval": "scene.run_frames(240)"},
+    {"assert": "not scene.client(2).reconnecting and scene.client(2).link.is_open()", "msg": "4 s of silence: not yet"},
+    {"eval": "scene.run_until('client(2).reconnecting', 120)", "as": "noticed"},
+    {"eval": "scene.frame - muted_at", "as": "frames_to_notice"},
+    {"assert": "noticed and frames_to_notice <= 306", "msg": "within about 5 s of the silence the game takes the link for lost"},
+    {"assert": "scene.client(2).connection_state()[0] == 1 and scene.states_seen[1][-1] == 'RECONNECTING'", "msg": "the overlay says reconnecting"},
+    {"assert": "scene.client(2).cmd('BUILD', 0, 8, 3) == -1 and scene.client(2).source.closed_note == 'Reconnecting to the server'", "msg": "orders are refused, and say why"},
+    {"assert": "scene.system_sent('AWAY', 1)", "msg": "meanwhile the server called the seat AWAY"},
+    {"eval": "scene.run_until('client(2).rejoins == 1 and not client(2).catching_up', 1200)", "as": "rejoined"},
+    {"assert": "rejoined and scene.client(2).phase_name() == 'IN_MATCH' and scene.client(2).resumes == 1", "msg": "a resume HELLO on a new link took the seat back"},
+    {"eval": "scene.client(2).resyncs[-1][1]", "as": "rejoined_from"},
+    {"eval": "scene.run_turns(300)"},
+    {"assert": "scene.client(2).phase_name() == 'IN_MATCH' and scene.sent_hashes_agree_from(rejoined_from + 60) and scene.seq.disagreements.is_empty()", "msg": "the hashes agree from the rejoin on"}
+  ]
+}

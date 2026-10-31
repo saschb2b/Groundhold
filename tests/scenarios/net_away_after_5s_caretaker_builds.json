@@ -1,0 +1,33 @@
+{
+  "name": "net_away_after_5s_caretaker_builds",
+  "description": "Client 2's game hangs early in the first build window. Five seconds of silence later the sequencer sends AWAY for wire seat 1, and from that turn on the caretaker plays simulation seat 2 on every client: it builds the Lamplighter's plan with the seat's own gold (its towers rise and its gold is spent, the same on both clients), and the seat counts as Ready in every build window while client 1's plan bot plays on. Both clients' hashes agree throughout.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 6,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "hash1": "scene.hash_hex(1)", "seat2_towers": "scene.client(1).sim.seat(2).towers if scene.client(1).sim else 0"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 6, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true, [1])"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_turns(30)"},
+    {"eval": "[scene.client(1).sim.seat(2).gold, scene.client(1).sim.seat(2).towers]", "as": "before"},
+    {"assert": "before == [120, 0] and scene.client(1).sim.seat(2).state == 0", "msg": "seat 2 stands present, idle, with its starting gold"},
+    {"eval": "scene.stall(2, 2400)"},
+    {"eval": "scene.run_until('system_sent(\"AWAY\", 1)', 400)", "as": "away"},
+    {"eval": "scene.seq.system_log[-1][0]", "as": "away_turn"},
+    {"assert": "away and scene.seq.system_log.size() == 1", "msg": "the silence became AWAY for wire seat 1, and nothing else"},
+    {"eval": "scene.run_turns(20)"},
+    {"assert": "scene.client(1).sim.seat(2).state == 1", "msg": "simulation seat 2 is the caretaker's"},
+    {"eval": "scene.run_until('client(1).sim.seat(2).towers >= 1', 600)", "as": "built"},
+    {"assert": "built and scene.client(1).sim.seat(2).gold < 120", "msg": "the caretaker built for seat 2 with seat 2's own gold"},
+    {"eval": "scene.run_until('client(1).sim.hollows[0].wave >= 3', 12000)", "as": "waves"},
+    {"eval": "scene.client(1).sim.seat(2).towers", "as": "towers_later"},
+    {"assert": "waves and towers_later >= 2 and scene.client(1).sim.seat(2).plan_cursor >= 2", "msg": "by the third wave the caretaker had worked further down the plan"},
+    {"eval": "scene.away_windows(1, 2)", "as": "away_windows"},
+    {"assert": "away_windows.size() >= 2 and not away_windows.has(false)", "msg": "in every build window while away, seat 2 counted as Ready"},
+    {"eval": "scene.run_until('client(2).stalled_frames == 0', 7200)"},
+    {"eval": "scene.run_turns(400)"},
+    {"assert": "scene.client(2).sim.seat(2).towers == scene.client(1).sim.seat(2).towers and scene.client(2).sim.seat(2).gold == scene.client(1).sim.seat(2).gold", "msg": "the hung client, caught up, shows the same towers and gold for its seat"},
+    {"assert": "scene.hashes_agree() and scene.sent_hashes_agree()", "msg": "every hash agreed"}
+  ]
+}

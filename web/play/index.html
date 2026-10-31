@@ -3,13 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page's title is the one the game flashes while its tab is in the background: the game runs in
+     the frame below and writes window.parent.document.title (design 6.8, scripts/net/web_bridge.gd). -->
 <title>Play Groundhold in your browser</title>
-<meta name="description" content="Play Groundhold, a tower defense where Builders hold one another's ground, right in your browser. No install.">
+<meta name="description" content="Play Groundhold, a co-op tower defense for one to four players, in your browser. No install.">
 <link rel="canonical" href="https://saschb2b.github.io/Groundhold/play/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Play Groundhold in your browser">
-<meta property="og:description" content="Three towers, eight waves and the Hollowtide Crest. No install.">
+<meta property="og:description" content="Hold Wickhollow's road with your party through twelve waves of High Water. No install.">
 <meta property="og:image" content="https://saschb2b.github.io/Groundhold/media/social.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#1b2438">
 <link rel="icon" href="../ui/icons/arrow_tower.png" type="image/png">
@@ -22,7 +26,8 @@
 		<a class="brand" href="../"><img src="../ui/icons/arrow_tower.png" alt=""><span>Groundhold</span></a>
 		<nav aria-label="Site">
 			<a href="./" aria-current="page">Play</a>
-			<a href="../#towers">Towers</a>
+			<a href="../#builders">Builders</a>
+			<a href="../#together">Play together</a>
 			<a href="../#how">How to play</a>
 			<a href="https://github.com/saschb2b/Groundhold">Source</a>
 		</nav>
@@ -32,17 +37,20 @@
 <main class="wrap">
 	<div class="frame">
 		<div class="stage">
-			<iframe id="game" src="game/" title="Groundhold" allow="autoplay; fullscreen" allowfullscreen></iframe>
+			<iframe id="game" title="Groundhold" allow="autoplay; fullscreen" allowfullscreen></iframe>
 		</div>
 	</div>
 	<div class="under">
-		<p class="note">Click into the game to give it the keyboard. <kbd>A</kbd> <kbd>C</kbd> <kbd>F</kbd> build, <kbd>U</kbd> upgrades, <kbd>S</kbd> sells, <kbd>N</kbd> calls the next wave.</p>
+		<p class="note">Click into the game to give it the keyboard. <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> build,
+		<kbd>S</kbd> sells, <kbd>D</kbd> says Ready, <kbd>Esc</kbd> opens the menu.</p>
 		<span>
 			<a class="button" href="#" id="fullscreen">Fullscreen</a>
 			<a class="button" href="#" id="restart">Restart</a>
 		</span>
 	</div>
-	<p class="note">Runs on WebGL 2 in desktop browsers (Chrome, Firefox, Edge, Safari 15 or newer). <a href="../#how">All controls</a>.</p>
+	<p class="note">Runs on WebGL 2 in desktop browsers (Chrome, Firefox, Edge, Safari 15 or newer). In the browser a party
+	plays online; parties on your home network need the desktop version. Keep this tab in front while a match loads.
+	<a href="../#how">All controls</a>.</p>
 </main>
 
 <footer>
@@ -50,7 +58,15 @@
 </footer>
 
 <script>
+// The game is the page in game/. A party's link, play/?join=K7Q4M, hands its code on to the
+// game as game/?join=K7Q4M (design 6.8), where WebBridge.query("join") reads it. Only a
+// code's own symbols pass: letters, digits and a hyphen, nine at most.
+function gameSource(search) {
+	const code = (new URLSearchParams(search).get("join") || "").replace(/[^0-9A-Za-z-]/g, "").slice(0, 9);
+	return code ? "game/?join=" + encodeURIComponent(code) : "game/";
+}
 const frame = document.getElementById("game");
+frame.src = gameSource(location.search);
 document.getElementById("fullscreen").addEventListener("click", (event) => {
 	event.preventDefault();
 	frame.requestFullscreen?.();
@@ -58,7 +74,7 @@ document.getElementById("fullscreen").addEventListener("click", (event) => {
 });
 document.getElementById("restart").addEventListener("click", (event) => {
 	event.preventDefault();
-	frame.src = frame.src;
+	frame.src = gameSource(location.search);
 });
 </script>
 </body>

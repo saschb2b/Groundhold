@@ -15,7 +15,9 @@
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
     "flags": 3,
-    "name": "Tamsin Wick"
+    "name": "Tamsin Wick",
+    "match": 9,
+    "seat": 2
    }
   },
   {
@@ -312,7 +314,8 @@
       "flags": 1,
       "name": "Sefa"
      }
-    ]
+    ],
+    "flags": 1
    }
   },
   {
@@ -649,7 +652,11 @@
    "type": "RESYNC",
    "fields": {
     "checkpoint_tick": 1800,
-    "first_turn": 600
+    "first_turn": 600,
+    "reason": 2,
+    "open_turn": 1234,
+    "checkpoint_hash": "0123456789abcdef",
+    "parts": 2
    }
   },
   {
@@ -665,7 +672,7 @@
    "client": 0,
    "type": "VISIBILITY",
    "fields": {
-    "hidden": 1
+    "state": 2
    }
   },
   {

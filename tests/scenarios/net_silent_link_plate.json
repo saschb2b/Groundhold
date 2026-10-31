@@ -1,0 +1,29 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "net_silent_link_plate",
+  "description": "Tamsin's window's link goes silent without a close (nothing gets through either way, as when Wi-Fi is lost or a router stalls). Within about 5 s the window says so: the Reconnecting plate, the command card greyed and orders refused for the reconnect, instead of a frozen world with a live card and her own full link bars. The game drops the silent link and reconnects with a resume HELLO on a new one, which takes her seat back; the plate goes.",
+  "seed": 1,
+  "timeout_frames": 12000,
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"},
+    {"eval": "node('LoopbackMain').start({'seed': 3, 'partner_after': 30})"},
+    {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 600},
+    {"wait_until": "scene.sim.tick >= 300", "timeout": 600},
+    {"eval": "node('LoopbackMain').frame", "as": "muted_at"},
+    {"eval": "node('LoopbackMain').mute()"},
+    {"wait": 240},
+    {"assert": "not scene.client.reconnecting and Game.accepts_commands()", "msg": "4 s of silence: not yet"},
+    {"wait_until": "scene.client.reconnecting", "timeout": 90},
+    {"assert": "node('LoopbackMain').frame - muted_at <= 310", "msg": "within about 5 s of the silence"},
+    {"wait": 2},
+    {"assert": "scene.overlay().state == 1 and scene.overlay().visible", "msg": "the Reconnecting plate"},
+    {"assert": "not Game.accepts_commands() and Game.command_refusal() == 'Reconnecting to the server'", "msg": "orders are refused, and say why"},
+    {"assert": "node('Hud').card()[0]['state'] == 'idle' and node('Hud').card()[3]['state'] == 'idle' and node('Hud').card()[5]['state'] == 'idle'", "msg": "the card greys"},
+    {"capture": "silent_link_reconnecting_plate"},
+    {"wait_until": "scene.client.rejoins == 1 and not scene.client.catching_up", "timeout": 2400},
+    {"assert": "scene.client.phase_name() == 'IN_MATCH' and scene.client.resumes == 1", "msg": "a resume on a new link took the seat back"},
+    {"wait": 12},
+    {"assert": "scene.overlay().state != 1", "msg": "the Reconnecting plate went"}
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "net_two_seat_desync_dumps_live",
+  "description": "Against the real server (a dev match, classic:2): once a checkpoint is kept, a bug writes the second game's own gold to 999, so its next hash parts from the first's. Two seats apart have no majority: the server ends the match desynced for both (MATCH_END desynced at that hash tick). Each game writes user://desync/<match>-<seat>.bin, and the overlay says the lands fell out of step and that a report was saved. Each dump reads back whole: its match, seat and bad tick are the game's, its checkpoint is the last one it kept before the bad tick (past tick 0), and that checkpoint run through the dump's turns reaches every hash the seat sent from there to the bad tick. A copy of each is left in the run's folder. The two streams part by design, so the kit does not compare them.",
+  "seed": 1,
+  "timeout_frames": 9000,
+  "compare_hashes": false,
+  "topology": {
+    "server": {
+      "cmd": ["{python}", "server/main.py", "--port", "0", "--host", "127.0.0.1", "--dev-match", "classic:2", "--seed", "5", "--event-log", "{out}/events.jsonl"],
+      "cwd": ".",
+      "ready": "listening.*port\\D*(?P<port>\\d+)"
+    },
+    "clients": [
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Steady", "--hash-log", "--bot"],
+        "steps": [
+          {"eval": "resource('res://tests/net/live_checks.gd')", "as": "Checks"},
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 1200},
+          {"wait_until": "scene.client.phase_name() == 'ENDED'", "timeout": 6000},
+          {"assert": "scene.client.outcome == 'desynced' and scene.client.end_reason == 'desync'", "msg": "two seats apart: the match ended desynced for this seat too"},
+          {"assert": "scene.client.dump_path == 'user://desync/%d-%d.bin' % [scene.client.match_id, scene.client.seat]", "msg": "the dump is named by the match and the seat"},
+          {"eval": "Checks.dump_summary(scene.client.dump_path)", "as": "dump"},
+          {"assert": "dump['match'] == scene.client.match_id and dump['seat'] == scene.client.seat and dump['bad_tick'] == scene.client.final_tick", "msg": "the dump reads back whole: its match, seat and bad tick"},
+          {"assert": "dump['checkpoint_tick'] > 0 and dump['checkpoint_bytes'] > 0 and dump['turns'] > 0 and dump['state_bytes'] > 0 and dump['hashes'] > 0", "msg": "it holds the last checkpoint before the bad tick, the turns since, the state at the bad tick and the hash stream"},
+          {"assert": "dump['replays'] and dump['replayed_hashes'] > 0", "msg": "its checkpoint run through its turns reaches every hash this seat sent up to the bad tick"},
+          {"assert": "scene.overlay().state == 4 and scene.overlay().detail == 'A report was saved' and scene.client.dump_path.begins_with('user://desync/')", "msg": "the overlay says the lands fell out of step and that a report was saved"},
+          {"assert": "Checks.copy_out(scene.client.dump_path, '{out}/client1_' + scene.client.dump_path.get_file())", "msg": "a copy is in the run's folder"}
+        ]
+      },
+      {
+        "args": ["--", "--join=127.0.0.1:{port}", "--name=Strays", "--hash-log", "--bot"],
+        "steps": [
+          {"eval": "resource('res://tests/net/live_checks.gd')", "as": "Checks"},
+          {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 1200},
+          {"wait_until": "scene.sim.tick >= 2100 and scene.client.checkpoints.ticks.size() >= 1", "timeout": 3600},
+          {"assert": "scene.client.phase_name() == 'IN_MATCH'", "msg": "every hash agreed so far"},
+          {"set": "scene.sim.seat(scene.client.seat).gold", "value": 999},
+          {"wait_until": "scene.client.phase_name() == 'ENDED'", "timeout": 1800},
+          {"assert": "scene.client.outcome == 'desynced' and scene.client.end_reason == 'desync' and scene.client.resyncs.is_empty()", "msg": "no majority to resync from: the match ended desynced"},
+          {"assert": "Checks.file_has('{out}/events.jsonl', '\"event\": \"end\", \"match\": 1, \"reason\": \"desync\"') and not Checks.file_has('{out}/events.jsonl', '\"event\": \"resync\"')", "msg": "the server ended the match for a desync and resynced nobody"},
+          {"eval": "Checks.dump_summary(scene.client.dump_path)", "as": "dump"},
+          {"assert": "dump['match'] == scene.client.match_id and dump['seat'] == scene.client.seat and dump['bad_tick'] == scene.client.final_tick", "msg": "the dump reads back whole: its match, seat and bad tick"},
+          {"assert": "dump['checkpoint_tick'] > 0 and dump['turns'] > 0 and dump['state_bytes'] > 0 and dump['replays'] and dump['replayed_hashes'] > 0", "msg": "its checkpoint, turns and state are there, and they replay its hashes up to the bad tick"},
+          {"assert": "scene.overlay().state == 4 and scene.overlay().detail == 'A report was saved' and scene.client.dump_path.begins_with('user://desync/')", "msg": "the overlay says a report was saved"},
+          {"assert": "Checks.copy_out(scene.client.dump_path, '{out}/client2_' + scene.client.dump_path.get_file())", "msg": "a copy is in the run's folder"}
+        ]
+      }
+    ],
+    "timeout": 300
+  },
+  "steps": []
+}

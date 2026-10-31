@@ -7,6 +7,10 @@
 ##   {"assert": "scene.hashes_agree()"}
 extends Node
 
+## SimMatch's working memory for stage 5 (SimMatch.by_distance), rebuilt every tick and
+## never state: record_differences leaves it out.
+const MATCH_CACHES := ["order_idx", "order_dist", "_order_built", "_looking", "walks"]
+
 var seq: LocalSequencer
 var clients: Array[SimMatch] = []
 var config := {}
@@ -22,6 +26,8 @@ var leaks: Array = []
 var bosses := {}
 ## Client 1's waves: how many seconds each took from its horn to its clear.
 var wave_seconds: Array = []
+## Per client: lockstep ticks it still sits out (stall()).
+var stalled := PackedInt32Array()
 
 
 ## {"mode": "classic", "seats": 1, "seed": 1, "clients": 1, "caretakers": [seat numbers],
@@ -46,6 +52,7 @@ func start(cfg := {}) -> SimMatch:
 	leaks.clear()
 	bosses.clear()
 	wave_seconds.clear()
+	stalled.clear()
 	for k in int(cfg.get("clients", 1)):
 		_join(_new_match())
 	return clients[0]
@@ -65,12 +72,159 @@ func system(name: String, a := 0) -> void:
 	seq.system(SimTypes.command_type(name), a)
 
 
-## Steps every client `n` ticks, in lockstep. Returns the first client's tick.
+## Steps every client `n` ticks, in lockstep (a stalled client sits them out). Returns
+## the first client's tick.
 func run_ticks(n: int) -> int:
 	for i in n:
 		for k in clients.size():
+			if stalled[k] > 0:
+				stalled[k] -= 1
+				continue
 			_step(k)
 	return clients[0].tick
+
+
+## Client k (2 or more; client 1 keeps the clock) sits out the next `ticks` lockstep
+## ticks, as a game whose loop stopped (a hidden tab, a long hitch): the turns it misses
+## wait in the log, as they wait in a socket's buffer. catch_up(k) brings it back.
+func stall(k: int, ticks: int) -> void:
+	stalled[k - 1] = maxi(0, ticks)
+
+
+## How many ticks client k is behind client 1.
+func behind(k: int) -> int:
+	return clients[0].tick - clients[k - 1].tick
+
+
+## Runs client k alone, `per_call` ticks at a time (Playout catches up 8 ticks a frame;
+## at least 1), until it stands at client 1's tick. Returns how many calls that took, or
+## -1 with an error when a call ran no tick (its turn is not in the log): a wait that
+## cannot end stops at once instead of spinning until the run's timeout.
+func catch_up(k: int, per_call := 8) -> int:
+	stalled[k - 1] = 0
+	var calls := 0
+	while clients[k - 1].tick < clients[0].tick:
+		var was := clients[k - 1].tick
+		var n := mini(maxi(1, per_call), clients[0].tick - was)
+		for i in n:
+			_step(k - 1)
+		calls += 1
+		if clients[k - 1].tick == was:
+			push_error("catch_up: client %d has no turn for tick %d" % [k, was])
+			return -1
+	return calls
+
+
+## Seat `seat`'s state on client k by name: "present", "away", "returning", "caretaker"
+## or "left".
+func seat_state(seat: int, k := 1) -> String:
+	return SimTypes.seat_state_name(clients[k - 1].seat(seat).state)
+
+
+## Every move of seat `seat`'s state on client k (its SEAT events) as [tick, state name].
+func seat_moves(seat: int, k := 1) -> Array:
+	var out := []
+	for e: Dictionary in events_where("SEAT", {"seat": seat}, k):
+		out.append([int(e["tick"]), SimTypes.seat_state_name(int(e["state"]))])
+	return out
+
+
+## The entries of a list from tick `tick` on: events (events_of, events_where) or
+## [tick, ...] rows (refusal_ticks, seat_moves).
+func since(list: Array, tick: int) -> Array:
+	var out := []
+	for e: Variant in list:
+		var at := int((e as Dictionary)["tick"]) if e is Dictionary else int((e as Array)[0])
+		if at >= tick:
+			out.append(e)
+	return out
+
+
+## The refusals seat `seat` received on client k as [tick, reason name], oldest first.
+func refusal_ticks(seat: int, k := 1) -> Array:
+	var out := []
+	for e: Dictionary in events_where("REJECTED", {"seat": seat}, k):
+		out.append([int(e["tick"]), SimTypes.refusal_name(int(e["reason"]))])
+	return out
+
+
+## Shots fired so far by the towers seat `seat` has standing on client k.
+func shots_by(seat: int, k := 1) -> int:
+	var total := 0
+	for t: SimRecords.SimTower in clients[k - 1].towers:
+		if t.owner == seat:
+			total += t.shots
+	return total
+
+
+## The seat whose tower stands on cell (x, z) of client k, 0 for none (an Expression
+## evaluates both sides of `or`, so a scenario cannot write tower_at(x, z).owner safely).
+func owner_at(x: int, z: int, k := 1) -> int:
+	var t := tower_at(x, z, k)
+	return t.owner if t else 0
+
+
+## How many creeps on client k's road are marked and how many slowed right now.
+func effects_on_road(k := 1) -> Array:
+	var sim := clients[k - 1]
+	var marked := 0
+	var slowed := 0
+	for c: SimRecords.SimCreep in sim.creeps:
+		if c.mark_pm > 0 and c.mark_until > sim.tick:
+			marked += 1
+		if c.slow_pm > 0 and c.slow_until > sim.tick:
+			slowed += 1
+	return [marked, slowed]
+
+
+## Seat `seat`'s towers on client k as "x,z form", in id order.
+func towers_of(seat: int, k := 1) -> Array:
+	var out := []
+	for t: SimRecords.SimTower in clients[k - 1].towers:
+		if t.owner == seat:
+			out.append("%d,%d %s" % [t.x, t.z, SimContent.tower_form(t.kind, t.branch)])
+	return out
+
+
+## A cell no tower can stand on (the road's first cell, at the Welling), for orders that
+## must be refused whoever reads them: CARETAKEN while the caretaker holds the seat,
+## CANNOT_BUILD_THERE once it is the player's.
+func road_cell(k := 1) -> Array:
+	var road := clients[k - 1].hollows[0].road
+	return [road.path_x[0], road.path_z[0]]
+
+
+## For every tower on client k as the state stands now, the creep stage 5's walk along
+## the road picks (SimTargeting.furthest with SimMatch.by_distance) against a scan of
+## every creep, winged only and not; returns where they differ. Adds the count of
+## comparisons to config["walk_checks"].
+func targeting_mismatches(k := 1) -> Array:
+	var sim := clients[k - 1]
+	var out := []
+	var walked := []
+	sim.open_look()  # as stage 5 does: the walk along the road
+	for t: SimRecords.SimTower in sim.towers:
+		walked.append([SimTargeting.furthest(sim, t, false), SimTargeting.furthest(sim, t, true)])
+	sim.close_look()  # any other time: the scan of every creep
+	for i in sim.towers.size():
+		var t := sim.towers[i]
+		for w in 2:
+			var scanned := SimTargeting.furthest(sim, t, w == 1)
+			config["walk_checks"] = int(config.get("walk_checks", 0)) + 1
+			if walked[i][w] != scanned:
+				out.append("tick %d tower %d (%s) winged_only %s: walk %d, scan %d" % [sim.tick, t.id, t.kind, w == 1, walked[i][w], scanned])
+	return out
+
+
+## Steps every client `n` ticks, checking targeting_mismatches on client k before each.
+## Returns the first mismatches found, or [].
+func run_checking_targets(n: int, k := 1) -> Array:
+	for i in n:
+		var bad := targeting_mismatches(k)
+		if not bad.is_empty():
+			return bad
+		run_ticks(1)
+	return []
 
 
 func run_turns(n: int) -> int:
@@ -151,8 +305,12 @@ func tower_at(x: int, z: int, k := 1) -> SimRecords.SimTower:
 
 
 ## A debug write (SimTypes.DBG_*) on every client at once, logged like the game's
-## scenario setters so a replay of record() reproduces it.
+## scenario setters so a replay of record() reproduces it. Every client must stand at
+## the same tick (none stalled behind), or the write would land at different ticks.
 func debug(op: int, a: int, b := 0, c := 0) -> void:
+	for k in range(1, clients.size()):
+		if clients[k].tick != clients[0].tick:
+			push_error("debug write while client %d is %d ticks behind" % [k + 1, behind(k + 1)])
 	seq.record_debug(clients[0].tick, op, a, b, c)
 	for sim in clients:
 		sim.debug(op, a, b, c)
@@ -385,6 +543,8 @@ func _compare_fields(where: String, x: Object, y: Object, out: Array) -> void:
 		if not (int(p["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE):
 			continue
 		var name: String = p["name"]
+		if x is SimMatch and MATCH_CACHES.has(name):
+			continue  # stage 5's working memory, rebuilt each tick; not state
 		var vx: Variant = x.get(name)
 		var vy: Variant = y.get(name)
 		# (records in lists are compared one by one above; objects and maps of them
@@ -470,12 +630,17 @@ func _claims_any(sim: SimMatch, step: PackedInt32Array, claimed: PackedInt32Arra
 
 ## Plays client 1's match to its end: the seats in `by_command` work down their plans
 ## through commands every `every` ticks (plan_step), caretaken seats play themselves,
-## the rest stand idle. Returns the final tick.
+## the rest stand idle. Returns the final tick. Stops at `limit`, and with an error when
+## a round ran no tick (the sequencer paused): the wait would never end.
 func play_out(by_command := [], every := 30, limit := 120000) -> int:
 	while not clients[0].over and clients[0].tick < limit:
+		var was := clients[0].tick
 		for seat: int in by_command:
 			plan_step(int(seat))
-		run_ticks(every)
+		run_ticks(maxi(1, every))
+		if clients[0].tick == was:
+			push_error("play_out: no turn for tick %d (the sequencer is paused)" % was)
+			break
 	return clients[0].tick
 
 
@@ -604,6 +769,7 @@ static func without_patches(entries: Array, checks: Array) -> Array:
 
 func _join(sim: SimMatch) -> void:
 	clients.append(sim)
+	stalled.append(0)
 	events.append([])
 	hashes.append({sim.tick: sim.state_hash_hex()} if sim.tick % SimTypes.HASH_EVERY == 0 else {})
 

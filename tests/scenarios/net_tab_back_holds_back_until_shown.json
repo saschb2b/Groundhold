@@ -1,0 +1,28 @@
+{
+  "name": "net_tab_back_holds_back_until_shown",
+  "description": "Client 2's tab is hidden for 10 s: AWAY after 5 s, its link kept. Shown again and behind, the game says catching_up, and while it catches up only shown may bring its seat BACK (shared/net/README.md, BACK): on its way back the game decides catching_up or shown before any other word goes out (the PING due after the hide came first, and brought BACK), and the sequencer, like the server, lets only shown bring back a seat whose last VISIBILITY was hidden. Once caught up it says shown, BACK follows, and the hashes agree.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 12,
+  "timeout_frames": 600,
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 12, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(2).sim.tick >= 900', 3000)"},
+    {"eval": "scene.hide(2, 600)"},
+    {"eval": "scene.run_frames(420)"},
+    {"assert": "scene.system_sent('AWAY', 1) and not scene.system_sent('BACK', 1)", "msg": "five seconds hidden: AWAY, and no BACK yet"},
+    {"eval": "scene.run_until('not client(2).hidden and client(2).said_visibility == 2', 300)", "as": "back"},
+    {"assert": "back", "msg": "shown again and behind: it says catching_up"},
+    {"eval": "scene.run_frames(9)"},
+    {"eval": "scene.client(2).catching_up", "as": "still_catching_up"},
+    {"eval": "scene.system_sent('BACK', 1)", "as": "back_sent"},
+    {"assert": "still_catching_up", "msg": "it is still catching up three turns after it said so"},
+    {"assert": "not back_sent", "msg": "BACK went out while the game catches up: the PING sent before catching_up brought it"},
+    {"eval": "scene.run_until('not client(2).catching_up', 1800)", "as": "caught_up"},
+    {"eval": "scene.run_frames(12)"},
+    {"assert": "caught_up and scene.client(2).said_visibility == 0 and scene.system_sent('BACK', 1)", "msg": "caught up, it said shown, and that brought BACK"},
+    {"eval": "scene.run_turns(200)"},
+    {"assert": "scene.seq.disagreements.is_empty()", "msg": "every hash agrees"}
+  ]
+}

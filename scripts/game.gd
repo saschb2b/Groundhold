@@ -26,6 +26,9 @@ signal state_changed(state: int)
 signal announced(text: String)
 ## A short notice for the player, such as a refused order; not a ceremony like a wave title.
 signal noticed(text: String)
+## A notice about a teammate's seat (design 5.7: "Ben's link dropped", "Ben is back"):
+## held a little longer than a refused order's, since nobody pressed anything for it.
+signal team_noticed(text: String)
 ## A command of mine ran (accepted) or was refused; `seq` is what command() returned.
 signal settled(seq: int, accepted: bool)
 ## Someone's Ready changed, or a seat changed hands.
@@ -439,6 +442,10 @@ var seat := 1
 ## Gold my commands still waiting for their turn will spend: kept back when deciding
 ## what I can afford.
 var pending_gold := 0
+## The teammate notices said this match, oldest first (the last TEAM_NOTICES_KEPT), for
+## scenarios.
+var team_notices: Array[String] = []
+const TEAM_NOTICES_KEPT := 32
 
 var gold: int:
 	get:
@@ -509,6 +516,7 @@ func detach() -> void:
 	sim = null
 	source = null
 	pending_gold = 0
+	team_notices.clear()
 
 
 ## Sends a command from my seat for the next turn; returns its sequence number, or -1
@@ -532,11 +540,32 @@ func can_command() -> bool:
 
 
 ## Why an order given now goes nowhere, for the notice ("The match has not started", "No
-## link to the server", "Not so fast"); "" when it would go out.
+## link to the server", "Not so fast", "The caretaker hands back at the next build
+## window"); "" when it would go out.
 func command_refusal() -> String:
 	if source == null:
 		return "The match has not started"
-	return source.refusal()
+	var why := source.refusal()
+	if why == "" and caretaken():
+		return NOTICES[SimTypes.REFUSE_CARETAKEN]
+	return why
+
+
+## Why an order of mine would be refused before it goes out, checked before its gold or
+## its cell: the match or the link (accepts_commands()), or my seat still the caretaker's
+## (away, or back and waiting for the next build window, design 6.7), which the simulation
+## would refuse anyway; "" when it may go. The bucket ("Not so fast") is the command's own.
+func order_refusal() -> String:
+	if not accepts_commands():
+		return command_refusal()
+	if caretaken():
+		return NOTICES[SimTypes.REFUSE_CARETAKEN]
+	return ""
+
+
+## Whether the caretaker plays my seat now (away, or back until the next build window).
+func caretaken() -> bool:
+	return sim != null and not sim.over and _seat().state != SimTypes.SEAT_PRESENT
 
 
 ## Writes a scenario setter into the local match at once and logs it with its tick.
@@ -568,6 +597,8 @@ func handle(events: Array) -> void:
 			SimTypes.EV_READY, SimTypes.EV_SEAT:
 				if e.get("seat", 0) == seat and e.has("seq"):
 					settled.emit(int(e["seq"]), true)
+				if int(e["type"]) == SimTypes.EV_SEAT and int(e["seat"]) != seat:
+					_teammate_seat(int(e["seat"]), int(e["state"]))
 				ready_changed.emit()
 			SimTypes.EV_BUILT, SimTypes.EV_FORKED, SimTypes.EV_SOLD:
 				if e["seat"] == seat and int(e["seq"]) > 0:
@@ -576,6 +607,52 @@ func handle(events: Array) -> void:
 			SimTypes.EV_REJECTED:
 				if e["seat"] == seat:
 					_refused(e)
+
+
+## A teammate's seat changed hands (EV_SEAT): the notice design 5.7 asks for, with their
+## name. Not while my own game runs turns it missed (a catch-up replays changes the
+## others saw long ago), and not for a rival team's seats.
+func _teammate_seat(n: int, now: int) -> void:
+	var s := sim.seat(n)
+	if s == null or s.team != _seat().team:
+		return
+	var client := _scene_client()
+	if client != null and (client.catching_up or client.reconnecting):
+		return
+	var who := seat_name(n)
+	var text := ""
+	match now:
+		SimTypes.SEAT_AWAY:
+			var hidden := false
+			if client != null and n - 1 < client.link_flags.size():
+				hidden = (client.link_flags[n - 1] & NetProtocol.enum_value("link_flags", "hidden")) != 0
+			if hidden:
+				text = "%s is in another tab: a caretaker builds meanwhile" % who
+			elif sim.tick <= SimTypes.TURN_TICKS:
+				text = "%s is still loading: a caretaker builds meanwhile" % who
+			else:
+				text = "%s's link dropped: a caretaker builds meanwhile" % who
+		SimTypes.SEAT_RETURNING:
+			text = "%s is back: the caretaker hands back at the next build window" % who
+		SimTypes.SEAT_PRESENT:
+			text = "%s builds again" % who
+		SimTypes.SEAT_LEFT:
+			text = "%s left the match: a caretaker keeps the seat" % who
+	if text == "":
+		return
+	team_notices.append(text)
+	if team_notices.size() > TEAM_NOTICES_KEPT:
+		team_notices.remove_at(0)
+	team_noticed.emit(text)
+
+
+## The networked match's client the current scene plays through, or null.
+func _scene_client() -> MatchClient:
+	var scene := get_tree().current_scene if is_inside_tree() else null
+	if scene == null:
+		return null
+	var client: Variant = scene.get("client")
+	return client as MatchClient if client is MatchClient else null
 
 
 func _on_wave(e: Dictionary) -> void:

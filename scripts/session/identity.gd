@@ -95,6 +95,106 @@ static func origin(url: String) -> String:
 	return "%s://%s:%d" % [scheme, host, port]
 
 
+## The match seats this install's games hold on servers (M4, design 6.7: a game killed or
+## closed mid-match takes its seat back when it starts again). user://net.cfg keeps a list
+## under [seats] of [origin, match, wire seat, process id, unix time held, sequence floor],
+## newest last, at most SEATS_KEPT, none older than SEAT_HOURS (a match lasts an hour at
+## most). The floor is above every CMD sequence number the game sent from that seat
+## (MatchClient raises it a block at a time, note_floor), so the game started again goes
+## on above them: the server wants a seat's numbers strictly increasing. A game holds
+## its seat from MATCH_CONFIG to MATCH_END (MatchClient.remember_seat) and gives it up when
+## the match ends, the seat left or it was refused; a lost link that gave up keeps it, since
+## the server holds the seat until the match ends. Two windows of one install share this
+## file, and so the identity: held_seat() skips a seat whose game still runs where that can
+## be told (Linux, /proc), and a resume naming a seat a live window plays only replaces it
+## (ERROR 12) elsewhere.
+const SEATS := "seats"
+const SEATS_KEPT := 8
+const SEAT_HOURS := 2
+
+
+## Notes that a game of this process plays wire seat `wire_seat` of `match_id` on `url`'s
+## server, its commands numbered below `floor` (once per match and seat: a second note
+## replaces the first).
+static func hold_seat(url: String, match_id: int, wire_seat: int, floor := 0) -> void:
+	var where := origin(url)
+	if where == "" or match_id <= 0:
+		return
+	var kept: Array = []
+	for entry: Array in _seats():
+		if not (str(entry[0]) == where and int(entry[1]) == match_id and int(entry[2]) == wire_seat):
+			kept.append(entry)
+	kept.append([where, match_id, wire_seat, _pid(), int(Time.get_unix_time_from_system()), floor])
+	_save_seats(kept.slice(maxi(0, kept.size() - SEATS_KEPT)))
+
+
+## Gives up this process's seat in `match_id` on `url`'s server (the match ended, the seat
+## left, the game was refused).
+static func release_seat(url: String, match_id: int) -> void:
+	var where := origin(url)
+	var kept: Array = []
+	for entry: Array in _seats():
+		if not (str(entry[0]) == where and int(entry[1]) == match_id and int(entry[3]) == _pid()):
+			kept.append(entry)
+	_save_seats(kept)
+
+
+## [match, wire seat, sequence floor] of the newest seat held on `url`'s server whose game
+## no longer runs, for a resume HELLO; [] when there is none.
+static func held_seat(url: String) -> Array:
+	var where := origin(url)
+	var list := _seats()
+	for i in range(list.size() - 1, -1, -1):
+		var entry: Array = list[i]
+		if str(entry[0]) == where and not _still_running(int(entry[3])):
+			return [int(entry[1]), int(entry[2]), int(entry[5])]
+	return []
+
+
+## Raises this process's note for `match_id`'s wire seat `wire_seat` on `url`'s server to
+## `floor`: every command it numbers below that may have gone out.
+static func note_floor(url: String, match_id: int, wire_seat: int, floor: int) -> void:
+	var where := origin(url)
+	var list := _seats()
+	for entry: Array in list:
+		if str(entry[0]) == where and int(entry[1]) == match_id and int(entry[2]) == wire_seat:
+			entry[5] = maxi(int(entry[5]), floor)
+	_save_seats(list)
+
+
+## The held seats as net.cfg keeps them, the stale and the malformed left out.
+static func _seats() -> Array:
+	var cfg := ConfigFile.new()
+	cfg.load(PATH)
+	var listed: Variant = cfg.get_value(SEATS, "held", [])
+	var now := int(Time.get_unix_time_from_system())
+	var out: Array = []
+	if listed is Array:
+		for entry: Variant in listed:
+			if entry is Array and (entry as Array).size() == 6 and now - int(entry[4]) < SEAT_HOURS * 3600:
+				out.append(entry)
+	return out
+
+
+static func _save_seats(list: Array) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(PATH)
+	cfg.set_value(SEATS, "held", list)
+	cfg.save(PATH)
+
+
+## This process's id (0 in the browser, where there is one game per tab).
+static func _pid() -> int:
+	return 0 if OS.has_feature("web") else OS.get_process_id()
+
+
+## Whether another game of this install still runs as `pid` (only Linux can tell, by /proc).
+static func _still_running(pid: int) -> bool:
+	if pid <= 0 or pid == _pid() or not DirAccess.dir_exists_absolute("/proc/self"):
+		return false
+	return DirAccess.dir_exists_absolute("/proc/%d" % pid)
+
+
 ## The key as user://net.cfg holds it now, read past the copy in memory; empty without one.
 static func stored() -> PackedByteArray:
 	var cfg := ConfigFile.new()

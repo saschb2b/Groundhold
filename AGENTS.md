@@ -30,6 +30,14 @@ stores indexes, and `contract_ids_keep_state_hashes` holds the classic match to 
 Load icons through `Game.icon(path)`, which gives a placeholder for art not painted yet. `contract_m2m3_tables`
 checks it all.
 
+`docs/design/contract-m4.md` fixes what M4's tracks (server, client, simulation, docs) share: `protocol.json`'s
+resilience numbers and fields (a resume `HELLO` names its held `match` and `seat`; `MATCH_CONFIG`'s `rejoin` flag;
+`RESYNC`'s reason, open turn, checkpoint hash and parts; `VISIBILITY`'s `shown`, `hidden` and `catching_up`), whose
+rules are `shared/net/README.md`'s Resilience (M4); the checkpoint tick, a checkpoint's digest and parts
+(`Checkpointing`, `protocol.digest`, `protocol.checkpoint_parts`); the dump's path (`DesyncDump.path_for`); and the
+seams `checkpointing.gd`, `desync_dump.gd`, `web_bridge.gd`, `connection_overlay.gd` and `catchup.py`, stubs until
+their track writes them. `contract_m4_wire_and_seams` and `server/tests/test_contract_m4.py` check it.
+
 Multiplayer is server-sequenced lockstep (design §6): the Python server in `server/` never simulates, it closes a
 turn every 50 ms and sends every game the commands that arrived. The wire contract is `shared/net/protocol.json`;
 `NetProtocol` (`scripts/net/protocol.gd`) and the server's codec are both built from it. A networked game
@@ -46,6 +54,12 @@ runs on `server.clock`, so its tests (`HubTest` in `server/tests/support.py`) mo
 on the wall. Its state directory (`--state-dir`, default `server-data/`) keeps `identity.key` and
 `moderation.json`; `--admin`, `--backup` and `--restore` work on it. `shared/net/transcripts/m3_*` are the hub's
 conversations recorded from the real server; `protocol_golden_m3` decodes them with the GDScript codec.
+In a match the server serves README's Resilience (M4; `match.py`, `catchup.py`): it asks one seat in rotation for
+each agreed checkpoint tick and keeps the upload only if `SHA-256[:8]` is the agreed hash (the last two), resyncs a
+minority of three or more (apart twice: `MATCH_END desynced_twice` to that seat, `LEFT`), seats a resume `HELLO`
+naming its held seat (`ERROR` 12 to the old link, `MATCH_CONFIG` rejoin, `RESYNC` rejoin; else `NOTICE
+no_held_seat`), holds `BACK` for a connection catching up until its `shown`, and paces every `RESYNC` at 2 KB per
+50 ms of its clock while the output is under 4 KB. `m4_resilience` is that recorded; `protocol_golden_m4` decodes it.
 
 - No floats, trigonometry, engine RNG, clocks, `delta`, Nodes or dictionary iteration in `scripts/sim/`:
   `godot-agent check . --sim-lint scripts/sim` and the `sim_lint_clean` scenario (`tests/sim/sim_lint.gd`, which
@@ -61,7 +75,25 @@ conversations recorded from the real server; `protocol_golden_m3` decodes them w
   dist)`, `scene.hold(id)`, `scene.debug(op, ...)` stage creeps on every client; `scene.hits(tower, creep)`,
   `hit_values`, `status_amounts`, `help_total` and `events_where` read what happened; `scene.play_out([seats by
   command])` plays a match out with caretaken seats playing themselves. Main-scene scenarios watch
-  `scene.state_hash_hex()`.
+  `scene.state_hash_hex()`. `scene.stall(k, ticks)` freezes client k (2 or more) while the others play and
+  `scene.catch_up(k, 8)` brings it back 8 ticks a call (it and `play_out` stop with an error when no turn comes,
+  as with the sequencer paused: every wait in a test has a bound, `sim_harness_waits_are_bounded`); `seat_state(seat)`, `seat_moves(seat)` (its SEAT events),
+  `refusal_ticks(seat)`, `since(list, tick)` and `owner_at(x, z)` read the seats (an Expression evaluates both
+  sides of `or`, so never write `tower_at(x, z).owner` behind a null test).
+- Seat states (design 6.7, `sim_*` scenarios): AWAY takes a present or returning seat in the turn it comes, before
+  that turn's orders; BACK makes an away seat returning; LEFT takes any seat to the end; only
+  `SimWaves.open_window` makes a returning seat present, in the stage that clears the wave, so the window's first
+  tick is the player's. A SEAT event comes only when the state moves. The caretaker plays every state but present,
+  from the seat's plan cursor: taking a seat mid-match it counts a build step done where the seat already has a
+  tower on one of the step's cells, and forks only the kind the plan built on a cell
+  (`sim_caretaker_takes_a_seat_mid_match`).
+- Speed: stage 5 sorts the creeps along the road once (`SimMatch.by_distance`, between `open_look` and
+  `close_look`) and each tower walks that order with its own stretches (`SimTargeting.furthest`);
+  `sim_targeting_walk_matches_scan` holds it to a scan of every creep. `sim_bench` (`tests/sim/sim_bench.gd`)
+  steps four seats at wave 11 natively, prints a `SIM_BENCH` line and fails below its `FLOOR` (4,000 ticks a
+  second, room for a CI runner; 12,000 to 15,000 measured on a laptop, 4,300 to 5,200 with M3's scan) or when the
+  walk is not 3 times faster than the scan on the same ticks (`LOOK_FLOOR_PC`; about 8.7 measured), which holds on
+  any machine: run it after anything that touches a busy tick.
 - The modes are presets in `content.gd`'s `RULES`: `classic` (M1's eight waves, no armour, perks or Help, its
   state hashes held by `contract_ids_keep_state_hashes`) and `high_water` (`hollow12`, armour, boss control
   resistance, perks, Help). Whom a tower picks and where a bounce goes are `sim_targeting.gd`'s; slows, marks and
@@ -71,8 +103,8 @@ conversations recorded from the real server; `protocol_golden_m3` decodes them w
   over every mode: HELLO carries it before a party picks its mode, and MATCH_CONFIG and LOADED repeat it. It covers
   every `BUILDERS` field the simulation reads (the caretaker forks by `covers`); `contract_m2m3_tables` checks that.
 - A Builder's plan (`data/plans/<builder>.json`) is what the caretaker and the bots play: `steps` for every mode,
-  a mode's own under its name (the Lamplighter keeps M1's under `classic`, which `tests/bot.gd` and the README's
-  shots play); a step may name `alt` cells for a second seat with the same Builder and a fork may `patch` a check,
+  a mode's own under its name (the Lamplighter keeps M1's under `classic`, which `tests/bot.gd` plays in the
+  classic match); a step may name `alt` cells for a second seat with the same Builder and a fork may `patch` a check,
   which the caretaker takes only while nobody on the team covers it.
 - Boot flags after `--`: `--seed=N`, `--bot`, `--hash-log[=file]`, `--quit-after-match`, `--ticks-per-frame=N`;
   networked: `--join=ADDRESS` (`127.0.0.1`, `192.168.1.20`, `host:port` or a `ws://` URL), `--name=NAME`;
@@ -85,6 +117,27 @@ conversations recorded from the real server; `protocol_golden_m3` decodes them w
   go out only while `Game.accepts_commands()`; online, `RemoteSequencer` mirrors the server's command
   bucket, and `Game.command_refusal()` says why an order went nowhere. Change a message in `protocol.json` only together with the server, re-record the
   transcripts (`python3 server/tools/record_transcripts.py`) and keep `protocol_golden_m1` green.
+- The client's side of Resilience (M4) is `MatchClient`'s: at each hash tick `Checkpointing` serializes the state
+  once (its digest is the HASH; at a checkpoint tick it keeps the bytes and flags it, and uploads them on
+  `CHECKPOINT_ASK`); a `RESYNC` (bounded like a `TURN`) is downloaded, checked against its hash, loaded, and its
+  turns run again (`resynced`: `main.gd` builds its views again); more than `Playout.CATCH_UP_TURNS` behind it says
+  `VISIBILITY catching_up` and takes no orders ("Catching up") until level; a link lost mid-match keeps the world and
+  sends a resume `HELLO` (the same token, `held_match`, `held_seat`) every 2 s, giving up after 30 s; `WebBridge`
+  reports a hidden tab (`hidden`, then `catching_up` or `shown`) and flashes the page title; a desynced end writes
+  `DesyncDump`'s file. `connection_state()` is what `ConnectionOverlay` shows (reconnecting, catching up, in another
+  tab, desynced). The fakes serve it all: `scene.cut(k, frames)`, `hide(k, frames, inbound_bytes)`,
+  `corrupt(k, field, value)`, `corrupt_uploads(k)`, `delay(k, ...)`, `lose_turns`, `push_resync`, `bots(true)` and
+  `run_until(expr, frames)` in `loopback_match.gd`; `cut` and `hide` in `loopback_main.gd`; `cut` in
+  `loopback_hub.gd`. `view_connection_overlay` draws the overlay's states in seconds when rendered;
+  `net_overlay_states` follows them headless (a rendered run of it is a long one on software Vulkan).
+- A `--join` game killed or closed mid-match takes its seat back when it starts again: `Identity` notes the seat in
+  `user://net.cfg` from `MATCH_CONFIG` to `MATCH_END` (`hold_seat`, `held_seat`, `release_seat`; a seat a running
+  window plays is skipped where `/proc` tells), `Session.direct_client` hands it to `MatchClient.resume_seat`, and
+  the first `HELLO` is a resume naming it: `MATCH_CONFIG(rejoin)` builds the match, `RESYNC(rejoin)` loads the
+  checkpoint, and `NOTICE no_held_seat` forgets the note and joins afresh. The note also keeps a sequence floor
+  above every `CMD` number the seat sent (raised 64 at a time), so the game started again numbers its orders above
+  them. `scene.kill_game(k)` and `boot_again(k)` in `loopback_match.gd` do it against the fake
+  (`net_restarted_game_*`); `tests/net/restart_driver.tscn` kills and starts whole games for a live topology.
 
 The loop around a match (design §5, M3) is the `Session` autoload (`scripts/session/session.gd`): OFFLINE,
 CONNECTING, HUB, COUNTDOWN, (QUEUED, MATCH_FOUND: M6), LOADING, IN_MATCH, RESULTS. It keeps the `Profile` (name,
@@ -137,14 +190,35 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   its bosses and its leak table per wave in the watches.
 - `godot-agent run . --renderer gl_compatibility` shows the scene as the browser build draws it.
 - The server: `python3 -m unittest discover -s server/tests -t server/tests` (Python 3.11+).
-- Networking against the real server: `godot-agent scenario . tests/net/live --headless` (five topology
-  scenarios, among them a party by code from the hub, about two minutes) and `python3 tools/net/smoke.py
+- Networking against the real server: `godot-agent scenario . tests/net/live --headless -j 1` (nine topology
+  scenarios, about seven minutes: among them a party by code from the hub and the faults below) and `python3 tools/net/smoke.py
   --clients 2 --turn-ms 10`, a whole classic match by two headless bots in about 80 s with equal hash streams
   (`--turn-ms` is the server's dev-match turn length). `python3 tools/net/smoke.py --flow` plays the loop against
   the server's hub: two games boot into the hub, one makes a party and the other joins by its code, Ready, Start,
   loading, a High Water match with a Lamplighter and a Lookout played by the plan bots (about eight minutes; the
   hub's matches keep the protocol's 50 ms turns), the results, and both back in the party; `--no-bot` only calls
-  the waves, so the Tide wins in about a minute and a half.
+  the waves, so the Tide wins in about a minute and a half. `smoke.py --shaper --turn-ms 10` plays the last
+  client through `tools/net/shaper.py` (150 ± 50 ms each way and a 3 s stall) and checks that the other's tick rate
+  never drops below 0.8 of the server's pace; `--faults` cuts that client's link for 8 s and checks it rejoins and
+  finishes (`--server` runs another checkout's `server/main.py`). `python3 -m unittest tools/net/test_shaper.py`
+  holds the shaper itself.
+- The fault tests against the real server (M4), one at a time, never two topologies or smokes at once:
+  `net_reconnect_live` (a socket dropped, the seat AWAY, the rejoin and the hand-back), `net_restart_rejoins_live`
+  (a whole game killed with SIGKILL and started again with the same `user://`), `net_minority_desync_resyncs_live`
+  (three games, one's gold written by a bug: `RESYNC(desync)`, level again) and `net_two_seat_desync_dumps_live`
+  (two apart: `MATCH_END desynced`, each dump read back and copied into the run's folder as `client<k>_<match>-<seat>.bin`).
+  Their servers keep `--event-log {out}/events.jsonl` (`drop`, `away`, `rejoin`, `resync`, `desync`, `checkpoint`,
+  `end`), which the steps read with `live_checks.gd`'s `file_has`. Then
+  `smoke.py --faults --turn-ms 10` and `smoke.py --shaper --turn-ms 10`, about 85 s each.
+- A desync dump, `user://desync/<match>-<seat>.bin` (on Linux `~/.local/share/godot/app_userdata/Groundhold/desync/`;
+  its layout is `scripts/net/desync_dump.gd`'s header): `DesyncDump.read(path)` gives its fields (the bad tick, the
+  last checkpoint kept before it, every turn since, the state at the bad tick, the seat's hash stream), and
+  `DesyncDump.replay(dump, tick)` runs the checkpoint through the turns to any tick. Both seats' dumps name the
+  same bad tick (the first hash tick they disagreed on); to see what parted, load each dump's `state` with
+  `SimMatch.deserialize(state, SimContent.rules(mode))` and compare the records (seats' gold, towers, creeps), or replay each from its checkpoint
+  to a tick before the bad one and step both a tick at a time until their `state_hash()` differs. `tests/net/live_checks.gd`'s `dump_summary(path)` does the
+  self-check (the checkpoint replays every hash the seat sent up to the bad tick) from a step:
+  `{"eval": "resource('res://tests/net/live_checks.gd').dump_summary('user://desync/1-2.bin')"}`.
 - By hand, a dev match: `python3 server/main.py --dev-match classic:2 --host 127.0.0.1`, then two windows of
   `godot --path . -- --join=127.0.0.1 --name=Tamsin` (add `--bot` to let the plan bot play a seat; seat 2's bot
   follows `tests/plans/lamplighter_seat2.json`).
@@ -191,4 +265,10 @@ strip, loading cards, results) and `emblem` (`ui/icons/emblem_<id>.png`, the Bui
 flats of `shaders/flats.gdshader`, its camera drifting along the road.
 The card's Signal icon is `models/ui/signal_pennant.glb` (recipe `art_src/models/signal_pennant.json`), rendered and
 framed by `icons.py` like the others. A fork branch is marked `Game.FORK_MARK` in tooltips, never "A" or "B".
-`godot-agent asset check .` must stay clean. `godot-agent scenario . tools/media` re-renders the README's shots.
+`godot-agent asset check .` must stay clean. `godot-agent scenario . tools/media -j 1 --renderer gl_compatibility
+--out RUN` re-renders the README's and the site's shots as the browser build draws them (`hub`, `builders`, `party`
+through the lobby fake, a High Water match with the 1200 x 630 `social` card and its `results`, and `catching_up`,
+the connection overlay's plate), one rendered run at a time; `python3 tools/media/publish.py RUN` turns them into
+`docs/media/*.webp` and `social.jpg`, which the Pages build copies to the site's `media/`.
+The site's `web/play/index.html` hands `?join=` on to the game's frame; `python3 -m unittest discover -s
+tests/web -t tests/web` runs its script under Node.

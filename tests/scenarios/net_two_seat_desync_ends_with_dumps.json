@@ -1,0 +1,26 @@
+{
+  "name": "net_two_seat_desync_ends_with_dumps",
+  "description": "Two clients. At tick 2,000 a bug writes client 2's gold: the next hash tick parts the two seats, and with two there is no majority, so the match ends desynced for both. Each game writes its dump to user://desync/1-<seat>.bin (match 1, seats 1 and 2): the match and its seat, the last checkpoint it kept at or before the bad tick, every turn since as the wire carried it, its state at the bad tick re-simulated from them, and every hash it sent. Read back, client 1's dump replays to exactly the hash it sent at the bad tick, while client 2's replays to client 1's hash, not its own: the turns were the same, so the state went apart outside them. The overlay says a report was saved (net_desync_results_report: the results plate offers it).",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 11,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "hash1": "scene.hash_hex(1)", "hash2": "scene.hash_hex(2)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 11, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_until('client(2).sim.tick >= 2000', 4000)"},
+    {"eval": "scene.corrupt(2, 'gold', 777)"},
+    {"eval": "scene.run_until('client(1).phase_name() == \"ENDED\" and client(2).phase_name() == \"ENDED\"', 600)", "as": "ended"},
+    {"assert": "ended and scene.client(1).outcome == 'desynced' and scene.client(2).outcome == 'desynced' and scene.seq.end_reason == 'desync' and scene.seq.final_tick == 2040", "msg": "two seats apart: the match ended desynced for both at tick 2,040"},
+    {"assert": "scene.client(1).dump_path == 'user://desync/1-1.bin' and scene.client(2).dump_path == 'user://desync/1-2.bin'", "msg": "each game wrote its dump at user://desync/<match>-<seat>.bin"},
+    {"eval": "scene.dump(1)", "as": "d1"},
+    {"eval": "scene.dump(2)", "as": "d2"},
+    {"assert": "d1['match'] == 1 and d1['seat'] == 1 and d2['seat'] == 2 and d1['bad_tick'] == 2040 and d1['mode'] == 0 and d1['seed'] == 11 and d1['seats'].size() == 2", "msg": "the dumps name the match, the seat, the mode, the seed, the seats and the bad tick"},
+    {"assert": "d1['checkpoint_tick'] <= 2040 and d1['checkpoint_tick'] > 0 and d1['turns'].size() >= (2040 - d1['checkpoint_tick']) / 3 and d1['turns'][0]['turn'] == d1['checkpoint_tick'] / 3", "msg": "they hold the last checkpoint at or before the bad tick and every turn from it"},
+    {"assert": "d1['hashes'][2040] == scene.client(1).sent_hashes[2040] and d2['hashes'][2040] == scene.client(2).sent_hashes[2040] and d1['hashes'][2040] != d2['hashes'][2040]", "msg": "and every hash each sent, apart at the bad tick"},
+    {"assert": "scene.digest_hex(d1['state']) == d1['hashes'][2040]", "msg": "client 1's state at the bad tick, rebuilt from its dump, is the state it hashed"},
+    {"assert": "scene.replay_hash(d2, 2040) == d1['hashes'][2040] and scene.digest_hex(d2['state']) != d2['hashes'][2040]", "msg": "client 2's turns replay to client 1's hash, not its own: its state went apart outside the turns"},
+    {"assert": "scene.went_through(1, ['DESYNCED']) and scene.client(1).connection_state()[2] == 'A report was saved'", "msg": "the overlay says the lands fell out of step and that a report was saved"}
+  ]
+}

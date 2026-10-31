@@ -1,0 +1,29 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "net_desync_results_report",
+  "description": "A session's networked match ends desynced: the results plate keeps its title and the line of the match (mode, where it stopped: here before the first wave, time) and adds one plain line, that the games disagreed and the match was stopped, with a Show report button (Save report in the browser) instead of Godot's user:// path. The connection overlay and the party strip leave the title to the results (the session's link is kept, as Session does).",
+  "seed": 1,
+  "timeout_frames": 6000,
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"},
+    {"eval": "node('LoopbackMain').start({'seed': 3, 'partner_after': 30})"},
+    {"eval": "scene.set('_bot', resource('res://tests/bot.gd').new())"},
+    {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 600},
+    {"set": "scene._session_client", "value": true},
+    {"set": "scene.client.keep_link", "value": true},
+    {"wait_until": "scene.sim.tick >= 600", "timeout": 1200},
+    {"eval": "scene.set('_bot', null)"},
+    {"eval": "node('LoopbackMain').corrupt('gold', 999)"},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 600},
+    {"wait": 12},
+    {"assert": "node('ResultsTitle').text == 'THE LANDS FELL OUT OF STEP'", "msg": "the results' title says it"},
+    {"assert": "node('ResultsDetail').text.contains(' · stopped before the first wave · ') and not node('ResultsDetail').text.contains(' waves · ') and not node('ResultsDetail').text.contains('report')", "msg": "the line of the match says where it stopped, not how many waves the mode has"},
+    {"assert": "node('ResultsReport').text == 'The games disagreed, so the match was stopped. A report was saved.'", "msg": "one plain line says what happened"},
+    {"assert": "node('ResultsShowReport').visible and node('ResultsShowReport').text == 'Show report'", "msg": "and a button shows the report's file"},
+    {"assert": "not node('ResultsReport').text.contains('user://') and not node('ResultsDetail').text.contains('user://')", "msg": "no user:// path on the plate"},
+    {"assert": "not scene.overlay().visible", "msg": "the overlay stands down under the results"},
+    {"assert": "not node('PartyStrip').get('_status_label').text.contains('out of step')", "msg": "and the party strip leaves the title to the results"},
+    {"capture": "desync_results_report_line"}
+  ]
+}

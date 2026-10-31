@@ -2,7 +2,8 @@
 ## seat plays. Each plate shows the seat's glyph in its colour, its Builder's face, the
 ## name, the gold, link bars from the round trips the server relays (LINKS), and a Ready
 ## mark during the build window. "away", "back next window", "caretaker" and "left" replace the gold when the
-## caretaker plays the seat. My own plate is framed brighter.
+## caretaker plays the seat ("in another tab" for an away seat whose browser tab is hidden, LINKS' hidden flag).
+## My own plate is framed brighter.
 ##
 ## Before a networked match starts, one plate says where the client stands: connecting,
 ## waiting for the others, loading; and why it stopped, when the link fails.
@@ -118,9 +119,13 @@ func _status_text(client: MatchClient) -> String:
 		MatchClient.Phase.STARTING:
 			return "The tide turns ..."
 		MatchClient.Phase.FAILED:
+			# (a session's match ends on the results plate, which says it in its own words)
+			if client.keep_link:
+				return ""
 			return "Link lost · %s" % client.error_text
 		MatchClient.Phase.ENDED:
-			if client.outcome == "desynced":
+			# (a session's match ends on the results plate, whose title says it)
+			if client.outcome == "desynced" and not client.keep_link:
 				return "The lands fell out of step"
 	return ""
 
@@ -245,12 +250,16 @@ func _fill(row: Dictionary, sim: SimMatch, client: MatchClient, seat: int) -> vo
 	var listed := client != null and seat - 1 < client.names.size()
 	# (online the server's names; offline the names the session gave the scene, else "Seat N")
 	(row["name"] as Label).text = client.names[seat - 1] if listed else Game.seat_name(seat)
-	(row["gold"] as Label).text = STATE_TEXT[s.state] if caretaken else str(s.gold - held)
+	var shown_state: String = STATE_TEXT.get(s.state, "")
+	if s.state == SimTypes.SEAT_AWAY and client != null and seat - 1 < client.link_flags.size():
+		if client.link_flags[seat - 1] & NetProtocol.enum_value("link_flags", "hidden"):
+			shown_state = "in another tab"
+	(row["gold"] as Label).text = shown_state if caretaken else str(s.gold - held)
 	var bars: LinkBars = row["bars"]
 	bars.visible = listed
 	if listed and seat - 1 < client.rtts.size():
 		# (with the link gone nobody's round trip is known: every plate's bars go dark)
-		var linked := client.phase <= MatchClient.Phase.PLAYING
+		var linked := client.phase <= MatchClient.Phase.PLAYING and not client.reconnecting
 		bars.set_bars(MatchClient.bars_for(client.rtts[seat - 1], client.link_flags[seat - 1]) if linked else 0)
 	var ready: ReadyMark = row["ready"]
 	var window := sim.hollows[s.hollow].phase == SimTypes.PHASE_PREP

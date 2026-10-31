@@ -1,0 +1,32 @@
+{
+  "name": "net_boot_resume_while_loading_ends_the_resume",
+  "description": "A --join game killed while its match still loads is started again: Identity.held_seat names the seat, so its first HELLO is a boot resume. The server takes the seat back while the match loads and sends MATCH_CONFIG as at the start, without the rejoin flag (match.py rejoin; shared/net/README.md Rejoin: 'loads like any seat'), here fed to the MatchClient as the server's messages. That plain MATCH_CONFIG ends the resume: the game loads and plays as any seat, its overlay shows nothing, and a later RESYNC(desync) as a minority is loaded, not refused as out of its limits.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 3,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "resource('res://scripts/net/match_client.gd')", "as": "MC"},
+    {"eval": "resource('res://scripts/net/protocol.gd')", "as": "P"},
+    {"eval": "resource('res://scripts/sim/content.gd')", "as": "C"},
+    {"eval": "MC.new()", "as": "c"},
+    {"eval": "c.resume_seat(1, 1, 0)"},
+    {"assert": "c.boot_resume", "msg": "started again with a noted seat: a boot resume"},
+    {"eval": "c._handle(P.encode('WELCOME', {'session': 9, 'identity': 'abcdefghijklmnop'.to_ascii_buffer(), 'turn_ms': 50, 'turn_ticks': 3, 'hash_every': 60, 'flags': 0, 'server_name': 'S', 'motd': ''}), 0)"},
+    {"eval": "c._handle(P.encode('MATCH_CONFIG', {'match': 1, 'mode': 0, 'map': 0, 'seed': 7, 'rules_hash': C.rules_hash(), 'your_seat': 1, 'seats': [{'seat': 0, 'team': 0, 'builder': 0, 'flags': 0, 'name': 'Tamsin'}, {'seat': 1, 'team': 0, 'builder': 0, 'flags': 0, 'name': 'Edda'}, {'seat': 2, 'team': 0, 'builder': 0, 'flags': 0, 'name': 'Ottilie'}], 'flags': 0}), 0)"},
+    {"assert": "c.phase_name() == 'LOADING' and c.loaded_sent", "msg": "the plain MATCH_CONFIG of a match still loading: it loads like any seat"},
+    {"eval": "c.connection_state()[0]", "as": "overlay_loading"},
+    {"eval": "c._handle(P.encode('START', {'ms_until_turn0': 1500}), 0)"},
+    {"eval": "c._handle(P.encode('TURN', {'turn': 0, 'commands': []}), 0)"},
+    {"eval": "c.phase_name()", "as": "phase_playing"},
+    {"eval": "c.connection_state()[0]", "as": "overlay_playing"},
+    {"eval": "c.boot_resume", "as": "boot_resume_left_set"},
+    {"eval": "c._handle(P.encode('RESYNC', {'checkpoint_tick': 0, 'first_turn': 0, 'reason': 1, 'open_turn': 1, 'checkpoint_hash': c.sim.state_hash(), 'parts': 0}), 0)"},
+    {"eval": "c.phase_name()", "as": "after_desync_resync"},
+    {"eval": "c.resyncs.size()", "as": "resyncs_loaded"},
+    {"assert": "phase_playing == 'IN_MATCH'", "msg": "the match plays"},
+    {"assert": "not boot_resume_left_set", "msg": "the plain MATCH_CONFIG ended the boot resume"},
+    {"assert": "overlay_playing == 0", "msg": "the overlay shows nothing while the game plays its seat (1 would be Reconnecting)"},
+    {"assert": "after_desync_resync == 'IN_MATCH'", "msg": "a RESYNC(desync) as a minority is loaded, the link kept"},
+    {"assert": "(resyncs_loaded == 1) and (c.resyncs[0][0] == 'desync')", "msg": "and the RESYNC loaded was the desync's"}
+  ]
+}

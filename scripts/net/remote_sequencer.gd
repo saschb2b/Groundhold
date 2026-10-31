@@ -41,6 +41,13 @@ var closed_note := ""
 ## Milliseconds of the MatchClient's clock, for the command bucket. Without it the
 ## bucket never runs dry.
 var clock := Callable()
+## The first turn this log holds from the server: 0, or the first turn after the checkpoint
+## a RESYNC loaded (the turns before it are not needed and stand empty).
+var base := 0
+## The highest sequence number of my seat's commands seen in a turn, and that turn: an order
+## is on its way while submit() has given a higher one.
+var own_seen := 0
+var own_seen_turn := -1
 
 var _seq := 0
 # (the bucket in thousandths of a command, as of _filled_at; -1: full, not started)
@@ -101,10 +108,14 @@ func receive_turn(turn: int, wire_commands: Array) -> bool:
 	if turn > complete_upto + 1 + MAX_TURNS_AHEAD:
 		return false
 	if turn < turns.size() and turns[turn] != null:
-		return true  # a repeat (TURN_REQUEST overlaps what was already here)
+		return true  # a repeat (TURN_REQUEST or a RESYNC overlaps what was already here)
 	var commands := []
 	for entry: Dictionary in wire_commands:
-		commands.append(from_wire(entry))
+		var cmd := from_wire(entry)
+		commands.append(cmd)
+		if int(cmd["seat"]) == seat and int(cmd["seq"]) > own_seen:
+			own_seen = int(cmd["seq"])
+			own_seen_turn = turn
 	while turns.size() <= turn:
 		turns.append(null)
 	turns[turn] = commands
@@ -124,6 +135,49 @@ static func from_wire(entry: Dictionary) -> Dictionary:
 			a += 1
 		return SimTypes.command(SimTypes.SYSTEM_SEAT, int(entry["seq"]), type, a, entry["b"], entry["c"])
 	return SimTypes.command(seat_no + 1, int(entry["seq"]), type, a, entry["b"], entry["c"])
+
+
+## A command as the wire lists it in TURN: 0-based seats (from_wire's inverse), for the
+## desync dump.
+static func to_wire(cmd: Dictionary) -> Dictionary:
+	var seat_no := int(cmd["seat"])
+	var type := int(cmd["type"])
+	var a := int(cmd["a"])
+	if seat_no == SimTypes.SYSTEM_SEAT:
+		if type in [SimTypes.SYS_AWAY, SimTypes.SYS_BACK, SimTypes.SYS_LEFT]:
+			a -= 1
+	else:
+		seat_no -= 1
+	return {"seat": seat_no, "seq": int(cmd["seq"]), "type": type, "a": a, "b": int(cmd["b"]), "c": int(cmd["c"])}
+
+
+## A RESYNC loaded the checkpoint at turn `first_turn`: the turns before it are not needed
+## (they stand empty, so none counts as missing), and every one from it is taken as it
+## comes; a turn already here is the same turn again.
+func rebase(first_turn: int) -> void:
+	base = first_turn
+	while turns.size() < first_turn:
+		turns.append([])
+	for k in first_turn:
+		if turns[k] == null:
+			turns[k] = []
+	complete_upto = maxi(complete_upto, first_turn - 1)
+	while complete_upto + 1 < turns.size() and turns[complete_upto + 1] != null:
+		complete_upto += 1
+	highest = maxi(highest, complete_upto)
+
+
+## A game started again takes its seat back (MatchClient.boot_resume): its earlier run
+## numbered its commands below `seq`, so this one goes on above them (the server wants a
+## seat's numbers strictly increasing), and none of those counts as on its way.
+func continue_from(seq: int) -> void:
+	_seq = maxi(_seq, seq)
+	own_seen = maxi(own_seen, seq)
+
+
+## Whether a command of mine went out and has not come back in a turn yet.
+func own_pending() -> bool:
+	return _seq > own_seen
 
 
 ## The first turn number missing below the highest one seen, or -1 when there is no gap.

@@ -96,7 +96,7 @@ static func _miss(report: Dictionary, text: String) -> void:
 
 
 ## Where the simulation's numbers (sim_types.gd) and the wire's (protocol.json) differ:
-## command and system types, the server's seat, turn length and hash interval.
+## command and system types, the server's seat, turn length, hash and checkpoint interval.
 static func sim_type_mismatches() -> Array:
 	var spec := NetProtocol.spec()
 	var out := []
@@ -114,6 +114,7 @@ static func sim_type_mismatches() -> Array:
 		["system_seat", SimTypes.SYSTEM_SEAT],
 		["turn_ticks", SimTypes.TURN_TICKS],
 		["hash_every", SimTypes.HASH_EVERY],
+		["checkpoint_ticks", SimTypes.CHECKPOINT_EVERY],
 		["tick_hz", SimTypes.TICKS_PER_SECOND],
 	]:
 		if int(spec[pair[0]]) != int(pair[1]):

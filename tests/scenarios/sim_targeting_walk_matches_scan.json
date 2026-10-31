@@ -1,0 +1,20 @@
+{
+  "name": "sim_targeting_walk_matches_scan",
+  "description": "Stage 5's faster look along the road picks the same creep as a scan of every creep (M4's sim_bench work): with the creeps sorted furthest first once a tick (SimMatch.by_distance), each tower walks them and its own stretches of road together and takes the first in reach. Four caretaken seats fight waves 5 and 6 of High Water, Duskmoths among them, with a knot of creeps held at exactly one distance (ground and winged, so ties must go to the lower id); on every tick, for every tower, the walk and the scan agree, for any creep and for fliers only, and the client probed between ticks keeps every hash of a second client left alone.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 4, 'builders': ['lamplighter', 'lookout', 'lamplighter', 'lookout'], 'caretakers': [1, 2, 3, 4], 'clients': 2, 'seed': 1})"},
+    {"repeat": 400, "steps": [{"eval": "scene.run_ticks(300)"}], "until": "scene.client(1).hollows[0].wave >= 5"},
+    {"eval": "scene.client(1).hollows[0].road.length_um * 45 / 100", "as": "knot"},
+    {"eval": "[scene.spawn('gourdling', knot), scene.spawn('duskmoth', knot), scene.spawn('scuttler', knot), scene.spawn('duskmoth', knot), scene.spawn('thornback', knot)]", "as": "ids"},
+    {"eval": "[scene.hold(ids[0]), scene.hold(ids[1]), scene.hold(ids[2]), scene.hold(ids[3]), scene.hold(ids[4])]"},
+    {"eval": "scene.run_checking_targets(900)", "as": "held_knot"},
+    {"assert": "held_knot == []", "msg": "with five creeps at one distance, ground and winged, the walk picks what the scan picks"},
+    {"eval": "scene.run_checking_targets(1500)", "as": "waves"},
+    {"assert": "waves == []", "msg": "and through the waves on, every tick, every tower"},
+    {"assert": "scene.hashes_agree() and scene.record_differences(1, 2) == []", "msg": "looking from outside stage 5 changes nothing: the probed client 1 and the untouched client 2 agree"},
+    {"assert": "scene.config['walk_checks'] > 50000 and scene.events_where('HIT', {'creep': ids[0]}).size() > 0 and scene.events_where('HIT', {'creep': ids[1]}).size() > 0", "msg": "(tens of thousands of comparisons, the knot in reach of towers that see the ground and the sky)"}
+  ]
+}

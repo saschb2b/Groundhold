@@ -1,0 +1,1586 @@
+{
+ "transcript": "m4_resilience",
+ "format": 1,
+ "protocol": 1,
+ "clients": 5,
+ "note": "A --dev-match classic:3's resilience on a hand-moved clock (empty TURNs read but not listed): tick 60 a checkpoint, Ottilie's odd hash resynced from tick 0 (RESYNC desync) while Tamsin uploads it; Ottilie's tab hides and Edda's game freezes, AWAY after 5 s; Tamsin's tick 360 uploaded; Edda's new window resumes her seat (ERROR 12 to the old link, MATCH_CONFIG rejoin, RESYNC rejoin with the parts, paced) and shown brings her BACK; Ottilie's tab comes back catching_up (RESYNC behind, LINKS) and shown brings her BACK; apart again at tick 420 she is out (MATCH_END desynced_twice, LEFT), and her resume hears no_held_seat.",
+ "records": [
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "0102030405060708090a0b0c0d0e0f10",
+    "flags": 0,
+    "name": "Tamsin",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "WELCOME",
+   "fields": {
+    "session": 1,
+    "identity": "9452a3fceb7783a14b25458ff0c7b1ed",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 2,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "1112131415161718191a1b1c1d1e1f20",
+    "flags": 0,
+    "name": "Edda",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "WELCOME",
+   "fields": {
+    "session": 2,
+    "identity": "466b12b8bc6e4cd5789c68a7819e22fa",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 2,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "2122232425262728292a2b2c2d2e2f30",
+    "flags": 0,
+    "name": "Ottilie",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "WELCOME",
+   "fields": {
+    "session": 3,
+    "identity": "2aa8b6582816a3b75152f34785aea56a",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 2,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 1,
+    "mode": 0,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 0,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 2,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Ottilie"
+     }
+    ],
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 1,
+    "mode": 0,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 1,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 2,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Ottilie"
+     }
+    ],
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 1,
+    "mode": 0,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 2,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 2,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Ottilie"
+     }
+    ],
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "LOADED",
+   "fields": {
+    "rules_hash": "47726f756e646831",
+    "tick0_hash": "9e3779b97f4a7c15"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "LOADED",
+   "fields": {
+    "rules_hash": "47726f756e646831",
+    "tick0_hash": "9e3779b97f4a7c15"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "LOADED",
+   "fields": {
+    "rules_hash": "47726f756e646831",
+    "tick0_hash": "9e3779b97f4a7c15"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 2,
+      "per_mille": 1000,
+      "state": 2
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 2,
+      "per_mille": 1000,
+      "state": 2
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 2
+     },
+     {
+      "seat": 2,
+      "per_mille": 1000,
+      "state": 2
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 3
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 3
+     },
+     {
+      "seat": 2,
+      "per_mille": 1000,
+      "state": 3
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 3
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 3
+     },
+     {
+      "seat": 2,
+      "per_mille": 1000,
+      "state": 3
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 1000,
+      "state": 3
+     },
+     {
+      "seat": 1,
+      "per_mille": 1000,
+      "state": 3
+     },
+     {
+      "seat": 2,
+      "per_mille": 1000,
+      "state": 3
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "START",
+   "fields": {
+    "ms_until_turn0": 1500
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "START",
+   "fields": {
+    "ms_until_turn0": 1500
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "START",
+   "fields": {
+    "ms_until_turn0": 1500
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "HASH",
+   "fields": {
+    "tick": 60,
+    "hash": "6cefb99f2af6c1b2",
+    "flags": 1
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "HASH",
+   "fields": {
+    "tick": 60,
+    "hash": "6cefb99f2af6c1b2",
+    "flags": 1
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "HASH",
+   "fields": {
+    "tick": 60,
+    "hash": "0ddba11cafe5eed5",
+    "flags": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "CHECKPOINT_ASK",
+   "fields": {
+    "tick": 60
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "CHECKPOINT_PART",
+   "fields": {
+    "tick": 60,
+    "part": 0,
+    "parts": 2,
+    "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "CHECKPOINT_PART",
+   "fields": {
+    "tick": 60,
+    "part": 1,
+    "parts": 2,
+    "data": "7469636b2036302773207374617465"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "RESYNC",
+   "fields": {
+    "checkpoint_tick": 0,
+    "first_turn": 0,
+    "reason": 1,
+    "open_turn": 20,
+    "checkpoint_hash": "9e3779b97f4a7c15",
+    "parts": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "HASH",
+   "fields": {
+    "tick": 60,
+    "hash": "6cefb99f2af6c1b2",
+    "flags": 1
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "VISIBILITY",
+   "fields": {
+    "state": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 1
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PING",
+   "fields": {
+    "client_ms": 3000,
+    "rtt_ms": 40
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PONG",
+   "fields": {
+    "client_ms": 3000,
+    "turn": 71
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 2
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 3
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "TURN",
+   "fields": {
+    "turn": 71,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 1,
+      "type": 64,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     },
+     {
+      "seat": 255,
+      "seq": 2,
+      "type": 64,
+      "a": 2,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "HASH",
+   "fields": {
+    "tick": 360,
+    "hash": "cf219401018e62e5",
+    "flags": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "CHECKPOINT_ASK",
+   "fields": {
+    "tick": 360
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "CHECKPOINT_PART",
+   "fields": {
+    "tick": 360,
+    "part": 0,
+    "parts": 2,
+    "data": "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "CHECKPOINT_PART",
+   "fields": {
+    "tick": 360,
+    "part": 1,
+    "parts": 2,
+    "data": "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201007469636b20333630"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "1112131415161718191a1b1c1d1e1f20",
+    "flags": 1,
+    "name": "Edda",
+    "match": 1,
+    "seat": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "WELCOME",
+   "fields": {
+    "session": 4,
+    "identity": "466b12b8bc6e4cd5789c68a7819e22fa",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 2,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 1,
+    "mode": 0,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 1,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 2,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Ottilie"
+     }
+    ],
+    "flags": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 1
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 2
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 3
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "TURN",
+   "fields": {
+    "turn": 71,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 1,
+      "type": 64,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     },
+     {
+      "seat": 255,
+      "seq": 2,
+      "type": 64,
+      "a": 2,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "ERROR",
+   "fields": {
+    "code": 12,
+    "text": "Replaced by another session of this profile"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 6
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 3
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 6
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 3
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "RESYNC",
+   "fields": {
+    "checkpoint_tick": 360,
+    "first_turn": 120,
+    "reason": 0,
+    "open_turn": 121,
+    "checkpoint_hash": "cf219401018e62e5",
+    "parts": 2
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "CHECKPOINT_PART",
+   "fields": {
+    "tick": 360,
+    "part": 0,
+    "parts": 2,
+    "data": "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "CHECKPOINT_PART",
+   "fields": {
+    "tick": 360,
+    "part": 1,
+    "parts": 2,
+    "data": "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201007469636b20333630"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "VISIBILITY",
+   "fields": {
+    "state": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "TURN",
+   "fields": {
+    "turn": 122,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 3,
+      "type": 65,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "TURN",
+   "fields": {
+    "turn": 122,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 3,
+      "type": 65,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "VISIBILITY",
+   "fields": {
+    "state": 2
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 1
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 2
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 3
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "TURN",
+   "fields": {
+    "turn": 71,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 1,
+      "type": 64,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     },
+     {
+      "seat": 255,
+      "seq": 2,
+      "type": 64,
+      "a": 2,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 6
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 3
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "TURN",
+   "fields": {
+    "turn": 122,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 3,
+      "type": 65,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "RESYNC",
+   "fields": {
+    "checkpoint_tick": 360,
+    "first_turn": 120,
+    "reason": 2,
+    "open_turn": 123,
+    "checkpoint_hash": "cf219401018e62e5",
+    "parts": 2
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "CHECKPOINT_PART",
+   "fields": {
+    "tick": 360,
+    "part": 0,
+    "parts": 2,
+    "data": "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "CHECKPOINT_PART",
+   "fields": {
+    "tick": 360,
+    "part": 1,
+    "parts": 2,
+    "data": "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9a8a7a6a5a4a3a2a1a09f9e9d9c9b9a999897969594939291908f8e8d8c8b8a898887868584838281807f7e7d7c7b7a797877767574737271706f6e6d6c6b6a696867666564636261605f5e5d5c5b5a595857565554535251504f4e4d4c4b4a494847464544434241403f3e3d3c3b3a393837363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201007469636b20333630"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "TURN",
+   "fields": {
+    "turn": 122,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 3,
+      "type": 65,
+      "a": 1,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 6
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 6
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LINKS",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "rtt_ms": 40,
+      "flags": 0
+     },
+     {
+      "seat": 1,
+      "rtt_ms": 0,
+      "flags": 0
+     },
+     {
+      "seat": 2,
+      "rtt_ms": 0,
+      "flags": 6
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "VISIBILITY",
+   "fields": {
+    "state": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "TURN",
+   "fields": {
+    "turn": 164,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 4,
+      "type": 65,
+      "a": 2,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "TURN",
+   "fields": {
+    "turn": 164,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 4,
+      "type": 65,
+      "a": 2,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "TURN",
+   "fields": {
+    "turn": 164,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 4,
+      "type": 65,
+      "a": 2,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "HASH",
+   "fields": {
+    "tick": 420,
+    "hash": "0123456789abcdef",
+    "flags": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "HASH",
+   "fields": {
+    "tick": 420,
+    "hash": "0123456789abcdef",
+    "flags": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "HASH",
+   "fields": {
+    "tick": 420,
+    "hash": "0ddba11cafe5eed5",
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_END",
+   "fields": {
+    "outcome": 3,
+    "reason": 7,
+    "final_tick": 420
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "TURN",
+   "fields": {
+    "turn": 165,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 5,
+      "type": 66,
+      "a": 2,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "TURN",
+   "fields": {
+    "turn": 165,
+    "commands": [
+     {
+      "seat": 255,
+      "seq": 5,
+      "type": 66,
+      "a": 2,
+      "b": 0,
+      "c": 0
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "c2s",
+   "client": 4,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "2122232425262728292a2b2c2d2e2f30",
+    "flags": 1,
+    "name": "Ottilie",
+    "match": 1,
+    "seat": 2
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 4,
+   "type": "WELCOME",
+   "fields": {
+    "session": 5,
+    "identity": "2aa8b6582816a3b75152f34785aea56a",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 2,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 4,
+   "type": "NOTICE",
+   "fields": {
+    "code": 9,
+    "argument": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 4,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "BYE",
+   "fields": {}
+  }
+ ]
+}

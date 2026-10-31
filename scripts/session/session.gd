@@ -19,6 +19,14 @@
 ##
 ## Tests swap the network: `link_factory` makes the links (tests/net/loopback_hub.gd hands
 ## FakeLinks to the fake sequencer) and `clock` counts frames.
+##
+## A link lost in a match is the MatchClient's to take back (M4): it reconnects with the
+## same token and its held seat (`link_factory` makes the new link), the server's
+## PARTY_STATE keeps the party here, and no WELCOME of a resume makes or joins a party.
+## NOTICE no_held_seat ends that match for this game and shows the results' way back. A
+## match that started without this game still takes its LOADED once the match scene
+## stands (match_loaded). In the web build a ?join=CODE on the page joins that party at
+## the first opening of the hub (WebBridge.query).
 extends Node
 
 ## Anything the hub or the Builders screen shows changed.
@@ -45,15 +53,20 @@ const START_WITHOUT_AFTER := 30
 const MATCH_FLAGS := ["join", "seed", "bot", "hash-log", "quit-after-match", "ticks-per-frame", "shot-at"]
 ## The scripted player a --flow-bot run hands the hub to (a test tool, not exported).
 const FLOW_BOT := "res://tests/net/flow_bot.gd"
+## The hub's word after a match whose link went: the party went with it, and the server
+## keeps the seat for the caretaker.
+const LINK_LOST_NOTICE := "Your link was lost, and the party with it. The caretaker plays your seat to the end."
 const NOTICE_TEXT := {
 	"party_full": "That party is full",
 	"no_such_party": "No party with that code",
 	"removed": "You were removed from the party",
 	"match_dissolved": "A player didn't accept. You keep your place.",
-	"needs_reload": "Someone in the party needs to reload",
+	# (the server tells the member who needs it: a newer build leads the party)
+	"needs_reload": "A newer version is in the party: reload to play",
 	"caretakers_offered": "Caretakers can fill the open seats",
 	"tick0_mismatch": "A land did not match: the match was called off",
 	"parties_full": "This server has no room for another party",
+	"no_held_seat": "The match went on without you: back to the party",
 }
 
 var state := State.OFFLINE
@@ -82,6 +95,9 @@ var me := -1
 ## A code to join once the server welcomes us.
 var pending_code := ""
 var last_notice := ""
+## A notice for the hub to show once it stands (Shell): why the party is gone after the
+## link went in a match (LINK_LOST_NOTICE). "" for none.
+var hub_notice := ""
 
 ## The match the next scenes/main.tscn plays: {"offline": true, "mode", "seats", "seed"}
 ## or {"networked": true}; {} when the match scene was booted on its own.
@@ -139,12 +155,20 @@ func boot() -> bool:
 			_booted = true
 			_boot_hub(flags)
 		return false
+	if not _booted and WebBridge.is_web():
+		_booted = true
+		var code := clean_code(WebBridge.query("join"))
+		if code_ok(code):
+			join_code(code)  # (a friend's link: play/?join=K7Q4M, forwarded to the game)
+			return false
 	if _flags_played:
 		return false  # (the flags' match was played; Leave to hub stays in the hub)
 	for flag: String in MATCH_FLAGS:
 		if flags.has(flag):
 			_flags_played = true
-			_go(MATCH_SCENE)
+			# (deferred: boot() runs in the hub's _ready, while the tree still adds it, and a
+			# scene change then is refused with "Parent node is busy adding/removing children")
+			_go.call_deferred(MATCH_SCENE)
 			return true
 	return false
 
@@ -301,7 +325,11 @@ func play_again() -> void:
 
 ## Leaves whatever plays or shows for the hub (or the Builders screen).
 func to_hub(where_to := "hub") -> void:
-	if client and client.phase in [MatchClient.Phase.LOADING, MatchClient.Phase.STARTING, MatchClient.Phase.PLAYING]:
+	if client and client.reconnecting:
+		# (leaving while the link is gone: the server's held seat goes to the caretaker)
+		client.close()
+		client.phase = MatchClient.Phase.FAILED
+	elif client and client.phase in [MatchClient.Phase.LOADING, MatchClient.Phase.STARTING, MatchClient.Phase.PLAYING]:
 		client.send("LEAVE_MATCH")
 		client.phase = MatchClient.Phase.ENDED
 	elif client and client.phase == MatchClient.Phase.ENDED and match_spec.has("networked"):
@@ -310,6 +338,9 @@ func to_hub(where_to := "hub") -> void:
 		client.send("LEAVE_MATCH")
 	if client and client.phase == MatchClient.Phase.FAILED:
 		client = null  # (the link went during the match: back offline)
+		if match_spec.has("networked"):
+			hub_notice = LINK_LOST_NOTICE
+			last_notice = LINK_LOST_NOTICE
 	if client:
 		client.rearm()
 	_hide_loading()
@@ -351,6 +382,8 @@ func connect_to(address: String, code := "") -> bool:
 	client.token = Identity.token_for(url)
 	client.build_seq = build_seq()
 	client.web = OS.has_feature("web")
+	if link_factory.is_valid():
+		client.link_factory = link_factory  # (a reconnect's link is the test's too)
 	if clock.is_valid():
 		client.clock = clock
 		client.timed = false
@@ -570,10 +603,16 @@ static func build_seq() -> int:
 ## and the profile's name.
 func direct_client(player_name: String, address: String) -> MatchClient:
 	var joining := MatchClient.new()
+	var url := NetAddress.url(address)
 	joining.player_name = player_name if player_name != "" else profile.player_name
-	joining.token = Identity.token_for(NetAddress.url(address))
+	joining.token = Identity.token_for(url)
 	joining.build_seq = build_seq()
 	joining.web = OS.has_feature("web")
+	# (a game killed or closed mid-match asks its seat back when it starts again, M4)
+	joining.remember_seat = true
+	var held := Identity.held_seat(url)
+	if not held.is_empty():
+		joining.resume_seat(int(held[0]), int(held[1]), int(held[2]))
 	return joining
 
 

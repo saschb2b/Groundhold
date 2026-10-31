@@ -8,14 +8,17 @@ back with identity.py in M3.
 """
 
 import asyncio
+import contextlib
 import json
 from pathlib import Path
+import socket
 import struct
 import sys
 import time
 import unittest
 
-from support import RULES, Client, ManualClock, masked, server, start_match, until, upgrade_request
+from support import (MOST_MESSAGES, RULES, Client, ManualClock, masked, server, start_match, until,
+                     upgrade_request)
 from groundhold_server import protocol
 from groundhold_server.protocol import SPEC
 
@@ -91,10 +94,10 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
                 client = Client()
                 self.clients.append(client)
                 await client.open(self.port)
-                data = bytearray(protocol.encode("HELLO", version=1, build_seq=1, rules_hash=RULES,
-                                                 token=b"\x01" * 16, flags=0, name="x"))
-                data[-2:] = bytes((17,)) + name.encode()[:1]
-                await client.send(bytes(data) + name.encode()[1:])
+                # (the name's length byte says 17: HELLO's held match and seat follow the name)
+                data = protocol.encode("HELLO", version=1, build_seq=1, rules_hash=RULES,
+                                       token=b"\x01" * 16, flags=0, name="x", match=0, seat=255)
+                await client.send(data[:-7] + bytes((17,)) + name.encode() + data[-5:])
                 answer = await client.next()
             else:
                 _, answer = await self.connect(name, **options)
@@ -104,7 +107,7 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         self.clients.append(client)
         await client.open(self.port)
         await client.send(protocol.encode("HELLO", version=1, build_seq=1, rules_hash=RULES, token=b"\x01" * 16,
-                                          flags=0, name="Tamsin") + b"x")
+                                          flags=0, name="Tamsin", match=0, seat=255) + b"x")
         self.assertEqual((await client.next())[1]["code"], ERRORS["protocol"])
         self.assertFalse(self.server.players)
 
@@ -293,7 +296,9 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         await two.writer.drain()
         # (the PONG comes after the server has read the whole burst)
         again = []
-        while (message := await two.next())[0] != "PONG":
+        for _ in range(MOST_MESSAGES):
+            if (message := await two.next())[0] == "PONG":
+                break
             self.assertEqual(message[0], "TURN")
             again.append(message[1]["turn"])
         # The flooder got one window of turns for the whole burst: the rest
@@ -313,7 +318,9 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
                          + masked(protocol.encode("PING", client_ms=1, rtt_ms=1)))
         await two.writer.drain()
         again = []
-        while (message := await two.next())[0] != "PONG":
+        for _ in range(MOST_MESSAGES):
+            if (message := await two.next())[0] == "PONG":
+                break
             if message[0] == "TURN" and message[1]["turn"] < 1200:
                 again.append(message[1]["turn"])
         self.assertEqual(again, list(range(200, 200 + window)))
@@ -411,6 +418,95 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.server.matches), 1)
 
 
+
+class NeverReadingTests(unittest.IsolatedAsyncioTestCase):
+    """A game that never reads again (a zero receive window, which its kernel
+    keeps acknowledging): asyncio's close() waits to flush the unsent output
+    before the socket goes, and this peer never lets it. Dropped as a slow
+    reader, or once its handler ends, its socket is aborted, so it holds no
+    file descriptor and no buffers, and server.close() returns (review M4
+    network 1). Small socket buffers make it quick to show."""
+
+    LIMIT = 40          # rounds of PINGs at most
+
+    async def test_a_dropped_reader_that_never_reads_leaves_no_open_socket(self):
+        from support import hub
+        clock = ManualClock()
+        game_socket = socket.socket()
+        game_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
+        server_ = hub(clock=clock)
+        port = await server_.start("127.0.0.1", 0)
+        closed = False
+        try:
+            game_socket.setblocking(False)
+            await asyncio.get_running_loop().sock_connect(game_socket, ("127.0.0.1", port))
+            reader, writer = await asyncio.open_connection(sock=game_socket)
+            game = Client()
+            game.reader, game.writer = reader, writer
+            writer.write(upgrade_request())
+            await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 2)
+            from support import hello
+            await game.send(hello("Zed", token=b"\x09" * 16))
+            self.assertEqual((await game.next())[0], "WELCOME")
+            writer.transport.pause_reading()            # (from here on its receive window closes)
+            await until(lambda: len(server_.players) == 1)
+            player = next(iter(server_.players.values()))
+            transport = player.writer.transport
+            transport.get_extra_info("socket").setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
+            transport.set_write_buffer_limits(high=2048)
+            # (PINGs, each answered with a PONG it never reads, until the server's output backs up)
+            for _ in range(self.LIMIT):
+                if transport.get_write_buffer_size() > 2048 or transport.is_closing():
+                    break
+                for seq in range(140):
+                    writer.write(masked(protocol.encode("PING", client_ms=seq, rtt_ms=0)))
+                try:
+                    await asyncio.wait_for(writer.drain(), 0.5)
+                except asyncio.TimeoutError:
+                    break       # (the server stopped reading: it waits on its own drain)
+                await asyncio.sleep(0.05)
+                await clock.advance(1200)
+            # (the PONG's drain times out after 2 s, the handler ends, its close waits 2 s more)
+            await until(lambda: not server_.connections, timeout=8)
+            self.assertEqual(len(server_.players), 0)
+            # (asyncio's own field: the transport lets its socket go a loop pass after its abort)
+            try:
+                await until(lambda: transport._sock is None, timeout=1)
+            except AssertionError:
+                self.fail("the dropped connection still holds its socket")
+            await asyncio.wait_for(server_.close(), 3)
+            closed = True
+        finally:
+            game_socket.close()
+            if not closed:
+                with contextlib.suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(server_.close(), 3)
+
+    async def test_a_slow_reader_past_the_output_cap_is_cut_off_at_once(self):
+        clock = ManualClock()
+        server_ = server(dev_match="classic:2", clock=clock, output_cap=4096)
+        self.port = await server_.start("127.0.0.1", 0)
+        clients = []
+        try:
+            for name, number in (("One", 1), ("Two", 2)):
+                client = Client()
+                clients.append(client)
+                await client.hello(self.port, name, token=bytes((number,)) * 16)
+            await start_match(clock, clients)
+            match = next(iter(server_.matches.values()))
+            transport = match.seats[1].player.writer.transport
+            aborted = []
+            transport.abort = (lambda original: lambda: (aborted.append(True), original())[1])(transport.abort)
+            transport.get_write_buffer_size = lambda: 5000
+            await clock.turns(1)
+            await until(lambda: match.seats[1].player is None)
+            self.assertTrue(aborted, "dropped for its output, the connection is aborted, not left to flush")
+        finally:
+            for client in clients:
+                client.writer.close()
+            await server_.close()
+
+
 class ContractTests(unittest.TestCase):
     """protocol.json against §6.5's numbers, its own limits and its README."""
 
@@ -418,7 +514,7 @@ class ContractTests(unittest.TestCase):
         sizes = {name: message.sizes() for name, message in protocol.MESSAGES.items()}
         self.assertEqual(sizes["CMD"], (16, 16))            # (16 bytes with the type byte)
         self.assertEqual(sizes["TURN"][0], 6)              # (an empty TURN)
-        self.assertEqual(sizes["HELLO"][1], 49)
+        self.assertEqual(sizes["HELLO"][1], 54)
         for name, message in protocol.MESSAGES.items():
             least, most = sizes[name]
             if message.from_client:

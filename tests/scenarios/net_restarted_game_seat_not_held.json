@@ -1,0 +1,26 @@
+{
+  "name": "net_restarted_game_seat_not_held",
+  "description": "A game started again asks back a seat that is not held any more: client 2 left its match (LEAVE_MATCH, which gives up its note in user://net.cfg), and a note from an earlier match (match 7, left by a crash) is all user:// has. Its first HELLO is a resume naming match 7's wire seat 1; the sequencer answers NOTICE no_held_seat after WELCOME. The game forgets the note and says HELLO again on a new link as a newcomer, waiting for a match like any game; the match the others play goes on.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 3,
+  "timeout_frames": 600,
+  "steps": [
+    {"eval": "resource('res://scripts/session/identity.gd')", "as": "Id"},
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 3, 'latency_turns': [1, 2], 'remember': [2]})"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"assert": "Id.held_seat('ws://loopback/causeway').slice(0, 2) == [1, 1]", "msg": "client 2's seat is noted"},
+    {"eval": "scene.run_turns(100)"},
+    {"eval": "scene.client(2).leave()"},
+    {"assert": "Id.held_seat('ws://loopback/causeway').is_empty()", "msg": "leaving the match gives the note up"},
+    {"eval": "Id.hold_seat('ws://loopback/causeway', 7, 1)"},
+    {"assert": "Id.held_seat('ws://loopback/causeway') == [7, 1, 0]", "msg": "a note from an earlier match, left by a crash"},
+    {"eval": "scene.boot_again(2)"},
+    {"assert": "scene.client(2).boot_resume and scene.client(2).held_match == 7", "msg": "started again, it asks match 7's seat back"},
+    {"eval": "scene.run_until('seq.no_held_seat == 1 and client(2).phase_name() == \"WAITING\" and not client(2).boot_resume', 600)", "as": "afresh"},
+    {"assert": "afresh and scene.client(2).resumes == 1 and scene.client(2).held_match == 0 and scene.client(2).held_seat == 255", "msg": "NOTICE no_held_seat: one resume HELLO, then the note is forgotten and it waits as a newcomer"},
+    {"assert": "scene.client(2).notices.has([9, 0]) and scene.client(2).sim == null and scene.client(2).error_code == 0", "msg": "it was told so, built no match and was refused nothing"},
+    {"assert": "Id.held_seat('ws://loopback/causeway').is_empty()", "msg": "the stale note is gone"},
+    {"eval": "scene.run_turns(60)"},
+    {"assert": "scene.client(1).phase_name() == 'IN_MATCH' and scene.client(1).sim.seat(2).state == 4", "msg": "the others play on, the left seat the caretaker's"}
+  ]
+}

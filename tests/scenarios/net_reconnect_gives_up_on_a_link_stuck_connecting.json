@@ -1,0 +1,22 @@
+{
+  "name": "net_reconnect_gives_up_on_a_link_stuck_connecting",
+  "description": "Client 2's link drops, and every new link it opens goes nowhere: it neither opens nor fails (a SYN black-holed, which the operating system may wait two minutes on). The reconnect still gives up 30 s after the loss, as it does when the links are refused: the link fails, the seat is kept for the game started again, and the others play on.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 4,
+  "timeout_frames": 600,
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 4, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"eval": "scene.run_turns(200)"},
+    {"eval": "scene.black_hole(2)"},
+    {"eval": "scene.cut(2, 0)"},
+    {"eval": "scene.run_until('client(2).reconnecting and client(2).reconnect_attempts >= 1 and client(2).link.status() == 1', 300)", "as": "stuck"},
+    {"assert": "stuck", "msg": "the link dropped, and the new one stays connecting"},
+    {"eval": "scene.run_until('client(2)._now() - client(2)._lost_at >= 29000', 2000)", "as": "nearly"},
+    {"assert": "nearly and scene.client(2).reconnecting and (scene.client(2).phase_name() == 'IN_MATCH')", "msg": "29 s after the loss it still waits for its seat"},
+    {"eval": "scene.run_until('client(2).phase_name() == \"FAILED\"', 120)", "as": "gave_up"},
+    {"assert": "gave_up and not scene.client(2).reconnecting", "msg": "30 s after the loss it gives up, though its link never failed"},
+    {"assert": "scene.client(1).phase_name() == 'IN_MATCH'", "msg": "the others play on"}
+  ]
+}
