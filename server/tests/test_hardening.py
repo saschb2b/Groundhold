@@ -9,6 +9,7 @@ back with identity.py in M3.
 
 import asyncio
 import contextlib
+import io
 import json
 from pathlib import Path
 import socket
@@ -17,7 +18,7 @@ import sys
 import time
 import unittest
 
-from support import (MOST_MESSAGES, RULES, Client, ManualClock, masked, server, start_match, until,
+from support import (MOST_MESSAGES, RULES, Client, ManualClock, hello, masked, server, start_match, until,
                      upgrade_request)
 from groundhold_server import protocol
 from groundhold_server.protocol import SPEC
@@ -210,6 +211,35 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         _, (one, _) = await self.connect("One")
         _, (two, _) = await self.connect("Two")
         self.assertEqual((one, two), ("WELCOME", "WELCOME"))
+
+    async def test_a_hello_late_after_the_upgrade_is_welcomed(self):
+        # (a browser opens the socket off its main thread, which may then be busy for seconds
+        # with the first frames before it says HELLO: the upgrade has handshake_ms, the HELLO
+        # its own hello_ms after it)
+        await self.start(handshake_timeout=0.3, hello_timeout=2)
+        client = Client()
+        self.clients.append(client)
+        await client.open(self.port)
+        await asyncio.sleep(0.6)
+        await client.send(hello("Wren"))
+        self.assertEqual((await client.next())[0], "WELCOME")
+
+    async def test_no_hello_closes_the_connection_and_says_so(self):
+        events = io.StringIO()
+        await self.start(handshake_timeout=0.3, hello_timeout=0.6, event_log=events)
+        client = Client()
+        self.clients.append(client)
+        await client.open(self.port)
+        started = time.monotonic()
+        try:
+            self.assertEqual(await asyncio.wait_for(client.reader.read(), 2), b"")
+        except ConnectionResetError:
+            pass
+        self.assertGreaterEqual(time.monotonic() - started, 0.5)
+        await until(lambda: not self.server.pending)
+        logged = [json.loads(line) for line in events.getvalue().splitlines()]
+        self.assertIn({"event": "hello_timeout", "after_ms": 600},
+                      [{k: v for k, v in entry.items() if k != "time"} for entry in logged])
 
     async def test_silence_closes_a_connection(self):
         await self.start(silence_timeout=0.2)
@@ -445,7 +475,6 @@ class NeverReadingTests(unittest.IsolatedAsyncioTestCase):
             game.reader, game.writer = reader, writer
             writer.write(upgrade_request())
             await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 2)
-            from support import hello
             await game.send(hello("Zed", token=b"\x09" * 16))
             self.assertEqual((await game.next())[0], "WELCOME")
             writer.transport.pause_reading()            # (from here on its receive window closes)

@@ -61,7 +61,7 @@ prints it on the first line (godot-agent's topology scenarios match it with
 `listening.*port\D*(?P<port>\d+)`). `--host 127.0.0.1`
 keeps other computers out. `--event-log FILE` appends one JSON line per event (`listening` with the
 port, `join`, `party`, `party_join`, `countdown`, `match`, `start`, `start_without`, `away`, `back`,
-`left`, `hold`, `resume`, `desync`, `end`, ...); it contains display names. The console log on standard
+`left`, `hold`, `resume`, `desync`, `end`, `hello_timeout`, ...); it contains display names. The console log on standard
 error is the same events without names or identities.
 
 `GET /health` on the same port answers status, protocol, name, players, running matches, the

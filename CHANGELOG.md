@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1 · TBD
+
+- Fixed: a party's link opened by a returning player on a slow computer could leave them offline. The game
+  opens its connection while its first frames are still loading, and the server closed any connection whose
+  `HELLO` came more than 5 s after it connected. The 5 s now cover only the connection's upgrade; `HELLO` has
+  30 s after it (`hello_ms`), and a connection that never says it shows as `hello_timeout` in the server's
+  event log instead of vanishing without a word.
+
 ## 0.6.0 · 2026-10-31
 
 Ship it (M5): online play on the official server, desktop builds, a server to download, and the release that makes

@@ -1535,7 +1535,7 @@ change the content. **Skip** = do not take it.
 | `shared/online/protocol.json` and its README byte tables | **Adapt** | `shared/net/protocol.json` and `shared/net/README.md`; read by GDScript at runtime, so no C header |
 | `identity.py`: salted HMAC identity, `state_lock`, atomic writes, `moderation.json` hot reload, expiring kicks | **Reuse** | the privacy core, unchanged |
 | `holds.py`: a place held 40 s, the resume bit | **Adapt** | party seats held 40 s; **match seats held until the match ends**, with `AWAY` and `BACK` injected into the turns |
-| `app.py`: the server, pending-handshake cap (16, 5 s each), token buckets, output cap, housekeeping | **Adapt** | channels, snapshots and cards go; the tick loop becomes per-match turn clocks on absolute deadlines |
+| `app.py`: the server, pending-handshake cap (16; 5 s to the upgrade, 30 s more to `HELLO`), token buckets, output cap, housekeeping | **Adapt** | channels, snapshots and cards go; the tick loop becomes per-match turn clocks on absolute deadlines |
 | `arena.py`: challenge, seats, input delay, relay, rematch | **Adapt** into `match.py` | matches come from parties or the queue; the relay becomes the **sequencer**; the server compares **hashes itself**; results by the agreed hash, not by seat 0's word; checkpoints are stored here |
 | `stands.py`: the log kept in memory, catch-up under a byte budget, the watcher cap | **Adapt** into `catchup.py` | serves reconnects and resyncs now, spectators later; the "matches now" line for the hub |
 | `teams.py` | **Skip** (the pattern only) | parties replace teams; keep its in-memory ask, answer and expiry pattern for `party.py` |

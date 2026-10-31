@@ -46,8 +46,11 @@ as an `int`, so no value needs 64 unsigned bits. `JSON.parse_string` gives every
 
 ## The handshake
 
-1. The game opens the socket and sends `HELLO` within 5 s of connecting. Its `match` and `seat` name
-   the match seat a resume asks back (Resilience, below); 0 and 255 name none.
+1. The game opens the socket, whose upgrade must be done within `handshake_ms` (5 s) of connecting,
+   and sends `HELLO` within `hello_ms` (30 s) of the upgrade: a browser opens the socket off its main
+   thread, which may then be busy for seconds with the first frames before the game can speak. A
+   connection that says nothing by then is closed, and the event log says `hello_timeout`. Its `match`
+   and `seat` name the match seat a resume asks back (Resilience, below); 0 and 255 name none.
 2. The server checks, in order: the version (`ERROR` 2 when the game is older, 17 when the server is),
    the shape, a non-zero token (9), the name (5); then maintenance (16, with the host's line), a ban
    (10), the allowlist (11), a kick (14, with the minutes left) and room (7). A refusal is `ERROR`,

@@ -3,7 +3,8 @@ connections, the parties and the matches' turn clocks. It never runs a
 match: every game simulates it from the turns the server seals (match.py).
 
 What a connection meets, in order: the handshake (websocket.py, at most
-pending_cap unfinished, each within handshake_ms), HELLO and its checks
+pending_cap unfinished, each upgraded within handshake_ms and its HELLO
+within hello_ms of the upgrade), HELLO and its checks
 (the version, the shape, the token, the name; maintenance, a ban, the
 allowlist, a kick; room), WELCOME with its public identity (identity.py),
 then the hub: PARTY, QUEUE and ACCEPT go to the lobby (lobby.py, party.py),
@@ -113,7 +114,7 @@ def dev_match_spec(text):
 class Server:
     def __init__(self, name="Groundhold", motd="", origins=(), event_log=None, player_cap=64,
                  pending_cap=SPEC["pending_cap"], handshake_timeout=SPEC["handshake_ms"] / 1000,
-                 silence_timeout=SPEC["silence_ms"] / 1000, hidden_timeout=SPEC["hidden_silence_ms"] / 1000,
+                 hello_timeout=SPEC["hello_ms"] / 1000, silence_timeout=SPEC["silence_ms"] / 1000, hidden_timeout=SPEC["hidden_silence_ms"] / 1000,
                  maintenance="", dev_match=None, seed=None,
                  identity_key=None, clock=None, start_delay_ms=SPEC["start_delay_ms"],
                  loading_min_ms=SPEC["loading_min_ms"], match_cap_ms=SPEC["match_cap_ms"],
@@ -135,6 +136,7 @@ class Server:
         self.player_cap = player_cap
         self.party_cap = party_cap
         self.pending_cap, self.handshake_timeout, self.silence_timeout = pending_cap, handshake_timeout, silence_timeout
+        self.hello_timeout = hello_timeout
         # (a hidden tab's loop sleeps, so it says nothing: its link is kept this long, §6.8)
         self.hidden_timeout = max(silence_timeout, hidden_timeout)
         self.maintenance = protocol.maintenance_line(maintenance)
@@ -284,8 +286,15 @@ class Server:
                 async with asyncio.timeout(self.handshake_timeout):
                     if not await websocket.upgrade(reader, writer, self.origins, self.health(), stats=self.daily.public):
                         return
-                    upgraded = True
-                    opcode, data = await websocket.receive(reader)
+                upgraded = True
+                # (HELLO has a deadline of its own: a browser opens the socket off its main
+                # thread, which may then be busy for seconds with the first frames' shaders)
+                try:
+                    async with asyncio.timeout(self.hello_timeout):
+                        opcode, data = await websocket.receive(reader)
+                except TimeoutError:
+                    self.event("hello_timeout", after_ms=round(self.hello_timeout * 1000))
+                    raise
             finally:
                 self.pending.discard(task)
             if opcode != 2:
