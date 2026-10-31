@@ -20,7 +20,8 @@
 ## Flags: --code-out=FILE writes the party's code to FILE once made; --ready-calls says
 ## Ready in every build window, so the waves come at once (a short match); --matches=N
 ## plays N matches before it is done (default 1); --quit-after-flow quits when done (exit
-## 0) or on a failure (exit 1).
+## 0) or on a failure (exit 1); --linger=S stays S seconds on the results before Play again
+## (the server closes a connection silent for 15 s: the plate must keep it).
 extends Node
 
 ## Frames on the results before Play again (the plate is read, as a player would).
@@ -29,6 +30,8 @@ const RESULTS_FRAMES := 90
 const ASK_FRAMES := 30
 
 var flags := {}
+## Frames on the results before Play again (--linger, else RESULTS_FRAMES).
+var results_frames := RESULTS_FRAMES
 var party_size := 2
 var matches := 1
 var played := 0
@@ -54,6 +57,8 @@ func setup(boot: Dictionary) -> void:
 	flags = boot
 	party_size = maxi(1, int(boot.get("party", "2")))
 	matches = maxi(1, int(boot.get("matches", "1")))
+	if boot.has("linger"):
+		results_frames = maxi(RESULTS_FRAMES, int(float(str(boot["linger"])) * Engine.physics_ticks_per_second))
 
 
 func _ready() -> void:
@@ -195,7 +200,7 @@ func _on_results() -> void:
 		_in_match = false
 		var shown: Dictionary = Session.results
 		print("FLOW results %s %s" % [str(shown.get("outcome", "?")), str(shown.get("title", ""))])
-	if _frame - _results_at >= RESULTS_FRAMES:
+	if _frame - _results_at >= results_frames:
 		_results_at = -1
 		played += 1
 		_asked_at = _frame

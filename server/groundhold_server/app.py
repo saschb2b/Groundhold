@@ -206,7 +206,7 @@ class Server:
             self.event_log.flush()
 
     async def start(self, host, port, ssl=None):
-        self.listener = await asyncio.start_server(self.handle, host, port, ssl=ssl, limit=8192)
+        self.listener = await self.listen(host, port, ssl)
         port = self.listener.sockets[0].getsockname()[1]
         self.event("listening", host=host or "*", port=port, path=SPEC["path"], protocol=SPEC["version"],
                    dev_match=self.dev_match_text())
@@ -215,6 +215,25 @@ class Server:
             self.beacon = Beacon(self, port, None if self.beacon_target is True else self.beacon_target)
             await self.beacon.start()
         return port
+
+    async def listen(self, host, port, ssl, tries=8):
+        """The listening sockets. Port 0 on every interface (no host) has the
+        system pick a port per address family, IPv4's and IPv6's apart, and the
+        port printed would answer on one of them only: the others are opened
+        again on the first one's port (a port taken meanwhile: picked anew)."""
+        listener = await asyncio.start_server(self.handle, host, port, ssl=ssl, limit=8192)
+        for _ in range(tries):
+            ports = {sock.getsockname()[1] for sock in listener.sockets}
+            if port or len(ports) <= 1:
+                break
+            chosen = listener.sockets[0].getsockname()[1]
+            listener.close()
+            await listener.wait_closed()
+            try:
+                listener = await asyncio.start_server(self.handle, host, chosen, ssl=ssl, limit=8192)
+            except OSError:
+                listener = await asyncio.start_server(self.handle, host, 0, ssl=ssl, limit=8192)
+        return listener
 
     async def close(self):
         if self.listener:

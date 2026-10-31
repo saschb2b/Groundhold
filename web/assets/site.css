@@ -111,3 +111,15 @@ footer { margin: 50px 0 0; padding: 22px 0 40px; border-top: 2px solid #6b4a1c; 
 .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 .under { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 0; }
 .note { color: var(--dim); font-size: 0.95rem; }
+
+/* ---- policy ---- */
+.policy h1 { font-size: clamp(2rem, 5vw, 3rem); text-align: center; margin-top: 0.8em; }
+.policy h2 { font-size: clamp(1.3rem, 2.6vw, 1.7rem); text-align: left; margin-top: 1.3em; }
+.policy ul { margin: 0.4em 0; padding-left: 1.2em; }
+.policy li { margin: 0.35em 0; }
+.policy code { font-size: 0.9em; overflow-wrap: anywhere; }
+.scroll { overflow-x: auto; }
+table.kept { border-collapse: collapse; width: 100%; font-size: 0.92rem; min-width: 620px; }
+table.kept th, table.kept td { padding: 6px 8px; border-bottom: 1px solid rgba(201, 162, 74, 0.25); vertical-align: top; text-align: left; }
+table.kept th { color: var(--gold); font-family: var(--title); }
+table.kept td:first-child { color: var(--gold); font-weight: 700; }

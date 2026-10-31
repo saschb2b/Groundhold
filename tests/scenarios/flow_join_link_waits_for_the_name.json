@@ -1,0 +1,25 @@
+{
+  "name": "flow_join_link_waits_for_the_name",
+  "description": "A friend's join link opened on a first launch (Session.open_link, what boot() does with play/?join= in the browser) waits for the name prompt: HELLO is the only message that carries a name, so the game connects only once the player has chosen one, and the party sees that name, not the generated placeholder. A player already named joins at once. The fake sequencer in lobby mode stands in for the official server.",
+  "seed": 1,
+  "timeout_frames": 1200,
+  "steps": [
+    {"wait": 3},
+    {"assert": "node('NamePrompt').visible and not Session.profile.named", "msg": "a first launch asks for a name"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.get_node('LoopbackHub').host('Edda', 'lookout')"},
+    {"assert": "Session.open_link('k7q-4m')", "msg": "the link's code is taken"},
+    {"wait": 30},
+    {"assert": "Session.state_name() == 'OFFLINE' and Session.link_code == 'K7Q4M' and Session.party.is_empty()", "msg": "nothing connects while the prompt waits for a name"},
+    {"set": "node('NameField').text", "value": "Wren"},
+    {"key": "Enter"},
+    {"wait_until": "Session.party_size() == 2 and Session.me >= 0", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Session.link_code == '' and Session.party_code() == 'K7Q4M'", "msg": "the answer opens the link: the party it names"},
+    {"assert": "Session.members().size() == 2 and str(Session.members()[0]['name']) == 'Edda' and str(Session.members()[1]['name']) == 'Wren'", "msg": "the server's PARTY_STATE (what every member sees) has the name chosen, not the generated one"},
+    {"eval": "Session.leave_party()"},
+    {"wait_until": "Session.state_name() == 'OFFLINE'", "timeout": 60},
+    {"assert": "Session.open_link('K7Q-4M') and Session.link_code == '' and Session.state_name() == 'CONNECTING'", "msg": "named already, a link connects at once"}
+  ]
+}

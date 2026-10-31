@@ -79,6 +79,8 @@ func refresh() -> void:
 	_place.text = Session.place_text()
 	_code_box.visible = Session.party_code() != ""
 	_code.text = Session.show_code(Session.party_code())
+	# (the link opens the official server: on a LAN or another server only the code leads here)
+	_code_box.get_node("CopyLink").visible = Session.join_link() != ""
 
 
 ## The party rows as one line each, for tests: "diamond Sascha lamplighter leader",
@@ -384,11 +386,22 @@ func _copy(what: String) -> void:
 	shell.show_notice("Copied " + text)
 
 
+## What + invite copies: the party's link on the official server, its code anywhere else
+## (the link would open the official server, where this code is nobody's party or another's);
+## "" without a party, when + invite opens Join instead.
+func invite_text() -> String:
+	if Session.party_code() == "":
+		return ""
+	return Session.join_link() if Session.join_link() != "" else Session.show_code(Session.party_code())
+
+
 func _invite() -> void:
-	if Session.party_code() != "":
-		_copy("link")
-	else:
+	var text := invite_text()
+	if text == "":
 		shell.join.open()
+		return
+	DisplayServer.clipboard_set(text)
+	shell.show_notice("Copied " + text)
 
 
 ## The leader's crown: three gold points on a band.

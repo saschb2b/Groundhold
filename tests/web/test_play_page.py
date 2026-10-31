@@ -49,9 +49,19 @@ class PlayPageTest(unittest.TestCase):
         self.assertEqual(frame_source(""), "game/")
         self.assertEqual(frame_source("?join="), "game/")
 
-    def test_passes_only_code_symbols(self):
-        self.assertEqual(frame_source("?join=%22%3E%3Cb%3EK7Q4M"), "game/?join=bK7Q4M")
-        self.assertEqual(frame_source("?join=K7Q4M0123456789"), "game/?join=K7Q4M0123")
+    def test_the_page_knows_the_games_code_symbols(self):
+        session = (PAGE.parents[2] / "scripts" / "session" / "session.gd").read_text(encoding="utf-8")
+        symbols = re.search(r'const CODE_SYMBOLS := "([^"]+)"', session).group(1)
+        self.assertIn("[%s]{5}" % symbols, PAGE.read_text(encoding="utf-8"))
+
+    def test_forwards_a_code_with_spaces_without_them(self):
+        self.assertEqual(frame_source("?join=k7q%204m"), "game/?join=k7q4m")
+
+    def test_a_malformed_code_is_ignored_not_cut_into_another(self):
+        # (review M5 round 2: k7q-4m extra became k7q-4mext, a wrong code, not no code)
+        for search in ("?join=k7q-4m%20extra", "?join=%22%3E%3Cb%3EK7Q4M", "?join=K7Q4M0123456789",
+                       "?join=K7Q4", "?join=K7Q4MM", "?join=A7Q4M", "?join=K0Q4M"):
+            self.assertEqual(frame_source(search), "game/", search)
 
 
 if __name__ == "__main__":

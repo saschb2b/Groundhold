@@ -1,9 +1,10 @@
 ## The Join panel (design 5.3), above the right wing, from Join (J). A party code (lower
 ## case, spaces and hyphens are fine; it joins as the fifth symbol lands), the official
-## server online, servers heard on this network (Nearby, desktop only) and a typed server
-## address: 192.168.1.20 becomes ws://192.168.1.20:8766/causeway, a name online
-## wss://name/causeway (NetAddress, the address rule). Then Create a party here and Leave
-## party. The browser cannot reach a LAN server, so it shows one line instead.
+## server online (data/net.json's: Session.official_address), servers heard on this
+## network (Nearby, desktop only) and a typed server address: 192.168.1.20 becomes
+## ws://192.168.1.20:8766/causeway, a name online wss://name/causeway (NetAddress, the
+## address rule). Then Create a party here and Leave party. The browser cannot reach a LAN
+## server, so it shows one line instead.
 class_name JoinPanel
 extends PanelContainer
 
@@ -18,6 +19,7 @@ var _nearby_box: VBoxContainer
 var _nearby: VBoxContainer
 var _address: LineEdit
 var _web_line: Label
+var _official_host: Label
 var _leave: Button
 var _shown_servers := []
 
@@ -71,10 +73,11 @@ func setup(owner: Shell) -> void:
 	official.add_theme_constant_override("separation", 10)
 	box.add_child(official)
 	official.add_child(_v(Shell.label("Official", Shell.BOLD_FONT, 14, Shell.TEXT)))
-	var host := _v(Shell.label(Session.OFFICIAL, Shell.BODY_FONT, 13, Shell.DIM))
-	host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	host.add_theme_constant_override("outline_size", 0)
-	official.add_child(host)
+	_official_host = _v(Shell.label(Session.host_of(Session.official_address), Shell.BODY_FONT, 13, Shell.DIM))
+	_official_host.name = "OfficialHost"
+	_official_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_official_host.add_theme_constant_override("outline_size", 0)
+	official.add_child(_official_host)
 	var go_online := _small("Go", func() -> void: _go(Session.official_address))
 	go_online.name = "GoOnline"
 	official.add_child(go_online)
@@ -187,6 +190,7 @@ func refresh() -> void:
 	if _leave == null:
 		return
 	_leave.disabled = Session.where == "offline"
+	_official_host.text = Session.host_of(Session.official_address)
 	_shown_servers = Session.beacon.servers()
 	for child in _nearby.get_children():
 		child.free()

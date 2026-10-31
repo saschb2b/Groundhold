@@ -76,6 +76,7 @@ def archive(state_dir, backup_dir, now):
     if "identity.key" not in contents:
         raise ValueError(f"No identity.key in {state_dir}: not a server's state directory")
     path = Path(backup_dir) / time.strftime(PREFIX + "%Y%m%d-%H%M%S.tar.gz", time.gmtime(now))
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)   # (a first backup makes its folder)
     descriptor, temporary = tempfile.mkstemp(prefix=".backup-", dir=backup_dir)
     try:
         with os.fdopen(descriptor, "wb") as stream:
@@ -111,10 +112,12 @@ def run(state_dir, backup_dir, days, once=False, clock=time.time, sleep=time.sle
     """With `once`, an archive now (its path). Otherwise, forever: an
     archive the first hour of each UTC day it is not there, and those past
     `days` days pruned, looked at every hour; a failure is logged and
-    tried again a minute later."""
+    tried again a minute later. A backup directory not there yet is made
+    (0700: an archive holds the identity key)."""
     while True:
         now, wait = clock(), LOOK
         try:
+            Path(backup_dir).mkdir(mode=0o700, parents=True, exist_ok=True)
             if once or due(backup_dir, now):
                 path = archive(state_dir, backup_dir, now)
                 LOG.info("%s", json.dumps({"event": "backup", "archive": path.name}, separators=(",", ":")))

@@ -181,6 +181,22 @@ class BackupTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             backup.archive(self.state, self.backups, NOW)
 
+    def test_a_backup_folder_not_there_yet_is_made(self):
+        # (server/README.md's `--backup server-backups --once` on a fresh machine, and the
+        # long-running --backup DIR, which looks at the folder before its first archive)
+        fresh = self.backups.parent / "fresh" / "server-backups"
+        path = backup.run(self.state, fresh, 14, once=True, clock=lambda: NOW)
+        self.assertEqual(path.parent, fresh)
+        self.assertEqual(backup.read(path), self.files())
+        later = self.backups.parent / "later"
+
+        def stop(seconds):
+            raise StopIteration
+        with self.assertRaises(StopIteration):
+            backup.run(self.state, later, 14, clock=lambda: NOW, sleep=stop)
+        self.assertEqual([p.name for p in later.iterdir()], ["groundhold-state-20261022-000000.tar.gz"])
+        self.assertEqual(backup.archive(self.state, self.backups.parent / "direct", NOW).parent.name, "direct")
+
     def test_one_archive_a_day_kept_its_days(self):
         slept = []
 
@@ -269,9 +285,9 @@ class ProgramTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def program(self, *args, **options):
+    def program(self, *args, timeout=30, **options):
         return subprocess.run([sys.executable, str(ROOT / "server" / "main.py"), *args], cwd=self.root,
-                              capture_output=True, text=True, timeout=30, **options)
+                              capture_output=True, text=True, timeout=timeout, **options)
 
     def test_a_hub_server_keeps_its_key_and_its_tools_work_on_it(self):
         process = subprocess.Popen([sys.executable, str(ROOT / "server" / "main.py"), "--host", "127.0.0.1",
@@ -298,7 +314,9 @@ class ProgramTests(unittest.TestCase):
         self.assertEqual(json.loads(banned.stdout)["action"], "ban")
         listed = json.loads(self.program("--state-dir", str(self.state), "--admin", "list").stdout)
         self.assertIn(identity, listed["moderation"]["bans"])
-        made = self.program("--state-dir", str(self.state), "--backup", str(self.root), "--once")
+        # (server/README.md's own command on a fresh machine: a backup folder not there yet)
+        made = self.program("--state-dir", str(self.state), "--backup", str(self.root / "server-backups"), "--once")
+        self.assertEqual(made.returncode, 0, made.stderr)
         archive = json.loads(made.stdout)["archive"]
         self.assertRegex(Path(archive).name, r"^groundhold-state-\d{8}-\d{6}\.tar\.gz$")
         (self.state / "moderation.json").unlink()
@@ -306,6 +324,17 @@ class ProgramTests(unittest.TestCase):
         self.assertEqual(json.loads(restored.stdout)["restored"], ["identity.key", "moderation.json"])
         self.assertIn(identity, read_json(self.state / "moderation.json", {})["bans"])
         self.assertNotEqual(self.program("--state-dir", str(self.state), "--admin", "ban", "--identity", "x").returncode, 0)
+
+    def test_an_empty_path_is_refused_not_taken_for_none(self):
+        # (`--restore "$ARCHIVE"` with ARCHIVE unset would otherwise start a server on every interface;
+        # --host and --port keep this test's own run, should it start one, to this computer)
+        for flag in ("--restore", "--backup", "--state-dir", "--config", "--event-log"):
+            try:
+                refused = self.program("--host", "127.0.0.1", "--port", "0", flag, "", timeout=10)
+            except subprocess.TimeoutExpired:
+                self.fail(f"{flag} '' started a server")
+            self.assertEqual(refused.returncode, 2, flag)
+            self.assertIn(f"{flag} needs a value", refused.stderr)
 
     async def visit(self, port):
         from support import Client, party

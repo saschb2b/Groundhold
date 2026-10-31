@@ -910,7 +910,7 @@ Opens above the right wing from **Join** (J).
   `JavaScriptBridge.eval`. A code is not personal data; identity keys never appear in a URL.
 - **The browser build hides Nearby and the address field** and shows one line instead: "LAN games need the
   desktop version. Friends on the web can join your party online." (An https page may not open `ws://` to a LAN
-  address. A browser on the same computer as a LAN server can still use `ws://localhost:8766`.)
+  address.) With no address field the published browser build joins only the official server (§6.11).
 
 ### 5.4 Builders
 
@@ -1175,7 +1175,7 @@ is an add-on, not a rewrite.
 | | Solo, Try | LAN | Online |
 |---|---|---|---|
 | **Desktop** (Linux, Windows, macOS exports) | in-process `LocalSequencer` | `ws://<lan-address>:8766/causeway` to the downloadable server; **Nearby** from its UDP beacon on 8767; or the typed address | `wss://groundhold.saschb2b.com/causeway`, or any self-hosted `wss://` server |
-| **Browser** (Pages, https, WebGL 2) | in-process | not available: no UDP, and an https page may not open `ws://` to a LAN address (only `ws://localhost` on the server's own machine) | `wss://` as desktop |
+| **Browser** (Pages, https, WebGL 2) | in-process | not available: no UDP, and an https page may not open `ws://` to a LAN address (only `ws://localhost` on the server's own machine) | `wss://groundhold.saschb2b.com/causeway` only: no address field (§5.3); a self-hosted server through a web build its host publishes |
 | **Server** | none | `.pyz` (Python 3.11+) or one of five native zips: Windows x64, Linux x86_64 and arm64, macOS Intel and arm64; or `docker run` | the `ghcr.io` image behind Coolify's proxy, or the self-host Caddy Compose |
 
 **Client socket** (`scripts/net/link.gd`): Godot's `WebSocketPeer`.
@@ -1550,7 +1550,7 @@ change the content. **Skip** = do not take it.
 | `build.py`, `release.py`, `smoke.py`, `notices.py`, hash-pinned `requirements-build.txt` | **Reuse** | the deterministic zipapp, native freezes, a smoke outside the checkout, licence notices |
 | `server/Dockerfile` and its `.dockerignore` | **Reuse** | non-root 10001, allowlisted context, two stages; `shared/net/` instead of `shared/online/` |
 | `deploy/coolify/compose.yaml` and `server.ini` | **Reuse** | service `groundhold`, port 8766, the new domain, the same hardening, health checks, log caps and backup service |
-| `deploy/selfhost/compose.yaml` (Caddy, Let's Encrypt, no access log) | **Reuse** | browser players can use any community server with `wss://` |
+| `deploy/selfhost/compose.yaml` (Caddy, Let's Encrypt, no access log) | **Reuse** | desktop games reach any community server with `wss://`; browser players through a web build its host publishes |
 | `server.yml`, `server-native.yml`, `server-image.yml` | **Reuse** | plus a small `release.yml` that also attaches the desktop game builds |
 | The test harness (`IsolatedAsyncioTestCase`, a real server on port 0, a minimal client) and `test_hardening`, `test_holds`, `test_hosting`, `test_packaging`, `test_retention`, `test_stats` | **Reuse** | plus new tests for turns, parties and the barrier (§7.3) |
 | `--event-log` JSONL | **Reuse** | its `listening` event gives the port to the multi-process harness |
@@ -1596,7 +1596,9 @@ step 2, because the server itself writes no IP address anywhere.
 
 **Self-hosting:** `deploy/selfhost/compose.yaml`: the `ghcr.io` image, the backup sidecar and Caddy 2 with Let's
 Encrypt and no access log; set `DOMAIN=` in `.env` and run `docker compose up -d`. If the image cannot be pulled it
-builds from the repository. A community server reached over `wss://` works from the browser too. If the user ever
+builds from the repository. A community server reached over `wss://` serves desktop games; the published browser
+game joins only the official server (§5.3: no address field), so browser players reach a community server through a
+web build its host publishes, with `data/net.json` naming it and that page's origin in `origins`. If the user ever
 leaves Coolify, the same file runs on any small VPS (a Hetzner CX23 is about €6 a month with IPv4, `netcode.md`
 §8.2).
 

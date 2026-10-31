@@ -197,7 +197,8 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   the server's hub: two games boot into the hub, one makes a party and the other joins by its code, Ready, Start,
   loading, a High Water match with a Lamplighter and a Lookout played by the plan bots (about eight minutes; the
   hub's matches keep the protocol's 50 ms turns), the results, and both back in the party; `--no-bot` only calls
-  the waves, so the Tide wins in about a minute and a half. `smoke.py --shaper --turn-ms 10` plays the last
+  the waves, so the Tide wins in about a minute and a half; `--linger 20` keeps both on the results for 20 s, past
+  the server's 15 s of silence, before Play again. `smoke.py --shaper --turn-ms 10` plays the last
   client through `tools/net/shaper.py` (150 ± 50 ms each way and a 3 s stall) and checks that the other's tick rate
   never drops below 0.8 of the server's pace; `--faults` cuts that client's link for 8 s and checks it rejoins and
   finishes (`--server` runs another checkout's `server/main.py`). `python3 -m unittest tools/net/test_shaper.py`
@@ -227,6 +228,41 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   `--name=Edda --main=lookout --code=<the code on the first window's strip>`; or open the game plainly and use Join
   (J): the address `127.0.0.1` makes a party there, a code joins one. Both Ready, the leader starts, and Play again
   brings both back to the party.
+
+Releases (design §7.6 and M5; `server/README.md`, At a release, is the checklist). A tag `vX.Y.Z` runs
+`.github/workflows/release.yml`: `gate` (`tools/release/gate.py plan`, then `check`: the tag, `project.godot`'s
+`config/version` and a dated `## X.Y.Z · YYYY-MM-DD` section of `CHANGELOG.md` agree, and `on-main`: the tag is on
+`main`, or nothing builds; a heading still `· TBD` is a release being prepared), `desktop` (Godot and its templates
+checked against Godot's `SHA512-SUMS.txt`, the `Linux`, `Windows` and `macOS` presets exported with `data/build.json`
+stamped, the Linux build booted headless by `desktop_smoke.py`, each packed by `package.py` as
+`groundhold-<platform>.zip`), `server-native` and `server-image` (called with the gate's commit, version and `push`;
+each server archive holds one folder, `groundhold-server-<version>-<target>/`; the image's `X.Y` and `latest` move
+only for the newest release, `deploy.py newest`), `publish` (`assemble.py`: exactly `assemble.FILES` plus
+`SHA256SUMS.txt`; the notes are `gate.py notes`) and, last, `deploy` (`deploy.py push` force-moves the `release`
+branch the Coolify app tracks, on a tag push only to the newest release tag, `--newest-only`, while a run by hand may
+roll back; `deploy.py coolify` calls Coolify's deploy API after a move when the `COOLIFY_*` secrets are set). Run by
+hand it is a dry run unless told otherwise: nothing published, the files kept as the `release-dry-run` artifact. Only
+GitHub and the user's session push tags, change secrets or make the ghcr package public; an agent never does.
+
+- `assemble.FILES` is the one list of a release's files (versionless names, so `releases/latest/download/<file>`
+  links last): README.md, `server/README.md`, the site and the `README-first.txt` templates may name only those, and
+  the READMEs must name all of them (`tools/release/test_workflows.py`). The self-host Compose pulls the image
+  `server-image.yml` pushes. Change a file's name in `assemble.py`, `package.py` or `server/release.py` together.
+- The official server's policy is `server/README.md`'s The official server and `web/policy.html` (published beside
+  the site's `index.html`); `server/tests/test_policy.py` holds both to `deploy/coolify/server.ini`, the kick and
+  name rules and `data/net.json`. Change the settings and both pages together.
+- Test the release's steps: `python3 -m unittest discover -s tools/release -t tools/release` (the gate and plan, the
+  desktop zips, the files, the deploy against a bare repository and a fake Coolify, and the workflows' shape with
+  PyYAML). Locally, as far as GitHub's runners go: `python3 server/release.py` (the zipapp's archive, smoke-tested
+  outside the checkout); in a venv with `server/requirements-build.txt`, `server/release.py --native --target
+  linux-x64`; `bash deploy/check.sh` (Docker: the image and both stacks, removed afterwards; never beside another
+  Docker or Godot job); and the desktop build: `python3 tools/release/stamp.py build-json --build-seq 0`, `godot
+  --headless --path . --import`, `mkdir -p build/desktop/linux && godot --headless --path . --export-release "Linux"
+  build/desktop/linux/groundhold.x86_64` (Godot makes no export folder itself), `python3
+  tools/release/desktop_smoke.py build/desktop/linux/groundhold.x86_64`, `python3 tools/release/package.py --version
+  0.6.0 --platform linux-x64 build/desktop/linux --out dist`. Delete `data/build.json` afterwards (it is ignored by
+  git, but a local run reads it as its build number). The export templates are Godot 4.7.1's
+  (`~/.local/share/godot/export_templates/4.7.1.stable`).
 
 Assets are generated, never hand-edited: change the recipe in `art_src/models/` and rebuild with
 `godot-agent asset mesh`, or the Blender build script in `art_src/blender/` (plants, rocks, creeps) and rebuild

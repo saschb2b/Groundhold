@@ -77,6 +77,7 @@ func accept() -> void:
 	if Session.profile.set_name(field.text):
 		visible = false
 		field.release_focus()
+		Session.name_confirmed()  # (a join link waits for the name: Session.open_link)
 	else:
 		_check()
 

@@ -14,8 +14,9 @@
 ## count frames instead.
 ##
 ## The session (scripts/session/session.gd) keeps one MatchClient as its connection to a
-## server for as long as it stays: `keep_link` holds the link open after MATCH_END and
-## lets the next MATCH_CONFIG start a new match (rearm), `defer_loaded` waits for the host
+## server for as long as it stays: `keep_link` holds the link open after MATCH_END (it
+## PINGs on through the results plate, and a close there fails the client: the party went
+## with the link) and lets the next MATCH_CONFIG start a new match (rearm), `defer_loaded` waits for the host
 ## to build the hollow before LOADED (loaded()), and the hub's messages (PARTY_STATE,
 ## QUEUE_STATE, MATCH_FOUND, NOTICE) go out on `hub_message`. Without them (--join, the
 ## loopback tests) it plays one match exactly as in M1.
@@ -247,6 +248,8 @@ var _reconnect_at := -1
 var _lost_at := -1
 var _lost_reason := ""
 var _bye := false
+## This game closed the link itself (close()): its close is no loss.
+var _closed_here := false
 ## The RESYNC being loaded (its fields, "reason" named), {} for none.
 var _resync := {}
 ## The tab came back: catching_up or shown is decided after the next read.
@@ -380,6 +383,7 @@ func connect_with(with_link: NetLink, url: String) -> bool:
 	_reconnect_ms = NetProtocol.number("reconnect_ms")
 	_silent_ms = NetProtocol.number("away_ms")
 	_hello_sent = false
+	_closed_here = false
 	_heard_at = _now()
 	_pings_out = 0
 	_pongs_in = 0
@@ -443,6 +447,11 @@ func poll() -> void:
 			link.close(1000, "Goodbye")
 		connect_with(link_factory.call() if link_factory.is_valid() else NetLink.new(), url)
 		return
+	if link.is_closed() and phase == Phase.ENDED and keep_link and not _closed_here:
+		# (the session's link on the results plate: the party it carries goes with it, so
+		# this game is offline now, and Play again leads to a party of one, not a stale one)
+		_fail(link.close_reason if link.close_reason != "" else "The connection closed")
+		return
 	if link.is_closed() and phase not in [Phase.ENDED, Phase.FAILED, Phase.IDLE]:
 		if _may_rejoin():
 			_lose_link(now)
@@ -465,7 +474,9 @@ func poll() -> void:
 			_begin_catch_up()
 		else:
 			_say_visibility(SHOWN)
-	if phase >= Phase.WAITING and phase <= Phase.PLAYING:
+	# (the results plate too: a kept link stays the party's, and the server closes one that
+	# says nothing for silence_ms, 15 s, however long the plate is read)
+	if phase >= Phase.WAITING and phase <= Phase.ENDED:
 		if _last_ping_at < 0 or now - _last_ping_at >= _ping_every:
 			_ping(now)
 	if phase == Phase.PLAYING:
@@ -550,6 +561,7 @@ func leave() -> void:
 ## Says goodbye and closes the link (and gives up a reconnect).
 func close() -> void:
 	reconnecting = false
+	_closed_here = true
 	if link and link.is_open():
 		_send("BYE")
 		link.close(1000, "Goodbye")

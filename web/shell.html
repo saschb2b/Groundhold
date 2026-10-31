@@ -27,17 +27,28 @@ $GODOT_HEAD_INCLUDE
 	<div id="bar"><div id="fill"></div></div>
 	<div id="status">Walking out…</div>
 </div>
-<script src="$GODOT_URL"></script>
 <script>
+// Pages serves every file for 10 minutes (design 6.8), so this build asks for its own files as
+// ?v=<build_seq>: a reload never pairs this page with another build's .wasm or .pck. CI writes the
+// number over the mark below (tools/release/stamp.py shell); an export without it asks plainly.
+const BUILD_SEQ = "@BUILD_SEQ@";
+const versioned = (file) => (/^[0-9]+$/.test(BUILD_SEQ) ? file + "?v=" + BUILD_SEQ : file);
 const config = $GODOT_CONFIG;
 const canvas = document.getElementById("canvas");
 const boot = document.getElementById("boot");
 const fill = document.getElementById("fill");
 const status = document.getElementById("status");
-const missing = typeof Engine.getMissingFeatures === "function" ? Engine.getMissingFeatures({ threads: false }) : [];
-if (missing.length) {
-	status.textContent = "This browser cannot run the game. Missing: " + missing.join(", ");
-} else {
+// The engine fetches its .wasm and .pck by these names, and finds their sizes under them.
+const buildFiles = [config.executable + ".wasm", config.mainPack || config.executable + ".pck"];
+const pageFetch = window.fetch.bind(window);
+window.fetch = (input, init) => pageFetch(buildFiles.includes(input) ? versioned(input) : input, init);
+
+function start() {
+	const missing = typeof Engine.getMissingFeatures === "function" ? Engine.getMissingFeatures({ threads: false }) : [];
+	if (missing.length) {
+		status.textContent = "This browser cannot run the game. Missing: " + missing.join(", ");
+		return;
+	}
 	const engine = new Engine(Object.assign({}, config, { canvas: canvas }));
 	engine.startGame({
 		onProgress: (current, total) => {
@@ -54,6 +65,14 @@ if (missing.length) {
 		status.textContent = "The game could not start: " + error;
 	});
 }
+
+const engineScript = document.createElement("script");
+engineScript.src = versioned("$GODOT_URL");
+engineScript.onload = start;
+engineScript.onerror = () => {
+	status.textContent = "The game could not load. Reload the page to try again.";
+};
+document.body.appendChild(engineScript);
 canvas.addEventListener("pointerdown", () => canvas.focus());
 </script>
 </body>

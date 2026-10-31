@@ -1,6 +1,81 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 · TBD
+
+Ship it (M5): online play on the official server, desktop builds, a server to download, and the release that makes
+them all from one tag. This version also carries M2, M3 and M4 below, everything since 0.5.0.
+
+What a player sees:
+
+- The browser game plays online on the official server, `wss://groundhold.saschb2b.com/causeway`. Join's
+  Official row connects there, a party code typed alone joins that party there, and the party strip's copy link
+  (`https://saschb2b.github.io/Groundhold/play/?join=K7Q4M`) opens the game in a friend's browser and joins it.
+  A friend who opens the link on a first visit names themselves first, and the party sees that name. The link
+  always opens the official server, so a party on a LAN or another server offers its code alone. The browser game
+  joins only the official server; a server of your own serves the desktop game.
+- The game for Windows, macOS and Linux is on the release page: `groundhold-windows-x64.zip`,
+  `groundhold-macos.zip` (one app for Apple silicon and Intel) and `groundhold-linux-x64.zip`, each with a
+  `README-first.txt`. The desktop game plays online like the browser, and on your own network with a server
+  from the same page. The builds are not signed: macOS asks for its quarantine steps once (README.md, Play
+  together, says how), and Windows SmartScreen for More info, then Run anyway.
+- The server for a LAN party: `groundhold-server-windows-x64.zip`, `-macos-arm64.zip`, `-macos-x64.zip`,
+  `-linux-x64.zip` and `-linux-arm64.zip` need nothing installed; `groundhold-server-python.zip` runs wherever
+  Python 3.11 or newer does. Each unpacks into one folder and says how to start it on its system.
+- The official server has a policy: who runs it, who moderates, the rules, what it keeps and for how long, and
+  how to have your identity forgotten. It is on the site (`policy.html`, linked from the footers) and in
+  `server/README.md`.
+- The browser build asks for its files by its build number, so a reload just after a new build never mixes the
+  old build's code with the new one's data. The game prints its version, its build and the official server as it
+  starts.
+- The results of a party match keep the connection: read them as long as you like, and Play again finds the
+  party. Before, a player who stayed on the results for more than 15 s lost the party without a word. If the link
+  goes on the results, the hub says the party went with it and the game is offline, a party of one.
+- A party link with anything but a whole code (`?join=k7q-4m extra`) opens the game plainly instead of looking
+  for another party.
+
+Hosting:
+
+- The server's image, `ghcr.io/saschb2b/groundhold-server`, for x86-64 and ARM64, tagged with each release
+  (`0.6.0`; `0.6` and `latest` while it is the newest of its 0.6 and of all). It runs as an unprivileged user on a
+  read-only filesystem and writes only its state and its backups. It is pushed only once the release's desktop
+  exports and server archives have passed, one release at a time.
+- `--port 0` without `--host` listens on one port for IPv4 and IPv6 alike, the one it prints; before, each family
+  got a port of its own, and the printed one refused IPv4.
+- `deploy/selfhost/compose.yaml` runs a server of your own on any computer with Docker and a domain: the image,
+  its daily backup, and Caddy with a Let's Encrypt certificate and no access log. Set `DOMAIN=` and run
+  `docker compose up -d`.
+- `deploy/coolify/` runs the official server in Coolify, beside Cyberworld Endless's: the server and its backup,
+  both hardened, with health checks. It deploys at a release and at no other time: the release moves the
+  `release` branch the Coolify app follows, then asks Coolify's API to deploy where the repository has the
+  secrets for it. A tag moves it only forward, to the newest release (two releases at once never leave the older
+  one deployed); a release of an older tag by hand rolls back. A restart ends the matches running, so a push to
+  `main` never restarts it.
+- `--backup DIR` makes its folder when there is none yet, and an empty `--restore ""` (or `--backup`,
+  `--state-dir`, `--config`, `--event-log`) is refused rather than starting a server.
+
+For developers:
+
+- `.github/workflows/release.yml` makes a release from a tag `vX.Y.Z`. Its gate refuses a tag that is not on
+  `main`, is not `project.godot`'s `config/version` or has no dated section here; then the desktop exports (Godot
+  and its templates checked against Godot's published SHA-512 sums first; the Linux one booted headless to the
+  hub), the server's five native builds and its zipapp (each archive smoke-tested outside the checkout) and its
+  image; then the GitHub release with every file and `SHA256SUMS.txt`; last the deploy. Run by hand it is a dry
+  run: everything built and checked, the files kept as the run's artifact, nothing published. `server/README.md`,
+  At a release, is the checklist.
+- `server.yml` runs the server's tests on Python 3.11, the release tools' tests, the zipapp's archive and
+  `deploy/check.sh` (both Compose files, the image's build context, a bare hardened container, both stacks
+  healthy) on every change to the server, its contract, the deployment or the release.
+- `server-data/` and `server-backups/`, where a server started in a checkout keeps its identity key, its
+  moderation and its archives, are ignored by git.
+- `tools/release/` holds the release's steps (`gate.py`, `stamp.py`, `package.py`, `desktop_smoke.py`,
+  `assemble.py`, `deploy.py`) and their tests; `server/release.py`, `smoke.py` and `notices.py` package the
+  server. `assemble.py` lists the release's files, and the tests hold every page that names a download to that
+  list.
+- `export_presets.cfg` has Linux, Windows and macOS presets beside Web; the data and the wire contract go into
+  each, the server, the deployment, the tests and the tools stay out. `data/net.json` names the official server;
+  CI writes `data/build.json` (the build number is the run number). Pages' `join-link` job runs
+  `tests/web/flow_join_link_through_iframe.py`: the exported site in headless Chrome, a `play/?join=` link
+  joining a party on a real server.
 
 Resilience (M4): a dropped connection, a browser tab in the background or a game that fell out of step no longer
 ends anyone's match.

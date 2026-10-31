@@ -1,0 +1,4 @@
+{
+  "about": "The official server (design 6.11): the Join panel's Official row, and what a party code or a play/?join= link connects to (Session.official_url). Nearby servers and typed addresses never read it. A fork with its own server changes this one line.",
+  "official": "wss://groundhold.saschb2b.com/causeway"
+}

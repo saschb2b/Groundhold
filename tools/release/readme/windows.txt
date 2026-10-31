@@ -1,0 +1,34 @@
+Groundhold $version for Windows (x86_64)
+========================================
+
+A co-op tower defense for one to four players. MIT License, by Sascha Becker.
+Source, changes and help: https://github.com/saschb2b/Groundhold
+
+
+Start it
+--------
+
+Unpack this folder anywhere (right-click the zip, Extract All) and double-click
+Groundhold.exe.
+
+The game is not signed, so the first start may show "Windows protected your PC". Choose
+More info, then Run anyway. Windows asks once whether Groundhold may use the network: allow
+private networks to play on your home network.
+
+Your name, Builders and settings live in %APPDATA%\Godot\app_userdata\Groundhold\.
+
+
+Play together
+-------------
+
+Online: open Join (J) and press Go on the Official row
+(wss://groundhold.saschb2b.com/causeway), or type a friend's party code. Friends in the
+browser play at https://saschb2b.github.io/Groundhold/play/ and join the same parties.
+The official server's rules, and what it keeps and for how long:
+https://saschb2b.github.io/Groundhold/policy.html
+
+On your network: one computer runs the server, groundhold-server, from the same release
+page: groundhold-server-windows-x64.zip, or groundhold-server-python.zip with Python 3.11
+or newer. Its window prints the address to type; the game lists it under Join, Nearby.
+The others join with the code on your strip. A firewall must let TCP port 8766 in, and UDP
+port 8767 for Nearby.

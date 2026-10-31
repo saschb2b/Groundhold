@@ -35,6 +35,10 @@ match finished (won, lost or draw, by result), the HASH streams agree to the
 end, and every game came back to a party of N, forming.
 
     python3 tools/net/smoke.py --flow                         # two games, about two minutes
+    python3 tools/net/smoke.py --flow --no-bot --linger 20    # 20 s on the results first
+
+--linger S keeps every game S seconds on the results before Play again: longer
+than the server's silence_ms (15 s), the plate must keep the connection alive.
 
 With --shaper (design §8 M4) the last client plays through tools/net/shaper.py:
 150 ± 50 ms each way and, --stall-at seconds after it connects, a 3 s stall
@@ -404,6 +408,8 @@ class Flow(Smoke):
                        f"--name=Flow{k}", f"--main={builder}", f"--hash-log={hashes}", "--quit-after-flow",
                        f"--code-out={code_file}" if k == 1 else f"--code-in={code_file}"]
             command += ["--ready-calls"] if self.args.no_bot else ["--ready-calls", "--bot"]
+            if self.args.linger:
+                command.append(f"--linger={self.args.linger:g}")
             clients.append((k, self.spawn(command, self.out / f"client{k}.log", cwd=ROOT), hashes))
         return clients
 
@@ -543,6 +549,8 @@ def main(argv=None):
     parser.add_argument("--rate-floor", type=float, default=0.8,
                         help="with --shaper: the share of the server's pace another client never drops below")
     parser.add_argument("--server", help="another checkout's server/main.py (default this one's)")
+    parser.add_argument("--linger", type=float, default=0,
+                        help="with --flow: seconds each game stays on the results before Play again")
     parser.add_argument("--builders", default="lamplighter,lookout",
                         help="with --flow: the members' mains in order, repeated as needed (default lamplighter,lookout)")
     args = parser.parse_args(argv)
@@ -550,6 +558,8 @@ def main(argv=None):
         parser.error("--clients is 1 to 4")
     if args.flow and args.turn_ms:
         parser.error("--turn-ms is a dev match's; the hub's matches keep the protocol's turns")
+    if args.linger and not args.flow:
+        parser.error("--linger is --flow's: a dev match has no results plate to stay on")
     if args.flow and (args.shaper or args.faults):
         parser.error("--shaper and --faults shape a dev match's client, not --flow's")
     if (args.shaper or args.faults) and args.clients < 2:

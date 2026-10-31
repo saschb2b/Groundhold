@@ -1,0 +1,30 @@
+{
+  "name": "flow_official_server_from_net_json",
+  "description": "The official server is data/net.json's (design 6.11): its wss:// URL is Session.official_address, what Join's Official row shows (the host) and goes to, and what a bare code joins on; Nearby and typed addresses keep the address rule. The hub's first opening prints one banner line with project.godot's version, data/build.json's build (0 for a local run) and that server, which a release's boot check reads from the exported game.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"assert": "Session.official_address == 'wss://groundhold.saschb2b.com/causeway' and Session.official_url() == Session.official_address", "msg": "the official server's URL, from data/net.json"},
+    {"assert": "Session.banner() == 'Groundhold ' + str(ProjectSettings.get_setting('application/config/version')) + ' (build ' + str(Session.build_seq()) + '), official server wss://groundhold.saschb2b.com/causeway'", "msg": "the banner: name, version, build and official server"},
+    {"assert": "str(ProjectSettings.get_setting('application/config/version')).split('.').size() == 3", "msg": "project.godot carries config/version, X.Y.Z (the release gate holds tags to it)"},
+    {"assert": "Session.host_of(Session.official_address) == 'groundhold.saschb2b.com' and Session.host_of('ws://192.168.1.20:8766/causeway') == '192.168.1.20' and Session.host_of('wss://example.org:9000/causeway') == 'example.org:9000'", "msg": "the host as the hub shows it, the protocol's own port left out"},
+    {"key": "J"},
+    {"wait": 1},
+    {"assert": "node('JoinPanel').visible and node('OfficialHost').text == 'groundhold.saschb2b.com'", "msg": "Join's Official row names the official server"},
+    {"assert": "node('JoinPanel').url_for('192.168.1.20') == 'ws://192.168.1.20:8766/causeway' and node('JoinPanel').url_for('play.example.org') == 'wss://play.example.org/causeway'", "msg": "typed addresses keep the address rule"},
+    {"key": "Escape"},
+    {"wait": 1},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"key": "J"},
+    {"wait": 1},
+    {"assert": "node('OfficialHost').text == 'play.loopback.test'", "msg": "the row shows the official address as it stands when the panel opens (here the loopback's)"},
+    {"click": "node('GoOnline')"},
+    {"wait_until": "Session.state_name() == 'HUB' and Session.party_size() == 1", "timeout": 120},
+    {"assert": "Session.place_text() == 'Online · play.loopback.test' and Session.client.link.url == 'wss://play.loopback.test/causeway'", "msg": "Go on the Official row connects there, online, and makes a party"}
+  ]
+}

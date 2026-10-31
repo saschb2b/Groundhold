@@ -123,7 +123,7 @@ def banner(name, host, port, secure, addresses, config=None, container=False, wi
             lines.append("This computer has no network now: players reach it at its address, port " + str(port) + ".")
         lines.append(f"  {typed('127.0.0.1', port)}    (a game on this computer)")
         lines += [f"From the internet: forward TCP port {port} on the router to this computer, or use",
-                  "Tailscale or ZeroTier. Browsers need wss:// (a certificate, or a proxy in front)."]
+                  "Tailscale or ZeroTier. Desktop games only: the browser game joins the official server alone."]
         if windows:
             lines.append("Windows may ask whether to let it through the firewall: allow it on private networks.")
     if beacon:

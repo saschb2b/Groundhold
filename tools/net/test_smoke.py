@@ -6,6 +6,8 @@ RESULT a client may miss when the majority ends the match first.
 Nothing here starts a server or a game.
 """
 
+import contextlib
+import io
 import pathlib
 import random
 import sys
@@ -67,6 +69,34 @@ class ResultTests(unittest.TestCase):
         self.assertEqual(smoke.missing_results(ends, {}), [1, 2])
         ends = {1: ("won", "result", "900"), 2: ("won", "result", "900")}
         self.assertEqual(smoke.missing_results(ends, {1: "RESULT 840 ab won"}), [2])
+
+
+class LingerTests(unittest.TestCase):
+    """--flow --linger S: every game stays S seconds on the results before Play again (review M5
+    round 2: past the server's 15 s of silence the plate lost the party)."""
+
+    def commands(self, linger):
+        import argparse
+        import tempfile
+        with tempfile.TemporaryDirectory() as out:
+            args = argparse.Namespace(clients=2, builders="lamplighter,lookout", no_bot=True, linger=linger,
+                                      godot="godot", out=out)
+            flow = smoke.Flow(args)
+            spawned = []
+            flow.spawn = lambda command, log, **options: spawned.append(command)
+            flow.start_clients(8766)
+            return spawned
+
+    def test_each_game_is_told_how_long_to_linger(self):
+        for command in self.commands(20):
+            self.assertIn("--linger=20", command)
+            self.assertIn("--flow-bot", command)
+        for command in self.commands(0):
+            self.assertFalse(any(arg.startswith("--linger") for arg in command))
+
+    def test_only_with_flow(self):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            smoke.main(["--linger", "20"])
 
 
 if __name__ == "__main__":

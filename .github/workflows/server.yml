@@ -1,0 +1,81 @@
+# The server, on a push or pull request that touches it (server/, its wire
+# contract in shared/net/, its deployment in deploy/, the release tools or
+# these workflows): its unit tests on the oldest Python it supports, the
+# zipapp's release archive run as a real process outside the checkout, and
+# deploy/check.sh (both Compose files, the image's build context, the image
+# started bare and answering /health, the Coolify stack and the self-host
+# server healthy). Run by hand (Run workflow), it also makes the five native
+# builds (server-native.yml), a release's dry run of the server alone.
+# (pages.yml's net-smoke job runs the unit tests on every change too.)
+name: Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'shared/net/**'
+      - 'deploy/**'
+      - 'tools/release/**'
+      - 'LICENSE'
+      - '.github/workflows/server.yml'
+      - '.github/workflows/server-native.yml'
+      - '.github/workflows/server-image.yml'
+      - '.github/workflows/release.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'shared/net/**'
+      - 'deploy/**'
+      - 'tools/release/**'
+      - 'LICENSE'
+      - '.github/workflows/server.yml'
+      - '.github/workflows/server-native.yml'
+      - '.github/workflows/server-image.yml'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Server (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      # (the workflows' shape tests skip without PyYAML; here they must run)
+      - name: PyYAML, for the workflows' shape
+        run: python -m pip install PyYAML==6.0.3
+      # (the Compose tests skip without Docker; here they must run)
+      - name: The server's unit tests
+        env:
+          GROUNDHOLD_REQUIRE_DOCKER: '1'
+        run: python -m unittest discover -s server/tests -t server/tests -v
+      - name: The release tools' tests (release.yml's steps, its shape, the files a release carries)
+        run: python -m unittest discover -s tools/release -t tools/release -v
+      - name: The zipapp's archive, run as a real process outside the checkout
+        run: python server/release.py
+      - name: The image and both Compose files (deploy/check.sh)
+        env:
+          GROUNDHOLD_CHECK_PULL: '1'
+        run: bash deploy/check.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: server-python
+          path: build/release/groundhold-server-python.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  native:
+    name: Native builds
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/server-native.yml

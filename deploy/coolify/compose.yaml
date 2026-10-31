@@ -1,0 +1,93 @@
+# The official server, wss://groundhold.saschb2b.com/causeway, as a Docker
+# Compose app in Coolify (server/README.md, Coolify deployment):
+#
+#   Source: this repository, branch `release` (release.yml moves it to each
+#   vX.Y.Z tag), Base Directory /, Docker Compose Location
+#   /deploy/coolify/compose.yaml, Preserve repository during deployment on
+#   (the read-only server.ini below is a file of the repository).
+#   The groundhold service: domain https://groundhold.saschb2b.com, port
+#   8766. The backup service: no domain. Publish no host port: Coolify's
+#   proxy terminates TLS and forwards the WebSocket upgrade.
+#
+# Coolify passes the Base Directory as Compose's project directory, so the
+# build context `.` and `./deploy/coolify/server.ini` are the repository's
+# root and that file. Locally, from the repository's root:
+#
+#   docker compose --project-directory . -f deploy/coolify/compose.yaml config --quiet
+#   bash deploy/check.sh        # (also brings this stack up and checks it)
+#
+# Reused from Cyberworld Endless's deploy/coolify/compose.yaml (MIT, Sascha
+# Becker): the same hardening, health checks, log caps and backup service.
+services:
+  groundhold:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    command: ["--host", "0.0.0.0", "--config", "/app/server.ini", "--state-dir", "/data"]
+    expose:
+      - "8766"
+    volumes:
+      - groundhold-state:/data
+      # (read-only: a restore is run from this container's terminal, server/README.md)
+      - groundhold-backups:/backups:ro
+      - ./deploy/coolify/server.ini:/app/server.ini:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import json, os, urllib.request as r; port = os.environ.get('GROUNDHOLD_SERVER_PORT') or '8766'; answer = r.build_opener(r.ProxyHandler({})).open('http://127.0.0.1:' + port + '/health', timeout=4); raise SystemExit(json.load(answer).get('status') != 'ok')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # The state's daily archive (server/README.md, Backups and restores): the
+  # identity key and the moderation lists, kept server.ini's backup_days. It
+  # reads the state read-only and writes only its own volume; it starts once
+  # the server is healthy, so the key it archives exists.
+  backup:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    command: ["--config", "/app/server.ini", "--state-dir", "/data", "--backup", "/backups"]
+    depends_on:
+      groundhold:
+        condition: service_healthy
+    volumes:
+      - groundhold-state:/data:ro
+      - groundhold-backups:/backups
+      - ./deploy/coolify/server.ini:/app/server.ini:ro
+    healthcheck:
+      # (unhealthy once the newest archive is more than 26 hours old)
+      test: ["CMD", "python3", "-c", "import glob, os, sys, time; found = glob.glob('/backups/groundhold-state-*.tar.gz'); sys.exit(not found or time.time() - max(map(os.path.getmtime, found)) > 26 * 3600)"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 2m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "2"
+
+volumes:
+  groundhold-state:
+  groundhold-backups:

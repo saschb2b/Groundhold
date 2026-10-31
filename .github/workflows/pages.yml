@@ -95,10 +95,11 @@ jobs:
           rm templates.tpz
       - name: The server's unit tests
         run: python3 -m unittest discover -s server/tests -t server/tests
-      - name: The shaper's, the smoke's and the play page's unit tests
+      - name: The shaper's, the smoke's, the play page's and the release tools' unit tests
         run: |
           python3 -m unittest tools/net/test_shaper.py tools/net/test_smoke.py
           python3 -m unittest discover -s tests/web -t tests/web
+          python3 -m unittest discover -s tools/release -t tools/release
       - name: Import the project
         run: ~/godot/godot --headless --path . --import
       # The real server and two headless games play a whole classic match (turns of
@@ -166,6 +167,12 @@ jobs:
           dir="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
           mkdir -p "$dir" && cp ~/godot/templates/* "$dir/"
 
+      # The build's number is this run's (design 6.9): in data/build.json, inside the export, for
+      # HELLO's build_seq (a party tells the newer build by it), and on the shell's .js, .wasm and
+      # .pck as ?v= (design 6.8): Pages serves every file for 10 minutes, and a reload must never
+      # pair one build's .wasm with another's .pck.
+      - name: Number the build
+        run: python3 tools/release/stamp.py build-json --build-seq "$GITHUB_RUN_NUMBER" --commit "$GITHUB_SHA"
       - name: Import the project
         run: ~/godot/godot --headless --path . --import
       - name: Export the game
@@ -173,9 +180,10 @@ jobs:
           mkdir -p site/play/game
           ~/godot/godot --headless --path . --export-release "Web" "$PWD/site/play/game/index.html"
           test -s site/play/game/index.pck
+          python3 tools/release/stamp.py shell --build-seq "$GITHUB_RUN_NUMBER" site/play/game/index.html
       - name: Assemble the site
         run: |
-          cp -r web/index.html web/404.html web/assets site/
+          cp -r web/index.html web/policy.html web/404.html web/assets site/
           cp web/play/index.html site/play/
           mkdir -p site/ui site/fonts site/media
           cp -r ui/console ui/icons site/ui/
@@ -196,6 +204,38 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: site
+
+  # The exported site in headless Chrome (agent-browser): play/?join=CODE reaches the game in the
+  # frame, which joins that party on the official server (here the real server on 127.0.0.1), and
+  # the shell asks for this build's files as ?v=<run number>. It does not hold the Pages deploy.
+  join-link:
+    name: A party's link through the play page
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v8
+        with:
+          name: site
+          path: site
+      - name: agent-browser and its Chrome
+        run: |
+          npm install -g agent-browser@0.37.1
+          agent-browser install --with-deps
+      - name: flow_join_link_through_iframe
+        run: |
+          python3 tests/web/flow_join_link_through_iframe.py --game site/play/game \
+            --build-seq "$GITHUB_RUN_NUMBER" --out join-link --timeout 300
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: join-link
+          path: join-link
+          retention-days: 14
 
   deploy:
     name: Publish on GitHub Pages

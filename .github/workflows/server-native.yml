@@ -1,0 +1,73 @@
+# The server's standalone builds, one for each system a release promises:
+# Linux x86-64 and ARM64, Windows x64, macOS Intel and Apple Silicon. Each is
+# a PyInstaller one-file build made with the pinned tools
+# (server/requirements-build.txt) on its own runner, since PyInstaller does
+# not cross-compile, and zipped with a short README, the licence, the example
+# settings and the notices of what it froze (server/release.py). Each archive
+# is then extracted outside the checkout and must answer --help, serve
+# /health, take a game's HELLO and make a backup there (server/smoke.py), or
+# it is not uploaded. The zipapp's archive is built beside Linux x86-64.
+# release.yml runs this on its tag; server.yml runs it by hand.
+name: Server native builds
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit or tag to build (the caller's own by default)
+        type: string
+        default: ''
+      version:
+        description: The release's version, for BUILD.json and README.txt
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native server (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-22.04, architecture: x64, target: linux-x64}
+          - {runner: ubuntu-22.04-arm, architecture: arm64, target: linux-arm64}
+          - {runner: windows-2022, architecture: x64, target: windows-x64}
+          - {runner: macos-15-intel, architecture: x64, target: macos-x64}
+          - {runner: macos-15, architecture: arm64, target: macos-arm64}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.17'
+          architecture: ${{ matrix.architecture }}
+          cache: pip
+          cache-dependency-path: server/requirements-build.txt
+      - name: The pinned packaging tools
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r server/requirements-build.txt
+      # (on Linux they gate the build; elsewhere they are advisory until the
+      # suite is known to pass there: the smoke below is the gate)
+      - name: The server's unit tests
+        continue-on-error: ${{ runner.os != 'Linux' }}
+        run: python -m unittest discover -s server/tests -t server/tests
+      # (licenses/ written from this runner's own licence files: server/notices.py)
+      - name: The native build, its archive and its smoke outside the checkout
+        shell: bash
+        run: python server/release.py --native --target "${{ matrix.target }}" --version "${{ inputs.version || 'dev' }}"
+      - name: The zipapp's archive and its smoke
+        if: matrix.target == 'linux-x64'
+        shell: bash
+        run: python server/release.py --version "${{ inputs.version || 'dev' }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: server-${{ matrix.target }}
+          path: build/release/groundhold-server-*.zip
+          if-no-files-found: error
+          retention-days: 14

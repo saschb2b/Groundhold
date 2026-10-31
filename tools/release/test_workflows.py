@@ -1,0 +1,420 @@
+"""What a release depends on, read from the files themselves: the export presets (three desktop
+presets beside Web, the data and contract files in, the server, deploy files and tests out, macOS
+universal and unsigned), and release.yml and pages.yml as GitHub would run them (the gate before any
+build, every job on the gate's commit, every preset it exports and template it needs, the server's
+workflows by path with the inputs they declare, the artifacts the release downloads, the deploy last,
+Pages numbering its build and publishing the policy page); and across the repository, that the pages
+which tell players what to download name the release's own files, and the self-host pulls the image
+the release pushes, the pages that tell hosts who reaches their server keep to what the browser
+build can do, and the build commands they give work in a fresh clone. A workflow file is read with
+PyYAML; those tests are skipped where it is not installed.
+
+    python3 -m unittest discover -s tools/release -t tools/release
+"""
+
+import configparser
+import hashlib
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+import zipfile
+
+import assemble
+import deploy as deploy_tool
+import package
+
+ROOT = Path(__file__).resolve().parents[2]
+try:
+    import yaml
+except ImportError:  # (the release's own runner has it; the tests below say so when skipped)
+    yaml = None
+
+
+def presets() -> dict[str, dict]:
+    """export_presets.cfg's presets by name: their own keys and their options, unquoted."""
+    cfg = configparser.ConfigParser(interpolation=None, delimiters=("=",), comment_prefixes=(";",), strict=False)
+    cfg.optionxform = str
+    cfg.read(ROOT / "export_presets.cfg", encoding="utf-8")
+    out = {}
+    for section in cfg.sections():
+        if re.fullmatch(r"preset\.\d+", section):
+            unquote = lambda v: v[1:-1] if len(v) >= 2 and v[0] == v[-1] == '"' else v  # noqa: E731
+            own = {k: unquote(v) for k, v in cfg[section].items()}
+            own["options"] = {k: unquote(v) for k, v in cfg[section + ".options"].items()}
+            out[own["name"]] = own
+    return out
+
+
+def filters(text: str) -> set[str]:
+    return {part.strip() for part in text.split(",") if part.strip()}
+
+
+def workflow(name: str) -> dict:
+    data = yaml.safe_load((ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8"))
+    data["on"] = data.pop(True, data.get("on"))  # (YAML 1.1 reads the key `on` as true)
+    return data
+
+
+def runs(job: dict) -> str:
+    return "\n".join(str(step.get("run", "")) for step in job.get("steps", []))
+
+
+class PresetsTest(unittest.TestCase):
+    def test_web_and_the_three_desktop_presets(self):
+        found = presets()
+        self.assertEqual({name: p["platform"] for name, p in found.items()},
+                         {"Web": "Web", "Linux": "Linux", "Windows": "Windows Desktop", "macOS": "macOS"})
+
+    def test_every_preset_ships_the_data_and_contracts_and_nothing_else(self):
+        for name, preset in presets().items():
+            include, exclude = filters(preset["include_filter"]), filters(preset["exclude_filter"])
+            self.assertTrue({"data/*.json", "shared/net/*.json", "data/*.txt"} <= include, name)
+            self.assertTrue({"server/*", "deploy/*", "tests/*", "tools/*", "docs/*", "art_src/*",
+                             "shared/net/transcripts/*"} <= exclude, name)
+
+    def test_desktop_builds_are_single_files_where_they_can_be(self):
+        found = presets()
+        self.assertEqual(found["Linux"]["options"]["binary_format/architecture"], "x86_64")
+        self.assertEqual(found["Windows"]["options"]["binary_format/architecture"], "x86_64")
+        for name in ("Linux", "Windows"):
+            self.assertEqual(found[name]["options"]["binary_format/embed_pck"], "true", name)
+
+    def test_macos_is_universal_and_unsigned(self):
+        mac = presets()["macOS"]["options"]
+        self.assertEqual(mac["binary_format/architecture"], "universal")
+        self.assertEqual(mac["codesign/codesign"], "0", "code signing off: an unsigned app (README-first.txt)")
+        self.assertEqual(mac["notarization/notarization"], "0", "notarisation off")
+        self.assertEqual(mac["application/bundle_identifier"], "com.saschb2b.groundhold")
+        project = (ROOT / "project.godot").read_text(encoding="utf-8")
+        self.assertIn("textures/vram_compression/import_etc2_astc=true", project,
+                      "Godot exports universal (arm64) macOS only with ETC2/ASTC imported")
+
+    def test_windows_is_unsigned(self):
+        self.assertEqual(presets()["Windows"]["options"]["codesign/enable"], "false")
+
+
+@unittest.skipIf(yaml is None, "needs PyYAML")
+class ReleaseWorkflowTest(unittest.TestCase):
+    def setUp(self):
+        self.flow = workflow("release.yml")
+        self.jobs = self.flow["jobs"]
+
+    def needs(self, name):
+        needs = self.jobs[name].get("needs", [])
+        return set(needs if isinstance(needs, list) else [needs])
+
+    def test_a_tag_publishes_and_a_run_by_hand_is_a_dry_run(self):
+        self.assertEqual(self.flow["on"]["push"], {"tags": ["v*"]})
+        inputs = self.flow["on"]["workflow_dispatch"]["inputs"]
+        self.assertFalse(inputs["tag"].get("required", False), "no tag: a dry run of the branch")
+        self.assertIs(inputs["dry_run"]["default"], True)
+        self.assertEqual(self.flow["permissions"], {"contents": "read"})
+        self.assertEqual(self.flow["defaults"]["run"]["shell"], "bash")
+
+    def test_the_gate_comes_before_everything(self):
+        gate = self.jobs["gate"]
+        text = runs(gate)
+        self.assertLess(text.index("tools/release/gate.py plan"), text.index('tools/release/gate.py check "v$VERSION"'))
+        self.assertIn("python3 -m unittest discover -s tools/release -t tools/release", text)
+        plan = next(step for step in gate["steps"] if step.get("id") == "plan")
+        self.assertEqual(set(plan["env"]), {"EVENT", "REF_TYPE", "REF_NAME", "INPUT_TAG", "INPUT_DRY_RUN"})
+        self.assertIn("refs/tags/", gate["steps"][0]["with"]["ref"], "a tag is checked out as a tag")
+        self.assertEqual(set(gate["outputs"]), {"tag", "version", "publish", "sha", "build_seq"})
+        for name in self.jobs:
+            if name != "gate":
+                self.assertIn("gate", self.needs(name), name)
+
+    def test_every_job_builds_the_gates_commit(self):
+        for name, job in self.jobs.items():
+            if name == "gate":
+                continue
+            ref = job["with"]["ref"] if "uses" in job else job["steps"][0]["with"]["ref"]
+            self.assertEqual(ref, "${{ needs.gate.outputs.sha }}", name)
+
+    def test_the_desktop_job_exports_every_desktop_preset_with_the_templates_it_needs(self):
+        text = runs(self.jobs["desktop"])
+        exported = re.findall(r'--export-release "([^"]+)"', text)
+        self.assertEqual(exported, ["Linux", "Windows", "macOS"])
+        self.assertTrue(set(exported) <= set(presets()))
+        for template in ("linux_release.x86_64", "windows_release_x86_64.exe", "macos.zip", "version.txt"):
+            self.assertIn("templates/" + template, text)
+        self.assertIn("desktop_smoke.py build/desktop/linux/groundhold.x86_64", text)
+        self.assertEqual(sorted(re.findall(r"--platform (\S+)", text)), sorted(package.PLATFORMS))
+        self.assertLess(text.index("stamp.py build-json"), text.index("--export-release"))
+
+    def test_godot_and_its_templates_are_checked_before_they_are_unpacked(self):
+        # (the step itself, in bash, with a curl that serves files from a folder: right sums pass,
+        # a changed byte or a file the sums do not list fails before anything is unpacked)
+        steps = self.jobs["desktop"]["steps"]
+        cache = next(step for step in steps if step.get("id") == "godot")
+        self.assertIn("sha512", cache["with"]["key"], "a cache from before the check is never used")
+        step = next(step for step in steps if "SHA512-SUMS.txt" in str(step.get("run", "")))
+        version = self.flow["env"]["GODOT_VERSION"]
+        editor, templates = f"Godot_v{version}-stable_linux.x86_64.zip", f"Godot_v{version}-stable_export_templates.tpz"
+
+        def run(tamper=None, listed=(editor, templates)):
+            root = Path(tempfile.mkdtemp(prefix="groundhold-godot-"))
+            self.addCleanup(shutil.rmtree, root, True)
+            served, home, tools = root / "served", root / "home", root / "bin"
+            for folder in (served, home, tools):
+                folder.mkdir()
+            with zipfile.ZipFile(served / editor, "w") as archive:
+                archive.writestr(f"Godot_v{version}-stable_linux.x86_64", b"godot")
+            with zipfile.ZipFile(served / templates, "w") as archive:
+                for name in ("linux_release.x86_64", "windows_release_x86_64.exe", "macos.zip", "version.txt",
+                             "web_release.zip"):
+                    archive.writestr("templates/" + name, name.encode())
+            sums = "".join(f"{hashlib.sha512((served / name).read_bytes()).hexdigest()}  {name}\n" for name in listed)
+            (served / "SHA512-SUMS.txt").write_text(sums + "0" * 128 + "  Godot_other.zip\n")
+            if tamper:
+                with open(served / tamper, "ab") as stream:
+                    stream.write(b"\0")
+            curl = tools / "curl"
+            curl.write_text('#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2;; -*) shift;; '
+                            '*) url="$1"; shift;; esac; done\ncp "$SERVED/${url##*/}" "$out"\n')
+            curl.chmod(0o755)
+            env = dict(os.environ, HOME=str(home), SERVED=str(served), GODOT_VERSION=version,
+                       PATH=f"{tools}{os.pathsep}{os.environ['PATH']}")
+            done = subprocess.run(["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step["run"]],
+                                  env=env, capture_output=True, text=True, timeout=60)
+            return done, home / "godot"
+
+        done, godot = run()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual((godot / "godot").read_bytes(), b"godot")
+        self.assertEqual(sorted(p.name for p in (godot / "templates").iterdir()),
+                         ["linux_release.x86_64", "macos.zip", "version.txt", "windows_release_x86_64.exe"])
+        for case in ({"tamper": editor}, {"tamper": templates}, {"listed": (editor,)}):
+            done, godot = run(**case)
+            self.assertNotEqual(done.returncode, 0, case)
+            self.assertFalse((godot / "godot").exists(), f"{case}: unpacked before the check")
+            self.assertFalse((godot / "templates").exists(), case)
+
+    def test_the_server_workflows_by_path_with_the_inputs_they_declare(self):
+        self.assertEqual(self.jobs["server-native"]["uses"], "./.github/workflows/server-native.yml")
+        self.assertEqual(self.jobs["server-image"]["uses"], "./.github/workflows/server-image.yml")
+        self.assertEqual(self.jobs["server-image"]["permissions"]["packages"], "write")
+        self.assertEqual(self.jobs["server-image"]["with"]["push"], "${{ needs.gate.outputs.publish == 'true' }}")
+        for name in ("server-native", "server-image"):
+            called = workflow(self.jobs[name]["uses"].rsplit("/", 1)[1])["on"]["workflow_call"]["inputs"]
+            given = self.jobs[name]["with"]
+            self.assertTrue(set(given) <= set(called), f"{name} passes an input its workflow lacks")
+            self.assertTrue({key for key, spec in called.items() if spec.get("required")} <= set(given), name)
+            self.assertEqual(given["version"], "${{ needs.gate.outputs.version }}", name)
+
+    def test_the_image_is_pushed_only_once_the_release_builds(self):
+        # (a tag whose export or native smoke fails publishes no release and moves no branch:
+        # nor may its image become the self-hosts' `latest`; review M5 round 2)
+        self.assertTrue({"gate", "desktop", "server-native"} <= self.needs("server-image"))
+
+    def test_the_release_downloads_what_the_jobs_upload(self):
+        native = workflow("server-native.yml")["jobs"]["native"]
+        upload = next(s for s in native["steps"] if s.get("uses", "").startswith("actions/upload-artifact"))
+        self.assertEqual(upload["with"]["name"], "server-${{ matrix.target }}")
+        self.assertEqual(upload["with"]["path"], "build/release/groundhold-server-*.zip")
+        desktop = next(s for s in self.jobs["desktop"]["steps"] if s.get("uses", "").startswith("actions/upload-artifact"))
+        downloads = [s["with"] for s in self.jobs["publish"]["steps"]
+                     if s.get("uses", "").startswith("actions/download-artifact")]
+        self.assertIn({"pattern": "server-*", "merge-multiple": True, "path": "dist"}, downloads)
+        self.assertIn({"name": desktop["with"]["name"], "path": "dist"}, downloads)
+
+    def test_the_release_carries_the_notes_and_every_file(self):
+        publish = self.jobs["publish"]
+        self.assertEqual(self.needs("publish"), {"gate", "desktop", "server-native"})
+        self.assertEqual(publish["permissions"]["contents"], "write")
+        text = runs(publish)
+        self.assertIn("tools/release/assemble.py dist --list files.txt", text)
+        self.assertIn('gate.py notes "v$VERSION" > NOTES.md', text)
+        self.assertIn('gh release create "$TAG" --verify-tag', text)
+        step = next(s for s in publish["steps"] if "gh release create" in str(s.get("run", "")))
+        self.assertEqual(step["if"], "needs.gate.outputs.publish == 'true'")
+        kept = next(s for s in publish["steps"] if s.get("with", {}).get("name") == "release-dry-run")
+        self.assertEqual(kept["if"], "needs.gate.outputs.publish != 'true'")
+
+    def test_the_deploy_is_last_and_moves_the_release_branch(self):
+        deploy = self.jobs["deploy"]
+        others = set(self.jobs) - {"deploy"}
+        # (everything else is upstream of the deploy: it needs each job, or a job that needs it)
+        upstream = set(self.needs("deploy"))
+        for name in self.needs("deploy"):
+            upstream |= self.needs(name)
+        self.assertEqual(upstream, others)
+        self.assertEqual(deploy["permissions"], {"contents": "write"})
+        self.assertEqual(deploy["if"], "needs.gate.outputs.publish == 'true'")
+        self.assertIn("RELEASE_BRANCH_TOKEN", deploy["steps"][0]["with"]["token"])
+        self.assertIn("github.token", deploy["steps"][0]["with"]["token"])
+        text = runs(deploy)
+        self.assertLess(text.index('tools/release/deploy.py push "$SHA" --tag "$TAG"'),
+                        text.index("tools/release/deploy.py coolify"))
+        push = next(step for step in deploy["steps"] if step.get("id") == "push")
+        self.assertIn("--newest-only", push["run"], "a tag push moves the branch only to the newest release")
+        self.assertEqual(push["env"], {"EVENT": "${{ github.event_name }}"})
+        step = next(step for step in deploy["steps"] if "coolify" in str(step.get("run", "")))
+        self.assertEqual(step["env"], {name: "${{ secrets.%s }}" % name for name in deploy_tool.SECRETS})
+        self.assertEqual(step["if"], "steps.push.outputs.moved == 'true'")
+        # (test_deploy.WorkflowStepsTest runs the push step itself against a bare repository)
+
+    def test_no_job_can_hold_a_runner_for_hours(self):
+        # (GitHub's default is six hours: a hung gh call or git push would keep a runner that long)
+        for name, job in self.jobs.items():
+            if "uses" in job:
+                continue
+            self.assertIn("timeout-minutes", job, name)
+            self.assertLessEqual(job["timeout-minutes"], 40, name)
+        for name in ("gate", "publish", "deploy"):
+            self.assertLessEqual(self.jobs[name]["timeout-minutes"], 15, name)
+
+
+@unittest.skipIf(yaml is None, "needs PyYAML")
+class AcrossTheRepositoryTest(unittest.TestCase):
+    """What players and hosts are told to download or pull is what a release makes."""
+
+    MENTIONED = re.compile(r"groundhold-[A-Za-z0-9.-]*\.zip")
+
+    def test_the_pages_that_name_release_files_name_only_those(self):
+        for page in ("README.md", "server/README.md", "web/index.html", "web/policy.html",
+                     *[f"tools/release/readme/{name}" for name in ("linux.txt", "windows.txt", "macos.txt")]):
+            text = (ROOT / page).read_text(encoding="utf-8")
+            for name in set(self.MENTIONED.findall(text)):
+                self.assertIn(name, assemble.FILES, f"{page} names {name}, which no release has")
+
+    def test_the_macos_steps_put_the_terminal_first(self):
+        # (Control-click > Open and Open Anyway do not get past "is damaged"; the quarantine step does)
+        for page in ("README.md", "web/index.html", "tools/release/readme/macos.txt"):
+            text = (ROOT / page).read_text(encoding="utf-8")
+            self.assertLess(text.index("xattr -dr com.apple.quarantine"), text.index("Control-click"), page)
+
+    def test_the_macos_steps_reach_macos_15_and_apple_silicon(self):
+        # (macOS 15 dropped Control-click > Open for an unsigned app: Open Anyway in System
+        # Settings is the way without Terminal there; an ad-hoc signature the fallback on
+        # Apple silicon; review M5 round 2: the site gave neither)
+        for page in ("README.md", "web/index.html", "tools/release/readme/macos.txt"):
+            text = " ".join((ROOT / page).read_text(encoding="utf-8").split())
+            self.assertIn("Open Anyway", text, page)
+            self.assertIn("codesign --force --deep --sign -", text, page)
+
+    def test_the_readmes_name_every_file(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for name in assemble.GAME.values():
+            self.assertTrue(name in readme, f"README.md, Play together, names no {name}")
+        self.assertIn("releases/latest", readme)
+        server = (ROOT / "server/README.md").read_text(encoding="utf-8")
+        for name in assemble.SERVER:
+            self.assertTrue(name.removeprefix("groundhold-server") in server, f"server/README.md names no {name}")
+
+    def test_the_self_host_pulls_the_image_the_release_pushes(self):
+        image = workflow("server-image.yml")["jobs"]["image"]
+        meta = next(step for step in image["steps"] if step.get("id") == "meta")
+        published = meta["with"]["images"]
+        compose = yaml.safe_load((ROOT / "deploy/selfhost/compose.yaml").read_text(encoding="utf-8"))
+        for name in ("groundhold", "backup"):
+            service = compose["services"][name]
+            repository, tag = re.fullmatch(r"([^:]+):(.+)", service["image"]).groups()
+            owner = re.fullmatch(r"https://github.com/([^/]+)/Groundhold\.git#release", service["build"]["context"])
+            self.assertIsNotNone(owner, "the fallback builds the release branch the deploy moves")
+            self.assertEqual(repository, published.replace("${{ github.repository_owner }}", owner.group(1)), name)
+            self.assertEqual(tag, "${VERSION:-latest}", name)
+        self.assertIn("type=raw,value=latest", meta["with"]["tags"], "latest, which the self-host pulls")
+        self.assertIn("ghcr.io/saschb2b/groundhold-server", (ROOT / "server/README.md").read_text(encoding="utf-8"))
+
+
+def prose(page: str) -> str:
+    """A page's text with its line breaks and comment marks folded into single spaces."""
+    text = (ROOT / page).read_text(encoding="utf-8")
+    return re.sub(r"\s+", " ", re.sub(r"(?m)^\s*#+ ?", " ", text))
+
+
+class BrowserReachTest(unittest.TestCase):
+    """The published browser game joins only the official server (design 5.3, 6.11): its Join panel
+    hides the address field, and a code or a play/?join= link goes to data/net.json's server. So no
+    page tells a host that browser players reach a server of their own, and the hosts' pages say how
+    they can: a web build of their own, its page's origin in `origins`."""
+
+    PAGES = ("README.md", "server/README.md", "deploy/selfhost/compose.yaml", "server/groundhold_server/hosting.py",
+             "server/groundhold_server/cli.py", "docs/design/core-loop.md", "web/index.html")
+    # (the promises M5's first pages made, and any like them)
+    PROMISES = re.compile(r"browser players reach (?:it )?too|browser (?:can|could) reach (?:it )?too"
+                          r"|browser game comes in too|browsers need wss|works from the browser too"
+                          r"|browser players can use any|`?wss://`? as desktop", re.IGNORECASE)
+
+    def test_the_web_build_hides_the_address_field(self):
+        # (should the web build ever offer the field, these pages may promise browser players more)
+        join = (ROOT / "scripts/ui/join_panel.gd").read_text(encoding="utf-8")
+        self.assertIn('lan = not OS.has_feature("web")', join)
+        self.assertIn("_nearby_box.visible = on", join)
+        self.assertRegex(join, r"_address = LineEdit\.new\(\)")
+        address_row = join[join.index("_address = LineEdit.new()") - 1500:join.index("_address = LineEdit.new()")]
+        self.assertIn("_nearby_box", address_row, "the address field is in the box the web build hides")
+
+    def test_no_page_promises_browser_players_a_server_of_their_own(self):
+        for page in self.PAGES:
+            found = self.PROMISES.search(prose(page))
+            self.assertIsNone(found, f"{page}: {found and found.group(0)!r}")
+
+    def test_the_hosts_pages_say_the_browser_joins_only_the_official_server(self):
+        for page in ("README.md", "server/README.md", "deploy/selfhost/compose.yaml"):
+            self.assertTrue("joins only the official server" in prose(page), page)
+        for page in ("server/README.md", "deploy/selfhost/compose.yaml"):
+            self.assertIn("data/net.json", prose(page), f"{page}: how browser players can come, a web build of the host's")
+            self.assertIn("origins", prose(page), page)
+        from_banner = (ROOT / "server/groundhold_server/hosting.py").read_text(encoding="utf-8")
+        self.assertIn("the browser game joins the official server alone", from_banner)
+
+
+class DocumentedCommandsTest(unittest.TestCase):
+    """The build and run commands the pages give work in a fresh clone: Godot imports the project once
+    before it can run or export it (no .godot/ in the repository), and makes no export folder itself."""
+
+    PAGES = ("README.md", "AGENTS.md", "server/README.md", "tests/web/flow_join_link_through_iframe.py")
+    EXPORT = re.compile(r'--export-release "?([A-Za-z]+)"? (?:"?\$PWD/)?([\w./-]+)')
+
+    def test_every_export_makes_its_folder_first(self):
+        seen = 0
+        for page in self.PAGES:
+            text = prose(page)
+            for found in self.EXPORT.finditer(text):
+                seen += 1
+                folder = found.group(2).rsplit("/", 1)[0]
+                before = text[max(0, found.start() - 160):found.start()]
+                self.assertIn(f"mkdir -p {folder}", before, f"{page}: the {found.group(1)} export into {folder}")
+        self.assertGreaterEqual(seen, 3)
+
+    def test_the_readmes_import_before_they_run_the_game(self):
+        for page in ("README.md", "server/README.md"):
+            text = prose(page)
+            runs = [found.start() for found in re.finditer(r"godot (?:--headless )?--path \. (?!--import)", text)]
+            self.assertTrue(runs, page)
+            imported = text.find("godot --headless --path . --import")
+            self.assertTrue(0 <= imported < runs[0], f"{page}: the first `godot --path .` comes before an import")
+
+
+@unittest.skipIf(yaml is None, "needs PyYAML")
+class PagesWorkflowTest(unittest.TestCase):
+    def test_the_web_build_is_numbered_by_its_run(self):
+        build = runs(workflow("pages.yml")["jobs"]["build"])
+        self.assertIn('stamp.py build-json --build-seq "$GITHUB_RUN_NUMBER"', build)
+        self.assertIn('stamp.py shell --build-seq "$GITHUB_RUN_NUMBER" site/play/game/index.html', build)
+        self.assertLess(build.index("build-json"), build.index("--export-release"), "build.json before the export")
+        self.assertLess(build.index("--export-release"), build.index("stamp.py shell"), "the shell after it")
+
+    def test_the_join_link_runs_on_the_exported_site(self):
+        job = workflow("pages.yml")["jobs"]["join-link"]
+        self.assertEqual(job["needs"], "build")
+        self.assertIn("flow_join_link_through_iframe.py --game site/play/game", runs(job))
+
+    def test_the_site_publishes_the_policy_page_and_links_it(self):
+        build = runs(workflow("pages.yml")["jobs"]["build"])
+        copy = next(line for line in build.splitlines() if "web/index.html" in line and line.strip().startswith("cp "))
+        self.assertIn("web/policy.html", copy.split(), "policy.html beside index.html, at /Groundhold/policy.html")
+        for page, link in (("web/index.html", 'href="policy.html"'), ("web/play/index.html", 'href="../policy.html"')):
+            self.assertIn(link, (ROOT / page).read_text(encoding="utf-8"), page)
+        policy = (ROOT / "web/policy.html").read_text(encoding="utf-8")
+        self.assertIn('href="assets/site.css"', policy, "beside index.html, its links relative alike")
+
+
+if __name__ == "__main__":
+    unittest.main()

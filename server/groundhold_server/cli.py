@@ -30,8 +30,9 @@ from .identity import public_id
 from .protocol import SPEC
 from .retention import Retention
 
-# (the published browser build's page: its players come to any server that
-# serves wss://; server.ini's `origins =` empty lets native games alone in)
+# (the published browser build's page, whose game joins only the official
+# server; a host's own web build adds its page here; server.ini's `origins =`
+# empty lets native games alone in)
 ORIGINS = "https://saschb2b.github.io"
 STATE_DIR = "server-data"
 
@@ -182,6 +183,11 @@ def main(argv=None):
                                                              "it, then restart the server")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    for flag in ("config", "event_log", "state_dir", "backup", "restore"):
+        # (an empty value, as `--restore "$ARCHIVE"` with ARCHIVE unset gives, is refused rather
+        # than read as no flag at all, which would start a server instead)
+        if getattr(args, flag) is not None and not getattr(args, flag).strip():
+            parser.error(f"--{flag.replace('_', '-')} needs a value, not an empty one")
     if args.once and not args.backup:
         parser.error("--once applies only to --backup")
     try:

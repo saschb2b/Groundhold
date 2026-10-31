@@ -1,0 +1,31 @@
+{
+  "name": "flow_copy_link_official_only",
+  "description": "A party's link, play/?join=CODE, always opens the official server, so the strip offers copy link, and + invite copies the link, only for a party there. A party on a LAN server (or a server of one's own) shows copy code alone, and + invite copies the code: a friend who opened the link would land on the official server, where that code is nobody's party or someone else's. The fake sequencer in lobby mode stands in for both servers (tests/net/loopback_hub.gd names its official server play.loopback.test).",
+  "seed": 1,
+  "timeout_frames": 1200,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.get_node('LoopbackHub').host('Ana', 'lookout')"},
+    {"assert": "Session.join_code('k7q-4m')", "msg": "a code joins on the official server"},
+    {"wait_until": "Session.party_size() == 2 and Session.me >= 0", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Session.on_official() and node('Place').text == 'Online · play.loopback.test'", "msg": "the party lives on the official server"},
+    {"assert": "node('CopyLink').visible and node('CopyCode').visible", "msg": "the strip offers copy code and copy link"},
+    {"assert": "Session.join_link() == 'https://saschb2b.github.io/Groundhold/play/?join=K7Q4M'", "msg": "the link names the party's code"},
+    {"assert": "node('HubPanel').invite_text() == Session.join_link()", "msg": "+ invite copies the link"},
+    {"eval": "Session.leave_party()"},
+    {"wait_until": "Session.state_name() == 'OFFLINE'", "timeout": 60},
+    {"assert": "Session.join_link() == '' and node('HubPanel').invite_text() == ''", "msg": "offline, no party: no link, and + invite opens Join"},
+    {"eval": "Session.connect_to('192.168.1.20', 'K7Q4M')"},
+    {"wait_until": "Session.where == 'lan' and Session.me >= 0 and Session.party_code() == 'K7Q4M'", "timeout": 120},
+    {"wait": 2},
+    {"assert": "not Session.on_official() and node('Place').text == 'LAN · 192.168.1.20' and node('Code').text == 'K7Q-4M'", "msg": "the same code, now a party on a LAN server"},
+    {"assert": "node('CodeBox').visible and node('CopyCode').visible and not node('CopyLink').visible", "msg": "the strip offers copy code alone"},
+    {"assert": "Session.join_link() == '' and node('HubPanel').invite_text() == 'K7Q-4M'", "msg": "no link leads here: + invite copies the code"}
+  ]
+}

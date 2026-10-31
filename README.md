@@ -62,7 +62,7 @@ one in a practice match.
 ## Parties
 
 <p align="center">
-<img src="docs/media/party.webp" width="760" alt="A party of three on a LAN server: Ana leads as the Lamplighter, Ben and Sascha are Ready. Edda Greyplume stands in the arch; all four checks are lit. The strip at the top right reads LAN, the server's address and the party code K7Q-4M with copy code and copy link">
+<img src="docs/media/party.webp" width="760" alt="A party of three on a LAN server: Ana leads as the Lamplighter, Ben and Sascha are Ready. Edda Greyplume stands in the arch; all four checks are lit. The strip at the top right reads LAN, the server's address and the party code K7Q-4M with copy code">
 </p>
 
 A party is up to four players on one server. Join (<kbd>J</kbd>) takes a party code in any case, with or without
@@ -122,25 +122,51 @@ and a creep that reaches the Holdfast costs the party lives.
 
 ## Play together
 
-**In the browser** the game plays alone, and Try, at once. Parties in the browser are online only: a page
-served over https cannot reach a server on your home network. The official server goes up with M5, and with it
-the link on the party strip (copy link) that opens the game in a friend's browser and joins your party.
+**In the browser, online.** [The browser game](https://saschb2b.github.io/Groundhold/play/) plays alone, and
+Try, at once. Parties play on the official server, `wss://groundhold.saschb2b.com/causeway`: Join
+(<kbd>J</kbd>) and Go on its Official row make a party there, and a party code typed alone joins one. The strip
+at the top right shows your code; its copy link (`https://saschb2b.github.io/Groundhold/play/?join=K7Q4M`) opens
+the game in a friend's browser and joins your party. The browser game joins only the official server: it has no
+address field, and a page served over https could not reach a server on your home network anyway.
 
-**On desktop** a party plays over your network. Desktop builds and a packaged server to download come with M5;
-until then run both from this repository. One computer runs the server (Python 3.11 or newer, nothing else to
-install):
+**On desktop, online and on your network.** The game for Windows, macOS and Linux is on the
+[newest release's page](https://github.com/saschb2b/Groundhold/releases/latest):
 
-```bash
-python3 server/main.py
-```
+| Download | For | Start it |
+|---|---|---|
+| [`groundhold-windows-x64.zip`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-windows-x64.zip) | 64-bit Windows 10 or 11 | unpack it and run `Groundhold.exe` |
+| [`groundhold-macos.zip`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-macos.zip) | macOS, Apple silicon and Intel | unpack it and move `Groundhold.app` to Applications |
+| [`groundhold-linux-x64.zip`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-linux-x64.zip) | Linux on x86-64 | unpack it and run `./groundhold.x86_64` (`chmod +x` it if your unpacker dropped the bit) |
 
-Its banner prints the address to type. In the game, Join (<kbd>J</kbd>) lists the server under Nearby, or type
-its address: that makes a party there. The others join with the code on your strip. `server/README.md` has the
-settings, moderation and backups.
+Each holds a `README-first.txt` for its system. The builds are not signed, so the first start needs a step:
+
+- **macOS** says the app "cannot be opened" or "is damaged": it is neither, macOS refuses an unsigned app
+  downloaded from the internet. Once, in Terminal: `xattr -dr com.apple.quarantine /Applications/Groundhold.app`,
+  then open it. If an Apple silicon Mac still refuses it, `codesign --force --deep --sign -
+  /Applications/Groundhold.app` signs it for that Mac alone. Without Terminal, and only for "cannot be opened":
+  Control-click `Groundhold.app`, choose Open, then Open again; on macOS 15 and newer, after the first refusal,
+  **System Settings › Privacy & Security › Open Anyway**.
+- **Windows** SmartScreen may say it protected your PC: **More info**, then **Run anyway**.
+
+The desktop game joins the official server like the browser, and the same parties. For a party on your network,
+one computer runs the server from the same release page, with nothing to install:
+`groundhold-server-windows-x64.zip`, `groundhold-server-macos-arm64.zip` or `groundhold-server-macos-x64.zip`
+(the same quarantine step: `xattr -d com.apple.quarantine groundhold-server` in its folder),
+`groundhold-server-linux-x64.zip` or `groundhold-server-linux-arm64.zip`, or `groundhold-server-python.zip`
+wherever Python 3.11 or newer runs. From a checkout, `python3 server/main.py` is the same server. Its window
+prints the address to type; in the game, Join lists it under Nearby, or type its address: that makes a party
+there. The others join with the code on your strip. A firewall must let TCP port 8766 in, and UDP port 8767 for
+Nearby. [`server/README.md`](server/README.md) has the settings, a server of your own with a domain (for desktop
+games: the published browser game joins only the official server), moderation and backups.
+
+**The official server** is run by Saschb2b as a hobby. It has no chat, and writes no IP address anywhere;
+[its policy](https://saschb2b.github.io/Groundhold/policy.html) says who moderates it, the rules, what it keeps
+and for how long, and how to have your identity forgotten.
 
 **Two windows on one computer:**
 
 ```bash
+godot --headless --path . --import          # once, after a clone (Run it yourself)
 python3 server/main.py --host 127.0.0.1 --state-dir /tmp/groundhold-state
 godot --path . -- --server=127.0.0.1 --name=Tamsin
 godot --path . -- --server=127.0.0.1 --name=Edda --main=lookout --code=K7Q4M   # the code on the first window's strip
@@ -178,9 +204,11 @@ A small bronze plate above the console says what is happening; the match never s
 
 ## Run it yourself
 
-Godot 4.7.1:
+Godot 4.7.1. A fresh clone is imported once first (Godot's import cache, `.godot/`, is not in the
+repository; without it the scripts' class names are unknown and the game does not start):
 
 ```bash
+godot --headless --path . --import
 godot --path .
 ```
 
@@ -188,8 +216,15 @@ The browser build is what [Pages](.github/workflows/pages.yml) publishes: the `W
 `export_presets.cfg`, single-threaded so it runs on any static host, with the page in `web/`.
 
 ```bash
-godot --headless --path . --export-release "Web" build/web/index.html
+mkdir -p build/web && godot --headless --path . --export-release "Web" build/web/index.html
 ```
+
+Godot does not make the export's folder itself, so each export names one that exists.
+
+The desktop presets are `Linux`, `Windows` and `macOS` (unsigned, one app for both kinds of Mac). A release is a
+tag `vX.Y.Z`: [`release.yml`](.github/workflows/release.yml) exports all three, builds the server's archives and
+its image, publishes the GitHub release and then deploys the official server. `server/README.md`, At a release,
+is the checklist; run by hand, the workflow is a dry run that publishes nothing.
 
 The tests run with [godot-agent-kit](https://github.com/saschb2b/godot-agent-kit) (`AGENTS.md` lists them all):
 
@@ -197,6 +232,7 @@ The tests run with [godot-agent-kit](https://github.com/saschb2b/godot-agent-kit
 godot-agent scenario . tests/scenarios --headless                  # every gameplay test
 godot-agent scenario . tests/balance --headless                    # High Water's balance gates
 python3 -m unittest discover -s server/tests -t server/tests       # the server
+python3 -m unittest discover -s tools/release -t tools/release     # the release's steps
 godot-agent scenario . tools/media                                 # the screenshots on this page
 ```
 
@@ -217,10 +253,10 @@ how):
 | `models/`, `ui/icons/`, `ui/console/`, `sfx/` | The generated models, icons, painted console pieces and synthesized sounds |
 | `asset_style.json`, `palettes/` | The style every asset is checked against: triangle budgets, sizes, origins, palettes, loudness |
 | `scripts/` | The game: the rules as an integer simulation in `sim/` (tables in `sim/content.gd`) that every machine steps the same way from the same turns; the views, the hub (`ui/`), the session around a match (`session/`) and the network client (`net/`) |
-| `server/`, `shared/net/` | The server, which keeps parties and passes turns but never simulates, and the wire contract both sides read |
+| `server/`, `shared/net/`, `deploy/` | The server, which keeps parties and passes turns but never simulates, the wire contract both sides read, and the Compose files that run it in Coolify or on a server of your own |
 | `docs/design/` | The design (`core-loop.md`) and the world and its names (`world.md`) |
 | `tests/` | Deterministic gameplay scenarios, the balance gates, loopback and live network tests, and the plan bot |
-| `tools/` | `net/smoke.py` (whole matches against the real server, hash streams compared), `names_check.py`, `gen_balance_scenarios.py`, and `media/`, the scenarios that stage the screenshots above |
+| `tools/` | `net/smoke.py` (whole matches against the real server, hash streams compared), `release/` (the release's steps: the gate, the desktop zips, the files, the deploy), `names_check.py`, `gen_balance_scenarios.py`, and `media/`, the scenarios that stage the screenshots above |
 
 The models, textures, icon renders and sounds were made with [godot-agent-kit](https://github.com/saschb2b/godot-agent-kit),
 an agent toolkit for verifying Godot games and building their assets. It also runs the gameplay scenarios, on every push

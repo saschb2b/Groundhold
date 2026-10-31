@@ -1,0 +1,139 @@
+# Your own Groundhold server on the internet, with HTTPS (server/README.md,
+# On a server, with a domain). On a computer with Docker (Compose 2.23.1 or
+# newer: the Caddyfile is inline), a domain whose DNS record points at it,
+# and ports 80 and 443 open to the internet, in an empty folder:
+#
+#   curl -fsSLO https://raw.githubusercontent.com/saschb2b/Groundhold/main/deploy/selfhost/compose.yaml
+#   echo "DOMAIN=groundhold.example.com" > .env
+#   docker compose up -d
+#
+# Desktop players type groundhold.example.com into Groundhold's Join panel
+# (wss://groundhold.example.com/causeway). The published browser game joins
+# only the official server; a web build of your own, its data/net.json naming
+# this server, comes in once its page's origin is in the server's origins
+# (GROUNDHOLD_SERVER_ORIGINS). Caddy gets the certificate from Let's Encrypt
+# and renews it. More of .env, each
+# optional, is in .env.example beside this file: SERVER_NAME, SERVER_MOTD,
+# PLAYER_CAP, VERSION (an image tag, 1.0.0 or 1.0, rather than the latest
+# release). Update with `docker compose pull && docker compose up -d`; the
+# state stays in its volume.
+#
+# Reused from Cyberworld Endless's deploy/selfhost/compose.yaml (MIT, Sascha
+# Becker).
+name: groundhold
+
+services:
+  # The server: the latest release's image, or, where it cannot be pulled,
+  # built from the repository's `release` branch (the newest release).
+  groundhold:
+    image: ghcr.io/saschb2b/groundhold-server:${VERSION:-latest}
+    build:
+      context: https://github.com/saschb2b/Groundhold.git#release
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    environment:
+      GROUNDHOLD_SERVER_NAME: ${SERVER_NAME:-Groundhold}
+      GROUNDHOLD_SERVER_MOTD: ${SERVER_MOTD:-Hold the road together}
+      GROUNDHOLD_SERVER_PLAYER_CAP: ${PLAYER_CAP:-64}
+    expose:
+      - "8766"
+    volumes:
+      - state:/data
+      # (read-only: a restore is run from this container, server/README.md)
+      - backups:/backups:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import json, os, urllib.request as r; port = os.environ.get('GROUNDHOLD_SERVER_PORT') or '8766'; answer = r.build_opener(r.ProxyHandler({})).open('http://127.0.0.1:' + port + '/health', timeout=4); raise SystemExit(json.load(answer).get('status') != 'ok')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # The state's daily archive (server/README.md, Backups and restores): the
+  # identity key and the moderation lists, kept 14 days.
+  backup:
+    image: ghcr.io/saschb2b/groundhold-server:${VERSION:-latest}
+    build:
+      context: https://github.com/saschb2b/Groundhold.git#release
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    command: ["--state-dir", "/data", "--backup", "/backups"]
+    depends_on:
+      groundhold:
+        condition: service_healthy
+    volumes:
+      - state:/data:ro
+      - backups:/backups
+    healthcheck:
+      # (unhealthy once the newest archive is more than 26 hours old)
+      test: ["CMD", "python3", "-c", "import glob, os, sys, time; found = glob.glob('/backups/groundhold-state-*.tar.gz'); sys.exit(not found or time.time() - max(map(os.path.getmtime, found)) > 26 * 3600)"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 2m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "2"
+
+  # HTTPS in front: wss://DOMAIN/causeway (and /health) to the server. Caddy
+  # keeps no access log; its own log (capped below) holds its errors, and an
+  # error about a request, a 502 while the server restarts, names its address.
+  # 443/udp is HTTP/3, which Caddy offers by itself.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - groundhold
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+configs:
+  caddyfile:
+    content: |
+      {
+          cert_issuer acme https://acme-v02.api.letsencrypt.org/directory
+      }
+      ${DOMAIN:?set DOMAIN in .env to this server's domain, e.g. DOMAIN=groundhold.example.com} {
+          reverse_proxy groundhold:8766
+      }
+
+volumes:
+  state:
+  backups:
+  caddy-data:
+  caddy-config:

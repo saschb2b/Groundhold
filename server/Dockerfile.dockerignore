@@ -1,0 +1,12 @@
+# server/Dockerfile's build context: the server's sources, the script that
+# builds them into the zipapp, the files it copies beside it and the wire
+# contract. Everything is left out, then each of those let back in, so a
+# state directory, a key, a log or the game never enters the image wherever
+# it lies. deploy/check.sh compares the context with this list.
+**
+!LICENSE
+!server/build.py
+!server/README.md
+!server/server.example.ini
+!server/groundhold_server/*.py
+!shared/net/protocol.json

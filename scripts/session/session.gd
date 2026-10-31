@@ -41,8 +41,9 @@ const STATE_NAMES := [
 ]
 const HUB_SCENE := "res://scenes/hub.tscn"
 const MATCH_SCENE := "res://scenes/main.tscn"
-## The official server, and the link that opens the game in a friend's browser.
-const OFFICIAL := "groundhold.saschb2b.com"
+## Its "official" is the official server's wss:// URL (official_url).
+const NET_FILE := "res://data/net.json"
+## The link that opens the game in a friend's browser and joins the party.
 const JOIN_LINK := "https://saschb2b.github.io/Groundhold/play/?join=%s"
 ## Party codes: no vowels, no 0 O 1 I L (design 5.3).
 const CODE_SYMBOLS := "23456789BCDFGHJKMNPQRSTVWXYZ"
@@ -53,9 +54,11 @@ const START_WITHOUT_AFTER := 30
 const MATCH_FLAGS := ["join", "seed", "bot", "hash-log", "quit-after-match", "ticks-per-frame", "shot-at"]
 ## The scripted player a --flow-bot run hands the hub to (a test tool, not exported).
 const FLOW_BOT := "res://tests/net/flow_bot.gd"
-## The hub's word after a match whose link went: the party went with it, and the server
-## keeps the seat for the caretaker.
-const LINK_LOST_NOTICE := "Your link was lost, and the party with it. The caretaker plays your seat to the end."
+## The hub's word after the link went on the results plate, the match already over: the
+## party went with it.
+const PARTY_LOST_NOTICE := "Your link was lost, and the party with it."
+## ... and after a match whose link went: the server keeps the seat for the caretaker.
+const LINK_LOST_NOTICE := PARTY_LOST_NOTICE + " The caretaker plays your seat to the end."
 const NOTICE_TEXT := {
 	"party_full": "That party is full",
 	"no_such_party": "No party with that code",
@@ -83,8 +86,8 @@ var beacon := BeaconListener.new()
 var link_factory := Callable()
 ## Milliseconds of a monotonic clock; Time.get_ticks_msec unless a test counts frames.
 var clock := Callable()
-## What Join's Online row and a bare code connect to.
-var official_address := OFFICIAL
+## What Join's Online row and a bare code connect to: data/net.json's official URL.
+var official_address := official_url()
 
 ## The party as the last PARTY_STATE told it: {"code", "mode", "flags", "leader", "phase",
 ## "countdown_ms", "at", "members": [{"member", "team", "main", "backup", "state", "rtt",
@@ -94,6 +97,9 @@ var party := {}
 var me := -1
 ## A code to join once the server welcomes us.
 var pending_code := ""
+## A join link's code waiting for the first launch's name (open_link): HELLO is the only
+## message that carries a name, so the link connects once the prompt is answered.
+var link_code := ""
 var last_notice := ""
 ## A notice for the hub to show once it stands (Shell): why the party is gone after the
 ## link went in a match (LINK_LOST_NOTICE). "" for none.
@@ -114,6 +120,7 @@ var _loading: LoadingScreen
 var _builders_sent := []
 var _booted := false
 var _flags_played := false
+var _announced := false
 
 
 func _ready() -> void:
@@ -149,6 +156,9 @@ func state_name() -> String:
 ## through the loop by itself (tools/net/smoke.py --flow). Inside the session's matches
 ## the match flags still count (--bot, --hash-log), so a flow's seat can be played.
 func boot() -> bool:
+	if not _announced:
+		_announced = true
+		print(banner())  # (the first line a player's log or a release's boot check reads)
 	var flags := boot_flags()
 	if flags.has("server"):
 		if not _booted:
@@ -159,7 +169,7 @@ func boot() -> bool:
 		_booted = true
 		var code := clean_code(WebBridge.query("join"))
 		if code_ok(code):
-			join_code(code)  # (a friend's link: play/?join=K7Q4M, forwarded to the game)
+			open_link(code)  # (a friend's link: play/?join=K7Q4M, forwarded to the game)
 			return false
 	if _flags_played:
 		return false  # (the flags' match was played; Leave to hub stays in the hub)
@@ -325,6 +335,9 @@ func play_again() -> void:
 
 ## Leaves whatever plays or shows for the hub (or the Builders screen).
 func to_hub(where_to := "hub") -> void:
+	if client and client.phase == MatchClient.Phase.ENDED and (client.link == null or not client.link.is_open()):
+		# (the link closed on the results plate before a poll saw it: the party went with it)
+		client.phase = MatchClient.Phase.FAILED
 	if client and client.reconnecting:
 		# (leaving while the link is gone: the server's held seat goes to the caretaker)
 		client.close()
@@ -337,10 +350,18 @@ func to_hub(where_to := "hub") -> void:
 		# Play again or Hub brings me back to the party, Ready cleared; shared/net/README.md)
 		client.send("LEAVE_MATCH")
 	if client and client.phase == MatchClient.Phase.FAILED:
-		client = null  # (the link went during the match: back offline)
+		# (the link went during the match, or on its results plate: back offline, a party of
+		# one; after MATCH_END the word has no caretaker in it)
+		var after_end := client.outcome != ""
+		client = null
+		party = {}
+		me = -1
+		where = "offline"
+		server_host = ""
+		_builders_sent = []
 		if match_spec.has("networked"):
-			hub_notice = LINK_LOST_NOTICE
-			last_notice = LINK_LOST_NOTICE
+			hub_notice = PARTY_LOST_NOTICE if after_end else LINK_LOST_NOTICE
+			last_notice = hub_notice
 	if client:
 		client.rearm()
 	_hide_loading()
@@ -367,10 +388,7 @@ func connect_to(address: String, code := "") -> bool:
 		_notice("Not a server address: " + address.strip_edges())
 		return false
 	disconnect_server()
-	var host := url.substr(url.find("://") + 3)
-	host = host.substr(0, host.find("/"))
-	if host.ends_with(":%d" % NetProtocol.number("port")):
-		host = host.substr(0, host.length() - 5)
+	var host := host_of(url)
 	server_host = host
 	var name_end := host.rfind(":") if host.count(":") == 1 else host.length()
 	where = "lan" if NetAddress.is_local(host.substr(0, name_end)) else "online"
@@ -395,6 +413,28 @@ func connect_to(address: String, code := "") -> bool:
 	_set_state(State.CONNECTING)
 	var link: NetLink = link_factory.call() if link_factory.is_valid() else NetLink.new()
 	return client.connect_with(link, url)
+
+
+## A party's link opened (play/?join=K7Q4M): joins it at once, or, on a first launch, once
+## the player has named themselves (name_confirmed), so the party sees the name they chose
+## and not the generated one. False while the code is not five code symbols.
+func open_link(typed: String) -> bool:
+	var code := clean_code(typed)
+	if not code_ok(code):
+		return false
+	if profile.named:
+		return join_code(code)
+	link_code = code
+	return true
+
+
+## The first launch's name is in (NamePrompt): a join link waiting for it connects now.
+func name_confirmed() -> void:
+	if link_code == "":
+		return
+	var code := link_code
+	link_code = ""
+	join_code(code)
 
 
 ## Joins a party by its code: lower case, spaces and hyphens are fine. On the server we
@@ -567,8 +607,18 @@ func party_code() -> String:
 	return str(party.get("code", ""))
 
 
+## The party's link, play/?join=CODE. The link always opens the official server, so it
+## leads to this party only while the party lives there: "" anywhere else (a LAN or a
+## server of your own), where the code is what to pass on.
 func join_link() -> String:
-	return JOIN_LINK % party_code()
+	return JOIN_LINK % party_code() if on_official() and party_code() != "" else ""
+
+
+## Whether the server we are on is the official one (data/net.json's).
+func on_official() -> bool:
+	if server_host == "" or official_address == "":
+		return false
+	return server_host == host_of(NetAddress.url(official_address))
 
 
 ## A typed code without spaces or hyphens, in upper case.
@@ -588,6 +638,40 @@ static func code_ok(code: String) -> bool:
 ## "K7Q4M" as it is shown and read aloud: "K7Q-4M".
 static func show_code(code: String) -> String:
 	return code.substr(0, 3) + "-" + code.substr(3) if code.length() == CODE_LENGTH else code
+
+
+## The official server's URL as data/net.json names it (through the address rule, so a
+## bare host name would do too); "" when the file is missing or says none, and then Join
+## has no Official server and a bare code nowhere to go.
+static func official_url() -> String:
+	var parsed: Variant = null
+	if FileAccess.file_exists(NET_FILE):
+		parsed = JSON.parse_string(FileAccess.get_file_as_string(NET_FILE))
+	var url := NetAddress.url(str((parsed as Dictionary).get("official", ""))) if parsed is Dictionary else ""
+	if url == "":
+		push_warning("%s names no official server" % NET_FILE)
+	return url
+
+
+## The host a server URL names, as the hub shows it: "groundhold.saschb2b.com",
+## "192.168.1.20" (the protocol's own port left out), "host:9000".
+static func host_of(url: String) -> String:
+	var host := url.substr(url.find("://") + 3) if url.contains("://") else url
+	if host.contains("/"):
+		host = host.substr(0, host.find("/"))
+	if host.ends_with(":%d" % NetProtocol.number("port")):
+		host = host.substr(0, host.length() - str(NetProtocol.number("port")).length() - 1)
+	return host
+
+
+## The line the game prints as the hub first opens: "Groundhold 0.6.0 (build 42), official
+## server wss://groundhold.saschb2b.com/causeway". The version is project.godot's
+## config/version, the build data/build.json's.
+func banner() -> String:
+	return "%s %s (build %d), official server %s" % [
+		ProjectSettings.get_setting("application/config/name", "Groundhold"),
+		ProjectSettings.get_setting("application/config/version", "?"), build_seq(),
+		official_address if official_address != "" else "none"]
 
 
 ## The CI run number (data/build.json, written by the release build), else 0.
@@ -721,8 +805,11 @@ func _on_ended(_outcome: String, _reason: String) -> void:
 
 
 func _on_failed(text: String) -> void:
-	_notice(text)
 	var in_match := match_host != null
+	# (a link that closed under a party, with no refusal from the server: in the hub the party
+	# went with it, and that is what to say, not the link's own reason)
+	var refused := client != null and (client.error_code != 0 or (client.link != null and client.link.close_code == 1008))
+	_notice(PARTY_LOST_NOTICE if not in_match and not party.is_empty() and not refused else text)
 	if client:
 		for c: Dictionary in client.failed.get_connections():
 			client.failed.disconnect(c["callable"])

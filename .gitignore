@@ -1,9 +1,20 @@
 # Godot's import cache and editor state
 .godot/
+# A server's private state and its archives, wherever a server started in the checkout writes them
+# (server-data/ is its default --state-dir in the folder it starts in): identity.key is the secret
+# behind every public identity, and players.json and logs/ name players. Never committed.
+server-data/
+server-backups/
 # Local exports and the assembled site
 build/
 site/
+dist/
+# The build's number, written by CI before an export (tools/release/stamp.py)
+data/build.json
 *.tmp
 __pycache__/
 # Lock taken while asset builds record their recipes
 .asset_manifest.json.lock
+# Claude Code's worktrees and local settings, beside the checkout: never the project's
+.claude/worktrees/
+.claude/settings.local.json

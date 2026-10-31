@@ -54,16 +54,19 @@
 </main>
 
 <footer>
-	<div class="wrap">Groundhold · MIT License · <a href="https://github.com/saschb2b/Groundhold">Source on GitHub</a></div>
+	<div class="wrap">Groundhold · MIT License · <a href="../policy.html">Official server policy</a> · <a href="https://github.com/saschb2b/Groundhold">Source on GitHub</a></div>
 </footer>
 
 <script>
 // The game is the page in game/. A party's link, play/?join=K7Q4M, hands its code on to the
-// game as game/?join=K7Q4M (design 6.8), where WebBridge.query("join") reads it. Only a
-// code's own symbols pass: letters, digits and a hyphen, nine at most.
+// game as game/?join=K7Q4M (design 6.8), where WebBridge.query("join") reads it. Only a whole
+// code passes, as leniently as the game reads one (any case, hyphens; spaces are dropped):
+// anything else is no code, so the game opens plainly rather than look for another party.
 function gameSource(search) {
-	const code = (new URLSearchParams(search).get("join") || "").replace(/[^0-9A-Za-z-]/g, "").slice(0, 9);
-	return code ? "game/?join=" + encodeURIComponent(code) : "game/";
+	const code = (new URLSearchParams(search).get("join") || "").replace(/\s/g, "");
+	const symbols = code.replace(/-/g, "").toUpperCase();
+	const whole = code.length <= 9 && /^[23456789BCDFGHJKMNPQRSTVWXYZ]{5}$/.test(symbols);
+	return whole ? "game/?join=" + encodeURIComponent(code) : "game/";
 }
 const frame = document.getElementById("game");
 frame.src = gameSource(location.search);

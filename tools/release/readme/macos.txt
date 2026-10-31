@@ -1,0 +1,51 @@
+Groundhold $version for macOS (Apple silicon and Intel)
+=======================================================
+
+A co-op tower defense for one to four players. MIT License, by Sascha Becker.
+Source, changes and help: https://github.com/saschb2b/Groundhold
+
+
+Start it
+--------
+
+Move Groundhold.app to Applications (or anywhere you like).
+
+The app is not signed or notarised by Apple, so the first time macOS says it "cannot be
+opened" or "is damaged". It is neither: macOS marks every app downloaded from the internet
+(the quarantine), and refuses an unsigned one so marked. Take the mark off in Terminal,
+once, then open the app as any other:
+
+       xattr -dr com.apple.quarantine /Applications/Groundhold.app
+
+(with the app elsewhere, write its path instead: drag it into the Terminal window).
+
+If it still will not start on an Apple silicon Mac, sign it for this Mac alone and open it
+again:
+
+       codesign --force --deep --sign - /Applications/Groundhold.app
+
+Without Terminal, when macOS says it "cannot be opened" (not when it says "is damaged"):
+right-click (or Control-click) Groundhold.app, choose Open, then Open in the dialog. On
+macOS 15 and newer, after the first refusal open System Settings, Privacy & Security, and
+press Open Anyway beside Groundhold, then Open.
+
+macOS asks once whether Groundhold may accept incoming network connections; Allow is only
+needed to be found on your home network. Your name, Builders and settings live in
+~/Library/Application Support/Godot/app_userdata/Groundhold/.
+
+
+Play together
+-------------
+
+Online: open Join (J) and press Go on the Official row
+(wss://groundhold.saschb2b.com/causeway), or type a friend's party code. Friends in the
+browser play at https://saschb2b.github.io/Groundhold/play/ and join the same parties.
+The official server's rules, and what it keeps and for how long:
+https://saschb2b.github.io/Groundhold/policy.html
+
+On your network: one computer runs the server, groundhold-server, from the same release
+page: groundhold-server-macos-arm64.zip on Apple silicon, groundhold-server-macos-x64.zip
+on Intel (it needs the same xattr step, in its folder: xattr -d com.apple.quarantine
+groundhold-server), or groundhold-server-python.zip with Python 3.11 or newer. Its window
+prints the address to type; the game lists it under Join, Nearby. The others join with the
+code on your strip. A firewall must let TCP port 8766 in, and UDP port 8767 for Nearby.

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The official server · Groundhold</title>
+<meta name="description" content="The policy of Groundhold's official server: who runs and moderates it, the rules, blocking, what it keeps and for how long, and how to have your identity forgotten.">
+<link rel="canonical" href="https://saschb2b.github.io/Groundhold/policy.html">
+<meta name="theme-color" content="#1b2438">
+<link rel="icon" href="ui/icons/arrow_tower.png" type="image/png">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="bar">
+	<div class="wrap">
+		<a class="brand" href="./"><img src="ui/icons/arrow_tower.png" alt=""><span>Groundhold</span></a>
+		<nav aria-label="Site">
+			<a href="play/">Play</a>
+			<a href="./#builders">Builders</a>
+			<a href="./#together">Play together</a>
+			<a href="./#how">How to play</a>
+			<a href="https://github.com/saschb2b/Groundhold">Source</a>
+		</nav>
+	</div>
+</header>
+
+<!-- The same text as server/README.md, The official server; server/tests/test_policy.py holds both to
+     deploy/coolify/server.ini. -->
+<main class="wrap policy">
+	<h1>The official server</h1>
+	<div class="inset">
+		<p><code>wss://groundhold.saschb2b.com/causeway</code> is the server the game offers first: Join's Official row, a party code
+		typed alone and a <code>play/?join=</code> link all connect there. This is its policy. Anyone can run a server of their own
+		(<a href="https://github.com/saschb2b/Groundhold/blob/main/server/README.md#host-your-own">Host your own</a>); its host sets
+		its rules. This page answers what a player may ask of a service that handles names and connections; it is not legal advice.</p>
+	</div>
+
+	<h2 id="who">Who runs it</h2>
+	<div class="inset">
+		<p>Saschb2b, who makes Groundhold, runs it on a private server, beside the server of Cyberworld Endless. It is
+		a hobby server with no guarantees: no company behind it, and no promise that it is up, that it is fast, or that it is still
+		there tomorrow. It restarts at a release, which ends the matches running on it, and it can go down for a fault or for good
+		without notice. Nothing you build depends on it: the game plays alone and on your own network without it.</p>
+	</div>
+
+	<h2 id="moderators">Moderators</h2>
+	<div class="inset">
+		<p>Saschb2b is its moderator. A moderator is whoever is given the server's command line (its container's terminal); anyone
+		given it later is named here first, by their GitHub name, with the date.</p>
+	</div>
+
+	<h2 id="rules">The rules</h2>
+	<div class="inset">
+		<ul>
+			<li><b>Names and signals only.</b> There is no chat and no free text, and the server refuses to start with it on. You choose
+			the name the others see: 1 to 16 letters, digits, spaces, <code>-</code> and <code>_</code>, starting with a letter or a
+			digit. In a match the one thing you send the others is a signal, a ring on the map that says "look here": at most three in
+			five seconds.</li>
+			<li><b>Parties are by invitation.</b> A party is joined by its code or its link, which only those you give it have. Its
+			leader can remove a member, who cannot come back with that code. There is no public queue and no list of strangers yet.</li>
+			<li><b>What gets a player muted, kicked or banned:</b> a name meant to offend, or to pass for Saschb2b or a moderator; signals
+			sent to flood a match or to pester someone; a modified game (orders the game could not have sent, a state or a result changed
+			on purpose, matches broken on purpose); coming back with a new key after a ban. A moderator picks the least that stops it: a
+			mute (your signals reach nobody; you still play), a kick (out for ten minutes, or up to 7 days), and last a ban (out until
+			lifted).</li>
+		</ul>
+	</div>
+
+	<h2 id="blocking">Blocking, and no reports</h2>
+	<div class="inset">
+		<p>With nothing written but a name, there is little to report. To stop playing with someone, leave the party or, as its leader,
+		remove them; a new party gets a new code. There is no block list in the game yet: every party is one you were invited to. The
+		moderator acts only on what they see themselves (a name in the roster of who is connected) and keeps no log of who came under which
+		name.</p>
+	</div>
+
+	<h2 id="kept">What is kept, and for how long</h2>
+	<div class="inset">
+		<p>The server has no accounts. Your game makes a random key on your device (<code>net.cfg</code> in the game's data folder) and
+		sends the server a token made from it for this server's address, never the key itself. The server turns that token into a
+		public identity with a secret of its own: a number that means nothing on another server and cannot be turned back into your
+		key. It sees your connection's IP address, as every server must, and writes it nowhere; the proxy in front of it is set to
+		keep no access log either.</p>
+		<div class="scroll">
+			<table class="kept">
+				<tr><th>What</th><th>What it holds</th><th>Why</th><th>Kept</th></tr>
+				<tr><td>The server's secret, <code>identity.key</code></td><td>32 random bytes, nothing of yours</td><td>your public identity stays the same across restarts</td><td>the server's life</td></tr>
+				<tr><td>The roster, <code>players.json</code></td><td>the public identity, name and party code of each player connected</td><td>moderators see who is on</td><td>while you are connected; emptied when the server stops</td></tr>
+				<tr><td>The players' log, <code>logs/</code></td><td>when you came, under which name and public identity</td><td>a host who takes reports can match a name with its identity</td><td>not kept on the official server (<code>log_days = 0</code>)</td></tr>
+				<tr><td>Moderation, <code>moderation.json</code></td><td>public identity, when, and the moderator's note, for each ban, mute and kick</td><td>the server enforces them</td><td>a ban or a mute until lifted, a kick until it ends</td></tr>
+				<tr><td>The server's console log</td><td>when the server started, its events without names or public identities: connections by number, parties and matches starting and ending, refusals; no IP addresses</td><td>running the server</td><td>3 files of 5 MB, the oldest written over</td></tr>
+				<tr><td>The daily totals, <code>stats.jsonl</code></td><td>a line a UTC day: joins, how many different players (a count: the day's public identities are held in memory and dropped at its end), the most online at once, matches started and finished per mode, desyncs, reconnects, resyncs, rejoins, seats the caretaker played, and joins by protocol version; no names, public identities or IPs. Anyone can read today's and the last 30 days' at <a href="https://groundhold.saschb2b.com/stats"><code>/stats</code></a></td><td>how many play and when, so the server and the game are sized and tuned for them</td><td>365 days (<code>stats_days = 365</code>)</td></tr>
+				<tr><td>Backups</td><td>the server's secret and moderation</td><td>to bring the server back after a fault</td><td>14 days (<code>backup_days = 14</code>)</td></tr>
+			</table>
+		</div>
+		<p>Everything else stays in memory and goes when you leave, when the match ends or when the server restarts: your party and its
+		code, your Builders, Ready and the countdown, a match's turns, its state hashes and its checkpoints, and a party row held 40
+		seconds after your link drops. That you came today is counted for the day's totals, then forgotten at the day's end. The server
+		prunes each record itself, at its start and every hour. These are the official server's settings
+		(<a href="https://github.com/saschb2b/Groundhold/blob/main/deploy/coolify/server.ini"><code>deploy/coolify/server.ini</code></a>);
+		another server may keep more or less.</p>
+	</div>
+
+	<h2 id="removing">Removing your data</h2>
+	<div class="inset">
+		<p>The server knows you only by your public identity, so it cannot look you up by anything else. Two ways:</p>
+		<ul>
+			<li><b>Yourself:</b> delete <code>net.cfg</code> from the game's data folder (on Windows
+			<code>%APPDATA%\Godot\app_userdata\Groundhold\</code>, on macOS
+			<code>~/Library/Application Support/Godot/app_userdata/Groundhold/</code>, on Linux
+			<code>~/.local/share/godot/app_userdata/Groundhold/</code>; in the browser, clear the site data of
+			<code>saschb2b.github.io</code>, which clears every page of that site). Your game makes a new key, so you are a new identity
+			on every server. The old one left nothing on the official server's disk but a ban, a mute or a kick, if it had one, which
+			stays with it; the backups age out within 14 days.</li>
+			<li><b>On request:</b> open an issue on the project's
+			<a href="https://github.com/saschb2b/Groundhold/issues/new">GitHub page</a> titled "Groundhold server: remove my data", with
+			the name you play under (never your <code>net.cfg</code>). While you are connected the moderator finds your public identity
+			in the roster and runs <code>forget</code>, which takes it out of the players' log (there is none on the official server) and
+			out of any kick. A ban or a mute stays while it lasts. The backups are not edited: they age out within 14 days. While you are
+			not connected the roster does not list you, and there is nothing else to find you by.</li>
+		</ul>
+	</div>
+</main>
+
+<footer>
+	<div class="wrap">Groundhold · MIT License · <a href="policy.html">Official server policy</a> · <a href="https://github.com/saschb2b/Groundhold">Source on GitHub</a></div>
+</footer>
+</body>
+</html>
