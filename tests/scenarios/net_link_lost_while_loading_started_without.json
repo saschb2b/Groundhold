@@ -1,0 +1,26 @@
+{
+  "name": "net_link_lost_while_loading_started_without",
+  "description": "Two seats; client 2 has loaded and client 1 still loads when client 2's link is lost, and its new links are refused long enough for the match to start without it once client 1 has loaded (its seat AWAY in turn 0, the caretaker building for it). Its world still stands at tick 0, in loading. When a resume HELLO gets through, the match is under way: MATCH_CONFIG(rejoin) and RESYNC(rejoin) bring it to the open turn as any rejoin does, it catches up, says shown, and the seat is handed back at the next build window; the hashes agree from the checkpoint on.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 7, 'latency_turns': [1, 2], 'late': [1]})"},
+    {"eval": "scene.seq.set('strangers_start_frames', -1)"},
+    {"eval": "scene.run_until('client(2).loaded_sent and seq.phase == \"loading\"', 600)", "as": "loading"},
+    {"assert": "loading", "msg": "client 2 has loaded; client 1 still loads"},
+    {"eval": "scene.cut(2, 1500)"},
+    {"eval": "scene.run_frames(20)"},
+    {"assert": "scene.client(2).reconnecting and scene.client(2).phase_name() == 'LOADING'", "msg": "its link lost while the match loads, it reconnects"},
+    {"eval": "scene.seq.set('strangers_start_frames', 0)"},
+    {"eval": "scene.load(1)"},
+    {"eval": "scene.bots(true)"},
+    {"eval": "scene.run_until('seq.phase == \"playing\" and system_sent(\"AWAY\", 1)', 900)", "as": "started"},
+    {"assert": "started and scene.client(2).phase_name() == 'LOADING' and scene.client(2).reconnecting", "msg": "the match started without it: its seat AWAY in turn 0, while it still reconnects"},
+    {"eval": "scene.run_until('client(2).resyncs.size() == 1', 2400)", "as": "rejoined"},
+    {"assert": "rejoined and scene.client(2).resyncs[0][0] == 'rejoin' and scene.seq.rejoins == 1 and not scene.client(2).reconnecting", "msg": "a resume HELLO got through mid-match: MATCH_CONFIG(rejoin) and RESYNC(rejoin), as any rejoin"},
+    {"assert": "scene.client(2).phase_name() == 'IN_MATCH' and scene.client(2).error_code == 0", "msg": "it plays the match now, and nothing was refused"},
+    {"eval": "scene.run_until('not client(2).catching_up and client(1).sim.seat(2).state == 0 and client(2).sim.seat(2).state == 0', 6000)", "as": "handed_back"},
+    {"assert": "handed_back and scene.system_sent('BACK', 1)", "msg": "caught up, it said shown: BACK, and the next build window handed the seat back"},
+    {"eval": "scene.run_turns(300)"},
+    {"assert": "scene.sent_hashes_agree_from(scene.client(2).resyncs[0][1]) and scene.seq.disagreements.is_empty()", "msg": "every hash agrees from the checkpoint on"}
+  ]
+}

@@ -3,8 +3,7 @@ presets beside Web, the data and contract files in, the server, deploy files and
 universal and unsigned), and release.yml and pages.yml as GitHub would run them (the gate before any
 build, every job on the gate's commit, every preset it exports and template it needs, the server's
 workflows by path with the inputs they declare, the artifacts the release downloads, the deploy last,
-Pages numbering its build and publishing the policy page; every outside action pinned to a commit);
-and across the repository, that the pages
+Pages numbering its build and publishing the policy page); and across the repository, that the pages
 which tell players what to download name the release's own files, and the self-host pulls the image
 the release pushes, the pages that tell hosts who reaches their server keep to what the browser
 build can do, and the build commands they give work in a fresh clone. A workflow file is read with
@@ -271,24 +270,6 @@ class ReleaseWorkflowTest(unittest.TestCase):
 
 
 @unittest.skipIf(yaml is None, "needs PyYAML")
-class PinnedActionsTest(unittest.TestCase):
-    """Every action from outside the repository runs at a commit, not at a tag its owner can
-    move: `owner/name@<40 hex> # vX.Y.Z`, the version it was pinned at beside it."""
-
-    USES = re.compile(r"^\s*(?:-\s*)?uses:\s*(\S+)(.*)$", re.M)
-
-    def test_every_outside_action_is_pinned_to_a_commit(self):
-        seen = 0
-        for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
-            for used, rest in self.USES.findall(path.read_text(encoding="utf-8")):
-                if used.startswith("./"):
-                    continue
-                seen += 1
-                self.assertRegex(used, r"^[\w.-]+/[\w.-]+@[0-9a-f]{40}$", f"{path.name}: {used}")
-                self.assertRegex(rest, r"^\s+# v\d+\.\d+\.\d+$", f"{path.name}: {used} names no version")
-        self.assertGreater(seen, 0)
-
-
 class AcrossTheRepositoryTest(unittest.TestCase):
     """What players and hosts are told to download or pull is what a release makes."""
 

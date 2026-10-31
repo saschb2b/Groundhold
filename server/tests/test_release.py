@@ -6,6 +6,7 @@ X.Y and latest only while it is the newest release; every action is pinned to a 
 local workflow called exists.
 release.yml's own shape, and the files a release carries, are tools/release/'s tests."""
 
+import re
 import unittest
 
 from support import ROOT   # (server/ on the path, and the test process's memory cap)
@@ -105,7 +106,13 @@ class WorkflowTests(unittest.TestCase):
                     if action.startswith("./"):
                         self.assertTrue((ROOT / action).is_file(), f"{path.name} {name}: {action}")
                     else:
-                        self.assertRegex(action, r"^[\w.-]+/[\w.-]+@v\d+$", f"{path.name} {name}")
+                        # (at a commit, not at a tag its owner can move)
+                        self.assertRegex(action, r"^[\w.-]+/[\w.-]+@[0-9a-f]{40}$", f"{path.name} {name}")
+            # (the version each was pinned at, beside it: YAML drops the comment, so the text)
+            for line in path.read_text(encoding="utf-8").splitlines():
+                used = re.match(r"^\s*(?:-\s*)?uses:\s*([^\s#]+)(.*)$", line)
+                if used and not used.group(1).startswith("./"):
+                    self.assertRegex(used.group(2), r"^\s+# v\d+\.\d+\.\d+$", f"{path.name}: {used.group(1)}")
 
 
 if __name__ == "__main__":

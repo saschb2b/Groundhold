@@ -10,6 +10,9 @@
 - Fixed: back from a hidden tab, the overlay could say "Catching up 100%" for half a minute. Its bar counted
   only the turns that were there when the catch-up began, while the server kept sealing new ones; it now counts
   those too, and fills as the catch-up ends.
+- Fixed: a game whose link dropped while the match loaded gave up and went offline, and the match started
+  without it. It now reconnects as it does mid-match: the server takes its seat back while the match loads,
+  the game says it has loaded again, and if the match started without it meanwhile it catches up from there.
 - The server's log no longer gives every refused request its own line: requests that never became a game's
   socket (a wrong path, no WebSocket upgrade, which on a public port is mostly scanners) are summed into one
   `refused_requests` line a minute, by reason.

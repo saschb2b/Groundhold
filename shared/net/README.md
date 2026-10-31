@@ -319,8 +319,8 @@ is `catching_up` or `hidden`, only `shown` brings it `BACK` (a tab back from the
 brings the seat back on its own). The simulation then hands the seat back at the next build window. A
 game knows it was started without when `START` comes before it sent `LOADED`.
 
-**Rejoin.** A game whose link dropped during a match reconnects every `reconnect_ms` (2 s) with a
-resume `HELLO`: the `resume` flag, the same token, and the `match` id and the wire `seat` it held (a
+**Rejoin.** A game whose link dropped during a match, or while it loads, reconnects every `reconnect_ms`
+(2 s) with a resume `HELLO`: the `resume` flag, the same token, and the `match` id and the wire `seat` it held (a
 seat past 3, or a seat with match 0, is `ERROR` 1). A link that brings nothing for `away_ms` (5 s) in a
 match while its tab shows has dropped too, though no close came (the server speaks every turn): the
 game drops it without a close and reconnects. From the loss until its `RESYNC(rejoin)` is loaded the
@@ -335,7 +335,9 @@ go (its old simulation's). A resume `HELLO` that names a seat the identity does 
 no_held_seat` (argument 0) after `WELCOME`: the match ended, the seat left, or the game's rules hash is
 not the match's. During maintenance a resume `HELLO` that names a held seat is let in, past a full
 server too (it takes its own seat's place); every other `HELLO` gets `ERROR` 16. A rejoin while the
-match still loads gets `MATCH_CONFIG` as at the start (no flag) and loads like any seat. A checkpoint
+match still loads gets `MATCH_CONFIG` as at the start (no flag) and loads like any seat: a game whose
+world still stands says `LOADED` again if it had loaded; one the match started without meanwhile gets
+`MATCH_CONFIG(rejoin)` and `RESYNC(rejoin)` as any rejoin does. A checkpoint
 asked of a connection that drops, leaves or is replaced is asked of the next seat at once. A game
 started again after a kill or a crash does the same with the seat it noted on the device (the game's
 side: `Identity.held_seat`): its first `HELLO` is that resume, it builds the match from

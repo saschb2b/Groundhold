@@ -121,8 +121,9 @@ no_held_seat`), holds `BACK` for a connection catching up until its `shown`, and
   once (its digest is the HASH; at a checkpoint tick it keeps the bytes and flags it, and uploads them on
   `CHECKPOINT_ASK`); a `RESYNC` (bounded like a `TURN`) is downloaded, checked against its hash, loaded, and its
   turns run again (`resynced`: `main.gd` builds its views again); more than `Playout.CATCH_UP_TURNS` behind it says
-  `VISIBILITY catching_up` and takes no orders ("Catching up") until level; a link lost mid-match keeps the world and
-  sends a resume `HELLO` (the same token, `held_match`, `held_seat`) every 2 s, giving up after 30 s; `WebBridge`
+  `VISIBILITY catching_up` and takes no orders ("Catching up") until level; a link lost mid-match or while the
+  match loads keeps the world and sends a resume `HELLO` (the same token, `held_match`, `held_seat`) every 2 s,
+  giving up after 30 s (back while it loads, it says `LOADED` again if it had loaded); `WebBridge`
   reports a hidden tab (`hidden`, then `catching_up` or `shown`) and flashes the page title; a desynced end writes
   `DesyncDump`'s file. `connection_state()` is what `ConnectionOverlay` shows (reconnecting, catching up, in another
   tab, desynced). The fakes serve it all: `scene.cut(k, frames)`, `hide(k, frames, inbound_bytes)`,

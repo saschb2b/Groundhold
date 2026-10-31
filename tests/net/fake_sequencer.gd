@@ -1068,6 +1068,10 @@ func _rejoin(conn: Dictionary, match_id: int, seat_no: int) -> void:
 		_broadcast_load_state()
 		return
 	conn["visibility"] = 2  # (a rejoin counts as catching up until it says shown)
+	# (its RESYNC's checkpoint proves its state, as the server's match.rejoin says: a seat
+	# started without its player needs no LOADED to come BACK any more)
+	conn["late"] = false
+	conn["loaded"] = [_rules_of(_seated()), tick0]
 	var config: Dictionary = (configs[seat_no] as Dictionary).duplicate()
 	config["flags"] = NetProtocol.enum_value("config_flags", "rejoin")
 	_send(conn, "MATCH_CONFIG", config)

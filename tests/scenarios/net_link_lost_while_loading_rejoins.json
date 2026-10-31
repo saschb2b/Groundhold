@@ -1,0 +1,27 @@
+{
+  "name": "net_link_lost_while_loading_rejoins",
+  "description": "Two seats; client 1 is slow to load and the match waits for every seat, so the match still loads when client 2, which has loaded, loses its link (a dropped Wi-Fi, a router's restart) and its new links are refused for a while. It keeps its world and reconnects every 2 s with a resume HELLO naming its seat, as it would mid-match; the sequencer, as the server does, takes the seat back while the match loads and sends MATCH_CONFIG as at the start (no rejoin flag), and the game says LOADED again over the new link. The match starts once client 1 has loaded and plays with both seats: no overlay, orders going out, the seat never AWAY and the hashes agreeing.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'clients': 2, 'seed': 7, 'latency_turns': [1, 2], 'late': [1]})"},
+    {"eval": "scene.seq.set('strangers_start_frames', -1)"},
+    {"eval": "scene.run_until('client(2).loaded_sent and seq.phase == \"loading\"', 600)", "as": "loading"},
+    {"assert": "loading and scene.client(2).phase_name() == 'LOADING'", "msg": "client 2 has loaded; client 1 still loads"},
+    {"eval": "scene.cut(2, 150)"},
+    {"eval": "scene.run_frames(20)"},
+    {"assert": "scene.client(2).reconnecting and scene.client(2).phase_name() == 'LOADING' and scene.client(2).held_seat == 1", "msg": "its link lost while the match loads, it keeps its world and reconnects, naming its seat"},
+    {"assert": "scene.client(2).connection_state()[0] == 1", "msg": "meanwhile it says it is reconnecting"},
+    {"eval": "scene.run_until('not client(2).reconnecting and client(2).loaded_sent', 600)", "as": "back"},
+    {"assert": "back and scene.client(2).phase_name() == 'LOADING' and scene.seq.rejoins == 1 and scene.seq.no_held_seat == 0", "msg": "the seat was taken back while the match loads: a plain MATCH_CONFIG, and it said LOADED again"},
+    {"assert": "scene.client(2).connection_state()[0] == 0 and scene.client(2).error_code == 0", "msg": "back on its link: the overlay shows nothing, and nothing was refused"},
+    {"eval": "scene.run_until('seq._loaded_of(seq._seated()[1]).size() == 2', 120)", "as": "heard"},
+    {"assert": "heard and scene.seq.phase == 'loading'", "msg": "the sequencer has its LOADED again, and the match still waits for client 1"},
+    {"eval": "scene.load(1)"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 900},
+    {"eval": "scene.run_turns(400)"},
+    {"assert": "scene.client(2).connection_state()[0] == 0 and scene.client(2).source.accepts_commands() and scene.client(2).phase_name() == 'IN_MATCH'", "msg": "it plays its seat: no overlay, its orders go out"},
+    {"assert": "not scene.system_sent('AWAY', 1)", "msg": "the seat never went AWAY: it was loaded again when the match started"},
+    {"assert": "scene.seq.hashes_agree()", "msg": "every hash agrees"}
+  ]
+}

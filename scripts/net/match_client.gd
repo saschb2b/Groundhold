@@ -617,7 +617,7 @@ func _handle(bytes: PackedByteArray, now: int) -> void:
 		"MATCH_CONFIG":
 			if int(fields["flags"]) & NetProtocol.enum_value("config_flags", "rejoin"):
 				_on_rejoin_config(fields)
-			elif boot_resume:
+			elif boot_resume or (reconnecting and phase == Phase.LOADING):
 				_on_loading_rejoin(fields)
 			else:
 				_on_config(fields)
@@ -888,10 +888,10 @@ func _silent(now: int) -> bool:
 	return now - _heard_at >= _silent_ms
 
 
-## Whether a lost link may be taken back: in a match that started, with no ERROR and no
-## goodbye from the server.
+## Whether a lost link may be taken back: in a match that loads or started, with no ERROR
+## and no goodbye from the server.
 func _may_rejoin() -> bool:
-	if phase not in [Phase.STARTING, Phase.PLAYING] or match_id == 0 or seat <= 0:
+	if phase not in [Phase.LOADING, Phase.STARTING, Phase.PLAYING] or match_id == 0 or seat <= 0:
 		return false
 	if error_code != 0 or _bye or link.close_code == 1008:
 		return false
@@ -953,19 +953,37 @@ func _on_rejoin_config(fields: Dictionary) -> void:
 		_on_config(fields, true)
 		return
 	config = fields
+	if phase == Phase.LOADING:
+		# (the link was lost while the match loaded, and it started without this seat
+		# meanwhile: the RESYNC(rejoin) that follows brings the world to its open turn)
+		phase = Phase.STARTING
+		loaded_sent = true
 
 
-## A plain MATCH_CONFIG to a game started again (boot_resume): its match still loads, and
-## the server took the seat back as at the start (shared/net/README.md, Rejoin: "loads
-## like any seat"). The resume is over: the game loads and plays as any seat.
+## A plain MATCH_CONFIG to a game started again (boot_resume) or whose link was lost while
+## the match loaded: its match still loads, and the server took the seat back as at the
+## start (shared/net/README.md, Rejoin: "loads like any seat"). The resume is over: a game
+## started again loads and plays as any seat; one whose world still stands says again how
+## far its loading is, over the new link (LOADED, if it had loaded).
 func _on_loading_rejoin(fields: Dictionary) -> void:
 	if int(fields["match"]) != held_match or int(fields["your_seat"]) != held_seat:
 		_fail("The server rejoined this game to another seat")
 		return
+	var link_back := reconnecting
 	boot_resume = false
 	_resuming = false
 	_resume_welcomed = false
-	_on_config(fields)
+	if not link_back:
+		_on_config(fields)
+		return
+	reconnecting = false
+	_hash_hold = false
+	source.closed_note = NOT_STARTED
+	if loaded_sent:
+		loaded_sent = false
+		loaded()
+	connection_changed.emit()
+	party_changed.emit()
 
 
 ## NOTICE no_held_seat to a game started again: the seat it noted is not held (the match
