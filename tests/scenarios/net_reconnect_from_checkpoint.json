@@ -28,7 +28,7 @@
     {"assert": "scene.client(2).resyncs[0][1] > 0 and scene.client(2).resyncs[0][1] >= cut_at - 1800", "msg": "a checkpoint at most 1,800 ticks before the cut"},
     {"eval": "scene.run_until('not client(2).catching_up', 1200)", "as": "caught_up"},
     {"assert": "caught_up and scene.went_through(2, ['RECONNECTING', 'CATCHING_UP', 'BACK']) and scene.client(2).connection_state()[0] == 5", "msg": "the overlay said reconnecting, then catching up, then welcome back while the caretaker holds the seat"},
-    {"assert": "scene.bars_seen[1].size() >= 10 and scene.bars_seen[1].max() == 1000", "msg": "the catch-up's bar moved to its end"},
+    {"assert": "scene.bars_seen[1].size() >= 10 and scene.bars_seen[1].max() >= 950 and scene.full_while_catching_up[1] == 0", "msg": "the catch-up's bar moved nearly to its end, never full while the catch-up went on"},
     {"assert": "abs(scene.tick(2) - scene.tick(1)) <= 30", "msg": "client 2 runs level with client 1 again"},
     {"eval": "scene.run_until('client(1).sim.seat(2).state != 1 and client(2).sim.seat(2).state != 1', 120)", "as": "back"},
     {"assert": "back and scene.system_sent('BACK', 1) and scene.client(1).sim.seat(2).state == 2 and scene.client(2).sim.seat(2).state == 2", "msg": "shown brought it BACK: returning until the next window"},

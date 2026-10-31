@@ -62,6 +62,9 @@ var bot_step: Array = []
 var states_seen: Array = []
 ## Per client: every bar value (per mille) the overlay showed, without repeats.
 var bars_seen: Array = []
+## Per client: the frames the overlay said catching up with its bar full (a catch-up not
+## over yet must not read as done).
+var full_while_catching_up: Array = []
 ## Per client: each build window as its simulation opened it: [wave, tick, ready count
 ## ([ready, seats]), every seat's state, every seat's towers], in order.
 var windows: Array = []
@@ -96,6 +99,7 @@ func start(cfg := {}) -> void:
 	bot_step.clear()
 	states_seen.clear()
 	bars_seen.clear()
+	full_while_catching_up.clear()
 	windows.clear()
 	widest_gap.clear()
 	_latency.clear()
@@ -111,6 +115,7 @@ func start(cfg := {}) -> void:
 		bot_step.append(0)
 		states_seen.append(["NONE"])
 		bars_seen.append([])
+		full_while_catching_up.append(0)
 		windows.append([])
 		widest_gap.append(0)
 		var client := MatchClient.new()
@@ -619,6 +624,8 @@ func _frame() -> void:
 		var bar := int(now[1])
 		if bar >= 0 and ((bars_seen[i] as Array).is_empty() or (bars_seen[i] as Array)[-1] != bar):
 			(bars_seen[i] as Array).append(bar)
+		if int(now[0]) == ConnectionOverlay.State.CATCHING_UP and bar >= 1000:
+			full_while_catching_up[i] = int(full_while_catching_up[i]) + 1
 		if c.source.first_gap() >= 0:
 			widest_gap[i] = maxi(int(widest_gap[i]), c.source.highest - c.source.complete_upto)
 		_note_window(i)

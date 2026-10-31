@@ -1,5 +1,6 @@
-"""tools/net/smoke.py's own checks on made-up logs: the tick rate over its window, and the
-RESULT a client may miss when the majority ends the match first.
+"""tools/net/smoke.py's own checks on made-up logs: the tick rate over its window, the
+RESULT a client may miss when the majority ends the match first, and when the project is
+imported before its games start.
 
     python3 -m unittest tools/net/test_smoke.py
 
@@ -11,6 +12,7 @@ import io
 import pathlib
 import random
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -97,6 +99,27 @@ class LingerTests(unittest.TestCase):
     def test_only_with_flow(self):
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
             smoke.main(["--linger", "20"])
+
+
+class ClassCacheTests(unittest.TestCase):
+    def tree(self, cache, scripts):
+        root = pathlib.Path(tempfile.mkdtemp(prefix="smoke-cache-"))
+        for name, text in scripts.items():
+            (root / name).parent.mkdir(parents=True, exist_ok=True)
+            (root / name).write_text(text, encoding="utf-8")
+        if cache is not None:
+            (root / ".godot").mkdir()
+            (root / ".godot" / "global_script_class_cache.cfg").write_text(
+                "list=[" + ", ".join('{\n"class": &"%s",\n"path": "res://x.gd"\n}' % c for c in cache) + "]\n",
+                encoding="utf-8")
+        return root
+
+    def test_a_class_the_cache_lacks_is_missing(self):
+        scripts = {"scripts/net/a.gd": "class_name Checkpointing\nextends RefCounted\n",
+                   "tests/b.gd": "extends Node\n", "scripts/c.gd": "## x\nclass_name SimTargeting\n"}
+        self.assertEqual(smoke.missing_classes(self.tree(["Checkpointing"], scripts)), ["SimTargeting"])
+        self.assertEqual(smoke.missing_classes(self.tree(None, scripts)), ["Checkpointing", "SimTargeting"])
+        self.assertEqual(smoke.missing_classes(self.tree(["Checkpointing", "SimTargeting"], scripts)), [])
 
 
 if __name__ == "__main__":

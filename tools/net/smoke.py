@@ -75,6 +75,21 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def missing_classes(root=ROOT):
+    """The class_names the project's scripts declare that Godot's class cache does not list
+    (a fresh clone, or a pull that brought a script): games started from the checkout would
+    fail to parse every script that names one, so the project is imported first."""
+    cache = root / ".godot" / "global_script_class_cache.cfg"
+    listed = set(re.findall(r'"class": &"(\w+)"', cache.read_text(encoding="utf-8"))) if cache.exists() else set()
+    declared = set()
+    for folder in ("scripts", "tests", "tools"):
+        for script in (root / folder).rglob("*.gd"):
+            found = re.search(r"^class_name\s+(\w+)", script.read_text(encoding="utf-8", errors="replace"), re.M)
+            if found:
+                declared.add(found.group(1))
+    return sorted(declared - listed)
 READY = re.compile(r"listening.*port\D*(?P<port>\d+)")
 HASH = re.compile(r"^HASH (\d+) ([0-9a-f]+)$")
 RESULT = re.compile(r"^RESULT (\d+) ([0-9a-f]+) (\w+)$")
@@ -145,6 +160,15 @@ class Smoke:
         if not found:
             raise SystemExit("smoke: no Godot (set GODOT_PATH or --godot)")
         return found
+
+    def import_if_needed(self):
+        missing = missing_classes()
+        if not missing:
+            return
+        print(f"smoke: importing the project first (its class cache lacks {', '.join(missing[:3])}"
+              f"{', ...' if len(missing) > 3 else ''})", flush=True)
+        subprocess.run([self.godot(), "--headless", "--path", str(ROOT), "--import"], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, timeout=900)
 
     def spawn(self, command, log, **options):
         handle = open(log, "w", encoding="utf-8")
@@ -238,6 +262,7 @@ class Smoke:
 
     def run(self):
         print(self.header(), flush=True)
+        self.import_if_needed()
         began = time.monotonic()
         try:
             port = self.start_server()

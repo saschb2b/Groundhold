@@ -31,7 +31,7 @@
     {"assert": "caught_up and lost > 0 and scene.seq.resends > resends_before and scene.client(2).source.first_gap() < 0", "msg": "the gap injected during the catch-up was asked for and repaired"},
     {"eval": "scene.run_until('client(1).sim.seat(2).state == 0 and client(2).sim.seat(2).state == 0 and states_seen[1][-1] == \"NONE\"', 6000)", "as": "handed_back"},
     {"assert": "handed_back and scene.system_sent('BACK', 1) and scene.client(1).sim.hollows[0].phase == 0", "msg": "shown brought it BACK, and the next build window handed the seat back"},
-    {"assert": "scene.went_through(2, ['CATCHING_UP', 'BACK', 'NONE']) and scene.bars_seen[1].size() >= 10 and scene.bars_seen[1].max() == 1000", "msg": "the overlay said catching up with a moving bar, then back, the caretaker's until the window), then nothing"},
+    {"assert": "scene.went_through(2, ['CATCHING_UP', 'BACK', 'NONE']) and scene.bars_seen[1].size() >= 10 and scene.bars_seen[1].max() >= 950 and scene.full_while_catching_up[1] == 0", "msg": "the overlay said catching up with a moving bar that fills only as the catch-up ends (never full while turns that came meanwhile still wait), then back, the caretaker's until the window), then nothing"},
     {"eval": "scene.run_turns(300)"},
     {"assert": "scene.sent_hashes_agree_from(resync[3]) and scene.seq.disagreements.is_empty()", "msg": "every hash agrees from the checkpoint on"}
   ]

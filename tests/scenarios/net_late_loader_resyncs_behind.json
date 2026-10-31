@@ -20,7 +20,7 @@
     {"assert": "resynced and resync[1] == 2 and resync[2] == 'behind' and resync[3] == scene.seq.checkpoint_ticks[-1] and resync[3] > 0", "msg": "its LOADED brought RESYNC(behind) from the latest kept checkpoint"},
     {"assert": "scene.client(3).resyncs[0][0] == 'behind' and scene.client(3).resyncs[0][1] == resync[3] and scene.client(3).catching_up", "msg": "it loaded that checkpoint and catches up, orders waiting"},
     {"eval": "scene.run_until('not client(3).catching_up', 1800)", "as": "caught_up"},
-    {"assert": "caught_up and scene.went_through(3, ['CATCHING_UP', 'NONE']) and scene.bars_seen[2].size() >= 10 and scene.bars_seen[2].max() == 1000", "msg": "the overlay said catching up with a moving bar, then nothing"},
+    {"assert": "caught_up and scene.went_through(3, ['CATCHING_UP', 'NONE']) and scene.bars_seen[2].size() >= 10 and scene.bars_seen[2].max() >= 950 and scene.full_while_catching_up[2] == 0", "msg": "the overlay said catching up with a moving bar, never full while the catch-up went on, then nothing"},
     {"eval": "scene.run_until('client(1).sim.seat(3).state == 0 and client(3).sim.seat(3).state == 0', 6000)", "as": "handed_back"},
     {"assert": "handed_back and scene.system_sent('BACK', 2) and scene.client(3).sim.hollows[0].phase == 0", "msg": "shown brought it BACK, and the next build window handed the seat back"},
     {"eval": "scene.run_turns(300)"},

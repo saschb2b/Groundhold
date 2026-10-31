@@ -241,6 +241,32 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn({"event": "hello_timeout", "after_ms": 600},
                       [{k: v for k, v in entry.items() if k != "time"} for entry in logged])
 
+    async def test_requests_refused_before_a_socket_are_summed_once_a_minute(self):
+        # (a public port meets scanners all day: one line each would bury the games' events)
+        events = io.StringIO()
+        clock = ManualClock()
+        await self.start(clock=clock, event_log=events)
+
+        def refused():
+            return [{k: v for k, v in json.loads(line).items() if k != "time"}
+                    for line in events.getvalue().splitlines() if '"refused_requests"' in line]
+
+        for path in ("/", "/wp-login.php", "/"):
+            self.assertTrue((await self.raw_request(upgrade_request(path=path))).startswith(b"HTTP/1.1 400"))
+        await clock.advance(1000)
+        self.assertEqual(refused(), [{"event": "refused_requests", "count": 3, "reasons": {"Use /causeway": 3}}])
+        self.assertNotIn('"reject"', events.getvalue())
+        self.assertTrue((await self.raw_request(b"GET /causeway HTTP/1.1\r\nHost: x\r\n\r\n")).startswith(b"HTTP/1.1 400"))
+        await clock.advance(30_000)
+        self.assertEqual(len(refused()), 1)
+        await clock.advance(30_000)
+        self.assertEqual(refused()[-1], {"event": "refused_requests", "count": 1,
+                                         "reasons": {"WebSocket version or subprotocol mismatch": 1}})
+        # (a game's socket refused after its upgrade is its own line, as before)
+        _, (name, fields) = await self.connect("Tamsin", version=SPEC["version"] + 1)
+        self.assertEqual(name, "ERROR")
+        await until(lambda: '"reject"' in events.getvalue())
+
     async def test_silence_closes_a_connection(self):
         await self.start(silence_timeout=0.2)
         client, _ = await self.connect()

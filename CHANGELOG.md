@@ -7,6 +7,16 @@
   `HELLO` came more than 5 s after it connected. The 5 s now cover only the connection's upgrade; `HELLO` has
   30 s after it (`hello_ms`), and a connection that never says it shows as `hello_timeout` in the server's
   event log instead of vanishing without a word.
+- Fixed: back from a hidden tab, the overlay could say "Catching up 100%" for half a minute. Its bar counted
+  only the turns that were there when the catch-up began, while the server kept sealing new ones; it now counts
+  those too, and fills as the catch-up ends.
+- The server's log no longer gives every refused request its own line: requests that never became a game's
+  socket (a wrong path, no WebSocket upgrade, which on a public port is mostly scanners) are summed into one
+  `refused_requests` line a minute, by reason.
+- The workflows that build and release the game run every action from outside the repository at a pinned
+  commit, with the version it was pinned at beside it, so a moved tag cannot change what a release runs.
+- `tools/net/smoke.py` imports the project before its games start when the class cache lacks a script's
+  class (a fresh clone, or a pull that brought one), instead of starting games that cannot parse.
 
 ## 0.6.0 · 2026-10-31
 

@@ -26,6 +26,7 @@ loading barrier and the LAN beacon are new.
 """
 
 import asyncio
+import collections
 import contextlib
 import dataclasses
 import json
@@ -46,6 +47,7 @@ from .stats import Daily
 
 LOG = logging.getLogger("groundhold.server")
 MS = 1_000_000
+REFUSED_EVERY_MS = 60_000      # requests refused before a socket: one line a minute
 # (messages a seat sends its match; any other from a game outside one is out of order)
 MATCH_MESSAGES = ("LOADING", "LOADED", "CMD", "HASH", "RESULT", "LEAVE_MATCH", "TURN_REQUEST", "CHECKPOINT_PART")
 # (the hub's: a dev match has no hub, so it refuses them)
@@ -137,6 +139,7 @@ class Server:
         self.party_cap = party_cap
         self.pending_cap, self.handshake_timeout, self.silence_timeout = pending_cap, handshake_timeout, silence_timeout
         self.hello_timeout = hello_timeout
+        self.refused_requests, self.refused_said = collections.Counter(), None
         # (a hidden tab's loop sleeps, so it says nothing: its link is kept this long, §6.8)
         self.hidden_timeout = max(silence_timeout, hidden_timeout)
         self.maintenance = protocol.maintenance_line(maintenance)
@@ -316,7 +319,12 @@ class Server:
         except ProtocolError as exc:
             if player:
                 player.refused = True
-            self.event("reject", reason=str(exc), code=exc.code)
+            if upgraded:
+                self.event("reject", reason=str(exc), code=exc.code)
+            else:
+                # (a request that never became a game's socket, a scanner's most often: summed
+                # once a minute, so the log keeps the games' own events readable)
+                self.refused_requests[str(exc)] += 1
             with contextlib.suppress(ConnectionError, asyncio.TimeoutError):
                 if upgraded:
                     await websocket.send(writer, protocol.error(exc))
@@ -563,8 +571,20 @@ class Server:
                 self.moderation()
                 self.keep(clock.now())
                 self.day()
+                self.say_refused(clock.now())
             except Exception:       # (housekeeping never ends the server)
                 LOG.exception("Housekeeping failed")
+
+    def say_refused(self, now):
+        """The requests refused before a socket opened, by reason: at most one
+        line a minute, and none while there were none."""
+        if not self.refused_requests or (
+                self.refused_said is not None and now - self.refused_said < REFUSED_EVERY_MS * MS):
+            return
+        self.event("refused_requests", count=sum(self.refused_requests.values()),
+                   reasons=dict(sorted(self.refused_requests.items())))
+        self.refused_requests.clear()
+        self.refused_said = now
 
     def moderation(self):
         """moderation.json read again where it changed; a banned or newly

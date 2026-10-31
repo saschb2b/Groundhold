@@ -861,11 +861,17 @@ func _caretaken() -> bool:
 	return sim != null and seat > 0 and sim.seat(seat).state != SimTypes.SEAT_PRESENT
 
 
-## How far the catch-up has come, per mille of the ticks it set out to run.
+## How far the catch-up has come, per mille: the ticks run since it began, of those and the
+## ticks still to run, to its goal and on down to a playout's worth of the turns that came
+## meanwhile (the server keeps sealing them, _check_caught_up). Never full before it ends.
 func catch_up_per_mille() -> int:
-	if sim == null or catch_up_goal <= catch_up_from:
+	if sim == null:
 		return 0
-	return clampi((sim.tick - catch_up_from) * 1000 / (catch_up_goal - catch_up_from), 0, 1000)
+	var done := maxi(0, sim.tick - catch_up_from)
+	var left := maxi(catch_up_goal - sim.tick, source.ticks_available(sim) - Playout.CATCH_UP_TURNS * SimTypes.TURN_TICKS)
+	if done == 0 and left <= 0:
+		return 0
+	return clampi(done * 1000 / (done + maxi(1, left)), 0, 999)
 
 
 ## The tick-0 hash LOADED carries: the simulation's own at tick 0, or one built again from
