@@ -116,7 +116,8 @@ def dev_match_spec(text):
 class Server:
     def __init__(self, name="Groundhold", motd="", origins=(), event_log=None, player_cap=64,
                  pending_cap=SPEC["pending_cap"], handshake_timeout=SPEC["handshake_ms"] / 1000,
-                 hello_timeout=SPEC["hello_ms"] / 1000, silence_timeout=SPEC["silence_ms"] / 1000, hidden_timeout=SPEC["hidden_silence_ms"] / 1000,
+                 hello_timeout=SPEC["hello_ms"] / 1000,
+                 silence_timeout=SPEC["silence_ms"] / 1000, hidden_timeout=SPEC["hidden_silence_ms"] / 1000,
                  maintenance="", dev_match=None, seed=None,
                  identity_key=None, clock=None, start_delay_ms=SPEC["start_delay_ms"],
                  loading_min_ms=SPEC["loading_min_ms"], match_cap_ms=SPEC["match_cap_ms"],
