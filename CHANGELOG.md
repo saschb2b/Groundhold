@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.8.0 · 2026-11-02
 
 Undertow, the duel (M7). Two players, each on their own hollow under one clock, cork packs from the Drift and
