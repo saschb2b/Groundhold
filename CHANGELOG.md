@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.1 · TBD
+## 0.6.1 · 2026-11-01
 
 - Fixed: a party's link opened by a returning player on a slow computer could leave them offline. The game
   opens its connection while its first frames are still loading, and the server closed any connection whose

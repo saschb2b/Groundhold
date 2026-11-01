@@ -742,8 +742,8 @@ Each release:
 
 1. On `main`, in one commit: `project.godot`'s `config/version` is `X.Y.Z`, and `CHANGELOG.md`'s
    section for it is headed `## X.Y.Z · YYYY-MM-DD`, the release's date (the Unreleased heading
-   becomes it). `python3 tools/release/gate.py check vX.Y.Z` says they agree. 0.6.0 is prepared this
-   way already: its heading reads `## 0.6.0 · TBD`, and the date goes over `TBD`.
+   becomes it). `python3 tools/release/gate.py check vX.Y.Z` says they agree. A release being prepared
+   is headed `## X.Y.Z · TBD`, and the date goes over `TBD`.
 2. The release gate (design §7.6): `godot-agent scenario . --determinism` and the native-against-web
    replay check.
 3. A dry run if anything in the release's build changed: **Actions › Release › Run workflow** on
