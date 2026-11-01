@@ -695,7 +695,22 @@ const CREEP_IDS := [
 	"gourdling", "scuttler", "thornback", "hollowtide_crest", "duskmoth", "bristlesow"
 ]
 const BUILDER_IDS := ["lamplighter", "lookout", "bellfounder", "beekeeper"]
-const MODE_IDS := ["classic", "high_water", "tide_race"]
+const MODE_IDS := ["classic", "high_water", "tide_race", "undertow"]
+
+## Undertow's Drift (design 1.4, M7 contract): the packs a duel's window offers, by map,
+## then by the CHECK_IDS id a pack tests, which is also its id on the wire and in the codec
+## (UNCORK's `a` is its CHECK_IDS index). Each names the creep it sends and how many at each
+## tier (I, II, III); the tiers' windows, prices and stipends are the undertow preset's.
+## Display names ("Gourd Rush" on Wickhollow) are Game's, so no map's flavour reaches an id.
+const PACKS := {
+	"hollow":
+	{
+		"swarm": {"creep": "gourdling", "counts": [6, 10, 14]},
+		"swift": {"creep": "scuttler", "counts": [6, 10, 14]},
+		"armored": {"creep": "thornback", "counts": [2, 3, 5]},
+		"winged": {"creep": "duskmoth", "counts": [4, 6, 9]},
+	},
+}
 
 ## Display orders, append only: the four checks (design 3.2) as the coverage row shows
 ## them, the roles (3.1) and the perks (3.4). Game holds their names, glyphs and icons.

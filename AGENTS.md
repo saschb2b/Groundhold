@@ -97,6 +97,11 @@ lost" (`race_offline_outcome_same_tick_lives`), and a draw names the rule that t
 crew clears wave 12 first) and holds the plate to strings written out in the scenario, not to the functions that
 make them.
 
+`docs/design/contract-m7.md` fixes what M7's tracks (rules, the duel on screen, around the match) share:
+`undertow` (mode 3), the Drift's packs keyed by check (`SimContent.PACKS[map][check]`, names in `Game.PACKS`),
+`EV_DRIFT` 21 to `EV_SURGE` 27, the commitment's exact bytes (`SimUndertow.commit`), the `undertow` preset's
+`duel` keys, and who owns which files. `contract_m7_tables` checks it.
+
 Multiplayer is server-sequenced lockstep (design §6): the Python server in `server/` never simulates, it closes a
 turn every 50 ms and sends every game the commands that arrived. The wire contract is `shared/net/protocol.json`;
 `NetProtocol` (`scripts/net/protocol.gd`) and the server's codec are both built from it. A networked game

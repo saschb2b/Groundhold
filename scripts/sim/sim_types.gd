@@ -156,6 +156,24 @@ const EV_PULSE := 19
 ## ticks, -1 while it has none), and for "decided" outcomes (one MATCH_END outcome id per
 ## team, protocol.json's "outcomes") and rule ("time", "fell", "cap", "draw")
 const EV_RACE := 20
+## (M7) Undertow, docs/design/contract-m7.md. A window's packs from the Drift: window
+## (the wave it precedes), packs (three CHECK_IDS ids), left_out (the fourth)
+const EV_DRIFT := 21
+## (M7) A seat corked a pack: seat, team, tier (0 to 2), window, bottle (its id), price;
+## the rival sees the tier and the price, never the pack
+const EV_CORK := 22
+## (M7) A corked pack was uncorked: seat, bottle, pack (a CHECK_IDS id), creeps (how many
+## walk the rival's road), hollow (the rival's), stipend (the seat's stipend after it)
+const EV_UNCORK := 23
+## (M7) A corked pack fizzled (no valid reveal by fizzle time): seat, bottle
+const EV_FIZZLE := 24
+## (M7) An uncorked creep reached the rival's Holdfast: creep, kind, by (the sender's
+## seat), team (whose lives it took), toll, pay (gold to the sender)
+const EV_BREACH := 25
+## (M7) A Seawall burst: seat, hollow, struck (creeps it hit), charges (left)
+const EV_SEAWALL := 26
+## (M7) The Surge: surge (1 to 3), wave (the wave it repeats)
+const EV_SURGE := 27
 
 ## A team's outcome, as MATCH_END and RESULT number them (protocol.json's "outcomes"):
 ## SimMatch.outcomes() gives one per team.
@@ -187,6 +205,13 @@ const EVENT_TYPES := {
 	"HELP": EV_HELP,
 	"PULSE": EV_PULSE,
 	"RACE": EV_RACE,
+	"DRIFT": EV_DRIFT,
+	"CORK": EV_CORK,
+	"UNCORK": EV_UNCORK,
+	"FIZZLE": EV_FIZZLE,
+	"BREACH": EV_BREACH,
+	"SEAWALL": EV_SEAWALL,
+	"SURGE": EV_SURGE,
 }
 
 # ── Team effects (design 3.2): EV_STATUS and EV_HELP "effect", and the per-effect
