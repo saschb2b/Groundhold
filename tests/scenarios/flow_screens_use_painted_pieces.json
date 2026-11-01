@@ -3,6 +3,7 @@
   "description": "The screens outside a match draw with the console's painted pieces, never flat debug boxes (AGENTS.md, design 3.7): the theme's text fields are the painted field and, focused, field_focus; its rules the divider; the Join panel, the first launch's name prompt and the Builders screen's kit plate stand on the large panel with its jewel; loading cards are card frames (mine lit), all of one width however long a name, and the loading bars are the painted trough and fill.",
   "seed": 1,
   "timeout_frames": 1800,
+  "user_files": {"net.cfg": "[identity]\ntoken=\"00200000000000000000000000000000\"\n"},
   "steps": [
     {"wait": 3},
     {"eval": "resource('res://scripts/ui/shell.gd').theme()", "as": "theme"},
