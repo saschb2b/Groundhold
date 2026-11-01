@@ -28,7 +28,7 @@
     {"eval": "[load_m6['tick'], load_m6['wave'], load_m6['lives'], load_m6['towers']]", "as": "m6_at_horn"},
     {"assert": "load_m6['wave'] == 11 and load_m6['towers'] >= 20", "msg": "two Bellfounders and two Beekeepers reached wave 11's horn with their towers standing"},
     {"eval": "Bench.measure(load_m6, 1800, 3)", "as": "bench_m6"},
-    {"eval": "bench_m6['ticks_per_second'] * 100 / bench['ticks_per_second']", "as": "m6_of_first_pc"},
+    {"eval": "Bench.ratio_pc(load, load_m6, 1800, 5)", "as": "m6_of_first_pc"},
     {"eval": "print('SIM_BENCH native ticks_per_second=%d runs=%s creeps<=%d shots<=%d checkpoint_bytes=%d largest_checkpoint_bytes=%d look_walk_us=%d look_scan_us=%d look_speedup_pc=%d walk_ticks=%d m6_ticks_per_second=%d m6_runs=%s m6_of_first_pc=%d m6_largest_checkpoint_bytes=%d m6_walk_ticks=%d' % [bench['ticks_per_second'], str(bench['runs']), bench['most_creeps'], bench['most_shots'], bench['checkpoint_bytes'], bench['largest_checkpoint_bytes'], look['walk_us'], look['scan_us'], look['speedup_pc'], bench['walk_ticks'], bench_m6['ticks_per_second'], str(bench_m6['runs']), m6_of_first_pc, bench_m6['largest_checkpoint_bytes'], bench_m6['walk_ticks']])"},
     {"assert": "bench['most_creeps'] >= 20 and bench['most_shots'] >= 5", "msg": "the wave is on the road: creeps walking and shots in the air"},
     {"assert": "bench['same_hash']", "msg": "every run of the same checkpoint reaches the same state"},

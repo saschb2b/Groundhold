@@ -151,6 +151,20 @@ static func measure(load: Dictionary, ticks := 1800, runs := 3) -> Dictionary:
 ## (none: sim_targeting_walk_matches_scan holds that on every tick). Both ways run in
 ## one process on the same states, so the ratio holds on a slower or busier machine,
 ## where ticks_per_second moves with it.
+## The second board's rate as hundredths of the first's, each the best of `rounds` runs
+## taken in turn (first, second, first, ...), so a busy machine slows both alike: CI's
+## runner shares its cores with the other scenarios, and timing one board's three runs
+## and then the other's let a stretch of contention land on one board only (75 there,
+## where a quiet run gives about 104).
+static func ratio_pc(first: Dictionary, second: Dictionary, ticks := 1800, rounds := 5) -> int:
+	var a := 0
+	var b := 0
+	for _round in rounds:
+		a = maxi(a, int(measure(first, ticks, 1)["ticks_per_second"]))
+		b = maxi(b, int(measure(second, ticks, 1)["ticks_per_second"]))
+	return b * 100 / maxi(1, a)
+
+
 static func look(load: Dictionary, ticks := 1800) -> Dictionary:
 	var sim := SimMatch.deserialize(load["bytes"], SimContent.rules("high_water"))
 	var source := LocalSequencer.new(int(load["seats"]))
