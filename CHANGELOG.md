@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.6.1 · 2026-11-01
 
 - Fixed: a party's link opened by a returning player on a slow computer could leave them offline. The game

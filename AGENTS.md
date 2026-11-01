@@ -182,6 +182,10 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   seconds. Add a scenario in `tests/scenarios/` for each behaviour you change, and make sure it fails without
   your change.
 - `godot-agent scenario . --determinism` before a release: every scenario twice, state and pixels compared.
+  Where the virtual display draws on a software GPU (the summary says so: llvmpipe), the long rendered
+  matches time out at 180 s even with `-j 1`; compare those again with `--determinism --headless` (state
+  only). A scenario showing the hub's first-launch name pins the device key with the kit's `user_files`
+  (`{"net.cfg": "[identity]\ntoken=..."}`), or the name differs on every run.
 - Balance changes: `bot_wins` must still win with half the lives left, `idle_player_loses` must still lose
   (both play High Water solo in the sim harness; `bot_wins_classic` and `idle_player_loses_classic` keep the
   classic match through the game's input route). Then `godot-agent scenario . tests/balance --headless`: every
