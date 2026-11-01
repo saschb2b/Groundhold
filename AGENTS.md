@@ -38,6 +38,14 @@ rules are `shared/net/README.md`'s Resilience (M4); the checkpoint tick, a check
 seams `checkpointing.gd`, `desync_dump.gd`, `web_bridge.gd`, `connection_overlay.gd` and `catchup.py`, stubs until
 their track writes them. `contract_m4_wire_and_seams` and `server/tests/test_contract_m4.py` check it.
 
+`docs/design/contract-m6.md` fixes what M6's tracks (rules, art, race views, queue) share: the ids appended to
+`content.gd` (the Bellfounder's and the Beekeeper's eighteen tower forms, `tide_race`, `bronze_hand`, `hive_tithe`),
+both kits, the new tower keys and the rules they carry (a pulse's stun and its immunity, the bee cloud, the crack and
+haste auras, `air_bonus_pm`), `EV_PULSE` 19 and `EV_RACE` 20, the race's `SimMatch.outcomes()`, `race_time()` and
+`decided_by()`, `Game.hollow_origin(h)`, the queue's `accept_ms` and `caretaker_offer_ms`, and who owns which files. A
+model not built yet loads as `Models.placeholder()`, as an unpainted icon does as `Game.placeholder_icon()`.
+`contract_m6_tables` checks it.
+
 Multiplayer is server-sequenced lockstep (design §6): the Python server in `server/` never simulates, it closes a
 turn every 50 ms and sends every game the commands that arrived. The wire contract is `shared/net/protocol.json`;
 `NetProtocol` (`scripts/net/protocol.gd`) and the server's codec are both built from it. A networked game

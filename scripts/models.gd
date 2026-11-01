@@ -7,6 +7,10 @@ static var _meshes := {}
 
 
 static func instance(path: String) -> Node3D:
+	if not ResourceLoader.exists(path):
+		# (a model not built yet, M6's Builders and towers before their art lands: a
+		# stand-in, never an error, as Game.icon gives a placeholder for an unpainted icon)
+		return placeholder()
 	if not _scenes.has(path):
 		_scenes[path] = load(path)
 	return (_scenes[path] as PackedScene).instantiate() as Node3D
@@ -81,3 +85,20 @@ static func _relative(root: Node3D, part: Node3D) -> Transform3D:
 			t = (node as Node3D).transform * t
 		node = node.get_parent()
 	return t
+
+
+## A grey capsule standing in for a model not built yet.
+static func placeholder() -> Node3D:
+	var root := Node3D.new()
+	root.name = "Placeholder"
+	var body := MeshInstance3D.new()
+	var capsule := CapsuleMesh.new()
+	capsule.radius = 0.3
+	capsule.height = 1.2
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.55, 0.53, 0.5)
+	capsule.material = material
+	body.mesh = capsule
+	body.position.y = 0.6
+	root.add_child(body)
+	return root

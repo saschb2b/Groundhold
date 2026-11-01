@@ -294,6 +294,116 @@ const TOWERS := {
 		"head_height": 0.99,
 		"sound": ["mark", -8.0],
 	},
+	# M6 (contract-m6.md): names and icons; the views track adds each form's model, head,
+	# muzzle or bore, projectile and sound
+	"clapper_tower":
+	{
+		"name": "Clapper Tower",
+		"description": "A bronze clapper that strikes hard at close range.",
+		"icon": "res://ui/icons/clapper_tower.png",
+	},
+	"toll_tower":
+	{
+		"name": "Toll Tower",
+		"description": "Rings out a pulse that stuns every ground creep in reach.",
+		"icon": "res://ui/icons/toll_tower.png",
+	},
+	"chime_post":
+	{
+		"name": "Chime Post",
+		"description": "Its hum cracks the armour of every creep in reach, for every tower.",
+		"icon": "res://ui/icons/chime_post.png",
+	},
+	"great_clapper":
+	{
+		"name": "Great Clapper",
+		"gain": "a far heavier strike",
+		"icon": "res://ui/icons/great_clapper.png",
+	},
+	"ringing_clapper":
+	{
+		"name": "Ringing Clapper",
+		"gain": "each strike rings through a crowd",
+		"icon": "res://ui/icons/ringing_clapper.png",
+	},
+	"great_toll":
+	{
+		"name": "Great Toll",
+		"gain": "a harder pulse, a longer stun",
+		"icon": "res://ui/icons/great_toll.png",
+	},
+	"sky_toll":
+	{
+		"name": "Sky Toll",
+		"gain": "reaches fliers, which it slows instead",
+		"icon": "res://ui/icons/sky_toll.png",
+	},
+	"deep_chime":
+	{
+		"name": "Deep Chime",
+		"gain": "cracks twice the armour",
+		"icon": "res://ui/icons/deep_chime.png",
+	},
+	"long_chime":
+	{
+		"name": "Long Chime",
+		"gain": "cracks armour farther out",
+		"icon": "res://ui/icons/long_chime.png",
+	},
+	"clay_hive":
+	{
+		"name": "Clay Hive",
+		"description": "A bee cloud over the foremost creep stings all near it, on the ground or in the air.",
+		"icon": "res://ui/icons/clay_hive.png",
+	},
+	"apiary":
+	{
+		"name": "Apiary",
+		"description": "Bees that hunt fliers first and sting them hardest.",
+		"icon": "res://ui/icons/apiary.png",
+	},
+	"hive_hum":
+	{
+		"name": "Hive Hum",
+		"description": "Every tower in reach fires faster, whoever built it.",
+		"icon": "res://ui/icons/hive_hum.png",
+	},
+	"great_clay_hive":
+	{
+		"name": "Great Clay Hive",
+		"gain": "a wider cloud, sharper stings",
+		"icon": "res://ui/icons/great_clay_hive.png",
+	},
+	"drowsy_clay_hive":
+	{
+		"name": "Drowsy Clay Hive",
+		"gain": "stung creeps slow down",
+		"icon": "res://ui/icons/drowsy_clay_hive.png",
+	},
+	"royal_apiary":
+	{
+		"name": "Royal Apiary",
+		"gain": "much harder stings",
+		"icon": "res://ui/icons/royal_apiary.png",
+	},
+	"queens_guard":
+	{
+		"name": "Queen's Guard",
+		"gain": "slower, far heavier stings",
+		"icon": "res://ui/icons/queens_guard.png",
+	},
+	"great_hum":
+	{
+		"name": "Great Hum",
+		"gain": "a stronger hum",
+		"icon": "res://ui/icons/great_hum.png",
+	},
+	"long_hum":
+	{
+		"name": "Long Hum",
+		"gain": "hums farther out",
+		"icon": "res://ui/icons/long_hum.png",
+	},
 }
 
 ## The four checks (design 3.2) by SimContent.CHECK_IDS, with their glyphs: the tide
@@ -339,6 +449,20 @@ const BUILDERS := {
 		"bust": "res://models/builders/lookout_bust.glb",
 		"emblem": "res://ui/icons/emblem_lookout.png",
 	},
+	"bellfounder":
+	{
+		"glyph": "res://ui/icons/builder_bellfounder.png",
+		"portrait": "res://models/builders/bellfounder.glb",
+		"bust": "res://models/builders/bellfounder_bust.glb",
+		"emblem": "res://ui/icons/emblem_bellfounder.png",
+	},
+	"beekeeper":
+	{
+		"glyph": "res://ui/icons/builder_beekeeper.png",
+		"portrait": "res://models/builders/beekeeper.glb",
+		"bust": "res://models/builders/beekeeper_bust.glb",
+		"emblem": "res://ui/icons/emblem_beekeeper.png",
+	},
 }
 
 ## The passives by SimContent.PERK_IDS; their numbers are SimContent.BUILDERS' "perk".
@@ -346,6 +470,9 @@ const PERKS := {
 	"thrifty":
 	{"name": "Thrifty", "text": "Her towers sell for 90%, not 70%."},
 	"keen_sight": {"name": "Keen Sight", "text": "Her towers reach 0.4 tiles farther."},
+	"bronze_hand": {"name": "Bronze Hand", "text": "Her hits ignore 2 armour."},
+	"hive_tithe":
+	{"name": "Hive Tithe", "text": "Each Clay Hive and Hive Hum pays her 2 gold at every wave clear, at most 12."},
 }
 
 ## Creeps by SimContent.CREEP_IDS: "icon" is the framed portrait the strip and the wave

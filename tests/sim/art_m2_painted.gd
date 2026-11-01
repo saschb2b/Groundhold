@@ -16,6 +16,9 @@ const TOWER_MODELS := [
 const PROJECTILES := ["ballista_bolt", "pinning_bolt", "hawk", "kestrel", "mortar_shell"]
 const SOUNDS := ["ballista", "hawk", "mortar", "mark"]
 const CREEP_PORTRAITS := ["duskmoth", "bristlesow"]
+## M2's own ids: the lists grew in M6 (contract-m6.md), whose art art_m6_painted checks.
+const M2_TOWER_IDS := 18
+const M2_BUILDER_IDS := ["lamplighter", "lookout"]
 ## Command icons and Builders' emblems are painted at twice their 54 px socket; marks at
 ## 64; a Builder's glyph (its framed face, rendered from M3's bust) at 128.
 const COMMAND_SIZE := 108
@@ -33,13 +36,13 @@ static func problems() -> Array:
 
 
 static func _icons(out: Array) -> void:
-	for id: String in SimContent.TOWER_IDS:
+	for id: String in SimContent.TOWER_IDS.slice(0, M2_TOWER_IDS):
 		_painted(out, str(Game.TOWERS.get(id, {}).get("icon", "")), COMMAND_SIZE)
 	for check: String in SimContent.CHECK_IDS:
 		_painted(out, str(Game.CHECKS.get(check, {}).get("icon", "")), MARK_SIZE)
 	for role: String in SimContent.ROLE_IDS:
 		_painted(out, str(Game.ROLES.get(role, {}).get("icon", "")), MARK_SIZE)
-	for builder: String in SimContent.BUILDER_IDS:
+	for builder: String in M2_BUILDER_IDS:
 		_painted(out, str(Game.BUILDERS.get(builder, {}).get("glyph", "")), FACE_SIZE)
 		_painted(out, str(Game.BUILDERS.get(builder, {}).get("emblem", "")), COMMAND_SIZE)
 	for creep: String in CREEP_PORTRAITS:

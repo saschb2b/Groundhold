@@ -146,6 +146,15 @@ const EV_STATUS := 17
 ## helper), by (the seat whose hit it was), creep, effect (the EFFECT_* that helped; the
 ## strongest when several did), dmg (hundredths credited, added to the helper's help_c)
 const EV_HELP := 18
+## (M6) A pulse tower rang (the Toll Tower): tower, form, hollow, x, z (its cell centre,
+## millimetres in its hollow), r (its reach); the creeps it struck come as EV_HIT, their
+## stuns and slows as EV_STATUS
+const EV_PULSE := 19
+## (M6) Tide Race: what ("cleared": the team cleared its last wave; "fell": its Holdfast
+## went under; "decided": the race is over), team, wave, race_t (the team's race time in
+## ticks, -1 while it has none), and for "decided" outcomes (one MATCH_END outcome id per
+## team, protocol.json's "outcomes") and rule ("time", "fell", "cap", "draw")
+const EV_RACE := 20
 
 const EVENT_TYPES := {
 	"SPAWN": EV_SPAWN,
@@ -166,6 +175,8 @@ const EVENT_TYPES := {
 	"REJECTED": EV_REJECTED,
 	"STATUS": EV_STATUS,
 	"HELP": EV_HELP,
+	"PULSE": EV_PULSE,
+	"RACE": EV_RACE,
 }
 
 # ── Team effects (design 3.2): EV_STATUS and EV_HELP "effect", and the per-effect

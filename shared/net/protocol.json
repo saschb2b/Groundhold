@@ -35,6 +35,8 @@
   "hello_ms": 30000,
   "linger_ms": 1000,
   "pending_cap": 16,
+  "accept_ms": 15000,
+  "caretaker_offer_ms": 60000,
   "output_cap": 65536,
   "start_delay_ms": 1500,
   "loading_min_ms": 4000,

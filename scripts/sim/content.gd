@@ -120,6 +120,24 @@ const RULES := {
 ##   mark_t        (M2) ticks a mark lasts after its creep leaves the tower's reach
 ##   fork_cost     gold to fork it, the same for either branch
 ##   a, b          its branches: {"id": the branch's TOWER_IDS id, then what it changes}
+## Keys marked (M6) are the M6 contract's (docs/design/contract-m6.md); M6's rules track
+## makes the simulation honour them:
+##   pulse         (M6) bool: no shot; every cd_t it strikes every creep within range_mm
+##                 at once (fliers too only where `air`): dmg_c and its stun or slow
+##   stun_t        (M6) ticks a hit stuns (speed 0); on a boss, where the rules turn
+##                 control_resist on, a 50% slow of the same length instead
+##   stun_immune_t (M6) ticks after a stun ends in which no stun takes (stuns never chain)
+##   air_slow_pm   (M6) what a hit does to a winged creep instead of stunning it: a slow ...
+##   air_slow_t    (M6) ... for this many ticks (the Sky Toll)
+##   cloud_mm      (M6) a bee cloud: every cd_t, over the creep it aims at (ground or air
+##                 per `air`), it stings every creep, ground or air, within cloud_mm of that
+##                 creep: dmg_c, and slow_pm for slow_t where set. No shot
+##   crack_c       (M6) an aura: creeps inside range_mm have this much less armour,
+##                 hundredths, for every tower's hits; the strongest crack applies
+##   haste_pm      (M6) an aura: every tower whose cell centre lies within range_mm of
+##                 this one, whoever built it, fires this much faster, per mille; the
+##                 strongest applies; recomputed when any tower is built, forked or sold
+##   air_bonus_pm  (M6) extra damage against winged creeps, per mille (the Apiary)
 const TOWERS := {
 	"arrow":
 	{
@@ -224,6 +242,111 @@ const TOWERS := {
 		"fork_cost": 70,
 		"a": {"id": "owls_glare", "mark_pm": 350},
 		"b": {"id": "twin_gaze", "marks": 2},
+	},
+	# M6: the Bellfounder's kit (design 3.4)
+	"clapper_tower":
+	{
+		"builder": "bellfounder",
+		"slot": 0,
+		"cost": 75,
+		"dmg_c": 3000,
+		"cd_t": 84,
+		"range_mm": 2600,
+		"air": false,
+		"shot_um_t": 400000,
+		"fork_cost": 85,
+		"a": {"id": "great_clapper", "dmg_c": 7200, "cd_t": 96, "range_mm": 2800},
+		"b": {"id": "ringing_clapper", "dmg_c": 2400, "cd_t": 78, "splash_mm": 1000},
+	},
+	"toll_tower":
+	{
+		"builder": "bellfounder",
+		"slot": 1,
+		"cost": 65,
+		"dmg_c": 600,
+		"cd_t": 144,
+		"range_mm": 2200,
+		"air": false,
+		"shot_um_t": 0,
+		"pulse": true,
+		"team": "stun",
+		"stun_t": 36,
+		"stun_immune_t": 60,
+		"fork_cost": 70,
+		"a": {"id": "great_toll", "dmg_c": 1000, "stun_t": 54, "range_mm": 2600},
+		"b":
+		{
+			"id": "sky_toll",
+			"dmg_c": 900,
+			"range_mm": 2400,
+			"air": true,
+			"air_slow_pm": 500,
+			"air_slow_t": 60,
+		},
+	},
+	"chime_post":
+	{
+		"builder": "bellfounder",
+		"slot": 2,
+		"cost": 60,
+		"dmg_c": 0,
+		"cd_t": 30,
+		"range_mm": 2500,
+		"air": false,
+		"shot_um_t": 0,
+		"team": "crack",
+		"crack_c": 200,
+		"fork_cost": 60,
+		"a": {"id": "deep_chime", "crack_c": 400},
+		"b": {"id": "long_chime", "range_mm": 3200},
+	},
+	# M6: the Beekeeper's kit (design 3.4)
+	"clay_hive":
+	{
+		"builder": "beekeeper",
+		"slot": 0,
+		"cost": 60,
+		"dmg_c": 300,
+		"cd_t": 18,
+		"range_mm": 3000,
+		"air": true,
+		"shot_um_t": 0,
+		"cloud_mm": 900,
+		"fork_cost": 70,
+		"a": {"id": "great_clay_hive", "dmg_c": 400, "cloud_mm": 1200},
+		"b": {"id": "drowsy_clay_hive", "slow_pm": 250, "slow_t": 60},
+	},
+	"apiary":
+	{
+		"builder": "beekeeper",
+		"slot": 1,
+		"cost": 85,
+		"dmg_c": 1800,
+		"cd_t": 48,
+		"range_mm": 4200,
+		"air": true,
+		"shot_um_t": 180000,
+		"aim": "winged",
+		"air_bonus_pm": 500,
+		"fork_cost": 80,
+		"a": {"id": "royal_apiary", "dmg_c": 3400},
+		"b": {"id": "queens_guard", "dmg_c": 4000, "cd_t": 72},
+	},
+	"hive_hum":
+	{
+		"builder": "beekeeper",
+		"slot": 2,
+		"cost": 60,
+		"dmg_c": 0,
+		"cd_t": 30,
+		"range_mm": 2200,
+		"air": false,
+		"shot_um_t": 0,
+		"team": "haste",
+		"haste_pm": 150,
+		"fork_cost": 70,
+		"a": {"id": "great_hum", "haste_pm": 250},
+		"b": {"id": "long_hum", "range_mm": 3000},
 	},
 }
 
@@ -352,7 +475,10 @@ const WAVES := {
 ##               and .b.id; Q and W choose them on a selected, unforked tower of yours
 ##   perk        its passive: {"id": a PERK_IDS id, then the numbers it uses}. (M2) The
 ##               simulation applies it: "thrifty" sells the owner's towers at sell_pm,
-##               "keen_sight" adds range_mm to the reach of every tower the owner builds
+##               "keen_sight" adds range_mm to the reach of every tower the owner builds;
+##               (M6) "bronze_hand" adds pierce_c to every hit the owner's towers deal,
+##               "hive_tithe" pays the owner `gold` for each of her towers on one of
+##               `bases` at every wave clear, at most `cap`
 ##   plan        stem of its caretaker plan, data/plans/<plan>.json; until that file is
 ##               written the Builder's plan is empty (the caretaker only stands Ready)
 ##   glyph       display: stem of its icon in ui/icons/; Game.BUILDERS spells the path
@@ -400,6 +526,49 @@ const BUILDERS := {
 		"plan": "lookout",
 		"glyph": "builder_lookout",
 		"accent": 0xAEB8C2,
+	},
+	# M6: each plan is empty until the rules track writes data/plans/<plan>.json
+	"bellfounder":
+	{
+		"name": "Ottilie Brass",
+		"title": "the Bellfounder",
+		"home": "Brackwater",
+		"role": "breaker",
+		"difficulty": 2,
+		"covers": ["swift", "armored"],
+		"patches": {"swarm": ["ringing_clapper"], "winged": ["sky_toll"]},
+		"towers": ["clapper_tower", "toll_tower", "chime_post"],
+		"branches":
+		[
+			["great_clapper", "ringing_clapper"],
+			["great_toll", "sky_toll"],
+			["deep_chime", "long_chime"],
+		],
+		"perk": {"id": "bronze_hand", "pierce_c": 200},
+		"plan": "bellfounder",
+		"glyph": "builder_bellfounder",
+		"accent": 0xC2A98A,
+	},
+	"beekeeper":
+	{
+		"name": "Sefa Amberwell",
+		"title": "the Beekeeper",
+		"home": "Thousandwell",
+		"role": "sweeper",
+		"difficulty": 3,
+		"covers": ["swarm", "winged"],
+		"patches": {"swift": ["drowsy_clay_hive"], "armored": ["queens_guard"]},
+		"towers": ["clay_hive", "apiary", "hive_hum"],
+		"branches":
+		[
+			["great_clay_hive", "drowsy_clay_hive"],
+			["royal_apiary", "queens_guard"],
+			["great_hum", "long_hum"],
+		],
+		"perk": {"id": "hive_tithe", "gold": 2, "cap": 12, "bases": ["clay_hive", "hive_hum"]},
+		"plan": "beekeeper",
+		"glyph": "builder_beekeeper",
+		"accent": 0xD0C294,
 	},
 }
 
@@ -453,18 +622,38 @@ const TOWER_IDS := [
 	"kestrel_flock",
 	"owls_glare",
 	"twin_gaze",
+	# M6: the Bellfounder's bases, then its branches
+	"clapper_tower",
+	"toll_tower",
+	"chime_post",
+	"great_clapper",
+	"ringing_clapper",
+	"great_toll",
+	"sky_toll",
+	"deep_chime",
+	"long_chime",
+	# M6: the Beekeeper's bases, then its branches
+	"clay_hive",
+	"apiary",
+	"hive_hum",
+	"great_clay_hive",
+	"drowsy_clay_hive",
+	"royal_apiary",
+	"queens_guard",
+	"great_hum",
+	"long_hum",
 ]
 const CREEP_IDS := [
 	"gourdling", "scuttler", "thornback", "hollowtide_crest", "duskmoth", "bristlesow"
 ]
-const BUILDER_IDS := ["lamplighter", "lookout"]
-const MODE_IDS := ["classic", "high_water"]
+const BUILDER_IDS := ["lamplighter", "lookout", "bellfounder", "beekeeper"]
+const MODE_IDS := ["classic", "high_water", "tide_race"]
 
 ## Display orders, append only: the four checks (design 3.2) as the coverage row shows
 ## them, the roles (3.1) and the perks (3.4). Game holds their names, glyphs and icons.
 const CHECK_IDS := ["swarm", "swift", "armored", "winged"]
 const ROLE_IDS := ["warden", "marksman", "breaker", "sweeper"]
-const PERK_IDS := ["thrifty", "keen_sight"]
+const PERK_IDS := ["thrifty", "keen_sight", "bronze_hand", "hive_tithe"]
 
 const MAP_DIR := "res://data/"
 const PLAN_DIR := "res://data/plans/"
