@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.7.0 · 2026-11-01
 
 The full roster, Tide Race and the queue (M6). Ottilie Brass, the Bellfounder, and Sefa Amberwell, the Beekeeper,
