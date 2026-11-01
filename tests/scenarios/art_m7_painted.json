@@ -1,0 +1,11 @@
+{
+  "name": "art_m7_painted",
+  "description": "M7's art for the duel on screen has landed (contract-m7.md §3, track B): Wickhollow's four pack icons (Gourd Rush, Scuttle, Thorn Herd, Moth Cloud: each creep's framed portrait with the corked bottle on it), the corked bottle and the Seawall as 64 px icons (no placeholder ring), the corked bottle's model that glints over a sent creep, the console's Drift tray and its two bottle sockets with layout.json's room for them, and the cork, uncork, breach and seawall sounds, each under 1.6 s and played by Sfx. The corked bottle's and the Seawall's models keep to their asset_style.json rules (triangles, size, materials, every vertex colour a paint of the hollow palette) and were built from the recipes on disk.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/ui/art_m7_painted.gd').problems()", "as": "found"},
+    {"assert": "found == []", "msg": "every M7 icon, model, console piece and sound is in place"}
+  ]
+}

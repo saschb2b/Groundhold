@@ -117,6 +117,21 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(config["mode"], SPEC["modes"]["tide_race"]["id"])
         self.assertEqual([s["team"] for s in config["seats"]], [0, 0, 1, 1])
 
+    async def test_an_undertow_duel_is_one_seat_a_side_and_ends_with_each_sides_outcome(self):
+        # (smoke.py --mode undertow's dev match, M7: seat 0 against seat 1)
+        await self.start("undertow:2")
+        one, two = await self.join("Tamsin", 1), await self.join("Edda", 2)
+        configs = await start_match(self.clock, (one, two))
+        self.assertEqual(configs[0]["mode"], SPEC["modes"]["undertow"]["id"])
+        self.assertEqual([(s["seat"], s["team"]) for s in configs[0]["seats"]], [(0, 0), (1, 1)])
+        await self.clock.turns(5)
+        outcomes = [dict(outcome=OUTCOMES["draw"]), dict(outcome=OUTCOMES["draw"])]
+        for client in (one, two):
+            await client.send_message("RESULT", tick=15, hash=b"r" * 8, outcomes=outcomes)
+        for client in (one, two):
+            end = await client.until("MATCH_END", skip=("TURN",))
+            self.assertEqual(end, dict(outcome=OUTCOMES["draw"], reason=REASONS["result"], final_tick=15))
+
     async def test_the_barrier_waits_for_every_seat_and_the_minimum(self):
         await self.start()
         one, two = await self.join("Tamsin", 1), await self.join("Edda", 2)
@@ -493,7 +508,7 @@ class GoldenTranscriptTests(unittest.TestCase):
                                      "m3_barrier.bin", "m3_barrier.json", "m3_party.bin", "m3_party.json",
                                      "m4_resilience.bin", "m4_resilience.json", "m6_caretakers.bin",
                                      "m6_caretakers.json", "m6_queue.bin", "m6_queue.json", "m6_race.bin",
-                                     "m6_race.json"])
+                                     "m6_race.json", "m7_duel.bin", "m7_duel.json"])
             for name in names:
                 committed = record_transcripts.TRANSCRIPTS / name
                 self.assertEqual(committed.read_bytes(), (fresh / name).read_bytes(), name + " changed: re-record it")

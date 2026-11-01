@@ -43,6 +43,11 @@ const SOUNDS := {
 	"clap": ["res://sfx/clap.wav"],
 	"match_found": ["res://sfx/match_found.wav"],
 	"countdown_tick": ["res://sfx/countdown_tick.wav"],
+	# M7 (contract-m7.md §3): the duel's cork and uncorking, a breach, the Seawall's surf
+	"cork": ["res://sfx/cork.wav"],
+	"uncork": ["res://sfx/uncork.wav"],
+	"breach": ["res://sfx/breach.wav"],
+	"seawall": ["res://sfx/seawall.wav"],
 }
 const POOL_SIZE := 12
 const MIN_GAP_FRAMES := 3

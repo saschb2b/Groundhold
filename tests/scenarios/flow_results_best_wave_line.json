@@ -1,0 +1,27 @@
+{
+  "name": "flow_results_best_wave_line",
+  "description": "The results line for the wave a player killed most in says what it counts: 'Most kills in wave 1', not 'Held wave 1' (playtest halv s1: 'Held wave 11 (?? what does that mean)' on a won 12-wave match, and a reviewer before it). A player alone leads every line, and this one comes first in the list (design 5.8), so a solo match shows it: here an offline High Water match where an Arrow Tower kills two Gourdlings of wave 1 and the Holdfast then falls.",
+  "seed": 1,
+  "ticks_per_frame": 4,
+  "timeout_frames": 3000,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.play_offline('lamplighter')"},
+    {"wait_until": "scene_path() == 'res://scenes/main.tscn'", "timeout": 60},
+    {"wait_until": "Game.sim != null", "timeout": 60},
+    {"assert": "Game.sim.seats.size() == 1", "msg": "a match alone"},
+    {"assert": "scene.build('arrow', Vector2i(6, 3))", "msg": "a tower of mine by the road"},
+    {"wait_until": "scene.settled()", "timeout": 30},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.sim.seat(1).kills >= 2", "timeout": 1500},
+    {"set": "Game.lives", "value": 0},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 30},
+    {"wait": 2},
+    {"assert": "node('ResultsPanel').results['rows'][0]['line'] == 'Most kills in wave 1'", "msg": "the line says what it counts: the wave this player killed most in"},
+    {"assert": "node('ResultsPanel').lines() == ['Sascha Lamplighter %d Most kills in wave 1' % Game.sim.seat(1).kills]", "msg": "on the player's row"},
+    {"assert": "node('Seat1').get_child(-1).get_global_rect().position.x + resource('res://fonts/NotoSerif-Bold.ttf').get_string_size('Most kills in wave 11', 0, -1, 14).x <= node('ResultsPlate').get_global_rect().end.x - 46", "msg": "and the longest of it, 'Most kills in wave 11', fits inside the plate's margin"},
+    {"capture": "results_most_kills_in_wave"}
+  ]
+}

@@ -114,7 +114,8 @@ const REFUSAL_NAMES := [
 # A comment lists the event's fields. "(M2)" marks fields and events the M2/M3 contract
 # fixes (docs/design/contract-m2m3.md) and M2 starts to send; a reader treats a missing
 # one as its default (0, "", false). Kinds are base tower ids; tower_form() gives the form.
-const EV_SPAWN := 1  # id, hollow, kind
+## id, hollow, kind; (M7) sent_by: the seat whose uncorked pack it is, only on those
+const EV_SPAWN := 1
 ## tower, shot, target, kind, flight, land (road micrometres, -1 when homing);
 ## (M2) from: the creep a bounce leaves (0: the tower), form: the firing tower's form id
 const EV_FIRE := 2
@@ -159,20 +160,24 @@ const EV_RACE := 20
 ## (M7) Undertow, docs/design/contract-m7.md. A window's packs from the Drift: window
 ## (the wave it precedes), packs (three CHECK_IDS ids), left_out (the fourth)
 const EV_DRIFT := 21
-## (M7) A seat corked a pack: seat, team, tier (0 to 2), window, bottle (its id), price;
-## the rival sees the tier and the price, never the pack
+## (M7) A seat corked a pack: seat, seq, team, tier (0 to 2), window, bottle (its id),
+## price; the rival sees the tier and the price, never the pack
 const EV_CORK := 22
-## (M7) A corked pack was uncorked: seat, bottle, pack (a CHECK_IDS id), creeps (how many
-## walk the rival's road), hollow (the rival's), stipend (the seat's stipend after it)
+## (M7) A corked pack was uncorked: seat, seq, bottle, pack (a CHECK_IDS id), creeps (how
+## many walk the rival's road, one every pack_interval_t from this tick; each comes as
+## EV_SPAWN with sent_by), hollow (the rival's), stipend (the seat's stipend after it)
 const EV_UNCORK := 23
 ## (M7) A corked pack fizzled (no valid reveal by fizzle time): seat, bottle
 const EV_FIZZLE := 24
 ## (M7) An uncorked creep reached the rival's Holdfast: creep, kind, by (the sender's
 ## seat), team (whose lives it took), toll, pay (gold to the sender)
 const EV_BREACH := 25
-## (M7) A Seawall burst: seat, hollow, struck (creeps it hit), charges (left)
+## (M7) A Seawall burst: seat, seq, hollow, x, z (the Holdfast's place, millimetres in its
+## hollow), r (the ring's radius), struck (creeps it hit), charges (left), ready (the tick
+## it may rise again); the stuns and slows come as EV_STATUS (tower 0)
 const EV_SEAWALL := 26
-## (M7) The Surge: surge (1 to 3), wave (the wave it repeats)
+## (M7) The Surge: surge (1 to 3), wave (the wave it repeats), at the window before it
+## (window: the match's wave number it precedes, 13 to 15)
 const EV_SURGE := 27
 
 ## A team's outcome, as MATCH_END and RESULT number them (protocol.json's "outcomes"):
@@ -181,8 +186,10 @@ const OUTCOME_WON := 0
 const OUTCOME_LOST := 1
 const OUTCOME_DRAW := 2
 ## What decided a race (SimMatch.decided_by(), EV_RACE "rule"), by its index in the
-## match's state: "" while it runs.
-const RACE_RULES := ["", "time", "fell", "cap", "draw"]
+## match's state: "" while it runs. (M7) A duel is decided by the same record: "fell" (a
+## Holdfast went under), "lives" and "breach" (after the Surge, more lives, then more
+## breach dealt) or "draw"; append only, the codec stores the index.
+const RACE_RULES := ["", "time", "fell", "cap", "draw", "lives", "breach"]
 
 const EVENT_TYPES := {
 	"SPAWN": EV_SPAWN,

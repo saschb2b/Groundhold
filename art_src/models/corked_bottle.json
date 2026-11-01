@@ -1,0 +1,27 @@
+{
+  "note": "The duel's corked bottle (Undertow, M7): a squat sea-glass bottle with the wrack's teal waterline glowing round its belly, a cork pushed into its neck under a red wax seal and a twine tie. Drawn as the Drift tray's bottle (ui/icons/bottle.png, rendered from it) and, small, over every creep an uncorked pack sent (Fx.sent_bottle).",
+  "colors": {
+    "glass": "#4aa0c8",
+    "glass_light": "#8fe0f0",
+    "waterline": "#7ff0ff",
+    "cork": "#a0784a",
+    "cork_dark": "#7a5534",
+    "wax": "#b8432f",
+    "twine": "#e6dcc3"
+  },
+  "origin": "bottom-center",
+  "parts": [
+    {"shape": "cylinder", "radius": 0.15, "radius_top": 0.152, "height": 0.024, "sides": 12, "bevel": 0.008, "at": [0, 0, 0], "color": "glass", "pattern": "crystal"},
+    {"shape": "cylinder", "radius": 0.148, "radius_top": 0.15, "height": 0.25, "sides": 12, "bevel": 0.015, "at": [0, 0.02, 0], "color": "glass", "color_top": "glass_light", "pattern": "crystal"},
+    {"shape": "cylinder", "radius": 0.153, "height": 0.022, "sides": 12, "at": [0, 0.115, 0], "color": "waterline", "emit": 0.7},
+    {"shape": "sphere", "radius": 0.15, "segments": [12, 4], "scale": [1.0, 0.52, 1.0], "at": [0, 0.27, 0], "color": "glass_light", "pattern": "crystal"},
+    {"shape": "cylinder", "radius": 0.052, "radius_top": 0.046, "height": 0.13, "sides": 10, "at": [0, 0.31, 0], "color": "glass", "color_top": "glass_light", "pattern": "crystal"},
+    {"shape": "cylinder", "radius": 0.06, "height": 0.024, "sides": 10, "bevel": 0.006, "at": [0, 0.425, 0], "color": "glass_light", "pattern": "crystal"},
+    {"shape": "cylinder", "radius": 0.055, "height": 0.014, "sides": 10, "at": [0, 0.36, 0], "color": "twine"},
+    {"shape": "box", "size": [0.016, 0.06, 0.012], "at": [0.05, 0.31, 0.02], "rotate": [-20, 0, 25], "color": "twine"},
+    {"shape": "cylinder", "radius": 0.044, "radius_top": 0.056, "height": 0.085, "sides": 9, "bevel": 0.008, "at": [0, 0.44, 0], "color": "cork_dark", "color_top": "cork", "pattern": "bark", "pattern_scale": 0.4},
+    {"shape": "cylinder", "radius": 0.066, "radius_top": 0.05, "height": 0.03, "sides": 9, "at": [0, 0.42, 0], "color": "wax", "jitter": 0.004},
+    {"shape": "sphere", "radius": 0.022, "segments": [6, 3], "scale": [1.0, 1.5, 1.0], "at": [0.052, 0.4, 0.024], "color": "wax"},
+    {"shape": "sphere", "radius": 0.018, "segments": [6, 3], "scale": [1.0, 1.6, 1.0], "at": [-0.03, 0.395, 0.05], "color": "wax"}
+  ]
+}

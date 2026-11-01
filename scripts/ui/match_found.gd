@@ -7,7 +7,7 @@
 ## the page title (WebBridge). The session shows it from MATCH_FOUND until the match forms
 ## (MATCH_CONFIG) or dissolves (QUEUE_STATE): everyone accepts, Loading; a decline or the
 ## time running out, back to the hub, or to the queue's front ("A player didn't accept. You
-## keep your place.").
+## keep your place."). A duel's plate says "1v1" for its two players (M7), with two pips.
 ##
 ## The two sounds are track B's (sfx/match_found.wav, sfx/countdown_tick.wav): each loads
 ## only where it exists, so the overlay works without them.
@@ -148,7 +148,9 @@ func refresh() -> void:
 		return
 	var mode := str(found["mode"])
 	var seats := int(found["seats"])
-	_line.text = "%s · %d players · ~%d min" % [Profile.mode_name(mode), seats, int(MINUTES.get(mode, 13))]
+	# (a duel is one against one: "Undertow · 1v1 · ~15 min"; the others count their players)
+	var players := "1v1" if Session.is_duel(mode) else "%d players" % seats
+	_line.text = "%s · %s · ~%d min" % [Profile.mode_name(mode), players, int(MINUTES.get(mode, 13))]
 	_pips.seats = seats
 	_pips.lit = int(found["accepted"])
 	_pips.queue_redraw()

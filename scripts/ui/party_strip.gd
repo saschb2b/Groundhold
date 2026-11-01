@@ -7,7 +7,8 @@
 ##
 ## In a race (Tide Race, M6) it shows both teams, mine first: my team's plates, then under
 ## a small "Rival crew" caption the rival team's, a little dimmer (their Ready marks follow
-## their own hollow's window).
+## their own hollow's window). A duel (Undertow, M7) shows its two seats the same way, my
+## plate, then my rival's under "Rival".
 ##
 ## Before a networked match starts, one plate says where the client stands: connecting,
 ## waiting for the others, loading; and why it stopped, when the link fails.
@@ -92,12 +93,12 @@ func refresh() -> void:
 
 
 ## The seats as the strip lists them: in seat order, or in a race my team's first, then
-## the rival team's, each in seat order.
+## the rival team's, each in seat order (a duel too: two teams).
 static func seat_order(sim: SimMatch) -> Array:
 	var out := []
 	if sim == null:
 		return out
-	var mine := Game.my_team() if sim.race else -1
+	var mine := Game.my_team() if sim.teams.size() > 1 else -1
 	for s in sim.seats:
 		if mine < 0 or s.team == mine:
 			out.append(s.seat)
@@ -107,9 +108,9 @@ static func seat_order(sim: SimMatch) -> Array:
 	return out
 
 
-## Which of `order`'s seats are on the rival team in a race (none outside one).
+## Which of `order`'s seats are on the rival team in a race or a duel (none outside them).
 static func _rivals(sim: SimMatch, order: Array) -> Array:
-	var mine := Game.my_team() if sim and sim.race else -1
+	var mine := Game.my_team() if sim and sim.teams.size() > 1 else -1
 	return order.map(func(seat: int) -> bool: return mine >= 0 and sim.seat(seat).team != mine)
 
 
@@ -190,7 +191,7 @@ func _rebuild(order: Array) -> void:
 		var rival: bool = rivals[i]
 		if rival and _rival_caption == null:
 			# (a race: the rival team's plates under their own caption, after my team's)
-			_rival_caption = _text("RIVAL CREW", _bold, 11, DIM)
+			_rival_caption = _text("RIVAL" if Game.is_duel() else "RIVAL CREW", _bold, 11, DIM)
 			_rival_caption.name = "RivalCaption"
 			_rival_caption.add_theme_constant_override("outline_size", 3)
 			_rival_caption.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02, 0.85))
@@ -322,7 +323,7 @@ func _fill(row: Dictionary, sim: SimMatch, client: MatchClient, seat: int) -> vo
 	# the match is decided, a race whose hollow was still in a window too; a rival still
 	# racing after my hollow is done keeps its marks)
 	var calls := Game.accepts_commands() and not sim.over and Game.outcome() == ""
-	ready.visible = window and sim.hollows[s.hollow].wave < sim.total_waves() and calls
+	ready.visible = window and sim.hollows[s.hollow].wave < sim.last_wave() and calls
 	# (the bead's room is kept while it hides, so the plate does not jump as a wave starts)
 	(row["ready_room"] as Control).visible = not ready.visible
 	var lit := s.ready or s.state != SimTypes.SEAT_PRESENT

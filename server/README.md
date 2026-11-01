@@ -286,12 +286,14 @@ memory. Its rules (design §5.2, §6.6; `shared/net/README.md`, The hub, has the
   back. A row whose match still runs is kept until 40 s after the match.
 - **The queue** (`groundhold_server/queue.py`, M6; `shared/net/README.md`, The queue): a forming
   party's leader, everyone Ready, queues for strangers. High Water fills the open seats up to four;
-  Tide Race finds one rival team of the same size (1 or 2). Parties merge only by mode and rules
+  Tide Race finds one rival team of the same size (1 or 2), and Undertow (M7) a rival for a duel, one
+  player a side. Parties merge only by mode and rules
   hash, earliest first; Match Found gives everyone 15 s to accept; a decline or the time running out
   sends the decliner's party back to forming and the others to the front of the queue. Strangers on
   one team never share a Builder (the first queued keeps the main, the next takes the backup, then a
-  free one is drawn). After 60 s queued the leader may start with caretakers in the free seats (High
-  Water: Builders covering what the party lacks; a Race: a mirror of the party).
+  free one is drawn); the two sides of a race or a duel never clash. After 60 s queued the leader may
+  start with caretakers in the free seats (High Water: Builders covering what the party lacks; a
+  Race: a mirror of the party; a duel: a caretaker of the duellist's own Builder).
 
 ## Resilience (M4)
 
@@ -443,6 +445,7 @@ of the `groundhold-backups` volume to another machine); then `rsync` or any copy
 | M4 | checkpoints asked, checked and kept, `RESYNC` for a minority desync, a rejoin and a game behind, `desynced_twice`, a match seat's reconnect (`ERROR` 12, `no_held_seat`, through maintenance), paced catch-up, `/stats` resyncs and rejoins |
 | M5 (this) | the image and its build context, the Coolify and self-host Compose files, the zipapp's and five native release archives smoke-tested outside the checkout, the release workflows, the deploy on a release tag, the official server's policy |
 | M6 | the public queue (open seats and a rival found by mode and rules hash), Match Found and its requeue at the front, Builder clashes between strangers, caretakers offered at 60 s and caretaker seats |
+| M7 | the queue serves Undertow's duel: a rival found one player a side, the duel's caretaker of the duellist's own Builder, a duel's `RESULT` judged one outcome a side; no new message, mode or field (`undertow` was in `protocol.json` from M1) |
 
 ## Tests
 
@@ -462,11 +465,11 @@ condition stops after a bound and fails. Run new tests against the code before a
 |---|---|
 | `test_turn_clock.py` | deadlines in integer nanoseconds; no drift over ten minutes of late wake-ups (and that Cyberworld's relative sleep drifts under the same clock); a stalled loop seals the missed turns in a burst; a real server keeps pace with the wall clock |
 | `test_turn_stamping.py` | the seat comes from the connection; the open turn lists the command; rotation from `turn mod seats`; system commands first; increasing sequence numbers; command shapes; a full turn carries over |
-| `test_dev_match.py` | matches from the first `HELLO`s, pooled by rules hash; the barrier and its 4 s minimum; tick-0 mismatch; hashes agreed or apart; the result referee; silence, `AWAY` and `BACK`; leaving; the hard cap; the golden transcripts are current and round-trip; the real program on `--port 0` |
+| `test_dev_match.py` | matches from the first `HELLO`s, pooled by rules hash; the barrier and its 4 s minimum; tick-0 mismatch; hashes agreed or apart; the result referee; a race's and an undertow duel's teams, a duel's outcome one a side; silence, `AWAY` and `BACK`; leaving; the hard cap; the golden transcripts are current and round-trip; the real program on `--port 0` |
 | `test_hardening.py` | `WELCOME` and identities; version refusals; `HELLO`'s checks; full and maintenance; malformed frames; path, subprotocol, origin and Godot's native handshake; `/health`; idle sockets; silence; each rate bucket; refusals read before the close; `TURN_REQUEST` bursts; `HASH` flags; the output cap; NUL and BOM strings; the contract's sizes and the README's tables |
 | `test_party_codes.py` | 10,000 codes keep to the alphabet; lenient input; a lower-case code joins; unknown codes; rate-limited lookups; an empty party's code expires after 15 minutes |
 | `test_party_flow.py` | create and join; Ready, the 3 s countdown and its cancel; what stops it; Builders per member reach the match; a mode change clears Ready; leader handover; removal; four at most; needs to reload; Race teams; open seats and a queue request the party cannot make; limits; no party; a dev server has no hub |
-| `test_queue.py` | who may queue and what is refused; the leader's leave; a join, a leave, a drop or open seats off taking a party out, a Builder change keeping it in; open seats a one-team mode's (off on a switch to a race, refused in one); merging open parties up to four, the earliest fill, a party too large waiting; keying on the mode and the rules hash; a race team and its rival of one size, 1v1 and 2v2; Match Found and every accept, a decline and a leave or a drop requeueing the others at the front, the 15 s timeout; Builder clashes between strangers, never in a race; the caretakers offered at 60 s, High Water's covering the party, a race's mirror; a strangers' match and each party its own after it, Play again queueing again; nobody loaded at the ceiling requeueing, the caretakers' offer not told twice; the m6 transcripts |
+| `test_queue.py` | who may queue and what is refused; the leader's leave; a join, a leave, a drop or open seats off taking a party out, a Builder change keeping it in; open seats a one-team mode's (off on a switch to a race, refused in one); merging open parties up to four, the earliest fill, a party too large waiting; keying on the mode and the rules hash; a race team and its rival of one size, 1v1 and 2v2; Match Found and every accept, a decline and a leave or a drop requeueing the others at the front, the 15 s timeout; Builder clashes between strangers, never in a race; the caretakers offered at 60 s, High Water's covering the party, a race's mirror; a strangers' match and each party its own after it, Play again queueing again; nobody loaded at the ceiling requeueing, the caretakers' offer not told twice; the m6 transcripts; Undertow's duel (M7): a duellist alone queues and two in a party start, two duellists meet one a side with their mains kept, never with a race's ticket, the duel's caretaker of the duellist's Builder, a RESULT of one outcome a side (one outcome alone is out of limits) and Play again queueing again; the m7 transcript |
 | `test_barrier.py` | the 4 s minimum (none alone); Slow at 15 s; the leader's start without at 30 s, `AWAY` and `BACK` on the late `LOADED`; a late seat with another hash is out; strangers start at 45 s; the 120 s ceiling (seats out, nobody loaded, strangers dissolved, after a start without); tick-0 apart back to the party naming the seat |
 | `test_holds.py` | a dropped row held 40 s; a resume `HELLO` takes it back; a join by code does too; a goodbye frees it; a drop stops the countdown; a row whose match runs waits for the match |
 | `test_back_to_party.py` | the results plate, Play again, the party as it was and the next match; a member who left mid-match; a match that never started; the mode kept |

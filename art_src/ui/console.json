@@ -35,5 +35,11 @@
   "field": {"size": [64, 40], "radius": 5, "rim": 3, "margin": 10, "content": [12, 6, 12, 6], "height": 30,
             "code": {"cell": [30, 38], "gap": 5, "dash": 14}},
   "bar": {"trough": [64, 18], "fill": [48, 10], "inset": [4, 4]},
-  "divider": [128, 6]
+  "divider": [128, 6],
+  "tray": {"tile": [256, 64], "margin": 20, "inset": 6, "radius": 9, "rim": 5, "content": [12, 9, 12, 10],
+           "stone_base": "#24201b",
+           "stone": {"ramp": 14, "macro": 0.05, "meso": 0.055, "fine": 0.045, "pits": 0.1, "macro_cell": 18,
+                     "meso_cell": 8},
+           "socket": {"size": [40, 40], "radius": 6, "rim": 3, "margin": 10, "content": [4, 4, 4, 4]},
+           "glow": "#6ad8c8"}
 }

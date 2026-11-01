@@ -1,0 +1,32 @@
+{
+  "name": "flow_fork_tip_explains_passable",
+  "description": "A fork branch that patches a weak check says what its grade means (playtest halv s1, f4875: 'Lifts Armored to passable', and 'what is passable?'). Design 3.3 grades a Builder strong, passable through a fork branch, or weak on each check, and every Builder can win alone with the right forks: the line is now 'Lifts Swift from weak to passable: enough to hold it alone' (Game.lifts_line), the same on the Builders screen's kit plate (the glyph beside the Pinning Ballista, on hover) and on the in-match card's branch tooltip, where it wraps beside its glyph inside the tooltip.",
+  "seed": 1,
+  "timeout_frames": 1200,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 2},
+    {"key": "B"},
+    {"wait": 2},
+    {"key": "2"},
+    {"wait": 2},
+    {"assert": "node('BuildersScreen').selected == 'lookout' and node('Kit').get_child(7).text == 'Pinning Ballista'", "msg": "the Lookout's kit plate: the Pinning Ballista's row"},
+    {"assert": "node('Kit').get_child(9).tooltip_text == 'Lifts Swift from weak to passable: enough to hold it alone'", "msg": "its glyph's hover says what passable means"},
+    {"assert": "Game.lifts_line('armored') == 'Lifts Armored from weak to passable: enough to hold it alone'", "msg": "one line for every check"},
+    {"eval": "Session.try_builder('lookout')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 5},
+    {"set": "Game.gold", "value": 400},
+    {"assert": "scene.build('perch_ballista', Vector2i(8, 3))", "msg": "a Perch Ballista of hers"},
+    {"wait_until": "scene.settled()", "timeout": 30},
+    {"click": "scene.cell_center(Vector2i(8, 3))"},
+    {"wait": 2},
+    {"hover": "node('CardW')"},
+    {"wait": 2},
+    {"assert": "node('Tooltip').visible and node('TooltipHelps').visible and node('TooltipHelpsText').text == 'Lifts Swift from weak to passable: enough to hold it alone'", "msg": "W's branch tooltip in the match says the same"},
+    {"assert": "node('Tooltip').get_global_rect().end.x <= 1280 and node('Tooltip').get_global_rect().encloses(node('TooltipHelpsText').get_global_rect()) and node('TooltipHelpsText').get_line_count() == 2", "msg": "wrapped on two lines beside its glyph, inside the tooltip, on screen"},
+    {"capture": "fork_tip_explains_passable"}
+  ]
+}

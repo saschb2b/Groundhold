@@ -19,7 +19,9 @@
 ## setter, logged), so its Holdfast falls with the kills of the wave it is on counted, and
 ## the race is decided by the fall once the other team has cleared that wave; it plays on
 ## past the decision (SimMatch.play_on, which roundtrip_chain carries over), so the fall
-## and then the decided race are in the state for the rest of the log.
+## and then the decided race are in the state for the rest of the log. duel_log (M7) plays
+## a busy Undertow duel for the codec's M7 block (sim_checkpoint_roundtrip_undertow), and
+## roundtrip_chain compares a duel's own state (duel_state) across every trip too.
 extends RefCounted
 
 
@@ -123,6 +125,139 @@ static func busy_log(
 	return record
 
 
+## (M7) A busy duel for the codec's M7 block (sim_checkpoint_roundtrip_undertow): seat 1,
+## a Lamplighter by command, works down its plan, corks the window's cheapest tier
+## whenever it can pay (a salt of its own stream each time) and reveals every other bottle,
+## so the rest fizzle, raises its Seawall whenever the caretaker would, and is AWAY from
+## tick 9001 to 13001 (its caretaker cannot reveal its salted bottles); seat 2 is the
+## caretaker from tick 0 (corks with salt 0, uncorks, raises its Seawall). With
+## `fall_team`, that team's lives go to 0 (a logged scenario setter) 600 ticks into the
+## Surge's second wave, so the duel is decided by the fall there and plays on to the other
+## hollow's end (SimMatch.play_on), its decision in the state for every tick after; seat 1
+## gives no more orders once its hollow has fallen. Returns the turn log as busy_log does,
+## with "seen": how many ticks each piece of the duel's state was set.
+static func duel_log(seed_value := 3, limit := 30000, fall_team := -1) -> Dictionary:
+	var seats := [
+		{"team": 0, "builder": "lamplighter"},
+		{"team": 1, "builder": "lamplighter", "caretaker": true},
+	]
+	var sim := SimMatch.new(SimContent.rules("undertow"), seats, seed_value)
+	sim.play_on = fall_team >= 0
+	var seq := LocalSequencer.new(2)
+	var cursor := 0
+	var fell := false
+	var decided_tick := -1
+	var salts := []
+	var rng := SimRng.new(seed_value * 31 + 1)
+	var reveal := true
+	var per_tick := {0: sim.state_hash_hex()}
+	var seen := {
+		"corked": 0, "uncorked": 0, "fizzled": 0, "sends": 0, "walls": 0, "stipend": 0,
+		"breach": 0, "charges": 0, "surge": 0, "decided": 0,
+	}
+	while not sim.over and sim.tick < limit:
+		var t := sim.tick
+		var s := sim.seat(1)
+		if t == 0:
+			# (200 lives each, a logged scenario setter, so the duel lasts into the Surge)
+			for team in 2:
+				seq.record_debug(t, SimTypes.DBG_LIVES, team, 200, 0)
+				sim.debug(SimTypes.DBG_LIVES, team, 200)
+		if (
+			fall_team >= 0 and not fell and sim.horn_tick >= 0 and t == sim.horn_tick + 600
+			and SimUndertow.surge_of(sim, sim.hollows[0].wave) == 2
+		):
+			seq.record_debug(t, SimTypes.DBG_LIVES, fall_team, 0, 0)
+			sim.debug(SimTypes.DBG_LIVES, fall_team, 0)
+			fell = true
+		if t % 45 == 0 and s.state == SimTypes.SEAT_PRESENT and sim.hollows[0].phase != SimTypes.PHASE_FALLEN:
+			var window := sim.hollows[0].wave + 1
+			if SimUndertow.window_open(sim) and sim.drift_window == window and SimUndertow.corks_of(sim, 1, window) == 0:
+				var tier := SimUndertow.cheapest_tier(sim, window, s.gold)
+				if tier >= 0:
+					var pack := SimUndertow.weakest_pack(sim, 1)
+					var hi := SimUndertow.signed32(rng.next_u32())
+					var lo := SimUndertow.signed32(rng.next_u32())
+					var c := SimUndertow.commit(sim.match_seed, 1, window, pack, hi, lo)
+					seq.submit_as(1, SimTypes.CMD_CORK, tier, int(c[0]), int(c[1]))
+					salts.append([window, pack, hi, lo, int(c[0]), int(c[1])])
+			cursor = _plan(sim, seq, 1, cursor)
+			if sim.uncork_tick() >= 0 and t >= sim.uncork_tick():
+				for b in SimUndertow.pending(sim, 1):
+					for i in salts.size():
+						var e: Array = salts[i]
+						if int(e[0]) == b.window and int(e[4]) == b.commit_hi and int(e[5]) == b.commit_lo:
+							if reveal:
+								seq.submit_as(1, SimTypes.CMD_UNCORK, int(e[1]), int(e[2]), int(e[3]))
+							reveal = not reveal
+							salts.remove_at(i)
+							break
+			if Caretaker.wants_seawall(sim, s):
+				seq.submit_as(1, SimTypes.CMD_SEAWALL)
+		if t == 9001:
+			seq.system(SimTypes.SYS_AWAY, 1)
+		if t == 13001:
+			seq.system(SimTypes.SYS_BACK, 1)
+		if seq.advance(sim, 1) == 0:
+			break
+		if decided_tick < 0 and sim.decided_by() != "":
+			decided_tick = sim.tick
+		sim.drain_events()
+		_count_duel(sim, seen)
+		per_tick[sim.tick] = sim.state_hash_hex()
+	var record := seq.log_for(sim, seats)
+	record["per_tick"] = per_tick
+	record["final_tick"] = sim.tick
+	record["over"] = sim.over
+	record["wave"] = sim.hollows[0].wave
+	record["seen"] = seen
+	record["duel_state"] = duel_state(sim)
+	record["decided_tick"] = decided_tick
+	record["play_on"] = sim.play_on
+	return record
+
+
+static func _count_duel(sim: SimMatch, seen: Dictionary) -> void:
+	var now := {
+		"corked": false, "uncorked": false, "fizzled": false,
+		"sends": not sim.hollows[0].sends.is_empty() or not sim.hollows[1].sends.is_empty(),
+		"walls": false, "stipend": false, "charges": false,
+		"breach": sim.teams[0].breach_dealt > 0 or sim.teams[1].breach_dealt > 0,
+		"surge": SimUndertow.surge_of(sim, sim.hollows[0].wave) > 0,
+		"decided": sim.decided_by() != "",
+	}
+	for b in sim.bottle_list:
+		now["corked"] = now["corked"] or (not b.uncorked and not b.fizzled)
+		now["uncorked"] = now["uncorked"] or b.uncorked
+		now["fizzled"] = now["fizzled"] or b.fizzled
+	for s in sim.seats:
+		now["walls"] = now["walls"] or s.seawall_ready > sim.tick
+		now["stipend"] = now["stipend"] or s.stipend > 0
+		now["charges"] = now["charges"] or s.seawall_charges > 0 or s.seawall_lost > 0
+	for key: String in now:
+		if now[key]:
+			seen[key] = int(seen[key]) + 1
+
+
+## (M7) A duel's own state as the codec's M7 block holds it: the decision, the Drift, the
+## horn, per seat [stipend, Seawall charges, lives toward the next, ready tick], per team its
+## breach dealt, per hollow its sends, and every bottle's fields; [] outside a duel.
+static func duel_state(sim: SimMatch) -> Array:
+	if not sim.duel:
+		return []
+	var seats := []
+	for s in sim.seats:
+		seats.append([s.stipend, s.seawall_charges, s.seawall_lost, s.seawall_ready])
+	var bottles := []
+	for b in sim.bottle_list:
+		bottles.append([b.id, b.seat, b.tier, b.window, b.commit_hi, b.commit_lo, b.price, b.pack, b.uncorked, b.fizzled])
+	return [
+		sim.decided_by(), sim.outcomes(), sim.drift_window, sim.drift_left, Array(sim.drift_packs),
+		sim.horn_tick, seats, [sim.teams[0].breach_dealt, sim.teams[1].breach_dealt],
+		[Array(sim.hollows[0].sends), Array(sim.hollows[1].sends)], bottles,
+	]
+
+
 ## A race's own state as the codec's trailing block holds it: the decision's rule and
 ## outcomes, then per team [fell_wave, fell_kills, wave_kills, clear_tick, lives].
 static func race_state(sim: SimMatch) -> Array:
@@ -215,6 +350,9 @@ static func roundtrip_chain(record: Dictionary, every := 7, offset := 0, events 
 				break
 			if race_state(back) != race_state(sim):
 				why = "the race's state differs"
+				break
+			if duel_state(back) != duel_state(sim):
+				why = "the duel's state differs"
 				break
 			if sim.decided_by() != "":
 				decided_trips += 1

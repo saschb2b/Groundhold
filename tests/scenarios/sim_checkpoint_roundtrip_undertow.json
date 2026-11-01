@@ -1,0 +1,18 @@
+{
+  "name": "sim_checkpoint_roundtrip_undertow",
+  "description": "The codec round-trips every field M7 added, in its own trailing block after M6's: a whole busy duel (busy_match.gd duel_log) where seat 1 by command corks in every window with salts of its own and reveals every other bottle, so some fizzle, raises its Seawall and is away for a stretch (its caretaker cannot reveal its bottles), against a caretaker that corks with salt 0, until seat 1's lives are set to 0 (a logged scenario setter) 600 ticks into the Surge's second wave: the duel is decided by the fall there and plays on (SimMatch.play_on) while the caretaker finishes the Surge alone. Corked, uncorked and fizzled bottles, the Drift, the horn, packs still to come on a road, stipends, Seawall charges and cooldowns, breach dealt by both, the Surge and the decision (its rule and both outcomes) are all in the state at some point, the decision for thousands of ticks. Replayed into a simulation replaced by deserialize(serialize()) every 13 ticks and every 61 with events on: every tick's hash equals the uninterrupted run's, and the duel's own state is the same after each trip as before it, the decided duel's in over a hundred trips.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "steps": [
+    {"eval": "resource('res://tests/sim/busy_match.gd')", "as": "B"},
+    {"eval": "B.duel_log(3, 70000, 0)", "as": "rec"},
+    {"eval": "[rec['final_tick'], rec['wave'], rec['seen'], rec['over'], rec['decided_tick'], rec['duel_state'][0], rec['duel_state'][1]]", "as": "summary"},
+    {"assert": "rec['over'] and rec['seen']['corked'] > 0 and rec['seen']['uncorked'] > 0 and rec['seen']['fizzled'] > 0 and rec['seen']['sends'] > 0 and rec['seen']['walls'] > 0 and rec['seen']['stipend'] > 0 and rec['seen']['breach'] > 0 and rec['seen']['charges'] > 0 and rec['seen']['surge'] > 0 and rec['seen']['decided'] > 1000", "msg": "every piece of the duel's state was set at some point, the Surge came, and the decision stood for over a thousand ticks"},
+    {"assert": "rec['duel_state'][0] == 'fell' and rec['duel_state'][1] == [1, 0] and rec['decided_tick'] > 0 and rec['decided_tick'] < rec['final_tick'] and rec['play_on']", "msg": "seat 1's fall decided the duel for the caretaker, which played on to the end of the Surge"},
+    {"eval": "B.roundtrip_chain(rec, 13, 5, false)", "as": "every13"},
+    {"assert": "every13['first_bad'] == -1 and every13['final'] == rec['final_tick'] and every13['trips'] > 1000 and every13['decided_trips'] > 100", "msg": "a round trip every 13 ticks keeps every tick's hash and the duel's state, the decided duel's too"},
+    {"eval": "B.roundtrip_chain(rec, 61, 59, true)", "as": "every61"},
+    {"assert": "every61['first_bad'] == -1 and every61['final'] == rec['final_tick'] and every61['decided_trips'] > 20", "msg": "and every 61 ticks with events on"}
+  ]
+}

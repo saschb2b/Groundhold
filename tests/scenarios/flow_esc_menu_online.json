@@ -1,6 +1,6 @@
 {
   "name": "flow_esc_menu_online",
-  "description": "In a party's match on a server Esc opens the same menu, without Restart, and the match plays on behind it (lockstep cannot wait for one player). Leave to hub says LEAVE_MATCH to the server, whose caretaker takes the seat, and brings me back to the hub in the party.",
+  "description": "In a party's match on a server Esc opens the same menu, without Restart, and the match plays on behind it (lockstep cannot wait for one player). Leave to hub asks first (\"Leave the match?\"), and once answered says LEAVE_MATCH to the server, whose caretaker takes the seat, and brings me back to the hub in the party.",
   "seed": 1,
   "timeout_frames": 2400,
   "steps": [
@@ -25,7 +25,13 @@
     {"wait": 30},
     {"assert": "Game.sim.tick > held and not scene.paused()", "msg": "the match plays on behind the plate"},
     {"capture": "esc_menu_online_plays_on"},
+    {"eval": "node('MenuLeave').get_global_rect()", "as": "leave_rect"},
     {"click": "node('MenuLeave')"},
+    {"wait": 2},
+    {"assert": "scene_path() == 'res://scenes/main.tscn' and node('MatchMenu').choices() == ['Leave the match', 'Stay'] and node('MenuTitle').text == 'Leave the match?' and node('MenuLine').text == 'The caretaker plays your seat to the end'", "msg": "Leave to hub asks first, and says the caretaker plays the seat"},
+    {"assert": "Session.get_node('LoopbackHub').seq.member_conn('Sascha')['state'] != 'left'", "msg": "nothing went to the server yet"},
+    {"assert": "node('MenuStay').get_global_rect() == leave_rect and not node('MenuConfirm').get_global_rect().intersects(leave_rect)", "msg": "Stay stands where Leave to hub stood, so a second click there says no"},
+    {"click": "node('MenuConfirm')"},
     {"wait_until": "scene_path() == 'res://scenes/hub.tscn'", "timeout": 120},
     {"wait": 5},
     {"assert": "Session.get_node('LoopbackHub').seq.member_conn('Sascha')['state'] == 'left'", "msg": "the server heard LEAVE_MATCH: the caretaker takes my seat"},

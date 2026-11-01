@@ -11,7 +11,10 @@ stone from the top left. The screens outside a match (hub, party, join, Builders
 loading, results) reuse that material: a large panel whose stone tiles both ways, the
 jewel to crown one panel per screen, a card frame and its lit state, an arched portrait
 plate, a sunk text field and its focus, a progress bar's trough and gilt fill, and an
-incised divider. One bronze rim follows the silhouette and meets curves in
+incised divider. A duel (Undertow, M7) adds the Drift tray, a shelf in the console's
+material whose quiet stone stretches, and the socket a pack or a corked
+bottle stands in on it, sunk, with a sea-glass lit state for the bottle that may be
+uncorked now. One bronze rim follows the silhouette and meets curves in
 round fillets; the wells are cut into the stone and read by their shade; the portrait
 window, the focal point, gets the one moulding and the crest above it the one jewel.
 With "scale": 2 the PNGs carry twice the texels of the layout (and mipmaps), the
@@ -118,6 +121,16 @@ CONSOLE = {
               "code": {"cell": [30, 38], "gap": 5, "dash": 14}},
     "bar": {"trough": [64, 18], "fill": [48, 10], "inset": [4, 4]},
     "divider": [128, 6],
+    # The duel's (M7): the Drift tray, a shelf whose stone (`tile` wide and tall, between
+    # `margin`s) stretches inside a rim `rim` wide, its silhouette `inset` from the
+    # texture's edge for its shadow;
+    # and the socket a pack or a bottle stands in, sunk, its lit state glowing `glow`.
+    "tray": {"tile": [256, 64], "margin": 20, "inset": 6, "radius": 9, "rim": 5, "content": [12, 9, 12, 10],
+             "stone_base": "#24201b",
+             "stone": {"ramp": 14, "macro": 0.05, "meso": 0.055, "fine": 0.045, "pits": 0.1, "macro_cell": 18,
+                       "meso_cell": 8},
+             "socket": {"size": [40, 40], "radius": 6, "rim": 3, "margin": 10, "content": [4, 4, 4, 4]},
+             "glow": "#6ad8c8"},
 }
 _S = 2  # painting scale: twice the output scale, box-filtered down
 _LIGHT = (-0.42, -0.78, 0.46)
@@ -1195,6 +1208,31 @@ class _Console:
         self.stylebox("divider", (28, 0, 28, 0), 0, stretch=0)
         self.layout["divider"] = {"height": height}
 
+    def tray(self):
+        """The duel's Drift tray (M7): a shelf in the console's material, its quiet stone painted
+        wide (a tile that repeats seamlessly, so its middle may stretch a little without a
+        seam), its bronze rim a little slimmer; and the socket a pack or a corked bottle
+        stands in on it, sunk into the stone, with a lit state glowing sea glass (the wrack's
+        waterline teal) for the bottle that may be uncorked now."""
+        sp = self.spec["tray"]
+        (tx, ty), margin, inset, radius = sp["tile"], sp["margin"], sp["inset"], sp["radius"]
+        width, height = 2 * margin + tx, 2 * margin + ty
+        mask = _shape_mask(width, height, lambda d, k: _rrect(d, k, inset, inset, width - 2 * inset,
+                                                              height - 2 * inset, radius))
+        look = {"stone": dict(self.spec["stone"], **sp["stone"]), "lip": self.spec["lip"], "cast": self.spec["cast"]}
+        material = dict(self.m, stone_base=hex_to_rgb(sp["stone_base"]))
+        piece = _Relief(width, height, mask, self.seed + 50, material, period_x=tx, band=sp["rim"], grooves=[],
+                        look=look, period_y=ty)
+        self.save("drift_tray.png", piece.paint(), width, height)
+        # (stretched, not tiled: Godot tiling a mipmapped nine-patch draws a hairline at each
+        # wrap; the stone is quiet and the tile wide, so a tray a little wider barely stretches)
+        self.stylebox("drift_tray", margin, sp["content"], expand=inset, stretch=0)
+        so = sp["socket"]
+        for name, glow in (("bottle_socket", None), ("bottle_socket_lit", hex_to_rgb(sp["glow"]))):
+            self.plate_9(name, so["size"], so["radius"], so["rim"], (10, 9, 9), 255, so["margin"], so["content"],
+                         glow=glow, inset=True)
+        self.layout["tray"] = {"margin": margin, "expand": inset, "content": sp["content"], "socket": so["size"]}
+
     def screens(self):
         """Every piece the screens outside a match add to the console's."""
         self.panel()
@@ -1233,6 +1271,10 @@ class _Console:
         card = self.spec["card"]
         self.layout.update({"socket": [card["socket"], card["socket"]], "gap": card["gap"], "scale": self.scale})
         self.screens()
+        self.tray()
+        # (how much of every piece's top is its shadow on the world: the HUD stands the
+        # tray on the wing's painted top)
+        self.layout["shadow"] = self.spec["shadow"]
         layout = self.dest / "layout.json"
         if not _write(layout, (json.dumps(self.layout, indent=2) + "\n").encode()):
             self.unchanged.add(layout)

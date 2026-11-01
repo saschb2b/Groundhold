@@ -12,6 +12,9 @@ extends Node
 const MATCH_CACHES := [
 	"order_idx", "order_dist", "_order_built", "_looking", "walks", "crack_posts", "_cracks_out"
 ]
+## (M7) The duel styles that cork on the caretaker's budget (duel_out), and like the
+## caretaker hold their plan while their window waits on the rival's wave.
+const CARETAKER_BUDGET_STYLES := ["balanced", "counter_cork", "random"]
 
 var seq: LocalSequencer
 var clients: Array[SimMatch] = []
@@ -34,6 +37,16 @@ var stalled := PackedInt32Array()
 var _decided_at := {}
 ## Client 1's creeps' health as they spawned, by id (creep_report).
 var spawned_hp := {}
+## (M7) Client 1's duel by seat: how many corks, uncorks, fizzles, breaches and Seawalls
+## each made, counted with events off too (duel_summary).
+var duel_counts := {}
+## (M7) The packs each seat uncorked on client 1, in order: {seat: [CHECK_IDS id, ...]}.
+var duel_picks := {}
+## (M7) The salts the duel's play styles corked with, per seat: [window, pack, salt_hi,
+## salt_lo, commit_hi, commit_lo] each, until its UNCORK goes out; and their own random
+## streams (the random corker's picks and every salt), seeded by the match seed and seat.
+var _salts := {}
+var _style_rngs := {}
 
 
 ## {"mode": "classic", "seats": 1, "seed": 1, "clients": 1, "caretakers": [seat numbers],
@@ -72,6 +85,10 @@ func start(cfg := {}) -> SimMatch:
 	stalled.clear()
 	_decided_at.clear()
 	spawned_hp.clear()
+	duel_counts.clear()
+	duel_picks.clear()
+	_salts.clear()
+	_style_rngs.clear()
 	for k in int(cfg.get("clients", 1)):
 		_join(_new_match())
 	return clients[0]
@@ -599,7 +616,7 @@ func record_differences(a := 1, b := 2) -> Array:
 	var y := clients[b - 1]
 	_compare_fields("match", x, y, out)
 	_compare_fields("rng", x.rng, y.rng, out)
-	for list_name: String in ["teams", "hollows", "seats", "towers", "creeps", "shots"]:
+	for list_name: String in ["teams", "hollows", "seats", "towers", "creeps", "shots", "bottle_list"]:
 		var xs: Array = x.get(list_name)
 		var ys: Array = y.get(list_name)
 		if xs.size() != ys.size():
@@ -661,14 +678,14 @@ func replay_matches(to_tick: int) -> bool:
 ## through the game, deciding each step as the caretaker would (Caretaker.decide: the
 ## alternative cells, the patching forks the team lacks): queues every step it can pay
 ## for now. A fork whose tower is still on its way waits for the next call. Returns the
-## steps queued.
-func plan_step(seat: int, cursor_name := "plan") -> int:
+## steps queued. `reserved` is gold already promised this turn (a duel's corks).
+func plan_step(seat: int, cursor_name := "plan", reserved := 0) -> int:
 	var sim := clients[0]
 	var s := sim.seat(seat)
 	var steps: Array = sim.plans[s.builder]
 	var key := "%s_%d" % [cursor_name, seat]
 	var cursor := int(config.get(key, 0))
-	var spent := 0
+	var spent := reserved
 	var queued := 0
 	var claimed := PackedInt32Array()
 	var width := sim.hollows[s.hollow].road.width
@@ -720,6 +737,487 @@ func play_out(by_command := [], every := 30, limit := 120000, ready_at_once := [
 			push_error("play_out: no turn for tick %d (the sequencer is paused)" % was)
 			break
 	return clients[0].tick
+
+
+## (M7) Plays client 1's duel to its end with the seats in `styles` ({seat: style}) played
+## by command, every `every` ticks, in a play style of the duel's balance gates:
+##   "turtle"        works down its plan and never corks
+##   "balanced"      the caretaker's policy (Caretaker._duel): in the window both hollows
+##                   share, while it has corks left, the cheapest tier it can pay for while
+##                   its corks stay within CORK_SHARE_PM of its worth (Caretaker.cork_tier),
+##                   the pack the rival's towers take longest to kill
+##                   (SimUndertow.weakest_pack)
+##   "counter_cork"  the same: the caretaker's pick of the rival's weakest check, named
+##                   for it in the gate against "random"
+##   "reckless"      corks the most it can every window, before it builds, the same pack
+##   "random"        the caretaker's budget, an offered pack drawn at random
+## The three on the caretaker's budget (CARETAKER_BUDGET_STYLES) hold their plan while their
+## hollow stands in a window the rival's wave keeps shut, as the caretaker does
+## (Caretaker.holds_plan), so their corks come before their builds; the reckless one builds
+## meanwhile and corks what is left when the window opens (holding too, it out-corks the
+## turtle's defence: duel_turtle_beats_reckless and duel_seawall_saves 2 of 5). Each corks
+## with a salt of its own stream, uncorks every bottle from uncork_after_t after
+## the horn and raises its Seawall as the caretaker would (Caretaker.wants_seawall), unless
+## its seat is in options "no_seawall". Nobody presses Ready: the windows run out. Other
+## seats play themselves if caretaken. Returns the final tick; stops at `limit`, and with an
+## error when a round ran no tick.
+func duel_out(styles: Dictionary, options := {}, every := 30, limit := 150000) -> int:
+	while not clients[0].over and clients[0].tick < limit:
+		var was := clients[0].tick
+		for seat: int in styles:
+			_duel_play(int(seat), str(styles[seat]), options)
+		run_ticks(maxi(1, every))
+		if clients[0].tick == was:
+			push_error("duel_out: no turn for tick %d (the sequencer is paused)" % was)
+			break
+	return clients[0].tick
+
+
+## (M7) The duel of `cfg` (start()'s, with mode undertow) played by duel_out(styles,
+## options) once for each of `seeds`, with cfg "builders_by_seed" (one Builder list per
+## seed, in step with `seeds`) in place of its "builders" where it is given: {"wins": [team
+## 0's, team 1's], "draws": n, "mirrors": matches whose two seats ended the same,
+## "distinct": how many of the matches differ (by their final state hash: the match's
+## SimRng feeds only the Drift, so two seeds may play one match), "leading_picks": {seat:
+## how many different packs led its uncorkings across the matches (the pack it uncorked
+## most in each, ties to the earlier check)}, "matches": [duel_summary() of each, with its
+## seed, Builders, hash and every seat's picks], "lines": [duel_line() of each]}.
+func duel_series(cfg: Dictionary, styles: Dictionary, seeds: Array, options := {}) -> Dictionary:
+	var wins := [0, 0]
+	var draws := 0
+	var matches := []
+	var lines := []
+	var mirrors := 0
+	var finals := []
+	var leading := {}
+	var by_seed: Array = cfg.get("builders_by_seed", [])
+	for i in seeds.size():
+		var s: Variant = seeds[i]
+		var one := cfg.duplicate(true)
+		one["seed"] = int(s)
+		if i < by_seed.size():
+			one["builders"] = by_seed[i]
+		start(one)
+		duel_out(styles, options)
+		var out := clients[0].outcomes()
+		if out.size() == 2 and int(out[0]) == SimTypes.OUTCOME_WON:
+			wins[0] += 1
+		elif out.size() == 2 and int(out[1]) == SimTypes.OUTCOME_WON:
+			wins[1] += 1
+		else:
+			draws += 1
+		var row := duel_summary()
+		row["seed"] = int(s)
+		row["builders"] = one.get("builders", [])
+		row["hash"] = clients[0].state_hash_hex()
+		row["picks"] = duel_picks.duplicate(true)
+		matches.append(row)
+		lines.append("seed %d %s: %s" % [int(s), "/".join(PackedStringArray(row["builders"])), duel_line()])
+		if _mirrored():
+			mirrors += 1
+		if not finals.has(row["hash"]):
+			finals.append(row["hash"])
+		for seat: int in duel_picks:
+			var top := _leading_pick(duel_picks[seat])
+			var kinds: Array = leading.get_or_add(seat, [])
+			if top != "" and not kinds.has(top):
+				kinds.append(top)
+	var leading_count := {}
+	for seat: int in leading:
+		leading_count[seat] = (leading[seat] as Array).size()
+	return {
+		"wins": wins, "draws": draws, "mirrors": mirrors, "distinct": finals.size(),
+		"leading_picks": leading_count, "matches": matches, "lines": lines,
+	}
+
+
+## The pack in `picks` (CHECK_IDS ids) that comes most often, ties to the earlier check;
+## "" for none.
+static func _leading_pick(picks: Array) -> String:
+	var best := ""
+	var most := 0
+	for id: String in SimContent.CHECK_IDS:
+		var n := picks.count(id)
+		if n > most:
+			best = id
+			most = n
+	return best
+
+
+## Whether client 1's two seats ended the same: lives, breach dealt, stipend, gold, towers
+## and duel counts (a mirror match).
+func _mirrored() -> bool:
+	var sim := clients[0]
+	if sim.seats.size() != 2 or sim.teams.size() != 2:
+		return false
+	var a := sim.seats[0]
+	var b := sim.seats[1]
+	return (
+		sim.teams[0].lives == sim.teams[1].lives
+		and sim.teams[0].breach_dealt == sim.teams[1].breach_dealt
+		and a.stipend == b.stipend and a.gold == b.gold and a.towers == b.towers
+		and duel_counts.get(1, {}) == duel_counts.get(2, {})
+	)
+
+
+## (M7) Client 1's duel in one line for a balance pass: outcomes, rule, wave, minutes, then
+## per seat its lives, breach dealt, stipend, towers and corks / uncorks / fizzles /
+## breaches / Seawalls.
+func duel_line() -> String:
+	var sim := clients[0]
+	var parts := []
+	for t: SimRecords.SimTeam in sim.teams:
+		for s: SimRecords.SimSeat in sim.seats:
+			if s.team == t.id:
+				parts.append(
+					"s%d %d lives, breach %d, stipend %d, %d towers, %d/%d/%d/%d/%d"
+					% [
+						s.seat, t.lives, t.breach_dealt, s.stipend, s.towers,
+						duel_count(s.seat, "cork"), duel_count(s.seat, "uncork"),
+						duel_count(s.seat, "fizzle"), duel_count(s.seat, "breach"),
+						duel_count(s.seat, "seawall")
+					]
+				)
+	return "%s %s wave %d %.1f min; %s" % [
+		str(sim.outcomes()), sim.decided_by(), sim.hollows[0].wave, sim.tick / 3600.0, "; ".join(parts)
+	]
+
+
+func _duel_play(seat: int, style: String, options: Dictionary) -> void:
+	var sim := clients[0]
+	var reserved := 0
+	if style != "turtle":
+		reserved = _duel_cork(seat, style)
+	if not CARETAKER_BUDGET_STYLES.has(style) or not Caretaker.holds_plan(sim, sim.seat(seat)):
+		plan_step(seat, "plan", reserved)
+	_duel_uncork(seat)
+	var no_wall: Array = options.get("no_seawall", [])
+	if not no_wall.has(seat) and Caretaker.wants_seawall(sim, sim.seat(seat)):
+		cmd(seat, "SEAWALL")
+
+
+## Queues this round's corks for `seat` in its style; returns the gold they will take.
+## config "share_pm" ({seat: per mille}) gives a seat another budget than the caretaker's
+## CORK_SHARE_PM (a balance pass's sweep).
+func _duel_cork(seat: int, style: String) -> int:
+	var sim := clients[0]
+	var s := sim.seat(seat)
+	var window := sim.hollows[s.hollow].wave + 1
+	if not SimUndertow.window_open(sim) or sim.drift_window != window:
+		return 0
+	var key := "corked_%d_%d" % [seat, window]
+	var queued := maxi(int(config.get(key, 0)), SimUndertow.corks_of(sim, seat, window))
+	var share := int((config.get("share_pm", {}) as Dictionary).get(seat, Caretaker.CORK_SHARE_PM))
+	var reserved := 0
+	var rng := _style_rng(seat)
+	while queued < SimUndertow.corks_allowed(sim, window):
+		var tier := -1
+		if style == "reckless":
+			tier = SimUndertow.cheapest_tier(sim, window, s.gold - reserved)
+		else:
+			tier = Caretaker.cork_tier(sim, s, reserved, share)
+		if tier < 0:
+			break
+		var pack := SimUndertow.weakest_pack(sim, seat)
+		if style == "random":
+			pack = sim.drift_packs[rng.below(sim.drift_packs.size())]
+		var salt_hi := SimUndertow.signed32(rng.next_u32())
+		var salt_lo := SimUndertow.signed32(rng.next_u32())
+		var c := SimUndertow.commit(sim.match_seed, seat, window, pack, salt_hi, salt_lo)
+		cmd(seat, "CORK", tier, int(c[0]), int(c[1]))
+		(_salts.get_or_add(seat, []) as Array).append([window, pack, salt_hi, salt_lo, int(c[0]), int(c[1])])
+		reserved += SimUndertow.cork_price(sim, tier, window)
+		queued += 1
+	config[key] = queued
+	return reserved
+
+
+## Sends UNCORK for every bottle of `seat`'s still corked, from uncork_after_t after the
+## horn, with the salt it was corked with.
+func _duel_uncork(seat: int) -> void:
+	var sim := clients[0]
+	var from := sim.uncork_tick()
+	if from < 0 or sim.tick < from:
+		return
+	var kept: Array = _salts.get(seat, [])
+	for b: SimRecords.SimBottle in SimUndertow.pending(sim, seat):
+		for i in kept.size():
+			var e: Array = kept[i]
+			if int(e[0]) == b.window and int(e[4]) == b.commit_hi and int(e[5]) == b.commit_lo:
+				cmd(seat, "UNCORK", int(e[1]), int(e[2]), int(e[3]))
+				kept.remove_at(i)
+				break
+
+
+func _style_rng(seat: int) -> SimRng:
+	if not _style_rngs.has(seat):
+		_style_rngs[seat] = SimRng.new(int(config.get("seed", 1)) * 7919 + seat)
+	return _style_rngs[seat]
+
+
+## (M7) Plays client 1's duel until the window before wave `window` is open for both:
+## every seat present works down its plan by command and presses Ready in every earlier
+## window (a caretaken seat plays itself). Returns the tick; stops at `limit` with an
+## error.
+func duel_to_window(window: int, limit := 80000) -> int:
+	while clients[0].tick < limit:
+		var sim := clients[0]
+		var open := SimUndertow.window_open(sim)
+		if open and sim.hollows[0].wave + 1 >= window:
+			return sim.tick
+		for s: SimRecords.SimSeat in sim.seats:
+			if s.state != SimTypes.SEAT_PRESENT:
+				continue
+			plan_step(s.seat)
+			if open and not s.ready:
+				cmd(s.seat, "READY", 1)
+		run_ticks(30)
+	push_error("duel_to_window: window %d not open by tick %d" % [window, limit])
+	return clients[0].tick
+
+
+## (M7) Steps client 1 until the shared horn sounds (a wave runs on a hollow); returns the
+## horn's tick, or -1 with an error after `limit` ticks.
+func run_to_horn(limit := 5000) -> int:
+	var ran := 0
+	while not SimUndertow.wave_running(clients[0]) and ran < limit:
+		run_ticks(1)
+		ran += 1
+	if not SimUndertow.wave_running(clients[0]):
+		push_error("run_to_horn: no horn in %d ticks" % limit)
+		return -1
+	return clients[0].horn_tick
+
+
+## (M7) Steps client 1 until the window is open for both again; returns the tick, or -1
+## with an error after `limit` ticks.
+func run_to_window(limit := 20000) -> int:
+	var ran := 0
+	while not SimUndertow.window_open(clients[0]) and not clients[0].over and ran < limit:
+		run_ticks(1)
+		ran += 1
+	if not SimUndertow.window_open(clients[0]):
+		push_error("run_to_window: no window in %d ticks" % ran)
+		return -1
+	return clients[0].tick
+
+
+## (M7) Queues CORK for `seat` in the open window: pack CHECK_IDS[pack] with the salt's
+## halves (signed 32-bit), at `tier` (-1: the window's cheapest). Returns the commitment.
+func cork(seat: int, pack: int, salt_hi := 0, salt_lo := 0, tier := -1) -> Array:
+	var sim := clients[0]
+	var window := sim.hollows[sim.seat(seat).hollow].wave + 1
+	if tier < 0:
+		tier = SimUndertow.cheapest_tier(sim, window, 1 << 30)
+	var c := SimUndertow.commit(sim.match_seed, seat, window, pack, salt_hi, salt_lo)
+	cmd(seat, "CORK", tier, int(c[0]), int(c[1]))
+	return c
+
+
+## (M7) Queues UNCORK for `seat`: pack CHECK_IDS[pack] and the salt's halves.
+func uncork(seat: int, pack: int, salt_hi := 0, salt_lo := 0) -> int:
+	return cmd(seat, "UNCORK", pack, salt_hi, salt_lo)
+
+
+## (M7) The lives pack CHECK_IDS[pack] at `tier` takes if every creep of it leaks, and the
+## gold its creeps pay a defender who kills them all.
+func pack_toll(pack: int, tier := 0) -> int:
+	var spec: Dictionary = SimContent.PACKS["hollow"][SimContent.CHECK_IDS[pack]]
+	return int(spec["counts"][tier]) * int(SimContent.CREEPS[str(spec["creep"])]["toll"])
+
+
+func pack_bounty(pack: int, tier := 0) -> int:
+	var spec: Dictionary = SimContent.PACKS["hollow"][SimContent.CHECK_IDS[pack]]
+	return int(spec["counts"][tier]) * int(SimContent.CREEPS[str(spec["creep"])]["bounty"])
+
+
+## (M7) The left-out pack of `n` Drifts drawn in a row from a fresh duel's SimRng at `seed`
+## (SimUndertow.draw_drift), each as its CHECK_IDS id, and every offer's size and order
+## checked: a row of "bad offer ..." where one is not `offered` packs in CHECK_IDS order.
+func drift_draws(seed_value: int, n: int) -> Array:
+	var sim := SimMatch.new(SimContent.rules("undertow"), [{"team": 0}, {"team": 1}], seed_value)
+	var out := []
+	for i in n:
+		SimUndertow.draw_drift(sim, 2 + i)
+		var sorted := sim.drift_packs.duplicate()
+		sorted.sort()
+		if sorted != sim.drift_packs or sim.drift_packs.size() != int(sim.rules["duel"]["offered"]):
+			out.append("bad offer %s" % sim.drift_packs)
+		for k in SimContent.CHECK_IDS.size():
+			if not sim.drift_packs.has(k):
+				out.append(SimContent.CHECK_IDS[k])
+	return out
+
+
+## (M7) Every EV_BREACH on client k whose pay is not `times` its creep's bounty, as rows
+## [creep, kind, pay]; [] when they all are.
+func breaches_not_paying(times: int, k := 1) -> Array:
+	var out := []
+	for e: Dictionary in events_of("BREACH", k):
+		if int(e["pay"]) != times * int(SimContent.CREEPS[str(e["kind"])]["bounty"]):
+			out.append([e["creep"], e["kind"], e["pay"]])
+	return out
+
+
+## (M7) How many entries of `list` equal the one before.
+static func repeats(list: Array) -> int:
+	var n := 0
+	for i in range(1, list.size()):
+		if list[i] == list[i - 1]:
+			n += 1
+	return n
+
+
+## (M7) What became of every creep seat `seat` sent on client k, by id order: "died to
+## seat N for B" (the DIE event's seat and bounty), "leaked" or "walking".
+func sent_fates(seat: int, k := 1) -> Array:
+	var out := []
+	for e: Dictionary in sent_by(seat, k):
+		var id := int(e["id"])
+		var fate := "walking"
+		for d: Dictionary in events_where("DIE", {"id": id}, k):
+			fate = "died to seat %d for %d" % [int(d["seat"]), int(d["bounty"])]
+		for d: Dictionary in events_where("LEAK", {"id": id}, k):
+			fate = "leaked"
+		out.append(fate)
+	return out
+
+
+## (M7) The bounties of every creep that died on hollow `hollow` of client k (DIE events).
+func bounty_on(hollow: int, k := 1) -> int:
+	var total := 0
+	for e: Dictionary in events_where("DIE", {"hollow": hollow}, k):
+		total += int(e["bounty"])
+	return total
+
+
+## (M7) The gold paid to seat `seat` for `why` on client k.
+func gold_to(seat: int, why: String, k := 1) -> int:
+	var total := 0
+	for e: Dictionary in events_where("GOLD", {"seat": seat, "why": why}, k):
+		total += int(e["change"])
+	return total
+
+
+## (M7) The health the first creep of `kind` spawned on hollow `hollow` from tick `from`
+## on had on client 1 (spawned_hp), or -1.
+func first_spawn_hp(kind: String, from: int, hollow := 0) -> int:
+	for e: Dictionary in since(events_where("SPAWN", {"kind": kind, "hollow": hollow}), from):
+		return int(spawned_hp.get(int(e["id"]), -1))
+	return -1
+
+
+## (M7) The ids of the creeps on hollow `hollow` of client k inside the Seawall's ring.
+func ring_ids(hollow: int, k := 1) -> Array:
+	var out := []
+	for c: SimRecords.SimCreep in SimUndertow.in_ring(clients[k - 1], clients[k - 1].hollows[hollow]):
+		out.append(c.id)
+	return out
+
+
+## (M7) How many bytes two checkpoints of one size differ in, or -1 when their sizes differ.
+static func differing_bytes(a: PackedByteArray, b: PackedByteArray) -> int:
+	if a.size() != b.size():
+		return -1
+	var n := 0
+	for i in a.size():
+		if a[i] != b[i]:
+			n += 1
+	return n
+
+
+## (M7) A duel on client k as a balance pass reads it: per team its lives, breach dealt,
+## waves cleared and its seat's stipend, Seawall charges, towers and duel counts (corks,
+## uncorks, fizzles, breaches, Seawalls); then the outcomes, what decided them and when.
+func duel_summary(k := 1) -> Dictionary:
+	var sim := clients[k - 1]
+	var per_team := []
+	for t: SimRecords.SimTeam in sim.teams:
+		var row := {
+			"lives": t.lives,
+			"breach": t.breach_dealt,
+			"cleared": sim.cleared_waves(t.id),
+			"phase": sim.hollows[t.hollows[0]].phase,
+		}
+		for s: SimRecords.SimSeat in sim.seats:
+			if s.team == t.id:
+				row["seat"] = s.seat
+				row["stipend"] = s.stipend
+				row["gold"] = s.gold
+				row["towers"] = s.towers
+				row["charges"] = s.seawall_charges
+				row["counts"] = duel_counts.get(s.seat, {})
+		per_team.append(row)
+	return {
+		"teams": per_team,
+		"outcomes": sim.outcomes(),
+		"decided_by": sim.decided_by(),
+		"tick": sim.tick,
+		"minutes": snappedf(sim.tick / 3600.0, 0.01),
+		"wave": sim.hollows[0].wave,
+	}
+
+
+## (M7) How many `what` ("cork", "uncork", "fizzle", "breach", "seawall") seat `seat` made
+## on client 1 (a breach counts for its sender).
+func duel_count(seat: int, what: String) -> int:
+	return int((duel_counts.get(seat, {}) as Dictionary).get(what, 0))
+
+
+## (M7) The ticks of the horns on seat `seat`'s hollow that sounded in a window where the
+## seat had not said Ready before them (since the horn before): [] when it had its say in
+## every window (a caretaker playing its window before a player's Ready calls the horn).
+func horns_before_ready(seat: int, k := 1) -> Array:
+	var sim := clients[k - 1]
+	var hollow := sim.seat(seat).hollow
+	var readies := []
+	for e: Dictionary in events_where("READY", {"seat": seat, "on": true}, k):
+		readies.append(int(e["tick"]))
+	var out := []
+	var since := -1
+	for e: Dictionary in events_where("WAVE", {"hollow": hollow, "start": true}, k):
+		var horn := int(e["tick"])
+		var said := false
+		for t: int in readies:
+			said = said or (t > since and t < horn)
+		if not said:
+			out.append(horn)
+		since = horn
+	return out
+
+
+## (M7) The ticks seat `seat` built or forked on while its hollow stood in its window and the
+## rival's still played that wave (from the tick after its clear up to the rival's clear, on
+## which the window opens for both: Caretaker.holds_plan), oldest first, on client k.
+func builds_while_held(seat: int, k := 1) -> Array:
+	var sim := clients[k - 1]
+	var mine := sim.seat(seat).hollow
+	var cleared := {}  # (hollow -> {wave: the tick it cleared on})
+	for e: Dictionary in events_where("WAVE", {"cleared": true}, k):
+		(cleared.get_or_add(int(e["hollow"]), {}) as Dictionary)[int(e["wave"])] = int(e["tick"])
+	var held := []  # ([from, to] ticks, both included)
+	var own: Dictionary = cleared.get(mine, {})
+	for w: int in own:
+		var to := -1
+		for h: int in cleared:
+			if h != mine and (cleared[h] as Dictionary).has(w):
+				to = maxi(to, int(cleared[h][w]))
+		if to > int(own[w]):
+			held.append([int(own[w]) + 1, to])
+	var out := []
+	for type_name: String in ["BUILT", "FORKED"]:
+		for e: Dictionary in events_where(type_name, {"seat": seat}, k):
+			var t := int(e["tick"])
+			for span: Array in held:
+				if t >= int(span[0]) and t <= int(span[1]):
+					out.append(t)
+	out.sort()
+	return out
+
+
+## (M7) The SPAWN events of the creeps seat `seat` sent on client k.
+func sent_by(seat: int, k := 1) -> Array:
+	return events_where("SPAWN", {"sent_by": seat}, k)
 
 
 ## Lives client 1's team on hollow `hollow` lost to leaks during waves `from` to `to`,
@@ -832,6 +1330,7 @@ func summary() -> Dictionary:
 		"bosses": boss_lines(),
 		"wave_seconds": wave_seconds.filter(func(s: int) -> bool: return s >= 0),
 		"race": race_summary() if sim.race else {},
+		"duel": duel_summary() if sim.duel else {},
 	}
 
 
@@ -889,6 +1388,11 @@ func check_ranges(limit := 10) -> Array:
 							return bad
 	config["range_points_checked"] = checked
 	return bad
+
+
+func _count_duel(seat: int, what: String) -> void:
+	var row: Dictionary = duel_counts.get_or_add(seat, {})
+	row[what] = int(row.get(what, 0)) + 1
 
 
 func _new_match() -> SimMatch:
@@ -955,6 +1459,12 @@ func _step(k: int) -> void:
 				SimTypes.EV_HIT:
 					if bosses.has(e["creep"]):
 						bosses[e["creep"]]["dealt"] += int(e["dmg"]) / 100
+				SimTypes.EV_CORK, SimTypes.EV_UNCORK, SimTypes.EV_FIZZLE, SimTypes.EV_SEAWALL:
+					_count_duel(int(e["seat"]), str(SimTypes.EVENT_TYPES.find_key(int(e["type"]))).to_lower())
+					if int(e["type"]) == SimTypes.EV_UNCORK:
+						(duel_picks.get_or_add(int(e["seat"]), []) as Array).append(str(e["pack"]))
+				SimTypes.EV_BREACH:
+					_count_duel(int(e["by"]), "breach")
 				SimTypes.EV_DIE:
 					if bosses.has(e["id"]):
 						bosses[e["id"]]["end"] = "died at %d s" % ((sim.tick - int(bosses[e["id"]]["tick"])) / 60)

@@ -11,7 +11,9 @@
 ## others play on) says so in its title and why in a plain line (shown["said"]). A match
 ## that stopped (desynced, called off, the link lost) says in which wave, not how many
 ## waves the mode has. A race (Tide Race, M6) shows one block per team, mine first, with
-## both race times and the rule that decided it in one line (_compute_race).
+## both race times and the rule that decided it in one line (_compute_race). A duel
+## (Undertow, M7) shows a block per side the same way, mine first, with the breach each
+## dealt, the duel's titles and the rule that decided it (_compute_duel).
 class_name ResultsPanel
 extends CanvasLayer
 
@@ -31,7 +33,7 @@ const STOPPED := ["desynced", "aborted", "link_lost"]
 ## Under a desynced match's line, when the game wrote its report (shown["report"]).
 const REPORT_LINE := "The games disagreed, so the match was stopped. A report was saved."
 ## The positive lines, in the list's order: [key, text]. "most_<creep>" keys are filled
-## per creep kind; "held" names the wave.
+## per creep kind; "held" names the wave the seat killed most in ("Most kills in wave 11").
 const LINES := ["held", "help", "kills", "damage", "most_creep", "towers", "unsold"]
 const FALLBACK := ["Kept watch", "Held the line", "Stood fast", "Saw it through"]
 ## How much taller a race's plate stands, for its two blocks.
@@ -65,6 +67,8 @@ static func compute(sim: SimMatch, names: Array, outcome: String, tally: Diction
 				"line": "",
 			}
 		)
+	if sim.duel:
+		return _compute_duel(sim, rows, outcome, tally)
 	if sim.race:
 		return _compute_race(sim, rows, outcome, tally, shown_mode)
 	_pick_lines(rows, sim, tally)
@@ -145,6 +149,61 @@ static func _compute_race(
 	}
 
 
+## A duel's results (design 5.8, M7, contract-m7.md §3): the title from my outcome ("The
+## Tide Took Your Rival", "The Tide Took You", "Even Tide"; a stopped match keeps its own),
+## the match in one line, the rule that decided it in one line (a fall, more lives after
+## the Surge, more breach dealt, a draw: Game.duel_rule_line), and a block per side, mine
+## first: the breach it dealt (the lives its uncorked creeps took), its lives with their
+## line along its own waves, and its player's row with a line picked against its own side.
+static func _compute_duel(sim: SimMatch, rows: Array, outcome: String, tally: Dictionary) -> Dictionary:
+	var mine := Game.my_team()
+	var blocks := []
+	var by_team: Dictionary = tally.get("team_lives", {})
+	for t: int in [mine, 1 - mine]:
+		var team_rows := rows.filter(func(r: Dictionary) -> bool: return int(r["team"]) == t)
+		_pick_lines(team_rows, sim, tally)
+		var side := Game.duel_side(t)
+		blocks.append(
+			{
+				"team": t,
+				"mine": t == mine,
+				"name": "You" if t == mine else "Your rival",
+				"time": "%d breach dealt" % int(side["breach"]),
+				"breach": int(side["breach"]),
+				"stipend": int(side["stipend"]),
+				"lives": sim.teams[t].lives,
+				"lives_line": by_team.get(t, []),
+				"seats": team_rows.map(func(r: Dictionary) -> int: return int(r["seat"])),
+			}
+		)
+	var waves := sim.total_waves()
+	var minutes := sim.tick / 3600
+	var seconds := (sim.tick / 60) % 60
+	var mode := Profile.mode_name("undertow")
+	var reached := sim.hollows[sim.teams[mine].hollows[0]].wave
+	var detail := "%s · %d waves · %d:%02d" % [mode, waves, minutes, seconds]
+	if SimUndertow.surge_of(sim, reached) > 0:
+		detail = "%s · %d waves and the Surge · %d:%02d" % [mode, waves, minutes, seconds]
+	if outcome in STOPPED:
+		var where := "stopped in wave %d of %d" % [reached, waves] if reached > 0 else "stopped before the first wave"
+		if SimUndertow.surge_of(sim, reached) > 0:
+			where = "stopped in %s" % Game.wave_name(reached)
+		detail = "%s · %s · %d:%02d" % [mode, where, minutes, seconds]
+	return {
+		"outcome": outcome,
+		"race": true,
+		"duel": true,
+		"title": str(Game.DUEL_TITLES.get(outcome, TITLES.get(outcome, "The Ebb"))),
+		"detail": detail,
+		"rule": Game.duel_rule_line() if Game.DUEL_TITLES.has(outcome) else "",
+		"rows": rows,
+		"teams": blocks,
+		"lives": tally.get("lives", []),
+		"max_lives": int(sim.rules["lives"]),
+		"waves": waves,
+	}
+
+
 ## A team's race time as the results show it: "12:41 +20 s" (the tick it cleared its last
 ## wave, and what its lost lives added); without one, "fell on wave 9", or where its race
 ## clock stood when the race was decided ("on wave 12 at 7:20").
@@ -177,7 +236,9 @@ static func _pick_lines(rows: Array, sim: SimMatch, tally: Dictionary) -> void:
 		match key:
 			"held":
 				for r_i in rows.size():
-					var text := "Held wave %d" % int(best_wave[r_i][1])
+					# (the wave the seat killed most in, said as what it counts: "Held wave 11" read
+					# as nothing to two players)
+					var text := "Most kills in wave %d" % int(best_wave[r_i][1])
 					var values := []
 					for k in rows.size():
 						values.append(int(best_wave[k][0]) if k == r_i else 0)
@@ -393,7 +454,8 @@ func _player_row(r: Dictionary) -> HBoxContainer:
 
 
 ## A race team's head over its rows: "YOUR CREW" or "RIVAL CREW", its race time, its lives
-## and the line of them along its own waves, over a thin bronze rule.
+## and the line of them along its own waves, over a thin bronze rule. A duel's side: "YOU" or
+## "YOUR RIVAL", the breach it dealt in the race time's place.
 func _team_head(block: Dictionary, shown: Dictionary) -> VBoxContainer:
 	var holder := VBoxContainer.new()
 	holder.name = "Team%d" % (int(block["team"]) + 1)
@@ -471,7 +533,9 @@ func _row(cells: Array, header: bool, seat: int, builder := "") -> HBoxContainer
 	var row := HBoxContainer.new()
 	row.name = "Header" if header else "Seat%d" % (seat + 1)
 	row.add_theme_constant_override("separation", 18)
-	var widths := [160, 140, 54, 70, 60, 124, 0]
+	# (the Builder's face and title need 108 at most, "12 (12 forked)" 93, so the line keeps
+	# 162 of the plate's 848: "Most kills in wave 11" is 147)
+	var widths := [160, 130, 54, 70, 60, 104, 0]
 	for i in cells.size():
 		var cell: Control
 		if header:

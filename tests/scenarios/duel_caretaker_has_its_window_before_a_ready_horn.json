@@ -1,0 +1,21 @@
+{
+  "name": "duel_caretaker_has_its_window_before_a_ready_horn",
+  "description": "A player who presses Ready at once does not take the caretaker's window from it (Duel the caretaker, contract-m7 §2): the horn waits until the caretaken seat has said Ready, which the caretaker does on the first tick of the window both hollows share, after its corks and builds. Seat 1 plays its plan by command every 3 ticks and presses Ready as soon as each window opens; seat 2, the caretaker from tick 0, still says Ready before every horn, corks in at least as many windows as when seat 1 waits out every window (8 against 5 since its plan waits while its window does, so it corks first on the shared window's first tick: duel_caretaker_corks_before_its_plan_spends), and uncorks every bottle. Before the fix the horn sounded on the tick after the Drift, before the caretaker's think: 2 corks against 5.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1, 'caretakers': [2]})"},
+    {"eval": "scene.play_out([1], 3, 120000, [])"},
+    {"eval": "scene.duel_count(2, 'cork')", "as": "waiting_corks"},
+    {"eval": "scene.duel_line()", "as": "waiting"},
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1, 'caretakers': [2]})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "scene.play_out([1], 3, 120000, [1])"},
+    {"eval": "scene.duel_line()", "as": "ready"},
+    {"eval": "scene.rows('READY', ['tick'], {'seat': 1, 'on': true}).size()", "as": "player_readies"},
+    {"assert": "m.over and m.decided_by() != '' and player_readies >= 14", "msg": "the duel ran to its decision with the player Ready in every window"},
+    {"assert": "scene.events_where('WAVE', {'hollow': 1, 'start': true}).size() >= 14 and scene.horns_before_ready(2).is_empty()", "msg": "the caretaker said Ready before every horn"},
+    {"assert": "scene.duel_count(2, 'cork') >= waiting_corks and waiting_corks >= 4 and scene.duel_count(2, 'uncork') == scene.duel_count(2, 'cork')", "msg": "and corked at least as often as against a player who waits out every window, uncorking each bottle"}
+  ]
+}

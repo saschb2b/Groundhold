@@ -28,7 +28,8 @@
 ## queue_party() queues it as a scripted
 ## leader would; member_answer(name, yes) is a scripted member's answer to Match Found. The fake answers QUEUE and ACCEPT as
 ## the server does (fake_sequencer.gd, The queue): `seq.queue_log`, `seq.ticket`,
-## `seq.found`, `seq.founds_sent`.
+## `seq.found`, `seq.founds_sent`. A duel (M7) is party_mode('undertow'): one stranger is a
+## party of one's rival, and finish(outcome, ["won", "lost"]) ends it one outcome a side.
 @warning_ignore_start("integer_division")
 extends Node
 
@@ -110,8 +111,10 @@ func load_member(who: String, per_mille: int, loaded := false) -> void:
 	seq.script_load(who, per_mille, loaded)
 
 
-func finish(outcome := "won") -> void:
-	seq.finish(outcome)
+## The match ends with `outcome` for everyone, or with `per_team`'s, one a team (a race's or a
+## duel's: ["won", "lost"] tells team 0 it won and team 1 it lost).
+func finish(outcome := "won", per_team := []) -> void:
+	seq.finish(outcome, per_team)
 
 
 ## The session's link is lost at once (what was on its way with it), and its new links are

@@ -1,7 +1,9 @@
 """tools/net/smoke.py's own checks on made-up logs: the tick rate over its window, the
 RESULT a client may miss when the majority ends the match first, --mode tide_race's
-arguments and its race check, a build without the mode's rules named first, --flow
---queue's check and its games, and when the project is imported before its games start.
+arguments and its race check, --mode undertow's (the duel, one a side, and what each game's
+plan bot says it corked, uncorked and sent down the rival's road), a build without the
+mode's rules named first, --flow --queue's check and its games (and M7's duellists finding
+each other with --mode undertow), and when the project is imported before its games start.
 
     python3 -m unittest tools/net/test_smoke.py
 
@@ -169,11 +171,98 @@ class NoRulesTests(unittest.TestCase):
             self.assertIn("has no tide_race rules", report["problems"][0])
 
 
-def queue_log(code, match=7, seat=1, config="lamplighter,lookout,beekeeper,bellfounder", back="queued"):
+class DuelModeTests(unittest.TestCase):
+    """--mode undertow (M7): the duel as a dev match, one client a side, checked as a race."""
+
+    def error(self, *argv):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()) as said:
+            smoke.main(list(argv))
+        return said.getvalue()
+
+    def test_two_clients_one_a_side(self):
+        for clients in ("1", "3", "4"):
+            self.assertIn("takes 2 to 2 clients", self.error("--mode", "undertow", "--clients", clients))
+        self.assertEqual(smoke.mode_problem("undertow", 2), "")
+        self.assertEqual(smoke.parse_args(["--mode", "undertow"]).clients, 2)
+
+    def test_the_server_runs_the_duel_as_a_dev_match(self):
+        import argparse
+        with tempfile.TemporaryDirectory() as out:
+            duel = smoke.Smoke(argparse.Namespace(mode="undertow", clients=2, seed=1, turn_ms=10, out=out, server=None))
+            command = duel.server_command()
+            self.assertIn("undertow:2", command)
+            self.assertEqual(command[command.index("--turn-ms") + 1], "10")
+            self.assertTrue(duel.race() and duel.duel())
+            race = smoke.Smoke(argparse.Namespace(mode="tide_race", clients=2, seed=1, turn_ms=10, out=out, server=None))
+            self.assertTrue(race.race())
+            self.assertFalse(race.duel())
+
+    def logs(self, folder, outcomes, seats=(1, 2), duels=None):
+        for k, (outcome, seat) in enumerate(zip(outcomes, seats), start=1):
+            played = "\n".join(duel_lines(seat) if duels is None else duels[k - 1])
+            (folder / f"client{k}.log").write_text(
+                f"MATCH 1 seat {seat} of 2 seed 1\nHASH 0 aa\nHASH 60 bb\n{played}\nHASH 120 cc\n"
+                f"RESULT 150 dd {outcome}\nMATCH_END {outcome} result 150\n", encoding="utf-8")
+        (folder / "server.log").write_text("", encoding="utf-8")
+
+    def check(self, outcomes, seats=(1, 2), duels=None, no_bot=False):
+        import argparse
+        with tempfile.TemporaryDirectory() as out:
+            folder = pathlib.Path(out)
+            self.logs(folder, outcomes, seats, duels)
+            args = argparse.Namespace(mode="undertow", clients=2, seed=1, turn_ms=10, out=out, server=None,
+                                      rate_floor=0.8, shaper=False, faults=False, no_bot=no_bot)
+            done = argparse.Namespace(returncode=0)
+            return smoke.Smoke(args).check([(1, done, folder / "client1.hashes"), (2, done, folder / "client2.hashes")])
+
+    def test_a_duel_ends_won_against_lost_or_a_draw_for_both(self):
+        self.assertEqual(self.check(("won", "lost"))["problems"], [])
+        self.assertEqual(self.check(("draw", "draw"))["problems"], [])
+        self.assertTrue(any("one wins and one loses" in p for p in self.check(("won", "won"))["problems"]))
+        # (both games in one seat are no duel)
+        self.assertTrue(any("a duel is seat 1 of 2" in p for p in self.check(("won", "lost"), (1, 1))["problems"]))
+
+    def test_what_a_duelling_bot_says(self):
+        seen = smoke.duel_game(duel_lines(1) + ["BOT bottle 120 window 3 fizzled", "BOT seawall wave 6 seq 10",
+                                                "BOT seawall rose wave 6 charges 1", "HASH 60 aa"])
+        self.assertEqual((seen["corks"], seen["uncorks"], seen["seawalls"], seen["rose"]), (1, 1, 1, 1))
+        self.assertEqual(seen["corked"], [(90, 2, 0)])
+        self.assertEqual(seen["uncorked"], [(90, 2, "winged", "bot")])
+        self.assertEqual(seen["fizzled"], [120])
+        self.assertEqual(seen["walking"], [(2, 1, 3)])
+
+    def test_each_side_corks_and_uncorks_and_a_pack_walks_across(self):
+        # (CORK, UNCORK and SEAWALL cross the server: the duel's check reads what each game's
+        # simulation did with them, from its plan bot's BOT lines)
+        report = self.check(("won", "lost"))
+        self.assertTrue(report["ok"])
+        self.assertIn("client 1: 1 corked, 1 uncorked by the bot", report["duel"])
+        uncorked_by_the_client = [line.replace("by bot", "by client") for line in duel_lines(2)]
+        never_corked = [line for line in duel_lines(1) if " cork" not in line and "uncork" not in line]
+        problems = self.check(("won", "lost"), duels=[never_corked, uncorked_by_the_client])["problems"]
+        self.assertTrue(any(p.startswith("client 1 never corked") for p in problems), problems)
+        self.assertTrue(any(p.startswith("client 2's bot never uncorked a bottle itself") for p in problems), problems)
+        nowhere = [[line for line in duel_lines(seat) if "walking" not in line] for seat in (1, 2)]
+        self.assertIn("no uncorked pack walked a rival's road",
+                      self.check(("draw", "draw"), duels=nowhere)["problems"])
+        # (--no-bot: nobody corks, and only the race's check is made)
+        self.assertEqual(self.check(("draw", "draw"), duels=[[], []], no_bot=True)["problems"], [])
+
+
+def duel_lines(seat):
+    """A duelling plan bot's BOT lines (tests/bot.gd) for one corked and uncorked pack."""
+    return [f"BOT cork winged window 2 seq {seat + 2}", f"BOT bottle {88 + 2 * seat} window 2 tier 0 corked",
+            f"BOT uncork bottle {88 + 2 * seat} window 2 seq {seat + 3}",
+            f"BOT bottle {88 + 2 * seat} window 2 uncorked winged by bot",
+            f"BOT walking wave 2 hollow {2 - seat} creeps 3"]
+
+
+def queue_log(code, match=7, seat=1, config="lamplighter,lookout,beekeeper,bellfounder", back="queued",
+              mode="high_water", seats=4, fielded="lamplighter,lookout,lamplighter,lamplighter"):
     """A --flow --queue game's FLOW lines, as tests/net/flow_bot.gd prints them."""
     return [f"FLOW party {code} members 1 me 0 leader", "FLOW state HUB", f"FLOW queued {code}",
-            "FLOW state MATCH_FOUND", f"FLOW found {match} seats 4", "FLOW state LOADING",
-            f"FLOW match high_water seat {seat} of 4 builders lamplighter,lookout,lamplighter,lamplighter",
+            "FLOW state MATCH_FOUND", f"FLOW found {match} seats {seats}", "FLOW state LOADING",
+            f"FLOW match {mode} seat {seat} of {seats} builders {fielded}",
             f"FLOW config builders {config}", "FLOW state IN_MATCH", "MATCH_END lost result 9000",
             "FLOW state RESULTS", "FLOW results lost The Tide Took the Hearth", "FLOW state HUB",
             "FLOW state MATCH_FOUND", f"FLOW queued {code}", f"FLOW back {code} members 1 phase {back}"]
@@ -246,6 +335,94 @@ class QueueFlowTests(unittest.TestCase):
         self.assertIn("four games", error("--flow", "--queue", "--clients", "2"))
         self.assertEqual(smoke.parse_args([]).clients, 2)
         self.assertEqual(smoke.parse_args(["--flow"]).builders, "lamplighter,lookout")
+        # (M7: two games find each other as rivals in a two-team mode)
+        self.assertEqual(smoke.parse_args(["--flow", "--queue", "--mode", "undertow"]).clients, 2)
+        self.assertEqual(smoke.parse_args(["--flow", "--queue", "--mode", "tide_race"]).clients, 2)
+        self.assertEqual(smoke.parse_args(["--flow", "--queue", "--mode", "high_water"]).clients, 4)
+        self.assertIn("plays two games", error("--flow", "--queue", "--mode", "undertow", "--clients", "4"))
+        # (the bots' duel through the queue plays to the Surge's end at 50 ms turns: more time)
+        self.assertEqual(smoke.parse_args(["--flow", "--queue", "--mode", "undertow"]).timeout, 1500)
+        self.assertEqual(smoke.parse_args(["--flow", "--queue", "--mode", "undertow", "--no-bot"]).timeout, 900)
+        self.assertEqual(smoke.parse_args(["--mode", "undertow"]).timeout, 900)
+        self.assertEqual(smoke.parse_args(["--flow", "--queue", "--mode", "undertow", "--timeout", "60"]).timeout, 60)
+        self.assertIn("--mode is one of", error("--flow", "--queue", "--mode", "duel"))
+        self.assertIn("--flow plays the hub's mode", error("--flow", "--mode", "undertow"))
+
+
+class DuelQueueFlowTests(unittest.TestCase):
+    """--flow --queue --mode undertow (M7): two games alone find each other as rivals through the
+    real server's queue, one a side, each with its own main."""
+
+    def duellist(self, code, seat, config="lamplighter,lamplighter", mode="undertow"):
+        return queue_log(code, seat=seat, config=config, mode=mode, seats=2, fielded="lamplighter,lamplighter")
+
+    def games(self, *logs):
+        return {k: smoke.queue_game(lines) for k, lines in enumerate(logs, start=1)}
+
+    def test_two_duellists_one_a_side_and_queued_again(self):
+        games = self.games(self.duellist("B2C3D", 1), self.duellist("F4G5H", 2))
+        mains = ["lamplighter", "lamplighter"]
+        self.assertEqual(smoke.queue_problems(games, 2, "undertow", mains), [])
+        # (two Lamplighters keep the Lamplighter: High Water's rule would call that a shared one)
+        self.assertTrue(any("share one" in p for p in smoke.queue_problems(games, 2)))
+
+    def test_what_the_duels_check_refuses(self):
+        mains = ["lamplighter", "lamplighter"]
+        unclashed = self.games(self.duellist("B2C3D", 1, "lamplighter,lookout"),
+                               self.duellist("F4G5H", 2, "lamplighter,lookout"))
+        self.assertTrue(any("never crosses the sides" in p
+                            for p in smoke.queue_problems(unclashed, 2, "undertow", mains)))
+        raced = self.games(self.duellist("B2C3D", 1, mode="tide_race"), self.duellist("F4G5H", 2, mode="tide_race"))
+        self.assertTrue(any("not undertow" in p for p in smoke.queue_problems(raced, 2, "undertow", mains)))
+
+    def queue_check(self, outcomes=("won", "lost"), duels=None, no_bot=False):
+        """QueueFlow.check on two duellists' made-up logs: their FLOW lines with the given
+        outcomes, their plan bots' BOT lines (`duels`, else one corked and uncorked pack each)
+        and equal hash lines."""
+        with tempfile.TemporaryDirectory() as out:
+            folder = pathlib.Path(out)
+            for k, (code, outcome) in enumerate(zip(("B2C3D", "F4G5H"), outcomes), start=1):
+                lines = [line if not line.startswith("MATCH_END") else f"MATCH_END {outcome} result 9000"
+                         for line in self.duellist(code, k)]
+                played = duel_lines(k) if duels is None else duels[k - 1]
+                at = lines.index("FLOW state IN_MATCH") + 1
+                lines[at:at] = ["HASH 8940 aa"] + played
+                (folder / f"client{k}.log").write_text("\n".join(lines) + "\n", encoding="utf-8")
+            (folder / "server.log").write_text("", encoding="utf-8")
+            argv = ["--flow", "--queue", "--mode", "undertow", "--out", out, "--godot", "godot"]
+            flow = smoke.QueueFlow(smoke.parse_args(argv + (["--no-bot"] if no_bot else [])))
+            done = type("Done", (), {"returncode": 0})()
+            return flow.check([(1, done, folder / "client1.hashes"), (2, done, folder / "client2.hashes")])
+
+    def test_the_bots_duel_through_the_queue_one_outcome_a_side(self):
+        report = self.queue_check()
+        self.assertEqual(report["problems"], [])
+        self.assertIn("client 2: 1 corked, 1 uncorked by the bot", report["duel"])
+        self.assertTrue(any("one wins and one loses" in p for p in self.queue_check(("lost", "lost"))["problems"]))
+        idle = self.queue_check(duels=[[], []])["problems"]
+        self.assertTrue(any(p.startswith("client 1 never corked") for p in idle), idle)
+        self.assertIn("no uncorked pack walked a rival's road", idle)
+        # (--no-bot: the waves called only, nobody corks)
+        self.assertEqual(self.queue_check(duels=[[], []], no_bot=True)["problems"], [])
+
+    def test_each_game_queues_in_the_mode(self):
+        with tempfile.TemporaryDirectory() as out:
+            args = smoke.parse_args(["--flow", "--queue", "--mode", "undertow", "--no-bot", "--out", out,
+                                     "--godot", "godot"])
+            flow = smoke.QueueFlow(args)
+            spawned = []
+            flow.spawn = lambda command, log, **options: spawned.append(command)
+            flow.start_clients(8766)
+            self.assertIn("undertow", flow.header())
+            high = smoke.QueueFlow(smoke.parse_args(["--flow", "--queue", "--out", out, "--godot", "godot"]))
+            others = []
+            high.spawn = lambda command, log, **options: others.append(command)
+            high.start_clients(8766)
+        self.assertEqual(len(spawned), 2)
+        for command in spawned:
+            self.assertIn("--mode=undertow", command)
+            self.assertIn("--queue", command)
+        self.assertFalse(any(arg.startswith("--mode") for command in others for arg in command))
 
 
 class ClassCacheTests(unittest.TestCase):

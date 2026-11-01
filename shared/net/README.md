@@ -152,8 +152,9 @@ fills a party's open seats and finds a rival team; there is no list of parties.
 
 A party may queue when it is `forming`, every other member is Ready, and nobody is away, in a
 match or on another rules hash; in a one-team mode (High Water: **Find players**) with open seats on
-and a seat free, and in a two-team mode (Tide Race: **Find a rival**) as one team (every member on
-one `team`) of at most half the mode's seats, 1 or 2. Any other `QUEUE` (a member's, a party that may
+and a seat free, and in a two-team mode (Tide Race and Undertow: **Find a rival**) as one team (every
+member on one `team`) of at most half the mode's seats: 1 or 2 in a race, 1 in Undertow's duel (M7,
+seats [2, 2]), so a duel's party of two is both sides already and starts instead. Any other `QUEUE` (a member's, a party that may
 not queue, `start_with_caretakers` before the offer) is answered to the asker alone with the party's
 `QUEUE_STATE` as it is: `idle`, or `queued` with its time. The server's states are `idle` and `queued`;
 `entering` and `leaving` are what a game shows while its own request is on its way.
@@ -162,8 +163,9 @@ Parties merge only with the same mode and the same rules hash (the newest build'
 Tickets wait in the order they came; one requeued after a match dissolved goes to the **front** and
 keeps its time. Each time one comes, the queue looks from the front: High Water takes each ticket in
 turn as the first and fills the mode's seats (four) with the tickets after it that came earliest
-(of every way to fill them, the one whose places in the queue come first); a Race pairs the first
-ticket with the next team of its size. So the front ticket goes first whenever its match can be
+(of every way to fill them, the one whose places in the queue come first); a Race or a duel pairs
+the first ticket with the next team of its size (a duellist with the next duellist, never a race's
+ticket: the mode is the key). So the front ticket goes first whenever its match can be
 made, and one that cannot be completed yet lets those behind it match.
 
 **Match Found** comes for every match the queue finds (it always holds strangers): `MATCH_FOUND`
@@ -180,8 +182,9 @@ that is gone or not the player's is let pass; `yes` past 1 is `ERROR` 6.
 **Builders between strangers**: duplicates are allowed inside a party and avoided between strangers
 who share a team. In the order they queued, each player keeps their main where no earlier party
 plays it, else takes their backup, else a free Builder drawn from the server's random number
-generator; `MATCH_CONFIG` carries the result. In a Race each team is one party on its own hollow, so
-every seat plays its main.
+generator; `MATCH_CONFIG` carries the result. In a Race or a duel each team is one party on its own
+hollow, so every seat plays its main: a clash never crosses the sides (two Lamplighters duel as two
+Lamplighters).
 
 **Caretakers**: `caretaker_offer_ms` (60,000) after a party queued, every member hears `NOTICE
 caretakers_offered` and `QUEUE_STATE` with `caretaker_offer` 1 (a party in Match Found then hears it
@@ -189,7 +192,9 @@ when it is requeued). The leader's `start_with_caretakers` then forms the party'
 leader's start without at 30 s, as any party's): in High Water the free seats are caretakers whose
 Builders cover the checks the party lacks (each in turn the one covering most of what is still
 lacking, then one not yet on the team, ties in `builders` order); in a Race a rival team of
-caretakers with the party's Builders, a mirror, on team 1. A caretaker's seat has the `caretaker`
+caretakers with the party's Builders, a mirror, on team 1; in a duel one caretaker of the duellist's
+Builder on team 1 (Duel the caretaker). A duel's `RESULT` names both sides' outcomes, as a race's
+does, and `MATCH_END` tells each seat its own side's. A caretaker's seat has the `caretaker`
 seat flag, a name "Caretaker 1" to "Caretaker 3" and no player: its `LOAD_STATE` is `gone`, nothing is
 injected for it, and the simulation's caretaker plays it from tick 0.
 
@@ -559,6 +564,7 @@ server's conversations in order, for testing the game's session against the real
 | `m6_queue` | the queue (its draws from `random.Random(20261101)`): two parties of one and a party of two with open seats on, `QUEUE enter`, `PARTY_STATE` queued, `QUEUE_STATE`, `MATCH_FOUND` to four and again at an accept, a decline (`QUEUE_STATE` idle and forming for her; `NOTICE match_dissolved` and `QUEUE_STATE` queued with their time for the others), her party queued again at the back, the next `MATCH_FOUND`, everyone's `ACCEPT`, each party loading, and `MATCH_CONFIG` with the strangers' Builders unclashed (a backup, and a free one drawn) |
 | `m6_caretakers` | `start_with_caretakers` before the offer (the state as it is), `QUEUE leave` and `enter` again, `NOTICE caretakers_offered` and `caretaker_offer` at 60 s, and `start_with_caretakers`: `MATCH_CONFIG` with three caretaker seats covering what a Lamplighter lacks, their `LOAD_STATE` `gone` |
 | `m6_race` | Find a rival in Tide Race: two teams of one, `MATCH_FOUND` with two seats, one accept, the 15 s out (forming for the one who did not; `match_dissolved` and the front for the other), the offer, and Race the caretaker: `MATCH_CONFIG` with a caretaker of her Builder on team 1 |
+| `m7_duel` | Find a rival in Undertow (M7): two Lamplighters alone, `MATCH_FOUND` with two seats, both `ACCEPT`, `MATCH_CONFIG` one a side with both mains kept, the barrier and two turns, `RESULT` with one outcome a side and `MATCH_END` won and lost, the results plates, and Play again: `LEAVE_MATCH`, then `QUEUE enter`, queued again |
 
 The `.bin` layout, big-endian: `"GHTX"`, u8 format (1), u16 protocol version, u8 clients, u32
 records; then per record u8 direction (0 game to server, 1 server to game), u8 client, u16 length and

@@ -1,0 +1,18 @@
+{
+  "name": "duel_caretaker_plays_full_match",
+  "description": "The caretaker is a rival for a duel (contract-m7 §2, Duel the caretaker): seat 2, a Lamplighter caretaker from tick 0, plays a whole Undertow match against a Lamplighter that only defends by command. It builds from its plan, corks by its policy in several windows (salt 0), uncorks every bottle itself (none fizzles), its packs walk only seat 1's road (sent_by 2 on hollow 0), and the match runs through the Surge or a fall to its decision, which the caretaker wins.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1, 'caretakers': [2]})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "scene.duel_out({1: 'turtle'})", "as": "end"},
+    {"eval": "scene.duel_line()", "as": "line"},
+    {"assert": "m.over and m.outcomes().size() == 2 and m.decided_by() != ''", "msg": "the duel ran to its decision"},
+    {"assert": "scene.duel_count(2, 'cork') >= 3 and scene.duel_count(2, 'uncork') == scene.duel_count(2, 'cork') and scene.duel_count(2, 'fizzle') == 0 and scene.duel_count(1, 'cork') == 0", "msg": "the caretaker corked in several windows and uncorked every bottle itself"},
+    {"assert": "scene.rows('SPAWN', ['hollow'], {'sent_by': 2}).size() > 0 and scene.rows('SPAWN', ['hollow'], {'sent_by': 2, 'hollow': 1}) == []", "msg": "its packs walked seat 1's road only"},
+    {"assert": "scene.towers_of(2).size() >= 10 and m.stipend(2) > 0", "msg": "it built from its plan and earned a stipend"},
+    {"assert": "m.outcomes() == [1, 0]", "msg": "and beat the defender"}
+  ]
+}

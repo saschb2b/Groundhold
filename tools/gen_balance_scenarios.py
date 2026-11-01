@@ -8,6 +8,10 @@ seat. Every gate keeps the match's summary and its leak table (lives lost per wa
 creep; a race's second hollow as "hollow 1 wave N") in its watches, which is what a
 balance pass reads. High Water's gates play one hollow; Tide Race's (M6) play two, one
 team on each, and read the race's decision (SimMatch.outcomes(), decided_by()).
+Undertow's (M7, the duel: design 4.4) play two hollows under one clock, one seat each, in
+the duel's play styles (tests/sim/sim_harness.gd duel_out: turtle, balanced, reckless,
+counter_cork, random), most of them as a series over seeds 1 to 5 (duel_series), and keep
+one line per match in the watches.
 
     python3 tools/gen_balance_scenarios.py          # rewrite tests/balance/*.json
     python3 tools/gen_balance_scenarios.py --check  # exit 1 if a file is out of date
@@ -15,7 +19,7 @@ team on each, and read the race's decision (SimMatch.outcomes(), decided_by()).
 
 Edit the CASES below, not the generated files. AGENTS.md's balance rule: every
 bot_wins* wins with half the lives left, every idle_* and *_loses loses, every
-coverage_* holds, every race_* holds. The two kept gates, bot_wins and
+coverage_* holds, every race_* holds, every duel_* holds. The two kept gates, bot_wins and
 idle_player_loses, live in tests/scenarios/ (bot_wins sends its plan as commands).
 """
 import json
@@ -26,6 +30,14 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "balance"
 PLANS = ROOT / "data" / "plans"
 MODE = "high_water"
+DUEL_LAST_WAVE = 15  # Undertow: hollow12's twelve, then the Surge's three
+# The duel gates' Builders by seed (seeds 1 to 5): both seats the same Builder in each
+# match, a mirror of Builders, so a gate measures the play style alone, and a different
+# one from seed to seed, so the rival's weak checks change (the Lamplighter's are armoured
+# and winged, the Lookout's swarm and swift, ...) and no two seeds play one match: the
+# match's SimRng feeds only the Drift, and two Lamplighter duels of two seeds often played
+# out alike. Each series gate also holds its matches to being all different.
+DUEL_ROSTER = ["lamplighter", "lookout", "bellfounder", "beekeeper", "lamplighter"]
 TICKS_PER_MINUTE = 3600
 WON, FALLEN = 2, 3  # SimTypes.PHASE_DONE, PHASE_FALLEN
 KITS = {  # content.gd's BUILDERS "towers", for the idle seats' first builds
@@ -40,7 +52,11 @@ KITS = {  # content.gd's BUILDERS "towers", for the idle seats' first builds
 # can pay for them, and nothing else; one_idle: seat 1 a bot, seat 2 present and idle;
 # ready_vs_wait: a race of seat 1, a bot that calls every wave as soon as its window's
 # builds are done, against seat 2 playing the same plan by command and never pressing
-# Ready, so it waits out every window), harness options, and what must hold.
+# Ready, so it waits out every window; duel: an Undertow duel played by the seats' styles
+# ("styles", seat number: style, "caretaker" for a seat the caretaker plays from tick 0)
+# once per seed of "seeds", "options" for duel_out, and "compare" for a second series the
+# same but for its options; "roster" gives each seed's Builder to both seats instead of
+# "builders"), harness options, and what must hold.
 CASES = [
     {
         "name": "bot_wins_solo_lamplighter",
@@ -195,6 +211,67 @@ CASES = [
         "options": {"play_on": True},
         "must": ["race_both_finish"],
     },
+    # M7, the duel's gates (design 4.4). Every duel here is a mirror of Builders, so a gate
+    # measures the play style alone: two Lamplighters where one seed is enough, and over a
+    # series each seed's Builder of DUEL_ROSTER on both seats, so the seeds play different
+    # matches against rivals with different weak checks.
+    {
+        "name": "duel_mirror_is_draw",
+        "about": "Undertow, the same Builder and the caretaker's play on both hollows: two caretakers of one Builder cork, uncork and raise their Seawalls alike, the Drift brings both the same packs, and each of four seeds, with the Lamplighter, the Lookout, the Bellfounder and the Beekeeper on both seats in turn, ends a draw with both seats' records equal.",
+        "mode": "undertow",
+        "roster": DUEL_ROSTER[:4],
+        "play": "duel",
+        "styles": {1: "caretaker", 2: "caretaker"},
+        "seeds": [1, 2, 3, 4],
+        "must": ["duel_mirror", "duel_distinct"],
+    },
+    {
+        "name": "duel_turtle_holds",
+        "about": "Undertow: a Lamplighter that only defends (its plan, never a cork) against a passive rival that does the same holds to the end of the Surge with at least 10 lives.",
+        "mode": "undertow",
+        "builders": ["lamplighter", "lamplighter"],
+        "play": "duel",
+        "styles": {1: "turtle", 2: "turtle"},
+        "seeds": [1],
+        "must": ["duel_holds(0)>=10"],
+    },
+    {
+        "name": "duel_balanced_beats_turtle",
+        "about": "Undertow: a seat playing the caretaker's policy (the cheapest cork while its corks stay within a fifth of what it holds, the pack its rival's towers take longest to kill) beats one of the same Builder that only defends in at least 3 of seeds 1 to 5, each seed another Builder on both seats (DUEL_ROSTER), every match a different one.",
+        "mode": "undertow",
+        "roster": DUEL_ROSTER,
+        "play": "duel",
+        "styles": {1: "balanced", 2: "turtle"},
+        "must": ["duel_wins(0)>=3", "duel_distinct"],
+    },
+    {
+        "name": "duel_turtle_beats_reckless",
+        "about": "Undertow: a seat that only defends beats one of the same Builder that corks the most it can every window, before it builds, in at least 3 of seeds 1 to 5 (each seed another Builder on both seats, every match a different one): the packs it kills pay it, and the reckless one's defence starves.",
+        "mode": "undertow",
+        "roster": DUEL_ROSTER,
+        "play": "duel",
+        "styles": {1: "turtle", 2: "reckless"},
+        "must": ["duel_wins(0)>=3", "duel_distinct"],
+    },
+    {
+        "name": "duel_counter_cork_beats_random",
+        "about": "Undertow: corking the pack the rival's towers take longest to kill beats corking an offered pack at random, with the same budget, in at least 3 of seeds 1 to 5. Each seed puts another Builder on both seats, so the rival's weak checks change from match to match, every match is a different one, and the counter-corker's most-uncorked pack is not the same in every match: it corks the rival's weakness, not one pack.",
+        "mode": "undertow",
+        "roster": DUEL_ROSTER,
+        "play": "duel",
+        "styles": {1: "counter_cork", 2: "random"},
+        "must": ["duel_wins(0)>=3", "duel_distinct", "duel_picks_vary(1)>=2"],
+    },
+    {
+        "name": "duel_seawall_saves",
+        "about": "Undertow: the Seawall is the comeback. A seat that only defends, raising its Seawall as the caretaker would (with a charge, once the creeps near its Holdfast would take 3 lives or a boss stands there), beats a reckless corker of the same Builder in at least 3 of seeds 1 to 5 (each seed another Builder on both seats, every match a different one), and in more of them than the same defender that never raises it.",
+        "mode": "undertow",
+        "roster": DUEL_ROSTER,
+        "play": "duel",
+        "styles": {1: "reckless", 2: "turtle"},
+        "compare": {"no_seawall": [2]},
+        "must": ["duel_wins(1)>=3", "duel_wins(1)>compare_wins(1)", "duel_walls(2)>0", "duel_distinct"],
+    },
 ]
 
 
@@ -251,10 +328,101 @@ def assertion(rule):
             f" and (scene.decided_tick() < {m}.teams[0].clear_tick or scene.decided_tick() < {m}.teams[1].clear_tick)",
             "both clear wave 12; the lower race time won, decided before the slower team finished",
         )
+    if rule == "duel_mirror":
+        return (
+            "series['draws'] == series['matches'].size() and series['mirrors'] == series['matches'].size()"
+            " and series['lines'].size() > 0",
+            "every seed a draw, both seats' records equal",
+        )
+    if rule.startswith("duel_holds("):
+        team = int(rule[len("duel_holds("):rule.index(")")])
+        n = int(rule.split(">=")[1])
+        return (
+            f"series['matches'][0]['teams'][{team}]['lives'] >= {n}"
+            f" and series['matches'][0]['wave'] == {DUEL_LAST_WAVE}"
+            f" and series['matches'][0]['teams'][{team}]['phase'] == {WON}",
+            f"it stands after the Surge's last wave with at least {n} lives",
+        )
+    if rule.startswith("duel_wins("):
+        team = int(rule[len("duel_wins("):rule.index(")")])
+        if ">=" in rule:
+            n = int(rule.split(">=")[1])
+            return f"series['wins'][{team}] >= {n}", f"team {team} wins at least {n} of the seeds"
+        other = rule.split(">")[1]
+        assert other.startswith("compare_wins(")
+        return (
+            f"series['wins'][{team}] > compare['wins'][{team}]",
+            f"team {team} wins more seeds than in the compared series (the same duel but for its options)",
+        )
+    if rule == "duel_distinct":
+        return (
+            "series['distinct'] == series['matches'].size()",
+            "every seed played a different match",
+        )
+    if rule.startswith("duel_picks_vary("):
+        seat = int(rule[len("duel_picks_vary("):rule.index(")")])
+        n = int(rule.split(">=")[1])
+        return (
+            f"series['leading_picks'].get({seat}, 0) >= {n}",
+            f"seat {seat}'s most-uncorked pack differs between the matches: at least {n} different ones",
+        )
+    if rule.startswith("duel_walls("):
+        seat = int(rule[len("duel_walls("):rule.index(")")])
+        return (
+            f"scene.duel_count({seat}, 'seawall') > 0",
+            f"seat {seat} raised its Seawall",
+        )
     raise SystemExit(f"unknown rule {rule}")
 
 
+def gd_seats(styles):
+    """A {seat: style} dictionary as a GDScript Expression writes it (int keys)."""
+    return "{" + ", ".join(f"{seat}: '{style}'" for seat, style in styles.items()) + "}"
+
+
+def duel_scenario(case):
+    seeds = case.get("seeds", [1, 2, 3, 4, 5])
+    if "roster" in case:
+        by_seed = [[builder, builder] for builder in case["roster"]]
+        if len(by_seed) != len(seeds):
+            raise SystemExit(f"{case['name']}: the roster gives {len(by_seed)} Builders for {len(seeds)} seeds")
+        builders = by_seed[0]
+    else:
+        by_seed, builders = None, case["builders"]
+    styles = {seat: s for seat, s in case["styles"].items() if s != "caretaker"}
+    cfg = {"mode": case["mode"], "seats": len(builders), "builders": builders, "events": False}
+    if by_seed:
+        cfg["builders_by_seed"] = by_seed
+    caretakers = [seat for seat, s in case["styles"].items() if s == "caretaker"]
+    if caretakers:
+        cfg["caretakers"] = caretakers
+    cfg.update(case.get("options", {}))
+    run = "scene.duel_series(%s, %s, %s, %s)" % (
+        json.dumps(cfg, sort_keys=True), gd_seats(styles), json.dumps(seeds), json.dumps(case.get("duel_options", {}))
+    )
+    steps = []
+    if "compare" in case:
+        steps.append({"eval": run.replace(json.dumps(case.get("duel_options", {})) + ")", json.dumps(case["compare"]) + ")"), "as": "compare"})
+        steps.append({"eval": "compare['lines']", "as": "compare_lines"})
+    steps.append({"eval": run, "as": "series"})
+    steps.append({"eval": "series['lines']", "as": "lines"})
+    for rule in case["must"]:
+        expr, msg = assertion(rule)
+        steps.append({"assert": expr, "msg": msg})
+    return {
+        "name": case["name"],
+        "description": case["about"] + " Generated by tools/gen_balance_scenarios.py: edit the generator, not this file.",
+        "scene": "res://tests/sim/sim_harness.tscn",
+        "seed": 1,
+        "timeout_frames": 60,
+        "watch": {"duel": "scene.duel_line()", "leaks": "scene.leak_table()"},
+        "steps": steps,
+    }
+
+
 def scenario(case):
+    if case["play"] == "duel":
+        return duel_scenario(case)
     builders = case["builders"]
     n = len(builders)
     mode = case.get("mode", MODE)

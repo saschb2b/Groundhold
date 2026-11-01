@@ -37,6 +37,9 @@ values back into the same bytes.
   m6_race        Find a rival in Tide Race: two teams of one, MATCH_FOUND, the 15 s running out
                  (the one who accepted requeued at the front), the offer, and Race the caretaker:
                  a caretaker rival team mirroring the party
+  m7_duel        Find a rival in Undertow: two duellists alone, MATCH_FOUND, both ACCEPT, MATCH_CONFIG
+                 one a side (no Builder clash across the sides), RESULT with one outcome a side,
+                 MATCH_END won and lost, and Play again: LEAVE_MATCH and QUEUE enter, queued again
 
 The .bin format (all big-endian): "GHTX", u8 format (1), u16 protocol version,
 u8 clients, u32 records; then each record: u8 direction (0 game to server,
@@ -369,6 +372,63 @@ async def race(record):
         await edda.until("PARTY_STATE")
         await edda.until("MATCH_CONFIG")
         await edda.until("LOAD_STATE")
+        await edda.bye()
+    finally:
+        await game.close()
+    return 2
+
+
+async def duel(record):
+    clock = ManualClock()
+    game = server(clock=clock, **queue_options())
+    port = await game.start("127.0.0.1", 0)
+    tamsin, edda = Client(record, 0), Client(record, 1)
+    both = (tamsin, edda)
+    ops = SPEC["queue_ops"]
+    outcomes = SPEC["outcomes"]
+    try:
+        # (two Lamplighters, each alone: a duel's sides never clash, so both keep the main)
+        await alone(port, tamsin, "Tamsin", TAMSIN, mode="undertow", open_seats=False)
+        await tamsin.send_message("QUEUE", op=ops["enter"])
+        await tamsin.until("PARTY_STATE")
+        await tamsin.until("QUEUE_STATE")
+        await clock.advance(2000)
+        await alone(port, edda, "Edda", EDDA, mode="undertow", open_seats=False)
+        await edda.send_message("QUEUE", op=ops["enter"])
+        await edda.until("PARTY_STATE")
+        await edda.until("QUEUE_STATE")
+        found = (await each("MATCH_FOUND", both))[0]["match"]
+        await tamsin.send_message("ACCEPT", match=found, yes=1)
+        await each("MATCH_FOUND", both)
+        await edda.send_message("ACCEPT", match=found, yes=1)
+        await each("PARTY_STATE", both)
+        await each("MATCH_CONFIG", both)
+        await each("LOAD_STATE", both)
+        for client in both:
+            await client.send_message("LOADED", rules_hash=RULES, tick0_hash=TICK0)
+            await each("LOAD_STATE", both)
+        await each("LOAD_STATE", both)
+        await clock.advance(SPEC["loading_min_ms"])
+        await each("START", both)
+        await each("PARTY_STATE", both)
+        await clock.advance(SPEC["start_delay_ms"])
+        await clock.turns(2)
+        for client in both:
+            await client.until("TURN")
+            await client.until("TURN")
+        # (a duel's RESULT names both sides: Tamsin's won, Edda's lost, each told its own)
+        for client in both:
+            await client.send_message("RESULT", tick=6, hash=FINAL,
+                                      outcomes=[dict(outcome=outcomes["won"]), dict(outcome=outcomes["lost"])])
+        await each("MATCH_END", both)
+        await each("PARTY_STATE", both)
+        # (Play again for a duellist who came alone: LEAVE_MATCH, then QUEUE enter)
+        await tamsin.send_message("LEAVE_MATCH")
+        await tamsin.until("PARTY_STATE")
+        await tamsin.send_message("QUEUE", op=ops["enter"])
+        await tamsin.until("PARTY_STATE")
+        await tamsin.until("QUEUE_STATE")
+        await tamsin.bye()
         await edda.bye()
     finally:
         await game.close()
@@ -861,7 +921,12 @@ async def record_all(directory):
              "Find a rival in Tide Race: Edda and Ottilie, a team of one each, MATCH_FOUND (two seats), "
              "Edda's accept, the 15 s running out (Ottilie forming, Edda NOTICE match_dissolved and at the "
              "front), the offer at 60 s, and Race the caretaker: MATCH_CONFIG with a caretaker Lookout on "
-             "team 1 against hers.")):
+             "team 1 against hers."),
+            ("m7_duel", duel,
+             "Find a rival in Undertow (M7): Tamsin and Edda, two Lamplighters alone, MATCH_FOUND (two seats), "
+             "both ACCEPT, MATCH_CONFIG one a side with both mains kept (a duel's sides never clash), the "
+             "barrier, two turns, RESULT with one outcome a side and MATCH_END won to Tamsin and lost to Edda, "
+             "the results plates, and Tamsin's Play again: LEAVE_MATCH, then QUEUE enter, queued again.")):
         records = Listed() if name == "m4_resilience" else []
         clients = await script(records)
         write(directory, name, records, clients, note)

@@ -30,9 +30,10 @@ bytes and, once track A adds it, the `undertow` preset.
 - **Preset `undertow`:** `high_water`'s keys with `teams` 2, `seats` [2, 2], `clock` `"shared"` (both hollows' windows,
   Ready and horn are one: the horn sounds when both seats are Ready or the shared countdown ends) and a `duel` block
   (*tunable*): `drift_from` 2; `offered` 3; `tiers` `[{"windows": [2, 4], "price": 30, "stipend": 4}, {"windows":
-  [5, 8], "price": 55, "stipend": 6}, {"windows": [9, 12], "price": 85, "stipend": 8}]`; `corks` 1, and 2 from
-  window `corks_two_from` 9; `uncork_after_t` 180 (3 s after the horn), `auto_uncork_t` 1440 (24 s, the client's),
-  `fizzle_t` 1500 (25 s); `breach_pay` 2 (times the bounty); `seawall` `{"every_lives": 4, "charges": 2,
+  [5, 8], "price": 55, "stipend": 6}, {"windows": [9, 12], "price": 85, "stipend": 8}]`; `corks` 1, and
+  `corks_two` 2 from window `corks_two_from` 9; `uncork_after_t` 180 (3 s after the horn), `auto_uncork_t` 1440
+  (24 s, the client's), `fizzle_t` 1500 (25 s); `pack_interval_t` 30 (an uncorked pack's creeps set out half a
+  second apart); `breach_pay` 2 (times the bounty); `seawall` `{"every_lives": 4, "charges": 2,
   "radius_mm": 3000, "stun_t": 120, "hp_pm": 250, "boss_hp_pm": 80, "boss_slow_pm": 500, "cooldown_t": 900}`;
   `surge` `{"waves": [9, 10, 11], "hp_pm": 1350, "window_t": 480, "cork_price_pm": 500}`.
 - **The Drift:** from window `drift_from`, each window offers `offered` of the four packs, drawn from the match's
@@ -43,8 +44,12 @@ bytes and, once track A adds it, the `undertow` preset.
   At most `corks` per window. `UNCORK(a = pack, b, c = the salt's two halves)` during the next wave, from
   `uncork_after_t` after the horn: the simulation recomputes the commit and spawns the pack on the **rival's** road
   (`sent_by` the seat) only if it matches and the pack was offered in the bottle's window; otherwise `BAD_REVEAL`.
-  A bottle with no valid reveal by `fizzle_t` fizzles (`EV_FIZZLE`): the gold stays spent. The stipend's gain
-  starts at the uncorking; stipends pay at each wave clear as `EV_GOLD` `why` `"stipend"`.
+  A bottle with no valid reveal by `fizzle_t` fizzles (`EV_FIZZLE`): the gold stays spent. A wave a rival's bottle
+  is corked for does not clear while the bottle is corked or its pack is still to come (`SimUndertow.holds`), so a
+  fast wave never ends before its sender may uncork: the defender's road may stand empty while its wave waits (up
+  to `fizzle_t` after the horn; `SimMatch.wave_held(hollow)` tells a view), and since the next window opens for both
+  hollows only once both have cleared, the bottle holds back both hollows' window that long. The stipend's gain starts at the uncorking; stipends pay at
+  each wave clear as `EV_GOLD` `why` `"stipend"`, and in the Surge they are still paid but no longer grow.
 - **The commitment** (both the client and the simulation compute it, through `SimUndertow.commit(match_seed, seat,
   window, pack, salt_hi, salt_lo) -> [b, c]`): SHA-256 through `HashingContext` over, in order, the match seed as 4
   bytes big-endian, the seat (1-based, as the simulation numbers it) as 1 byte, the window (the wave it precedes) as
@@ -67,14 +72,22 @@ bytes and, once track A adds it, the `undertow` preset.
   uncorked, fizzled}`; the pack only once uncorked), `seawall_charges(seat)` and `seawall_ready_tick(seat)` are for
   the views. All new state goes in the codec's trailing block (written only when set), so earlier modes keep their
   checkpoint bytes.
-- **The caretaker** in a duel builds from its plan and corks by a policy (the cheapest tier it can afford while
-  keeping its plan's next build, the pack the rival's coverage is weakest against, uncorked at `uncork_after_t`), so
-  `duel_caretaker_plays_full_match` and Duel the caretaker have a rival.
+- **The caretaker** in a duel builds from its plan and corks by a policy (the cheapest tier, while its corks stay
+  within `CORK_SHARE_PM`, a fifth, of everything it holds, corked before the plan spends: a plan always waits on a
+  step it cannot pay yet, so "keeping its plan's next build" never corks; the pack the rival's towers take longest
+  to kill, `SimUndertow.weakest_pack`; uncorked at `uncork_after_t`), so `duel_caretaker_plays_full_match` and Duel
+  the caretaker have a rival. It plays the first tick of the shared window (`SimUndertow.shared_window_tick`) and
+  only then says Ready, so a player's instant Ready never takes its window. While its hollow stands in its window
+  and the rival's still plays the wave, its plan waits (`Caretaker.holds_plan`), so on that first tick it corks
+  before it builds.
 
 ## 3. The duel on screen (track B)
 
 The client holds each bottle's salt (8 bytes from `Crypto`, never sent before the uncorking), keyed by bottle,
-through link losses; it uncorks by itself at `auto_uncork_t` after the horn if the player has not. **Space** or a
+through link losses (a world loaded after a resync or a rejoin is matched to the salts by the bottles' commitments,
+since it may number its bottles otherwise); it uncorks by itself at `auto_uncork_t` after the horn if the player has not (a networked game
+sends that UNCORK ahead by the turns it holds and has not run, so it runs then however far behind it plays, the trip
+left in the margin to `fizzle_t`). **Space** or a
 click on a corked bottle uncorks during a duel wave (Space is Ready elsewhere); **F** spends a Seawall charge. The
 **Drift tray** shows the window's three packs with their tier price and Q-row-free keys (click to cork), your corked
 bottles, and the rival's bottles as corked shapes with their tier. The **duel bar** shows both sides' lives, breach

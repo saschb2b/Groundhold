@@ -9,7 +9,10 @@ quint 1.5, nominal 2 and its upper partials; a chime tube's free-bar modes 1, 2.
 sines a few cents apart, so it beats and shimmers as a cast bell does, decaying exponentially with its own time
 constant, over a short strike: a burst of low-passed noise and, for a heavy blow, a low thump. Notes may follow one
 another (a peal). A swarm is a handful of buzzing voices (band-limited saws round 200 Hz, each with its own
-vibrato and drift) under a soft low-pass. Every sound is mono, 16 bit, 44.1 kHz, its sample peak at the spec's
+vibrato and drift) under a soft low-pass. The duel's sounds (M7) add two more layers: a sweep, a sine
+whose pitch glides from one frequency to another as it dies away (a cork's pop in a bottle's neck, the boom under
+a breach), and a wash, noise through a low-pass whose cutoff moves across its length, shaped by an attack and a
+release and cut below a high-pass (surf breaking, a fizz, stone grinding up out of the ground). Every sound is mono, 16 bit, 44.1 kHz, its sample peak at the spec's
 `peak_db` (below the style's -1 dBFS true peak), faded in over 2 ms and out over its last 60 ms.
 
 Seeded and deterministic; only the standard library is needed. Outputs are recorded in asset_manifest.json; a file
@@ -100,6 +103,42 @@ def swarm(n: int, voices: int, base: float, spread: float, rng: random.Random, o
             out[i] += amp * loud * s
 
 
+def sweep(n: int, at: float, f_from: float, f_to: float, glide: float, decay: float, gain: float,
+          out: list[float]) -> None:
+    """Adds a sine gliding from f_from to f_to over `glide` seconds, dying away with time constant `decay`."""
+    start = int(at * RATE)
+    phase = 0.0
+    for k in range(min(n - start, int(decay * 9 * RATE))):
+        t = k / RATE
+        u = min(1.0, t / glide) if glide > 0 else 1.0
+        f = f_from + (f_to - f_from) * (1 - (1 - u) ** 2)
+        phase += 2 * math.pi * f / RATE
+        out[start + k] += gain * math.sin(phase) * math.exp(-t / decay) * min(1.0, t / 0.002)
+
+
+def wash(n: int, at: float, length: float, attack: float, release: float, cut_from: float, cut_to: float,
+         highpass: float, gain: float, rng: random.Random, out: list[float]) -> None:
+    """Adds noise through a two-pole low-pass whose cutoff moves from cut_from to cut_to over `length`, under a
+    high-pass, faded in over `attack` and out over its last `release` seconds."""
+    start = int(at * RATE)
+    count = min(n - start, int(length * RATE))
+    s1 = s2 = h = 0.0
+    hp = 1 - math.exp(-2 * math.pi * highpass / RATE) if highpass > 0 else 0.0
+    for k in range(count):
+        t = k / RATE
+        cut = cut_from + (cut_to - cut_from) * (k / max(1, count - 1))
+        a = 1 - math.exp(-2 * math.pi * cut / RATE)
+        x = rng.uniform(-1, 1)
+        s1 += a * (x - s1)
+        s2 += a * (s1 - s2)
+        v = s2
+        if hp:
+            h += hp * (v - h)
+            v -= h
+        env = min(1.0, t / attack if attack > 0 else 1.0) * min(1.0, (length - t) / release if release > 0 else 1.0)
+        out[start + k] += gain * v * env
+
+
 def render(spec: dict, seed: int) -> list[float]:
     rng = random.Random(f"sfx:{seed}")
     n = int(spec["duration"] * RATE)
@@ -108,6 +147,12 @@ def render(spec: dict, seed: int) -> list[float]:
         bell_note(n, note.get("at", 0.0), note["freq"], SPECTRA[note.get("spectrum", "church")], note.get("gain", 1.0),
                   note.get("decay", 1.0), note.get("detune", 4.0), note.get("strike", 0.3),
                   note.get("strike_cut", 3000), note.get("thump", 0.0), rng, out)
+    for w in spec.get("washes", []):
+        wash(n, w.get("at", 0.0), w["length"], w.get("attack", 0.01), w.get("release", 0.1), w["cut_from"],
+             w.get("cut_to", w["cut_from"]), w.get("highpass", 0.0), w.get("gain", 1.0), rng, out)
+    for sw in spec.get("sweeps", []):
+        sweep(n, sw.get("at", 0.0), sw["from"], sw.get("to", sw["from"]), sw.get("glide", 0.0), sw["decay"],
+              sw.get("gain", 1.0), out)
     if "swarm" in spec:
         s = spec["swarm"]
         swarm(n, s["voices"], s["base"], s["spread"], rng, out)

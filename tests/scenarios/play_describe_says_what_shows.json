@@ -1,0 +1,308 @@
+{
+  "name": "play_describe_says_what_shows",
+  "description": "The play harness's state in words (tools/play/describe.gd, project setting godot_agent/play_describe) says what the screen shows, and where to click, and nothing a player cannot see: the name prompt and its field, the hub's party rows as they look (a seat's mark, a name, a Builder's face), its modes and buttons at the centres the buttons have (Play there starts the match), then in a match the wave and its phase, the card with prices and why a slot greys, what the pointer is over (a card slot), the waves to come while their list shows, the cursor's cell as the build ghost and the build grid show it (green in the grid on grass, red with no grid on the road and on grass with flowers), and no list of free cells, a refusal's notice, the towers on screen, a running wave, a creep's health as its bar shows it, what got through and the lives it cost, and the Esc menu. Its watch() lines, which a wait until reads, are the screen and the phase, never the cursor's.",
+  "seed": 1,
+  "timeout_frames": 3600,
+  "user_files": {
+    "net.cfg": "[identity]\ntoken=\"00200000000000000000000000000000\"\n"
+  },
+  "steps": [
+    {
+      "wait": 3
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.begins_with('screen: name prompt · Your name on the Causeway')",
+      "msg": "the first launch's prompt"
+    },
+    {
+      "eval": "[Vector2i(screen_pos(node('NameField')).round()), Vector2i(screen_pos(node('Done')).round())]",
+      "as": "at"
+    },
+    {
+      "assert": "said.contains(\"name field @%d,%d: 'Curlew 42' (typing goes here)\" % [at[0].x, at[0].y]) and said.contains('buttons: Done @%d,%d' % [at[1].x, at[1].y])",
+      "msg": "its field with the generated name, and Done, where they are"
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.begins_with(\"screen: hub · Offline | party 1/4: Curlew 42 (diamond mark), Lamplighter's face | + invite\")",
+      "msg": "the hub: where the party lives and its rows as they look"
+    },
+    {
+      "eval": "[Vector2i(screen_pos(node('Mode_high_water')).round()), Vector2i(screen_pos(node('Mode_tide_race')).round()), Vector2i(screen_pos(node('Mode_undertow')).round())]",
+      "as": "at"
+    },
+    {
+      "assert": "said.contains('modes: High Water @%d,%d (chosen) | Tide Race @%d,%d | Undertow @%d,%d' % [at[0].x, at[0].y, at[1].x, at[1].y, at[2].x, at[2].y]) and not said.contains('greyed: Comes with a later version')",
+      "msg": "the modes, the chosen one, each where its button is; this build offers all three, so none greys"
+    },
+    {
+      "eval": "Vector2i(screen_pos(node('Primary')).round())",
+      "as": "play_at"
+    },
+    {
+      "assert": "said.contains('buttons: Builders [B] @') and said.contains('| Join [J] @') and said.contains('| Play [Enter] @%d,%d' % [play_at.x, play_at.y])",
+      "msg": "the card's buttons with their keys, Play where its button is"
+    },
+    {
+      "click": "Vector2(play_at)"
+    },
+    {
+      "wait_until": "scene_path() == 'res://scenes/main.tscn'",
+      "timeout": 300
+    },
+    {
+      "wait_until": "Game.sim != null",
+      "timeout": 60
+    },
+    {
+      "wait_until": "Game.sim.tick > 0",
+      "timeout": 60
+    },
+    {
+      "wait": 2
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.begins_with('screen: match · High Water on Wickhollow · offline')",
+      "msg": "a click there started the match"
+    },
+    {
+      "assert": "said.contains('before wave 1 · build window · First wave in ') and said.contains('next wave: Gourdling (Swarm)')",
+      "msg": "the phase and what comes"
+    },
+    {
+      "eval": "[Vector2i(screen_pos(node('CardQ')).round()), Vector2i(screen_pos(node('CardW')).round()), Vector2i(screen_pos(node('CardE')).round())]",
+      "as": "at"
+    },
+    {
+      "assert": "said.contains('card: Q Arrow Tower 40 @%d,%d | W Cannon Tower 70 @%d,%d | E Frost Spire 60 @%d,%d' % [at[0].x, at[0].y, at[1].x, at[1].y, at[2].x, at[2].y])",
+      "msg": "the card's towers with their prices, where they are"
+    },
+    {
+      "assert": "said.contains('| S Sell @') and said.contains('(greyed: select a tower of yours)')",
+      "msg": "and why Sell greys"
+    },
+    {
+      "hover": "node('Ready')"
+    },
+    {
+      "eval": "Engine.set_meta('godot_agent_pointer', screen_pos(node('Ready')))"
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains('over the D Ready button')",
+      "msg": "the pointer over a card slot names the slot"
+    },
+    {
+      "hover": "node('WaveArea')"
+    },
+    {
+      "eval": "Engine.set_meta('godot_agent_pointer', screen_pos(node('WaveArea')))"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "waves"
+    },
+    {
+      "assert": "waves.contains('waves to come (hovering the wave): 1 Swarm: Gourdling ×10 24 hp | 2 Swarm: Gourdling ×18 30 hp | ') and waves.contains('6 Armored: Thornback ×3 180 hp · armour 4, The Bristlesow boss 1125 hp · armour 6 (Armored) | ')",
+      "msg": "the wave list's rows: each wave's checks and creeps, the boss as a boss with its own checks"
+    },
+    {
+      "key": "Q"
+    },
+    {
+      "hover": "scene.cell_center(Vector2i(8, 3))"
+    },
+    {
+      "eval": "Engine.set_meta('godot_agent_pointer', screen_pos(scene.cell_center(Vector2i(8, 3))))"
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains(' over grass in the build grid, ghost green (it can stand here)') and not said.contains('free grass')",
+      "msg": "on grass the ghost is green and the build grid covers the cell; no list of free cells, which a player reads off the grid"
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').watch(scene.get_tree()))",
+      "as": "watched"
+    },
+    {
+      "assert": "watched.begins_with('screen: match · High Water on Wickhollow · offline | before wave 1 · build window · ') and not watched.contains('cursor') and not watched.contains('placing')",
+      "msg": "a wait until reads the screen and the phase, not the cursor's words"
+    },
+    {
+      "hover": "scene.cell_center(Vector2i(10, 1))"
+    },
+    {
+      "eval": "Engine.set_meta('godot_agent_pointer', screen_pos(scene.cell_center(Vector2i(10, 1))))"
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains(' over grass with flowers, no build grid there, ghost red (it cannot stand here)')",
+      "msg": "grass with flowers looks other than plain grass, and the grid leaves it out"
+    },
+    {
+      "hover": "scene.cell_center(Vector2i(7, 4))"
+    },
+    {
+      "eval": "Engine.set_meta('godot_agent_pointer', screen_pos(scene.cell_center(Vector2i(7, 4))))"
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains(' over road, no build grid there, ghost red (it cannot stand here)')",
+      "msg": "on the road it is red"
+    },
+    {
+      "click": "scene.cell_center(Vector2i(7, 4))"
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains('notice: Cannot build there')",
+      "msg": "the refusal's notice"
+    },
+    {
+      "click": "scene.cell_center(Vector2i(8, 3))"
+    },
+    {
+      "wait_until": "scene.settled() and scene.tower_at(Vector2i(8, 3)) != null",
+      "timeout": 60
+    },
+    {
+      "eval": "Engine.set_meta('godot_agent_pointer', screen_pos(scene.cell_center(Vector2i(8, 3))))"
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains('your towers: Arrow Tower @') and said.contains(' over your Arrow Tower')",
+      "msg": "the tower on screen, and under the cursor"
+    },
+    {
+      "set": "Game.gold",
+      "value": 10
+    },
+    {
+      "wait": 2
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains('gold 10 · lives 20/20') and said.contains('Q Arrow Tower 40 @%d,%d (greyed: not enough gold)' % [at[0].x, at[0].y])",
+      "msg": "short of gold the card says so"
+    },
+    {
+      "key": "Space"
+    },
+    {
+      "wait_until": "Game.state == 1",
+      "timeout": 120
+    },
+    {
+      "wait": 2
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains('Wave 1/12 · wave running · ') and said.contains('D Ready @') and said.contains('(greyed: a wave is running)')",
+      "msg": "a running wave, and why Ready greys"
+    },
+    {
+      "wait_until": "count('creeps') > 0",
+      "timeout": 600
+    },
+    {
+      "eval": "group('creeps')[0]",
+      "as": "c"
+    },
+    {
+      "set": "c.speed",
+      "value": 0.0
+    },
+    {
+      "wait": 2
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains('the furthest along: Gourdling @') and said.contains(', unhurt (no health bar)') and not said.contains(', health ')",
+      "msg": "an unhurt creep shows no bar, and no number"
+    },
+    {
+      "set": "c.distance",
+      "value": 400.0
+    },
+    {
+      "wait_until": "Game.lives < 20",
+      "timeout": 120
+    },
+    {
+      "wait": 2
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "assert": "said.contains('got through this wave: 1 Gourdling (-%d lives)' % (20 - Game.lives)) and not said.contains('1 Gourdlings')",
+      "msg": "what reached the Holdfast this wave, and the lives it cost"
+    },
+    {
+      "key": "Escape"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))",
+      "as": "said"
+    },
+    {
+      "eval": "Vector2i(screen_pos(node('MenuResume')).round())",
+      "as": "resume_at"
+    },
+    {
+      "assert": "said.contains('menu: Paused · The match waits for you (Esc closes) | menu buttons: Resume @%d,%d | Restart @' % [resume_at.x, resume_at.y]) and said.contains('| Leave to hub @')",
+      "msg": "the Esc menu and its buttons"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "note": "The Seawall (Undertow, M7): a ring of weathered stone blocks risen out of the ground, the surf breaking white over its crest in rolls of foam with spray thrown up off it, and water standing inside. Drawn only as the duel bar's Seawall icon beside its F key (ui/icons/seawall.png); the burst in the world is Fx.seawall.",
+  "colors": {
+    "stone": "#8a8580",
+    "stone_dark": "#5e5a56",
+    "stone_light": "#b3aca2",
+    "water": "#4aa0c8",
+    "foam": "#eef4f8",
+    "spray": "#8fe0f0"
+  },
+  "origin": "bottom-center",
+  "parts": [
+    {"shape": "cylinder", "radius": 0.5, "height": 0.06, "sides": 16, "at": [0, 0, 0], "color": "water", "color_top": "spray"},
+    {"repeat": 11, "around": 0.52, "phase": 0, "at": [0, 0, 0], "parts": [
+      {"shape": "box", "size": [0.3, [0.28, 0.34], 0.16], "bevel": 0.025, "taper": 0.85, "at": [0, 0, 0], "color": "stone_dark", "color_top": "stone_light", "pattern": "stone", "jitter": 0.008}
+    ]},
+    {"repeat": 11, "around": 0.55, "phase": 16, "at": [0, 0.31, 0], "parts": [
+      {"shape": "sphere", "radius": [0.085, 0.11], "segments": [7, 3], "scale": [1.5, 0.75, 1.0], "at": [0, 0.02, 0.0], "color": "foam", "jitter": 0.014},
+      {"shape": "sphere", "radius": [0.05, 0.07], "segments": [6, 3], "scale": [1.2, 0.9, 1.0], "at": [0.05, 0.1, 0.05], "color": "foam", "jitter": 0.01},
+      {"shape": "sphere", "radius": [0.025, 0.04], "segments": [5, 3], "at": [-0.04, [0.2, 0.3], 0.1], "color": "foam", "chance": 0.7}
+    ]},
+    {"repeat": 6, "around": 0.27, "phase": 30, "at": [0, 0.05, 0], "parts": [
+      {"shape": "sphere", "radius": [0.05, 0.08], "segments": [6, 3], "scale": [1.6, 0.4, 1.0], "at": [0, 0, 0], "color": "foam", "jitter": 0.01}
+    ]}
+  ]
+}

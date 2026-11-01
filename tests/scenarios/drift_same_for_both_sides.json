@@ -1,0 +1,23 @@
+{
+  "name": "drift_same_for_both_sides",
+  "description": "Undertow's Drift (design 1.4, contract-m7 §2) is one offer for both sides: two clients of one duel, both seats played by their plans and pressing Ready, see the same EV_DRIFT for windows 2 to 6 (three packs each, the fourth left out), once per window and never per hollow, and the same packs for the open window from SimMatch's query of them (the contract's); the shared clock sounds every horn on both hollows on one tick and opens each window for both together, and in window 6 both seats cork the same offered pack. Their hashes agree throughout.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'clients': 2, 'seed': 1})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"},
+    {"eval": "scene.duel_to_window(6)", "as": "opened"},
+    {"eval": "scene.rows('DRIFT', ['window', 'packs', 'left_out'], {}, 1)", "as": "drift1"},
+    {"eval": "scene.rows('DRIFT', ['window', 'packs', 'left_out'], {}, 2)", "as": "drift2"},
+    {"assert": "drift1 == drift2 and drift1.size() == 5 and scene.rows('DRIFT', ['window']) == [[2], [3], [4], [5], [6]]", "msg": "both clients drew the same packs for windows 2 to 6, once a window"},
+    {"assert": "drift1[4][1].size() == 3 and not drift1[4][1].has(drift1[4][2]) and m.drift_offer() == drift1[4][1] and scene.client(2).drift_offer() == m.drift_offer()", "msg": "each offer is three packs without the one left out, and drift_offer() gives the open window's on both"},
+    {"assert": "scene.rows('WAVE', ['tick', 'wave'], {'start': true, 'hollow': 0}) == scene.rows('WAVE', ['tick', 'wave'], {'start': true, 'hollow': 1}) and scene.rows('WAVE', ['tick'], {'start': true, 'hollow': 0}).size() == 5", "msg": "every horn sounded on both hollows on the same tick"},
+    {"assert": "m.hollows[0].phase == 0 and m.hollows[1].phase == 0 and m.hollows[0].countdown_t == m.hollows[1].countdown_t", "msg": "the window is open for both with one countdown"},
+    {"eval": "[scene.cork(1, m.drift_packs[0], 7, 8), scene.cork(2, m.drift_packs[0], 9, 10)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.rows('CORK', ['seat', 'window', 'tier', 'price']) == [[1, 6, 1, 55], [2, 6, 1, 55]] and scene.refusals(1) == [] and scene.refusals(2) == []", "msg": "both seats corked the same pack of the one offer, at the window's tier and price"},
+    {"assert": "scene.hashes_agree()", "msg": "both clients agree"}
+  ]
+}

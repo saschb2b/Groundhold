@@ -1,6 +1,116 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 · 2026-11-02
+
+Undertow, the duel (M7). Two players, each on their own hollow under one clock, cork packs from the Drift and
+uncork them on each other's road; the Seawall holds a Holdfast in trouble, the Surge settles a duel both survive,
+and the caretaker duels anyone without a rival. With it come the fixes from the first playtests by a persona
+playtester, a Warcraft III tower defense veteran: a match can no longer end on a stray click, and the waves to
+come show every creep's health and armour, a boss's checks and the duel's Surge.
+
+- Undertow's rules (M7): two players, each on their own hollow, build and start every wave together under one clock.
+  From the second window the Drift brings three of the four packs, the same for both, never leaving out the same one
+  twice running. Cork one (two from window 9): the gold goes at once and the rival sees only a bottle and its price,
+  the pack hidden by a commitment until you uncork it, from 3 s into the next wave; a bottle not uncorked by 25 s
+  fizzles, and a wave a rival's bottle is corked for is not over until the pack has come or the bottle has fizzled,
+  even with the road empty. Uncorked packs walk the rival's road and add a stipend paid at every wave clear; one that
+  breaks through takes its lives and pays you twice its bounty, one the rival kills pays the rival. Every 4 lives
+  lost charge the Seawall (up to 2), which stuns and wounds every creep near the Holdfast. A Holdfast that falls
+  loses at once; both standing after wave 12, the Surge repeats waves 9 to 11 harder, with short windows, half-price
+  corks and stipends that no longer grow, and then more lives wins, then more breach dealt.
+- The caretaker duels: it corks the pack its rival's towers handle worst while its corks stay within a fifth of
+  what it holds, uncorks them itself, and raises the Seawall when creeps crowd its Holdfast. The duel's balance
+  gates hold its play and four others to the design's matrix.
+- The duel on screen (M7, Undertow). In a duel the Drift tray stands over the minimap: the three packs the window
+  offers (Gourd Rush, Scuttle, Thorn Herd and Moth Cloud on Wickhollow), each with the tier's price, corked with a
+  click or keys 1 to 3; your corked bottles, each with its pack and, during its wave, the seconds until it uncorks
+  by itself 24 s after the horn; and your rival's bottles, which show only their tier. A window's packs show once
+  the window is open for both hollows; until your rival's wave is over the tray and the countdown say so. Space
+  during a duel's wave uncorks your next bottle (from 3 s after the horn), even once your own hollow has cleared,
+  and never says Ready while the wave still runs on either hollow; a click uncorks the one you pick, in the same
+  moments as Space, and F bursts a Seawall round your Holdfast. A bottle whose salt this game no longer holds says
+  so and fizzles, and a fizzle, yours or your rival's, is told; a bottle the caretaker corked for you while you were
+  away shows its pack and is uncorked by the caretaker, and never takes the salt of a cork of yours the link lost.
+  A wave that waits on your rival's corked bottle with your road empty says so on the strip. In the Surge the strip
+  says "Surge 2/3" and the banner which wave it repeats; the wave list shows the Surge's waves as S1 to S3, and a
+  clear or a fall in the Surge is told by the Surge's wave, not as wave 14. The duel bar under the resource strip
+  shows both sides' lives, the breach each has dealt, their
+  stipends and their Seawall charges. A corked pack's salt is 8 random bytes that stay on your machine until you
+  uncork it, through a lost link, a resync, or a game closed mid-duel and started again; a cork, an uncorking or a
+  Seawall lost with the link never holds up the next one. Uncorked creeps carry a small glinting bottle in the sender's colour,
+  a pack wells up at the Welling it sets out from, a Seawall sends a see-through ring of surf in the hollow's water,
+  broken foam along its crest, out from the Holdfast to its reach, lying down where it meets the hollow's cliffs and
+  gone in about a second, and the results say "The Tide
+  Took Your Rival", "The Tide Took You" or "Even Tide" with the rule that decided it and each side's breach dealt.
+  New art and sounds: the tray and its sockets, the corked bottle, the Seawall, four pack icons, and the cork, the
+  uncorking, a breach and the Seawall.
+- Undertow around the match (M7): the server's queue finds a rival for a duel, one player a side, and each keeps
+  their own Builder, since a clash never crosses the sides; after a minute in the queue the duellist may duel the
+  caretaker, a rival of their own Builder, and a duel's result names each side's outcome. On the hub, Undertow's
+  button lights once the build has the duel's rules; a party of one duels the caretaker offline or finds a rival
+  online, a party of two is both sides and starts, and no row moves onto a duel's side already taken (a race's rows
+  still move freely). Match Found says "Undertow · 1v1", the queue's offer of caretakers is said in each mode's
+  words, and Play again queues a duellist who came alone again. `smoke.py --mode undertow` plays a duel as a dev
+  match, and `smoke.py --flow --queue --mode undertow` has two games find each other through the real server's
+  queue; the `m7_duel` transcript records the server's side.
+- The duel's orders across the real wire (M7): the plan bot (`--bot`) duels as the caretaker would, through the
+  game's own corking, uncorking and Seawall, so each CORK carries the game's commitment to a salt of its own and
+  each UNCORK reveals it. `smoke.py --mode undertow` now checks from both games that each corked and uncorked a
+  pack, that an uncorked pack walked the rival's road and that both ran it all alike; the queue's duel smoke plays
+  the bots' duel to its end, one outcome a side. The server's tests carry CORK, UNCORK and SEAWALL through its
+  turns with every 32-bit half as sent.
+- A creep you selected stops being the selection the moment it is killed or gets through to the Holdfast: the
+  plate goes back to the Holdfast instead of showing a creep that is gone.
+- Leave to hub and Restart in a match's Esc menu ask first ("Leave the match?", "Restart the match?"), offline and
+  online, with Stay as the default (Enter, Space; Esc goes back to the menu). The answer that ends the match never
+  stands where Restart or Leave to hub stood, so one stray click, or two, no longer ends a match.
+- On the Builders screen an open tower card follows the Builder shown: with the pointer on W, pressing 2 to 4 shows
+  that Builder's own tower on W instead of keeping the first Builder's card open.
+- A wave's clear banner says what got through cost: "Wave 6 cleared · 5 lives lost · +20 gold". A wave that
+  cost nothing still says "Wave 6 cleared · +20 gold".
+- The waves to come (hover the wave) show a boss's own checks after "boss" on its row: the Bristlesow's and the
+  Hollowtide Crest's Armored glyph, and no Winged glyph, since neither flies.
+- The results' line for the wave a player killed most in says so: "Most kills in wave 11" instead of "Held wave
+  11".
+- A fork branch that patches a weak check says what "passable" means, on the match's card and the Builders
+  screen's kit plate alike: "Lifts Swift from weak to passable: enough to hold it alone".
+- The duel after its review (M7): a cork made in the same moment as the horn, at a fast-forward or a networked game
+  running several ticks at once, keeps its salt, so the bottle opens at 24 s instead of showing "lost" and fizzling.
+  In the Surge's last wave a player whose hollow has cleared can still uncork a bottle the rival's wave waits on
+  (Space, a click, or by itself at 24 s), which was refused as "The match is over"; every other order stays shut.
+  A networked game running behind the server's turns sends its own uncorking early by as much, so the bottle still
+  opens at about 24 s instead of fizzling quietly past 25 s. The caretaker no longer builds while its hollow waits
+  for the rival's wave to end, so when the window opens it still has the gold to cork before it builds.
+  Coming back from a lost link or a resync, the duel's corks, uncorkings, fizzles, breaches and Seawalls since the
+  checkpoint no longer replay their sounds and notices all at once, and the seconds the tray and the notices name
+  follow the duel's rules. After a resync whose world numbers the bottles otherwise, each corked pack's salt still
+  finds its own bottle, so none shows "lost" or fizzles for it.
+- In a duel the waves to come (hover the wave) go on into the Surge from the first window: after wave 12 a line
+  says when it is played ("The Surge, if both Holdfasts stand after wave 12: health +35%"), then S1 to S3, each
+  with the checks and creeps of the wave it repeats and "wave 9 again". The list no longer stands empty while your
+  hollow has cleared wave 12 and your rival's is still running.
+- The waves to come give each creep's health at that wave and its armour beside its count ("×4 140 hp · armour 4",
+  the Bristlesow "boss 1125 hp · armour 6"), grown for the wave and scaled for the seats on your hollow as the
+  creep will spawn, so a boss can be planned for before it walks in; a duel's Surge rows show the Surge's extra
+  health. Classic, which has no armour, shows health only.
+- In a duel, hovering the Seawall on the duel bar explains it: F during a wave bursts surf round your Holdfast,
+  stunning every creep within 3 tiles for 2 s and taking a quarter of its health (a boss loses 8% and is slowed
+  50%); a charge comes for every 4 lives lost, at most 2, and the next burst may follow 15 s after the last. It also
+  says where yours stands: how many more lives lost earn a charge, a charge ready, or, after a burst, that the
+  seconds beside F count down to when the next may burst. Your rival's Seawall says its charges.
+- In a duel, once your hollow has cleared its wave and your rival's is still running, D, N, Space and the card's
+  horn no longer say Ready: they say "The window opens once both waves are over", and the card's Ready greys with
+  the same words. A Ready said then sounded the horn the moment your rival cleared, so your window to cork and
+  build never came. The tray's empty pack slots say the packs come when the window opens, once both waves are over.
+  A cork pressed in the window's last instant that the horn beats now says "The horn sounded before your cork went
+  in" instead of "Not now" (likewise an uncorking or a Seawall the wave's end beats).
+- Tide Race shows your own race clock: the line under the resource strip starts with "You 6:10 +10 s", your time
+  so far and the 10 s each life lost adds, before the rival's. Where Tide Race is chosen, its button's tooltip says
+  how a race is won ("The lower time to clear wave 12 wins; each life lost adds 10 s") and the hub's mode line
+  says it in short ("fastest clear of wave 12 wins, +10 s a life lost").
+- A wave's clear banner names what else the clear paid you: the Beekeeper's Hive Tithe ("Wave 1 cleared · +10
+  gold · Tithe +4") and, in a duel, the stipend your uncorked packs earn ("Stipend +4"). Before, the banner gave
+  only the bonus while your gold rose by more.
 
 ## 0.7.0 · 2026-11-01
 

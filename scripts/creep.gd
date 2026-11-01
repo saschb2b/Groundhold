@@ -9,12 +9,22 @@
 ## (Fx.mark_rune) and rings once when it takes hold, and a Chime Post's crack (M6) rings a
 ## bronze shimmer round its middle (Fx.chime_shimmer, made the first time it shows).
 ##
+## A creep an uncorked pack sent (a duel, M7: the record's sent_by) carries a small corked
+## bottle over its shoulder in the sending seat's colour, whose glass glints now and then
+## (Fx.sent_bottle), on whichever road it walks.
+##
 ## It walks the points it is given: its own hollow's road where the world holds two.
 ##
 ## It reads its SimCreep record after every step and decides nothing. Between steps it
 ## is drawn between the last two ticks' positions. Keyed by the record's id.
+##
+## `gone` says it left the road (killed, through to the Holdfast, or its view taken down
+## with the world: a resync, a new match), once, while it can still be read, so nothing
+## holds on to it after: a selection of it ends there (BuildController.select_creep).
 class_name Creep
 extends Node3D
+
+signal gone(creep: Creep)
 
 const BAR_WIDTH := 0.5
 const BAR_SHADER := preload("res://shaders/health_bar.gdshader")
@@ -98,6 +108,7 @@ var _bar_material: ShaderMaterial
 var _rune: MeshInstance3D
 var _halo: Node3D
 var _shimmer: Node3D
+var _bottle: Node3D
 var _flash := 0.0
 var _clock := 0.0
 var _height := 0.4
@@ -105,6 +116,7 @@ var _model_scale := 1.0
 var _shown_hp := -1
 var _slowed := false
 var _marked := false
+var _said_gone := false
 ## Road distance (metres) at the previous and the latest tick, drawn between.
 var _from := 0.0
 var _to := 0.0
@@ -142,6 +154,10 @@ func setup(record: SimRecords.SimCreep, points: PackedVector3Array) -> void:
 	_halo = Fx.stun_halo()
 	_halo.position.y = hover + _height + 0.12
 	add_child(_halo)
+	if rec.sent_by > 0:
+		_bottle = Fx.sent_bottle(PartyStrip.SEAT_COLORS[(rec.sent_by - 1) % PartyStrip.SEAT_COLORS.size()])
+		_bottle.position = Vector3(0.22, hover + _height + 0.08, 0.0)
+		add_child(_bottle)
 	_from = distance
 	_to = _from
 	_place(_to, true)
@@ -198,6 +214,8 @@ func _show_effects() -> void:
 	_halo.visible = stunned
 	if _halo.visible:
 		_halo.rotation.y = -_clock * 4.0
+	if _bottle:
+		Fx.glint_bottle(_bottle, _clock, id)
 	var cracked := rec.crack_c > 0
 	if cracked and _shimmer == null:
 		_shimmer = Fx.chime_shimmer()
@@ -225,14 +243,15 @@ func aim_point() -> Vector3:
 	return global_position + Vector3(0, hover + _height * 0.55, 0)
 
 
-## Whether the mark rune, the stun stars and the chime shimmer show, for tests:
-## {"rune", "stars", "tint", "shimmer"}.
+## Whether the mark rune, the stun stars, the chime shimmer and a sent creep's bottle
+## show, for tests: {"rune", "stars", "tint", "shimmer", "bottle"}.
 func effects_shown() -> Dictionary:
 	return {
 		"rune": _rune.visible,
 		"stars": _halo.visible,
 		"tint": _slowed,
 		"shimmer": _shimmer != null and _shimmer.visible,
+		"bottle": _bottle != null and _bottle.visible,
 	}
 
 
@@ -259,6 +278,7 @@ func die() -> void:
 		return
 	dead = true
 	remove_from_group("creeps")
+	_say_gone()
 	var at := global_position + Vector3(0, hover + _height * 0.5, 0)
 	var color: Color = Game.CREEPS[kind]["color"]
 	Fx.burst(get_tree(), at, color, 16, 2.6, 0.07, 0.6)
@@ -292,7 +312,22 @@ func leak() -> void:
 		1.0
 	)
 	Sfx.play("leak")
+	_say_gone()
 	queue_free()
+
+
+func _exit_tree() -> void:
+	# (its view taken down, not by the road: a resync's or a new match's views; not the whole
+	# scene going, where nothing is left to tell)
+	if is_queued_for_deletion():
+		_say_gone()
+
+
+func _say_gone() -> void:
+	if _said_gone:
+		return
+	_said_gone = true
+	gone.emit(self)
 
 
 ## The slow that holds for the coming tick, per mille.

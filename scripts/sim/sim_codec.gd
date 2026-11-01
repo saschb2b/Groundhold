@@ -112,9 +112,13 @@ static func encode(m: SimMatch) -> PackedByteArray:
 		b.put_32(s.slow_t)
 		b.put_32(s.pierce_c)
 	var m6 := _m6_parts(m)
+	if m.duel and m6.is_empty():
+		m6 = [PackedInt32Array(), PackedInt32Array()]  # (M6's block, empty, before M7's)
 	_encode_m2(b, m, not m6.is_empty())
 	if not m6.is_empty():
 		_encode_m6(b, m, m6)
+	if m.duel:
+		_encode_m7(b, m)
 	return b.data_array
 
 
@@ -214,6 +218,98 @@ static func _encode_m6(b: StreamPeerBuffer, m: SimMatch, parts: Array) -> void:
 	b.put_u8(m.race_outcomes.size())
 	for v in m.race_outcomes:
 		b.put_u8(v)
+
+
+## M7's fields, the duel's (SimUndertow), follow M6's block, which is then written even
+## when it holds nothing, and only in a duel: every other match keeps its M6 bytes. The
+## teams' breach dealt and the decision; the Drift's window, the packs it left out and
+## those it offers; the latest horn; each seat's stipend and Seawall; each hollow's
+## uncorked creeps still to come; every bottle, by id, with its commitment (never a pack
+## before its reveal: a corked bottle's pack is -1).
+static func _encode_m7(b: StreamPeerBuffer, m: SimMatch) -> void:
+	for t in m.teams:
+		b.put_u32(t.breach_dealt)
+	b.put_u8(m.race_rule)
+	b.put_u8(m.race_outcomes.size())
+	for v in m.race_outcomes:
+		b.put_u8(v)
+	b.put_u16(m.drift_window)
+	b.put_u8(m.drift_left)
+	b.put_u8(m.drift_packs.size())
+	for v in m.drift_packs:
+		b.put_u8(v)
+	b.put_32(m.horn_tick)
+	for s in m.seats:
+		b.put_u32(s.stipend)
+		b.put_u8(s.seawall_charges)
+		b.put_u16(s.seawall_lost)
+		b.put_u32(s.seawall_ready)
+	for h in m.hollows:
+		@warning_ignore("integer_division")
+		b.put_u16(h.sends.size() / 3)
+		var k := 0
+		while k < h.sends.size():
+			b.put_u8(h.sends[k])
+			b.put_u8(h.sends[k + 1])
+			b.put_u32(h.sends[k + 2])
+			k += 3
+	b.put_u16(m.bottle_list.size())
+	for bottle in m.bottle_list:
+		b.put_u32(bottle.id)
+		b.put_u8(bottle.seat)
+		b.put_u8(bottle.tier)
+		b.put_u16(bottle.window)
+		b.put_32(bottle.commit_hi)
+		b.put_32(bottle.commit_lo)
+		b.put_u32(bottle.price)
+		b.put_8(bottle.pack)
+		b.put_u8((1 if bottle.uncorked else 0) | (2 if bottle.fizzled else 0))
+
+
+static func _decode_m7(b: StreamPeerBuffer, m: SimMatch) -> void:
+	if not m.duel or b.get_position() >= b.get_size():
+		return
+	for t in m.teams:
+		t.breach_dealt = b.get_u32()
+	m.race_rule = b.get_u8()
+	var outcome_count := b.get_u8()
+	m.race_outcomes = PackedInt32Array()
+	for k in outcome_count:
+		m.race_outcomes.append(b.get_u8())
+	m.drift_window = b.get_u16()
+	m.drift_left = b.get_u8()
+	var pack_count := b.get_u8()
+	m.drift_packs = PackedInt32Array()
+	for k in pack_count:
+		m.drift_packs.append(b.get_u8())
+	m.horn_tick = b.get_32()
+	for s in m.seats:
+		s.stipend = b.get_u32()
+		s.seawall_charges = b.get_u8()
+		s.seawall_lost = b.get_u16()
+		s.seawall_ready = b.get_u32()
+	for h in m.hollows:
+		var send_count := b.get_u16()
+		h.sends = PackedInt32Array()
+		for k in send_count:
+			h.sends.append(b.get_u8())
+			h.sends.append(b.get_u8())
+			h.sends.append(b.get_u32())
+	var bottle_count := b.get_u16()
+	for k in bottle_count:
+		var bottle := SimRecords.SimBottle.new()
+		bottle.id = b.get_u32()
+		bottle.seat = b.get_u8()
+		bottle.tier = b.get_u8()
+		bottle.window = b.get_u16()
+		bottle.commit_hi = b.get_32()
+		bottle.commit_lo = b.get_32()
+		bottle.price = b.get_u32()
+		bottle.pack = b.get_8()
+		var flags := b.get_u8()
+		bottle.uncorked = (flags & 1) != 0
+		bottle.fizzled = (flags & 2) != 0
+		m.bottle_list.append(bottle)
 
 
 static func _decode_m6(b: StreamPeerBuffer, m: SimMatch) -> void:
@@ -395,5 +491,6 @@ static func decode(bytes: PackedByteArray, rules: Dictionary, text := "") -> Sim
 		m.shots.append(s)
 	_decode_m2(b, m)
 	_decode_m6(b, m)
+	_decode_m7(b, m)
 	m.reindex()
 	return m

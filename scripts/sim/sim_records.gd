@@ -20,6 +20,8 @@ class SimTeam:
 	var fell_wave := 0
 	var fell_kills := 0
 	var wave_kills := 0
+	## Undertow (M7): lives this team's uncorked creeps took from the rival's Holdfast.
+	var breach_dealt := 0
 
 
 class SimHollow:
@@ -43,6 +45,9 @@ class SimHollow:
 	var seats := PackedInt32Array()
 	## The first tick of the current build window, for the caretaker.
 	var window_tick := 0
+	## Undertow (M7): uncorked creeps still to come on this road, as triples [creep kind
+	## index, the seat that sent it, the tick it spawns on], in the order they were sent.
+	var sends := PackedInt32Array()
 
 
 class SimSeat:
@@ -63,6 +68,13 @@ class SimSeat:
 	var plan_cursor := 0
 	## Ticks of this seat's recent signals, for the rate limit.
 	var signal_ticks := PackedInt32Array()
+	## Undertow (M7): the gold paid at each of its wave clears, grown by every uncorking
+	## outside the Surge; its Seawall charges, the lives lost toward the next one, and the
+	## tick the wall may rise again.
+	var stipend := 0
+	var seawall_charges := 0
+	var seawall_lost := 0
+	var seawall_ready := 0
 
 
 class SimTower:
@@ -202,3 +214,21 @@ class SimShot:
 	var stun_immune_t := 0
 	var air_slow_pm := 0
 	var air_slow_t := 0
+
+
+## Undertow (M7): a corked pack. The simulation knows its tier, its window and the
+## commitment (two signed 32-bit halves), never its pack until a valid UNCORK names it.
+class SimBottle:
+	extends RefCounted
+	var id := 0
+	var seat := 1
+	var tier := 0
+	## The wave it was corked before, which it walks in.
+	var window := 0
+	var commit_hi := 0
+	var commit_lo := 0
+	var price := 0
+	## Its CHECK_IDS index once uncorked, -1 before.
+	var pack := -1
+	var uncorked := false
+	var fizzled := false

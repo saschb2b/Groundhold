@@ -80,7 +80,7 @@ Ready, the leader starts, and anyone can cancel the 3-2-1. Loading shows a card 
 everyone waits for.
 
 Short of players? With open seats on, **Find players** fills them with strangers looking for the same; in Tide
-Race, **Find a rival** finds another crew of your size. Match Found asks everyone to accept within 15 s; whoever
+Race, **Find a rival** finds another crew of your size, and in Undertow another duellist. Match Found asks everyone to accept within 15 s; whoever
 declines goes back to their party, and the others keep their place at the front of the queue. After a minute
 the leader may start at once, with caretakers in the empty seats or as the rival crew.
 
@@ -118,6 +118,21 @@ the moment you clear wave 12 plus 10 seconds for every life lost; the lower one 
 under, the other wins as soon as it clears that wave. <kbd>V</kbd> looks across at the rival's hollow, and the
 strip's second line follows their wave, lives and clock. Alone, Play races the caretaker, who plays a mirror of
 your crew.
+
+## Undertow
+
+One against one, each on your own copy of Wickhollow, with one clock for both: the windows, Ready and the horn are
+shared. From the second window the Drift offers three of the four packs, the same three to both of you: Gourd
+Rush, Scuttle, Thorn Herd or Moth Cloud, each testing one check. Cork one (keys <kbd>1</kbd> to <kbd>3</kbd> or a
+click on the tray) and its gold goes at once; your rival sees a bottle and its price, never the pack. During the
+next wave, from 3 s after the horn, <kbd>Space</kbd> uncorks it onto your rival's road (it uncorks by itself at
+24 s), and every pack you send raises the stipend you are paid at each wave clear. A sent creep that breaks
+through takes its lives and pays you twice its bounty. Every 4 lives you lose charge the Seawall, up to two:
+<kbd>F</kbd> bursts a ring of surf round your Holdfast that stuns and wounds every creep near it.
+
+A Holdfast that falls loses at once. If both stand after wave 12, the Surge plays three harder waves with short
+windows, half-price corks and stipends that no longer grow; then more lives wins, then more breach dealt. Alone,
+Play duels the caretaker, who corks too; on the official server, Find a rival finds you a duellist.
 
 ## Results
 

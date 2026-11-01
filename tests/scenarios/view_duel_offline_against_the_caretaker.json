@@ -1,0 +1,33 @@
+{
+  "name": "view_duel_offline_against_the_caretaker",
+  "description": "Duel the caretaker from the hub (design 1.4, 1.5 and 5.2; contract-m7.md §4) on Undertow's own rules: in Undertow a party of one offline gets Duel the caretaker, which opens the match scene with both hollows built from its start, my seat on the first and the rival on the second, a caretaker of my Builder that builds there from its plan and calls its own Ready. The duel's pieces show: the Drift tray, the duel bar and the party strip with my seat and then the rival's under its caption; no race line. Left alone my Holdfast goes under, and the match ends on the duel's results from the simulation's decision (a fall): 'The Tide Took You', the rule in one line, one block per side with the breach each dealt.",
+  "seed": 1,
+  "timeout_frames": 4000,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"assert": "Session.profile.offers('undertow') and not node('Mode_undertow').disabled", "msg": "this build offers the duel"},
+    {"click": "node('Mode_undertow')"},
+    {"wait": 1},
+    {"assert": "node('HubPanel').primary_text() == 'Duel the caretaker'", "msg": "Undertow alone offline: Duel the caretaker"},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 2},
+    {"assert": "Game.is_duel() and Game.sim.duel and not Game.sim.race and scene.hollows_shown() == 2 and Game.sim.hollows.size() == 2 and node('Minimap').hollows == 2", "msg": "a duel: two hollows, built from the start"},
+    {"assert": "Game.sim.seats.size() == 2 and Game.sim.seat(1).team == 0 and Game.sim.seat(1).state == 0 and Game.sim.seat(2).team == 1 and Game.sim.seat(2).builder == Game.sim.seat(1).builder and Game.sim.seat(2).state == 3 and Game.my_hollow() == 0", "msg": "my seat, and the rival: a caretaker with my Builder on the other side"},
+    {"assert": "node('DriftTray').visible and node('DuelBar').visible and not node('RivalLine').visible", "msg": "the Drift tray and the duel bar, no race line"},
+    {"assert": "node('PartyStrip').seats_shown() == [1, 2] and node('RivalCaption') != null", "msg": "the party strip: my seat, then the rival's under its caption"},
+    {"wait_until": "Game.sim.towers.size() > 0", "timeout": 600},
+    {"assert": "Game.sim.towers[0].hollow == 1 and Game.sim.towers[0].owner == 2 and scene.tower_on(Vector2i(26 + Game.sim.towers[0].x, Game.sim.towers[0].z)) != null", "msg": "the caretaker builds on the rival's hollow, and its towers stand there"},
+    {"set_ticks_per_frame": 40},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 3000},
+    {"set_ticks_per_frame": 1},
+    {"wait": 2},
+    {"assert": "Game.sim.decided_by() == 'fell' and Game.outcome() == 'lost' and Game.sim.outcomes() == [1, 0] and Game.sim.hollows[0].phase == 3 and Game.sim.hollows[1].phase != 3", "msg": "decided by the fall: my Holdfast went under"},
+    {"assert": "node('ResultsTitle').text == 'THE TIDE TOOK YOU' and node('ResultsRule').text == 'Your Holdfast fell on wave %d' % Game.sim.hollows[0].wave", "msg": "the duel's title and the rule that decided it"},
+    {"assert": "node('ResultsPanel').team_lines().size() == 2 and node('ResultsPanel').team_lines()[0] == 'You 0 breach dealt 0 of 20 lives: Sascha' and node('ResultsPanel').team_lines()[1] == 'Your rival %d breach dealt %d of 20 lives: Caretaker 1' % [Game.sim.breach_dealt(1), Game.sim.teams[1].lives]", "msg": "one block per side, mine first, with the breach each dealt"},
+    {"capture": "duel_offline_results"}
+  ]
+}

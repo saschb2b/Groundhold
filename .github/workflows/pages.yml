@@ -114,6 +114,12 @@ jobs:
         run: |
           export GODOT_PATH="$HOME/godot/godot"
           python3 tools/net/smoke.py --mode tide_race --clients 2 --turn-ms 10 --timeout 800 --out smoke-race
+      # An Undertow duel between two plan bots: their corks, uncorks and Seawalls cross the
+      # real server, packs walk the rival's road, and the duel is decided one outcome a side.
+      - name: Two clients duel against the real server
+        run: |
+          export GODOT_PATH="$HOME/godot/godot"
+          python3 tools/net/smoke.py --mode undertow --clients 2 --turn-ms 10 --timeout 900 --out smoke-duel
       # One topology at a time: a drop, a game killed and started again, a minority
       # resynced, two seats apart with their dumps, a party by code, and M1's.
       - name: Real-socket scenarios (convergence, faults, desyncs, a party by code)
@@ -135,11 +141,12 @@ jobs:
           export GODOT_PATH="$HOME/godot/godot"
           python3 tools/net/smoke.py --flow --no-bot --timeout 600 --out smoke-flow
       # Four games, each a party of one, meet in the server's queue: Match Found, all accept,
-      # a High Water match of strangers.
+      # a High Water match of strangers; then two duellists find each other the same way.
       - name: The queue against the real server
         run: |
           export GODOT_PATH="$HOME/godot/godot"
           python3 tools/net/smoke.py --flow --queue --no-bot --timeout 600 --out smoke-queue
+          python3 tools/net/smoke.py --flow --queue --mode undertow --no-bot --timeout 600 --out smoke-queue-duel
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
@@ -150,7 +157,9 @@ jobs:
             smoke-shaper
             smoke-flow
             smoke-race
+            smoke-duel
             smoke-queue
+            smoke-queue-duel
           retention-days: 14
 
   build:

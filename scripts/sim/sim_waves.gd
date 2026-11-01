@@ -1,7 +1,9 @@
 ## A hollow's rhythm (design 1.1): the build window counting down in ticks, the horn
 ## (when the window runs out or every seat is Ready), the spawns of a wave, and the clear
 ## that pays the bonus (and Hive Tithe, M6) and opens the next window. Every hollow keeps
-## its own clock: in a race (M6) each team's windows, Ready and horn are its own.
+## its own clock: in a race (M6) each team's windows, Ready and horn are its own. Under a
+## shared clock (M7, the duel) SimUndertow.run_clock counts the one window and sounds the
+## one horn, and a hollow here only spawns.
 @warning_ignore_start("integer_division")
 class_name SimWaves
 extends RefCounted
@@ -9,7 +11,7 @@ extends RefCounted
 
 ## Stage 2 of a tick: the window's countdown and the horn, then the wave's spawns.
 static func run_clock(m: SimMatch, h: SimRecords.SimHollow) -> void:
-	if h.phase == SimTypes.PHASE_PREP and not m.over:
+	if h.phase == SimTypes.PHASE_PREP and not m.over and not m.shared_clock:
 		if _all_ready(m, h):
 			# Everyone is Ready: the horn sounds at once and each seat is paid one gold
 			# per whole second left on the countdown.
@@ -57,8 +59,9 @@ static func start_wave(m: SimMatch, h: SimRecords.SimHollow, early: int) -> void
 		m.seat(n).ready = false
 	if m.race:
 		m.teams[h.team].wave_kills = 0
-	if h.wave > m.waves.size():
-		h.wave = m.waves.size()
+	var last := m.last_wave()
+	if h.wave > last:
+		h.wave = last
 		finish(m, h)
 		m.push_event(
 			{"type": SimTypes.EV_WAVE, "hollow": h.id, "wave": h.wave, "phase": h.phase}
@@ -66,7 +69,7 @@ static func start_wave(m: SimMatch, h: SimRecords.SimHollow, early: int) -> void
 		return
 	h.phase = SimTypes.PHASE_WAVE
 	var first := true
-	for group: Dictionary in m.waves[h.wave - 1]:
+	for group: Dictionary in m.waves[SimUndertow.content_wave(m, h.wave) - 1]:
 		var kind := SimContent.CREEP_IDS.find(str(group["creep"]))
 		for i in int(group["count"]):
 			h.queue.append(kind)
@@ -96,18 +99,31 @@ static func _spawns(m: SimMatch, h: SimRecords.SimHollow) -> void:
 		h.spawn_wait_t -= 1
 
 
-## A creep of kind index `kind` at the Welling, with this wave's and this team's health.
-static func spawn(m: SimMatch, h: SimRecords.SimHollow, kind: int) -> SimRecords.SimCreep:
+## The maximum health, in hundredths, of a creep of `kind_id` spawned on hollow `h` in its
+## wave `wave`: the table's, grown hp_growth_pm a wave after the first and scaled by the
+## hollow's seats (hp_by_seats_pm); (M7) in a Surge wave the wave it repeats grows it, and
+## the Surge's hp_pm on top. Spawns take it, and the wave list shows it ahead.
+static func health_c(m: SimMatch, h: SimRecords.SimHollow, kind_id: String, wave: int) -> int:
+	var data: Dictionary = SimContent.CREEPS[kind_id]
+	var growth := int(m.rules["hp_growth_pm"]) * maxi(0, SimUndertow.content_wave(m, wave) - 1)
+	var by_seats: Array = m.rules["hp_by_seats_pm"]
+	var seats_pm := int(by_seats[clampi(h.seats.size(), 1, by_seats.size()) - 1])
+	var hp := int(data["hp_c"]) * (1000 + growth) * seats_pm / 1000000
+	if SimUndertow.surge_of(m, wave) > 0:
+		hp = hp * int((SimUndertow.rules_of(m)["surge"] as Dictionary)["hp_pm"]) / 1000
+	return hp
+
+
+## A creep of kind index `kind` at the Welling, with this wave's and this team's health
+## (health_c). `sent_by` is the seat whose uncorked pack it is (0 for the wave's own).
+static func spawn(m: SimMatch, h: SimRecords.SimHollow, kind: int, sent_by := 0) -> SimRecords.SimCreep:
 	var kind_id: String = SimContent.CREEP_IDS[kind]
 	var data: Dictionary = SimContent.CREEPS[kind_id]
 	var c := SimRecords.SimCreep.new()
 	c.id = m.new_id()
 	c.hollow = h.id
 	c.kind = kind_id
-	var growth := int(m.rules["hp_growth_pm"]) * maxi(0, h.wave - 1)
-	var by_seats: Array = m.rules["hp_by_seats_pm"]
-	var seats_pm := int(by_seats[clampi(h.seats.size(), 1, by_seats.size()) - 1])
-	c.max_hp_c = int(data["hp_c"]) * (1000 + growth) * seats_pm / 1000000
+	c.max_hp_c = health_c(m, h, kind_id, h.wave)
 	c.hp_c = c.max_hp_c
 	c.armor_c = int(data["armor_c"]) if bool(m.rules.get("armor", true)) else 0
 	c.speed_um_t = int(data["speed_um_t"])
@@ -116,24 +132,36 @@ static func spawn(m: SimMatch, h: SimRecords.SimHollow, kind: int) -> SimRecords
 	c.winged = bool(data.get("winged", false))
 	c.boss = bool(data.get("boss", false))
 	c.control_resist_pm = int(data.get("control_resist_pm", 0))
+	c.sent_by = sent_by
 	m.add_creep(c)
-	m.push_event({"type": SimTypes.EV_SPAWN, "id": c.id, "hollow": h.id, "kind": kind_id})
+	var event := {"type": SimTypes.EV_SPAWN, "id": c.id, "hollow": h.id, "kind": kind_id}
+	if sent_by != 0:
+		event["sent_by"] = sent_by
+	m.push_event(event)
 	return c
 
 
-## Stage 7: a wave is clear when nothing is left to spawn and its road is empty. Each
-## seat gets the clear bonus; then the next window opens, or the hollow is done.
+## Stage 7: a wave is clear when nothing is left to spawn and its road is empty (in a duel,
+## M7, also no uncorked creep still to come and no rival bottle still corked for it,
+## SimUndertow.holds). Each seat gets the clear bonus (a Surge wave the bonus of the wave it
+## repeats), the Tithe and (M7) its stipend; then the next window opens, or the hollow is
+## done. In a duel the window opens for both once both have cleared
+## (SimUndertow.window_opened).
 static func check_clear(m: SimMatch, h: SimRecords.SimHollow) -> void:
 	if h.phase != SimTypes.PHASE_WAVE or h.cursor < h.queue.size() / 2:
 		return
 	if m.creeps_on(h.id) > 0:
 		return
+	if m.duel and SimUndertow.holds(m, h):
+		return
 	var bonus_rule: Array = m.rules["clear_bonus"]
-	var bonus := int(bonus_rule[0]) + int(bonus_rule[1]) * h.wave
+	var bonus := int(bonus_rule[0]) + int(bonus_rule[1]) * SimUndertow.content_wave(m, h.wave)
 	for n in h.seats:
 		m.add_gold(m.seat(n), bonus, "clear")
 	_tithe(m, h)
-	if h.wave >= m.waves.size():
+	if m.duel:
+		SimUndertow.pay_stipends(m, h)
+	if h.wave >= m.last_wave():
 		finish(m, h)
 	else:
 		open_window(m, h, false)
@@ -147,6 +175,8 @@ static func check_clear(m: SimMatch, h: SimRecords.SimHollow) -> void:
 			"bonus": bonus
 		}
 	)
+	if m.duel and h.phase == SimTypes.PHASE_PREP:
+		SimUndertow.window_opened(m, h)
 
 
 ## A hollow that cleared its last wave is done: its team's clear tick is now (the race
@@ -187,6 +217,8 @@ static func open_window(m: SimMatch, h: SimRecords.SimHollow, first: bool) -> vo
 	h.phase = SimTypes.PHASE_PREP
 	var table: Array = m.rules["window_first_t" if first else "window_t"]
 	h.countdown_t = int(table[clampi(h.seats.size(), 1, table.size()) - 1])
+	if m.duel:
+		h.countdown_t = SimUndertow.window_length(m, h, h.countdown_t)
 	# (the window's first tick: the match's first, or the tick after the stage 7 that
 	# opened it)
 	h.window_tick = 0 if first else m.tick + 1

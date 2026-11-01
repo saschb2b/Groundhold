@@ -25,6 +25,20 @@ draw). It plays only where the build has the mode's rules (content.gd RULES).
 
     python3 tools/net/smoke.py --mode tide_race --clients 2 --turn-ms 10
 
+--mode undertow (M7) is the duel: two clients, one a side (seat 1 on team 0 against seat 2
+on team 1), each played by the plan bot, checked as a race is (one RESULT tick and hash, and
+won against lost or a draw for both) and as a duel: the plan bot (tests/bot.gd) builds and
+forks from its seat's plan and plays the duel as the caretaker would, through the game's own
+duel orders, so its CORK (the client's commitment to a salt of its own), its UNCORK (the
+reveal) and its SEAWALL cross the real server. From each game's BOT lines the check is that
+the simulation stood a bottle of each game's (its CORK ran) and took an uncorking of each
+bot's own (its UNCORK's reveal matched), and that at least one uncorked pack walked a rival's
+road; with the hash streams equal to the end, both games ran every one of those orders alike.
+The Seawall rises only where creeps crowd a Holdfast, so it is counted, not required. With
+--no-bot nobody corks and only the race's check is made.
+
+    python3 tools/net/smoke.py --mode undertow --turn-ms 10      # about three minutes
+
 With --flow it plays the whole loop around a match instead (design §8 M3): the
 server runs with its hub (no --dev-match, its state in <out>/state), and each
 game boots into the hub with tests/net/flow_bot.gd at the controls:
@@ -63,6 +77,20 @@ found match, one MATCH_CONFIG whose four Builders are four different ones, one s
 each, the hash streams equal to the end.
 
     python3 tools/net/smoke.py --flow --queue --no-bot      # four games, about two minutes
+
+--flow --queue --mode undertow (M7) finds a rival for a duel instead (--mode tide_race for a
+race of one a side): two games, each a party of one in that mode (the flow bot picks it on the
+hub, which offers it only where the build has the mode's rules), press Find a rival, the
+server's queue pairs them, both accept, the duel plays one a side with each game's main (a
+Builder clash never crosses the sides, so two Lamplighters both play the Lamplighter), ends
+with one outcome a side, answering each other, and Play again queues each again. With the
+plan bots (the default) the duel is checked as --mode undertow's is: each game corked and its
+bot uncorked, and an uncorked pack walked a rival's road. Their --ready-calls wait in a duel
+until the bot has played the window both hollows share (tests/bot.gd played_window), so a
+Ready on both sides never sounds the horn before the corking.
+
+    python3 tools/net/smoke.py --flow --queue --mode undertow             # about twelve minutes
+    python3 tools/net/smoke.py --flow --queue --mode undertow --no-bot    # the waves called only
 
 With --shaper (design §8 M4) the last client plays through tools/net/shaper.py:
 150 ± 50 ms each way and, --stall-at seconds after it connects, a 3 s stall
@@ -142,6 +170,15 @@ FLOW_CONFIG = re.compile(r"^FLOW config builders ([\w,]+)$")
 QUEUE_STEPS = ["party", "queued", "found", "loading", "match", "end", "results", "back"]
 # What a build that lacks a mode's rules says when the server's MATCH_CONFIG names it.
 NO_RULES = "cannot play the server's mode"
+# The plan bot's duel lines (tests/bot.gd): the orders it sent, and what the simulation did.
+BOT_CORK = re.compile(r"^BOT cork (\w+) window (\d+) seq (\d+)$")
+BOT_UNCORK = re.compile(r"^BOT uncork bottle (\d+) window (\d+) seq (\d+)$")
+BOT_SEAWALL = re.compile(r"^BOT seawall wave (\d+) seq (\d+)$")
+BOT_CORKED = re.compile(r"^BOT bottle (\d+) window (\d+) tier (\d+) corked$")
+BOT_UNCORKED = re.compile(r"^BOT bottle (\d+) window (\d+) uncorked (\w+) by (bot|client)$")
+BOT_FIZZLED = re.compile(r"^BOT bottle (\d+) window (\d+) fizzled$")
+BOT_WALKING = re.compile(r"^BOT walking wave (\d+) hollow (\d+) creeps (\d+)$")
+BOT_ROSE = re.compile(r"^BOT seawall rose wave (\d+) charges (\d+)$")
 
 
 def rate_floor(stamps, window):
@@ -261,13 +298,14 @@ def queue_game(lines):
     return seen
 
 
-def queue_problems(games, seats=4):
+def queue_problems(games, seats=4, mode="high_water", mains=()):
     """--flow --queue's check on what the games' logs say (`games`: client -> queue_game):
     every game through every step to queued again, each in a party of its own, one match
     found of `seats` for all, one MATCH_CONFIG whose Builders are all different (strangers
     on one team never share one: with every main a Lamplighter, the first queued keeps it,
     the next takes the backup and the server draws the rest), one seat each, and a finished
-    match."""
+    match of `mode`. In a two-team mode (a duel, or a race of one a side) every party is a
+    side of its own, so no Builder is unclashed: MATCH_CONFIG's are the games' `mains`."""
     problems = []
     for k, seen in sorted(games.items()):
         problems += [f"client {k}: {why}" for why in seen["failed"]]
@@ -294,14 +332,90 @@ def queue_problems(games, seats=4):
                         + "; ".join(",".join(c) for c in sorted(configs)))
     else:
         chosen = list(next(iter(configs)))
-        if len(chosen) != seats or len(set(chosen)) != len(chosen):
+        if two_teams(mode):
+            if sorted(chosen) != sorted(mains):
+                problems.append(f"MATCH_CONFIG's Builders {','.join(chosen) or 'none'}, the games' mains are"
+                                f" {','.join(mains)}: a clash never crosses the sides")
+        elif len(chosen) != seats or len(set(chosen)) != len(chosen):
             problems.append(f"MATCH_CONFIG's Builders {','.join(chosen) or 'none'}: strangers on one team share one")
     matched = [seen["match"] for seen in games.values() if "match" in seen]
     if sorted(int(m[1]) for m in matched) != list(range(1, seats + 1)):
         problems.append("the seats were not one each: " + ", ".join(m[1] for m in matched))
-    if {m[0] for m in matched} - {"high_water"}:
-        problems.append("the queue's match was not High Water: " + ", ".join(sorted({m[0] for m in matched})))
+    if {m[0] for m in matched} - {mode}:
+        problems.append(f"the queue's match was not {mode}: " + ", ".join(sorted({m[0] for m in matched})))
     return problems
+
+
+def two_teams(mode):
+    """Whether protocol.json's `mode` sets two teams against each other (Tide Race, Undertow)."""
+    return modes().get(mode, {}).get("teams", 1) > 1
+
+
+def is_duel(mode):
+    """Whether protocol.json's `mode` is a duel: two teams of one seat each (Undertow, M7)."""
+    spec = modes().get(mode, {})
+    return two_teams(mode) and spec["seats"][1] == spec["teams"]
+
+
+def queue_mode(args):
+    """The mode --flow --queue plays: --mode's, or High Water when --mode is left at its default."""
+    return "high_water" if args.mode == "classic" else args.mode
+
+
+def duel_game(lines):
+    """What one duelling game's plan bot says of its duel (tests/bot.gd's BOT lines): the
+    orders it sent (CORKs, UNCORKs, SEAWALLs, each a count), the bottles the simulation stood
+    ([(id, window, tier)]), those it saw uncorked ([(id, window, pack, by)], by "bot" where Game
+    settled an UNCORK of the bot's own as the one that ran, "client" for the client's own at
+    auto_uncork_t) and fizzled ([id]), its uncorked
+    creeps walking the rival's road ([(wave, hollow, creeps)]) and the Seawalls that rose."""
+    seen = {"corks": 0, "uncorks": 0, "seawalls": 0, "corked": [], "uncorked": [], "fizzled": [],
+            "walking": [], "rose": 0}
+    for line in (line.strip() for line in lines):
+        if BOT_CORK.match(line):
+            seen["corks"] += 1
+        elif BOT_UNCORK.match(line):
+            seen["uncorks"] += 1
+        elif BOT_SEAWALL.match(line):
+            seen["seawalls"] += 1
+        elif m := BOT_CORKED.match(line):
+            seen["corked"].append(tuple(int(v) for v in m.groups()))
+        elif m := BOT_UNCORKED.match(line):
+            seen["uncorked"].append((int(m.group(1)), int(m.group(2)), m.group(3), m.group(4)))
+        elif m := BOT_FIZZLED.match(line):
+            seen["fizzled"].append(int(m.group(1)))
+        elif m := BOT_WALKING.match(line):
+            seen["walking"].append(tuple(int(v) for v in m.groups()))
+        elif BOT_ROSE.match(line):
+            seen["rose"] += 1
+    return seen
+
+
+def duel_problems(games):
+    """The duel's check on what its games' plan bots said (`games`: client -> duel_game): each
+    game's CORK ran (a bottle of its stood in the simulation) and an UNCORK of its bot's own
+    was taken (its reveal matched the commitment), and at least one uncorked pack walked a
+    rival's road. Every order crossed the server: a game's simulation runs only the turns."""
+    problems = []
+    for k, seen in sorted(games.items()):
+        if not seen["corked"]:
+            problems.append(f"client {k} never corked: no bottle of its stood in the simulation"
+                            f" ({seen['corks']} CORK(s) sent)")
+        if not any(by == "bot" for *_, by in seen["uncorked"]):
+            problems.append(f"client {k}'s bot never uncorked a bottle itself: no UNCORK of its own was taken"
+                            f" ({seen['uncorks']} sent, {len(seen['uncorked'])} bottle(s) uncorked)")
+    if games and not any(seen["walking"] for seen in games.values()):
+        problems.append("no uncorked pack walked a rival's road")
+    return problems
+
+
+def duel_counts(games):
+    """A line of what the duel's bots did, per client, for the summary."""
+    return "; ".join(f"client {k}: {len(g['corked'])} corked, {sum(1 for *_, by in g['uncorked'] if by == 'bot')}"
+                     f" uncorked by the bot, {len(g['uncorked']) - sum(1 for *_, by in g['uncorked'] if by == 'bot')}"
+                     f" by the client, {len(g['fizzled'])} fizzled, {sum(w[2] for w in g['walking'])} creeps seen"
+                     f" walking in {len(g['walking'])} wave(s), {g['rose']} Seawall(s)"
+                     for k, g in sorted(games.items()))
 
 
 def stream_problems(streams, final):
@@ -489,8 +603,12 @@ class Smoke:
         return TURN_TICKS * 1000 / (self.args.turn_ms or TURN_MS)
 
     def race(self):
-        """The dev match's mode has two teams (Tide Race)."""
+        """The dev match's mode has two teams (Tide Race, or Undertow's duel)."""
         return modes()[self.args.mode]["teams"] > 1
+
+    def duel(self):
+        """The dev match's mode is a duel: two teams of one seat (Undertow, M7)."""
+        return is_duel(self.args.mode)
 
     def check(self, clients):
         problems = []
@@ -528,6 +646,14 @@ class Smoke:
             problems.append("the clients' RESULT lines differ: " + "; ".join(sorted(set(results.values()))))
         if race:
             problems += race_problems(ends, seats, modes()[self.args.mode]["teams"])
+        if self.duel() and sorted(seats.values()) != [(1, 2), (2, 2)]:
+            problems.append("a duel is seat 1 of 2 against seat 2 of 2: the clients sat "
+                            + ", ".join(f"{seat} of {of}" for seat, of in sorted(seats.values())))
+        duels = {}
+        if self.duel() and not getattr(self.args, "no_bot", False):
+            duels = {k: duel_game((self.out / f"client{k}.log").read_text(encoding="utf-8", errors="replace")
+                                  .splitlines()) for k, _, _ in clients}
+            problems += duel_problems(duels)
         shared = set.intersection(*(set(s) for s in streams.values())) if streams else set()
         first_bad = None
         for tick in sorted(shared):
@@ -577,10 +703,14 @@ class Smoke:
                                 + tail(self.out / f"client{k}.log"))
         return {"ok": not problems, "problems": problems, "outcome": outcome, "final_tick": final,
                 "hashes_compared": len(shared), "result": next(iter(results.values()), None),
+                "duel": duel_counts(duels) if duels else None,
                 "clients": {k: {"hashes": len(streams[k]), "end": ends.get(k), "tick_rate": rates.get(k),
-                                "resyncs": resyncs.get(k), "shaped": k == self.shaped()} for k in streams}}
+                                "resyncs": resyncs.get(k), "shaped": k == self.shaped(), "duel": duels.get(k)}
+                            for k in streams}}
 
     def summarise(self, report):
+        if report.get("duel"):
+            print(f"smoke: the duel's orders · {report['duel']}")
         if report["ok"]:
             print(f"smoke: PASS · the match ended {report['outcome']} at tick {report['final_tick']}"
                   f" · {report['hashes_compared']} hash ticks equal on every client · {report['seconds']} s")
@@ -728,6 +858,8 @@ class QueueFlow(Flow):
             command = [self.godot(), "--headless", "--path", str(ROOT), "--",
                        f"--server=127.0.0.1:{port}", "--flow-bot", "--queue", f"--name=Queue{k}",
                        f"--main={builder}", f"--hash-log={hashes}", "--quit-after-flow"]
+            if queue_mode(self.args) != "high_water":
+                command.append(f"--mode={queue_mode(self.args)}")  # (Find a rival, not Find players)
             command += ["--ready-calls"] if self.args.no_bot else ["--ready-calls", "--bot"]
             if self.args.linger:
                 command.append(f"--linger={self.args.linger:g}")
@@ -736,8 +868,8 @@ class QueueFlow(Flow):
 
     def header(self):
         played = "idle, calling every wave" if self.args.no_bot else "played by the plan bots, calling every wave"
-        return (f"smoke: the queue, {self.args.clients} games alone ({','.join(self.builders())}, {played})"
-                f" seed {self.args.seed}, logs in {self.out}")
+        return (f"smoke: the queue, {self.args.clients} games alone in {queue_mode(self.args)}"
+                f" ({','.join(self.builders())}, {played}) seed {self.args.seed}, logs in {self.out}")
 
     def check(self, clients):
         games, streams, problems = {}, {}, []
@@ -749,7 +881,18 @@ class QueueFlow(Flow):
                 streams[k].update(read_hashes(hashes))
             if process.returncode != 0:
                 problems.append(f"client {k} exited with {process.returncode}:\n" + tail(log))
-        problems += queue_problems(games, self.args.clients)
+        mains = [b if b in FIELDED else "lamplighter" for b in self.builders()]
+        problems += queue_problems(games, self.args.clients, queue_mode(self.args), mains)
+        if two_teams(queue_mode(self.args)):
+            # (rivals: one outcome a side, answering each other)
+            ends = {k: g["end"] for k, g in games.items() if "end" in g}
+            seats = {k: (int(g["match"][1]), int(g["match"][2])) for k, g in games.items() if "match" in g}
+            problems += race_problems(ends, seats, modes()[queue_mode(self.args)]["teams"])
+        duels = {}
+        if is_duel(queue_mode(self.args)) and not self.args.no_bot:
+            duels = {k: duel_game((self.out / f"client{k}.log").read_text(encoding="utf-8", errors="replace")
+                                  .splitlines()) for k, _, _ in clients}
+            problems += duel_problems(duels)
         final = max((int(g["end"][2]) for g in games.values() if "end" in g), default=0)
         hashed, shared = stream_problems(streams, final)
         problems += hashed
@@ -759,13 +902,16 @@ class QueueFlow(Flow):
         first = next(iter(games.values()), {})
         return {"ok": not problems, "problems": problems, "builders": ",".join(first.get("config", ())),
                 "outcome": first.get("end", (None,))[0], "final_tick": final, "hashes_compared": len(shared),
+                "duel": duel_counts(duels) if duels else None,
                 "clients": {k: {"party": g.get("party"), "steps": g["steps"], "end": g.get("end"),
-                                "back": g.get("back")} for k, g in games.items()}}
+                                "back": g.get("back"), "duel": duels.get(k)} for k, g in games.items()}}
 
     def summarise(self, report):
+        if report.get("duel"):
+            print(f"smoke: the duel's orders · {report['duel']}")
         if report["ok"]:
             print(f"smoke: PASS · {self.args.clients} parties of one met in the queue · Match Found, all accepted"
-                  f" · High Water with {report['builders']} · ended {report['outcome']} at tick"
+                  f" · {queue_mode(self.args)} with {report['builders']} · ended {report['outcome']} at tick"
                   f" {report['final_tick']} · {report['hashes_compared']} hash ticks equal · every game queued"
                   f" again by Play again · {report['seconds']} s")
         else:
@@ -796,13 +942,15 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Play one networked match: the real server and headless clients")
     parser.add_argument("--mode", default="classic",
                         help="the dev match's mode, one of protocol.json's (default classic; tide_race takes 2 or 4"
-                             " clients, two teams)")
+                             " clients, two teams; undertow, the duel, 2, one a side); with --flow --queue the mode"
+                             " the games queue in (tide_race or undertow: two games find each other as rivals)")
     parser.add_argument("--clients", type=int, default=None,
-                        help="headless clients, one per seat (default 2; with --queue 4)")
+                        help="headless clients, one per seat (default 2; with --queue 4, or 2 in a two-team mode)")
     parser.add_argument("--seed", type=int, default=1, help="the match seed (default 1)")
     parser.add_argument("--turn-ms", type=int, default=0,
                         help="the server's turn length in ms (default the protocol's 50; 10 plays five times faster)")
-    parser.add_argument("--timeout", type=float, default=900, help="seconds for the whole match (default 900)")
+    parser.add_argument("--timeout", type=float, default=None,
+                        help="seconds for the whole match (default 900; 1500 for the bots' duel through the queue)")
     parser.add_argument("--godot", help="the Godot binary (default $GODOT_PATH, else godot on PATH)")
     parser.add_argument("--out", help="where logs and hash streams go (default a new temp folder)")
     parser.add_argument("--no-bot", action="store_true",
@@ -831,20 +979,29 @@ def parse_args(argv=None):
                         help="with --flow: four games, each a party of one, meet through the server's queue (Find"
                              " players, Match Found), play, and are queued again by Play again")
     args = parser.parse_args(argv)
+    rivals = args.flow and args.queue and two_teams(queue_mode(args))
     if args.clients is None:
-        args.clients = 4 if args.queue else 2
+        args.clients = 4 if args.queue and not rivals else 2
     if args.builders is None:
         args.builders = "lamplighter" if args.queue else "lamplighter,lookout"
+    if args.timeout is None:
+        # (the bots' duel at the protocol's 50 ms turns runs to the Surge's end: about 740 s)
+        args.timeout = 1500 if rivals and is_duel(queue_mode(args)) and not args.no_bot else 900
     if not 1 <= args.clients <= 4:
         parser.error("--clients is 1 to 4")
     if args.queue and not args.flow:
         parser.error("--queue is --flow's: the hub's queue, not a dev match")
-    if args.queue and args.clients != 4:
+    if args.queue and args.flow and queue_mode(args) not in modes():
+        parser.error(f"--mode is one of {', '.join(modes())}")
+    if args.queue and not rivals and args.clients != 4:
         parser.error("--queue plays four games: High Water's queue fills four seats with strangers")
+    if rivals and args.clients != 2:
+        parser.error(f"--queue --mode {args.mode} plays two games: each a party of one, rivals one a side")
     if args.flow and args.turn_ms:
         parser.error("--turn-ms is a dev match's; the hub's matches keep the protocol's turns")
-    if args.flow and args.mode != "classic":
-        parser.error("--mode is a dev match's; --flow plays the hub's mode, the leader's (High Water)")
+    if args.flow and args.mode != "classic" and not (args.queue and (rivals or args.mode == "high_water")):
+        parser.error("--mode is a dev match's; --flow plays the hub's mode, the leader's (High Water); with"
+                     " --queue it may name a two-team mode")
     if not args.flow and mode_problem(args.mode, args.clients):
         parser.error(mode_problem(args.mode, args.clients))
     if args.linger and not args.flow:

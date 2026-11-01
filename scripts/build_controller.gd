@@ -7,6 +7,13 @@
 ## at once); S sells my selected tower; D, N and Space sound the war horn (Ready). Esc
 ## and a right click cancel; Esc with nothing to cancel opens the match's menu.
 ##
+## In a duel (Undertow, M7: design 1.4 and 5.7) 1, 2 and 3 cork the Drift tray's packs (a
+## click on one too), Space during a wave uncorks my next corked bottle instead of Ready (a
+## click on a bottle uncorks that one), and F bursts a Seawall round my Holdfast. A cork's
+## price is kept back from the gold like a tower's until its turn runs. No Ready goes out
+## while my hollow has cleared and the rival's wave still runs: the window opens for both
+## together, and a Ready said before it would spend it as it opened (Game.ready_refusal).
+##
 ## Nothing here changes the match: each order goes out as a command and runs when its
 ## turn comes (within 50 ms offline). Until then a placed tower stands as a pulsing ghost
 ## and its cost is kept back from the gold; the simulation confirms or refuses it.
@@ -39,9 +46,17 @@ const ACTIONS := {
 	"card_e": [KEY_E],
 	"signal": [KEY_A],
 	"sell": [KEY_S],
-	"ready": [KEY_D, KEY_N, KEY_SPACE],
+	"ready": [KEY_D, KEY_N],
+	# (Space is Ready too, but uncorks during a duel's wave: press_space)
+	"space": [KEY_SPACE],
 	"cancel": [KEY_ESCAPE],
+	# (the duel's, M7: the Drift tray's three packs, off the card's Q row, and the Seawall)
+	"pack_1": [KEY_1],
+	"pack_2": [KEY_2],
+	"pack_3": [KEY_3],
+	"seawall": [KEY_F],
 }
+const PACK_ACTIONS := ["pack_1", "pack_2", "pack_3"]
 const SLOT_ACTIONS := ["card_q", "card_w", "card_e"]
 
 var map: HollowMap
@@ -141,6 +156,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		sell_selected()
 	elif event.is_action_pressed("ready"):
 		toggle_ready()
+	elif event.is_action_pressed("space"):
+		press_space()
+	elif event.is_action_pressed("seawall"):
+		seawall()
+	elif _pack_pressed(event) >= 0:
+		cork_slot(_pack_pressed(event))
 	elif event.is_action_pressed("cancel"):
 		if mode == "" and not signaling and selected == null and selected_creep == null and main.has_method("open_menu"):
 			main.open_menu()  # (nothing to cancel: the Esc menu)
@@ -275,9 +296,21 @@ func _cell_free(cell: Vector2i) -> bool:
 	return true
 
 
+## Selects `creep` (null: none). A creep that died or got through is no selection, and one
+## selected stops being it the moment it leaves the road (Creep.gone): the plate goes back
+## to the Holdfast then, and the next Esc finds nothing to cancel.
 func select_creep(creep: Creep) -> void:
+	if creep != null and (not is_instance_valid(creep) or creep.dead):
+		creep = null
 	selected_creep = creep
+	if creep != null and not creep.gone.is_connected(_on_creep_gone):
+		creep.gone.connect(_on_creep_gone)
 	creep_selected.emit(creep)
+
+
+func _on_creep_gone(creep: Creep) -> void:
+	if creep == selected_creep:
+		select_creep(null)
 
 
 func _creep_near(screen: Vector2) -> Creep:
@@ -411,16 +444,106 @@ func signal_at(screen: Vector2) -> bool:
 ## comes at once and each second left pays every seat one gold. While a READY of mine is
 ## on its way, a press only changes what the next one will ask for (sent once it lands).
 func toggle_ready() -> bool:
-	if Game.state != Game.State.PREP or Game.wave >= Game.total_waves():
+	if Game.state != Game.State.PREP or Game.wave >= Game.last_wave():
 		return false
 	if Game.order_refusal() != "":
 		_refuse(Game.order_refusal())
+		return false
+	if Game.ready_refusal() != "":
+		# (a duel's window not yet open for both: a Ready now would spend it as it opened)
+		_refuse(Game.ready_refusal())
 		return false
 	var want := not wants_ready()
 	ready_wanted = 1 if want else 0
 	Sfx.play("click", -6.0)
 	_send_ready()
 	selection_changed.emit(selected)
+	return true
+
+
+## Space (design 5.7): Ready, as D and N, except while a duel's wave runs (on either
+## hollow: mine may stand in its window while the rival's road still waits for my pack),
+## where it uncorks my next bottle of that wave and, once they are gone, never says Ready
+## for a window that has not opened for both yet: with my hollow in its window it says why
+## (Game.ready_refusal, as D, N and the horn do then), during my own wave nothing.
+func press_space() -> bool:
+	if Game.duel_wave():
+		if Game.corked_for_wave():
+			return uncork()
+		if Game.ready_refusal() != "":
+			_refuse(Game.ready_refusal())
+		return false
+	return toggle_ready()
+
+
+func _pack_pressed(event: InputEvent) -> int:
+	for i in PACK_ACTIONS.size():
+		if event.is_action_pressed(PACK_ACTIONS[i]):
+			return i
+	return -1
+
+
+## The Drift tray's pack in `slot` (0 to 2, keys 1 to 3), corked: cork().
+func cork_slot(slot: int) -> bool:
+	var offer := Game.drift_packs()
+	if slot < 0 or slot >= offer.size():
+		if Game.is_duel():
+			_refuse(Game.cork_refusal(""))
+		return false
+	return cork(str(offer[slot]))
+
+
+## Corks pack `check` (a CHECK_IDS id among the Drift's packs) for the next turn, as a click on
+## the tray does: its price is kept back from my gold until the turn runs.
+func cork(check: String) -> bool:
+	var why := Game.cork_refusal(check)
+	if why == "" and not Game.can_command():
+		why = Game.command_refusal()
+	if why != "":
+		_refuse(why)
+		return false
+	var price := Game.cork_price(Game.duel_window())
+	var seq := Game.cork(check)
+	if seq < 0:
+		_refuse(Game.command_refusal())
+		return false
+	_add_pending(seq, "cork", price, Vector2i(-1, -1), null)
+	Sfx.play("click", -6.0)
+	return true
+
+
+## Uncorks my bottle `id` (-1: the next, as Space does) for the next turn.
+func uncork(id := -1) -> bool:
+	var why := Game.uncork_refusal(id)
+	if why == "" and not Game.can_command():
+		why = Game.command_refusal()
+	if why != "":
+		_refuse(why)
+		return false
+	var seq := Game.uncork(id)
+	if seq < 0:
+		_refuse(Game.command_refusal())
+		return false
+	_add_pending(seq, "uncork", 0, Vector2i(-1, -1), null)
+	return true
+
+
+## F: a Seawall round my Holdfast for the next turn. Outside a duel F is nothing, silent, as
+## keys 1 to 3 are.
+func seawall() -> bool:
+	if not Game.is_duel():
+		return false
+	var why := Game.seawall_refusal()
+	if why == "" and not Game.can_command():
+		why = Game.command_refusal()
+	if why != "":
+		_refuse(why)
+		return false
+	var seq := Game.seawall()
+	if seq < 0:
+		_refuse(Game.command_refusal())
+		return false
+	_add_pending(seq, "seawall", 0, Vector2i(-1, -1), null)
 	return true
 
 
@@ -443,7 +566,7 @@ func _send_ready() -> void:
 	ready_wanted = -1
 	if want == Game.is_ready():
 		return
-	if Game.state != Game.State.PREP or Game.wave >= Game.total_waves():
+	if Game.state != Game.State.PREP or Game.wave >= Game.last_wave():
 		return
 	var seq := Game.command(SimTypes.CMD_READY, 1 if want else 0)
 	if seq >= 0:
@@ -480,6 +603,7 @@ func forget_pending() -> void:
 	pending.clear()
 	ready_wanted = -1
 	signaling = false
+	Game.forget_duel_orders()  # (the duel's corks, uncorkings and Seawall on their way too)
 	_count_pending()
 	if map:
 		_refresh_preview()

@@ -5,14 +5,44 @@
 ## online tells the server (Session.to_hub sends LEAVE_MATCH, the caretaker takes the
 ## seat). Offline the match waits while the plate is up; online it plays on, and the
 ## plate says so.
+##
+## Restart and Leave to hub end the match being played, so each asks first (a playtest lost
+## a whole match to one stray click on Leave to hub): the plate turns into the question,
+## "Leave the match?" or "Restart the match?", with what it costs in one line, the answer
+## that ends the match on the first row and Stay on the second. No answer stands where the
+## asking button stood, so a second stray click there ends nothing. Stay, Esc, Enter and
+## Space go back to the menu.
 class_name MatchMenu
 extends CanvasLayer
+
+## The question's title, its line (offline, online) and the answer that ends the match, by
+## what is asked.
+const ASKS := {
+	"leave": {
+		"title": "Leave the match?",
+		"line": ["This match ends here", "The caretaker plays your seat to the end"],
+		"answer": "Leave the match",
+	},
+	"restart": {
+		"title": "Restart the match?",
+		"line": ["It starts again from the first wave", "It starts again from the first wave"],
+		"answer": "Restart the match",
+	},
+}
+## The answer that ends the match, in the toll's red, apart from the menu's gold.
+const ENDS := Color("#ff9a7a")
+## The buttons in the plate's order, top to bottom (only some show at once).
+const BUTTONS := ["MenuConfirm", "MenuResume", "MenuRestart", "MenuLeave", "MenuStay"]
 
 var main: Node
 var _root: Control
 var _title: Label
 var _line: Label
 var _restart: Button
+var _confirm: Button
+var _stay: Button
+## What the plate asks now ("leave", "restart"), or "" while it offers the menu.
+var _asking := ""
 
 
 func setup(scene: Node) -> void:
@@ -38,10 +68,13 @@ func setup(scene: Node) -> void:
 	plate.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	plate.offset_left = -150
 	plate.offset_right = 150
-	plate.offset_top = -150
+	# (its top stands still and it grows downward, so every state lays its rows at the same
+	# heights: a question's answers sit where Resume and Restart stood, never over Restart or
+	# Leave to hub)
+	plate.offset_top = -171
 	plate.offset_bottom = 60
 	plate.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	plate.grow_vertical = Control.GROW_DIRECTION_BOTH
+	plate.grow_vertical = Control.GROW_DIRECTION_END
 	_root.add_child(plate)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
@@ -56,30 +89,56 @@ func setup(scene: Node) -> void:
 	_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_line.add_theme_constant_override("outline_size", 0)
 	box.add_child(_line)
+	_confirm = _button("MenuConfirm", "", _answer)
+	for state: String in ["font_color", "font_hover_color", "font_pressed_color"]:
+		_confirm.add_theme_color_override(state, ENDS.lightened(0.25) if state == "font_hover_color" else ENDS)
+	box.add_child(_confirm)
 	box.add_child(_button("MenuResume", "Resume", close))
-	_restart = _button("MenuRestart", "Restart", func() -> void: main.restart())
+	_restart = _button("MenuRestart", "Restart", ask.bind("restart"))
 	box.add_child(_restart)
-	box.add_child(_button("MenuLeave", "Leave to hub", func() -> void: main.leave_to_hub()))
+	box.add_child(_button("MenuLeave", "Leave to hub", ask.bind("leave")))
+	_stay = _button("MenuStay", "Stay", stay)
+	box.add_child(_stay)
 	visible = false
 
 
 func open() -> void:
-	var online: bool = main.get("client") != null
-	_title.text = "Menu" if online else "Paused"
-	_line.text = "The match plays on" if online else "The match waits for you"
-	_restart.visible = not online
+	_asking = ""
+	_show()
 	visible = true
 
 
 func close() -> void:
+	_asking = ""
 	visible = false
 
 
-## What the plate offers now, for tests: "Resume", "Restart", "Leave to hub".
+## Restart ("restart", offline only) or Leave to hub ("leave") was pressed: the plate asks
+## before the match ends.
+func ask(what: String) -> void:
+	if not ASKS.has(what) or (what == "restart" and _online()):
+		return
+	_asking = what
+	_show()
+
+
+## Stay: no, back to the menu.
+func stay() -> void:
+	_asking = ""
+	_show()
+
+
+## What the plate asks now, for tests: "leave", "restart", or "" while it offers the menu.
+func asking() -> String:
+	return _asking
+
+
+## What the plate offers now, top to bottom, for tests: "Resume", "Restart", "Leave to
+## hub"; while it asks, "Leave the match" (or "Restart the match") and "Stay".
 func choices() -> Array[String]:
 	var out: Array[String] = []
-	for name: String in ["MenuResume", "MenuRestart", "MenuLeave"]:
-		var button := _root.find_child(name, true, false) as Button
+	for button_name: String in BUTTONS:
+		var button := _root.find_child(button_name, true, false) as Button
 		if button and button.visible:
 			out.append(button.text)
 	return out
@@ -91,10 +150,51 @@ func _input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if key == null:
 		return
-	if key.pressed and not key.echo and KEY_ESCAPE in [key.physical_keycode, key.keycode]:
-		close()
+	if key.pressed and not key.echo:
+		var codes := [key.physical_keycode, key.keycode]
+		if KEY_ESCAPE in codes:
+			if _asking != "":
+				stay()  # (Esc steps back one: from the question to the menu, then out)
+			else:
+				close()
+		elif _asking != "" and (KEY_ENTER in codes or KEY_KP_ENTER in codes or KEY_SPACE in codes):
+			stay()  # (Stay is the question's default)
 	# (while the plate is up no key reaches the battlefield: no orders behind it)
 	get_viewport().set_input_as_handled()
+
+
+## The question answered yes: the match ends as asked.
+func _answer() -> void:
+	var what := _asking
+	_asking = ""
+	match what:
+		"leave":
+			main.leave_to_hub()
+		"restart":
+			main.restart()
+
+
+func _online() -> bool:
+	return main.get("client") != null
+
+
+## The plate as it stands: the menu, or the question.
+func _show() -> void:
+	var online := _online()
+	var asked := _asking != ""
+	if asked:
+		var ask_now: Dictionary = ASKS[_asking]
+		_title.text = str(ask_now["title"])
+		_line.text = str(ask_now["line"][1 if online else 0])
+		_confirm.text = str(ask_now["answer"])
+	else:
+		_title.text = "Menu" if online else "Paused"
+		_line.text = "The match plays on" if online else "The match waits for you"
+	_confirm.visible = asked
+	_stay.visible = asked
+	for button_name: String in ["MenuResume", "MenuLeave"]:
+		(_root.find_child(button_name, true, false) as Control).visible = not asked
+	_restart.visible = not asked and not online
 
 
 func _button(button_name: String, text: String, action: Callable) -> Button:

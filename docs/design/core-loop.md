@@ -197,9 +197,14 @@ every wave, and it scores at least 6 on every axis. Grafted onto it:
   25 s with 2 to 4 players; later windows are 10 s solo and 15 s with company.
 - **Ready.** When every present player of a hollow is Ready, the horn sounds at once and each player is paid one
   gold per whole second left (today's early-call rule, now team-wide). Caretaken seats count as Ready.
+- **Waves stack (M8, §2.7).** In High Water and Tide Race, Ready may also be called during a wave: the next wave
+  sets out behind the last creep of the one on the road while that one still walks, and the window between them is
+  skipped. At most two waves are on the road at once. A call in a wave pays the whole window it skips and one gold
+  more for each life the creeps on the road could still take. classic and Undertow do not stack.
 - **Building, forking and selling during a wave** stay allowed, as today: the safety valve for a player who is
   behind.
-- **A wave ends** when its road is empty and nothing is left to spawn; then the next window opens.
+- **A wave clears** when it and every wave before it have nothing left to spawn and no creep on the road; waves
+  clear in order. When no wave is left on the road, the next window opens.
 - **Felt latency.** Online, a command lands about RTT + 0.1 to 0.3 s after the click (LAN: about 0.1 s; solo:
   at most 50 ms). The client draws the ghost tower, the hammer and the greyed gold at once and confirms or
   withdraws them when the command runs (§6.3).
@@ -234,9 +239,11 @@ the Hollowtide Crest.
   minutes. Solo, with shorter windows, runs about 12 minutes.
 - **Win:** wave 12 cleared with lives left. **Lose:** lives reach 0.
 - **Decisions, by size:**
-  - *Before the match:* which Builder, read against the party's coverage row.
+  - *Before the match:* which Builder, read against the party's coverage row, and (M8) how hard: Normal, Hard or
+    Very Hard (§2.6).
   - *Every window:* what to build and where, which fork branch, when to press Ready.
-  - *During a wave:* emergency towers, selling a misplaced tower, signals.
+  - *During a wave:* emergency towers, selling a misplaced tower, signals, and (M8) whether to call the next wave
+    in behind this one (§2.7).
   - *Three larger moments*, each announced a window ahead: wave 5 (first Winged), wave 6 (first boss), wave 12.
 - **Nobody falls behind on income**, because income is equal by rule; "behind" can only mean poor placement. A
   quiet stretch of road is still a good place for a team tower. The caretaker covers anyone who drops.
@@ -248,7 +255,10 @@ surges. Whose Holdfast holds best, and fastest?
 
 - **Teams:** two, of 1 or 2 players (1v1 or 2v2). Each team plays High Water on its own copy of the hollow, with
   the same seed and the same wave list. Nothing crosses between the hollows. Each hollow keeps its **own clock**,
-  so calling waves early with Ready is the race lever.
+  so calling waves early with Ready is the race lever. From M8 a team may also stack (§2.7): a wave called during
+  the one before saves that window and the overlap. Race time still counts the same way; a stacked race simply
+  clears wave 12 sooner, and the lives its risk costs add 10 s each.
+- **Difficulty** (M8, §2.6): both teams play the party's level.
 - **Race time** = the tick at which a team clears wave 12, plus **600 ticks (10 s) for every life lost**. The
   strip shows both teams' race times as they go.
 - **Win order:**
@@ -262,7 +272,7 @@ surges. Whose Holdfast holds best, and fastest?
 | Clock (1v1) | What happens | What you decide |
 |---|---|---|
 | 0:00 to 0:25 | First window, as in High Water | How greedy to open |
-| 0:25 to about 5:00 | Waves 1 to 5; each side presses Ready as early as it dares | Ready early (faster, and gold for the skipped seconds) or late (safer) |
+| 0:25 to about 5:00 | Waves 1 to 5; each side presses Ready as early as it dares | Ready early (faster, and gold for the skipped seconds) or late (safer); from M8, stack the next wave behind the last |
 | about 5:00 to 6:30 | Wave 6, the Bristlesow | Whether to call a boss early |
 | 6:30 to 11:00 | Waves 7 to 11; the strip shows the rival's wave, lives and race time; **V** shows the rival's hollow | Chase or protect: the rival's line is the information |
 | 11:00 to 13:00 | Wave 12; the first team to finish sets the time to beat | |
@@ -278,7 +288,10 @@ Specified now so the v1 simulation and protocol leave room for it. It is `versus
 adapted to lockstep.
 
 - **Layout:** the race layout (two copies of the hollow), with **one shared clock**: both sides build and start
-  each wave together, so every wave is a simultaneous reveal.
+  each wave together, so every wave is a simultaneous reveal. The window opens for both once both have cleared the
+  wave; until then no Ready is taken from a side whose hollow has cleared (D, N, Space and the horn say "The window
+  opens once both waves are over"), since a Ready said early would sound the horn the moment the window opened and
+  spend its corking.
 - **The Drift.** From window 2, each window offers three of four packs, drawn from the match's random
   stream and identical for both sides. The left-out pack never repeats twice in a row.
 
@@ -309,6 +322,16 @@ adapted to lockstep.
     the gold stays spent, and no creeps or stipend follow.
   - Hashing uses `HashingContext`, which is deterministic on every platform. A caretaker's corked packs are not
     hidden (it has no private salt), which is a fair price for being absent.
+- **What a rival's bottle shows** (M8). Its tier and its **candidates**: the packs its window offered at that
+  tier, never which one ("Gourd Rush, Thorn Herd or Moth Cloud"). The Drift is the same for both sides and lies in
+  every client's state, so the candidates add nothing to `CORK` and reveal nothing the commitment hides; they put on
+  screen what a careful player could already work out, so the defender can hold gold for the right check. With one
+  tier a window, as the preset has it, a bottle's candidates are its window's three offered packs.
+- **No stacked waves and no difficulty levels in a duel** (M8). The shared clock needs a window between waves:
+  the Drift draws in it, corks are made only in it, and a corked bottle holds both hollows' next one. A wave called
+  during a wave would skip a window of corking for one side or both, so Ready in a duel's wave stays refused, as
+  in M7. A duel's challenge is the rival, and its prices, packs and Seawall are tuned to Normal's 20 lives, so it
+  plays Normal whatever the party chose.
 - **Defending pays.** Each uncorked creep a defender kills pays its normal bounty. An uncorked creep that reaches
   the rival Holdfast (a **breach**) costs the toll and pays its sender twice its bounty.
 - **Seawall** (the one comeback device):
@@ -316,6 +339,9 @@ adapted to lockstep.
   - **F** spends one: a seawall bursts up in a ring around the Holdfast, radius 3.0 m. It stuns every creep inside
     for 2 s and takes 25% of each one's maximum health; the Hollowtide Crest loses 8% and is slowed 50% instead.
   - Cooldown 15 s.
+  - On screen, hovering the duel bar's Seawall (or its caption) explains it in these numbers, read from the rules,
+    with where yours stands: no charge yet and how many lives earn one, a charge ready, or what the seconds beside F
+    count down to after a burst.
 - **The Surge.** If both Holdfasts stand after wave 12, three surge waves follow (waves 9, 10 and 11 again,
   with +35% health each). Windows last 8 s, stipends freeze, and corks cost half. After the third surge wave,
   more lives wins; then more breach dealt; then a draw. No duel runs past about 16 minutes.
@@ -328,7 +354,8 @@ adapted to lockstep.
 
 - **Solo** is High Water with one seat. It runs offline through the in-process turn source, needs no server, and may
   pause (Esc). It is today's game with a Builder.
-- **Try** on the Builders screen starts a solo High Water match with that Builder.
+- **Try** on the Builders screen starts a solo High Water match with that Builder (from M8 at the level the hub
+  shows, §2.6).
 - **Race the caretaker** (and, from M7, **duel the caretaker**) start offline from the hub with the caretaker in
   the rival seat, so the competitive modes are playable with nobody online.
 
@@ -351,6 +378,8 @@ One simulation runs every mode; a mode is a dictionary in `scripts/sim/content.g
 | Sends | none | none | the Drift |
 | Comeback | none | none | Seawall |
 | Duplicate Builders | allowed | allowed | allowed across sides |
+| Stacked waves (M8, §2.7) | up to 2 on the road | up to 2 on each hollow, on its own clock | none |
+| Difficulty (M8, §2.6) | Normal, Hard, Very Hard | the same; both teams at the party's level | Normal only |
 | End | wave 12 cleared, or lives 0 | §1.3 | §1.4 |
 | Pause | solo only | never | never |
 
@@ -396,7 +425,8 @@ Waves 3 and 5 were tuned by the M2 balance gates (§4.4) from @0.5 and @0.9, whi
 seconds; `content.gd` says why beside each tuned number. Each check is taught alone (waves 1 to 5), tested as exactly
 one Builder's strong pair (7 to 10), then all at once
 (11). Each boss is announced a window ahead. Nothing is hidden: hovering the wave label lists every remaining wave
-as rows of creep icons.
+as rows of creep icons, each with its count, its health at that wave on your hollow (grown and scaled for the seats
+as the simulation spawns it, so it matches the creep's plate) and its armour: "×4 140 hp · armour 4".
 
 ### 2.4 Creeps
 
@@ -439,8 +469,93 @@ held by a caretaker count. The balance gates (§4.4) run every player count, so 
 
 ### 2.6 Difficulty
 
-One difficulty in v1. Every difficulty would multiply the balance gates (4 Builders by 4 player counts already).
-A later hard preset ("Spring Tide": +35% health, overlapping waves) is a mode key, not a lobby vote.
+v1 had one difficulty, so the balance gates stayed at 4 Builders by 4 player counts. The first playtest (`halv`,
+session 1, P5) found High Water solved by the third match: one build held with 16 of 20 lives and raced the
+caretaker with all 20, and no match came down to wave 12. **M8 adds two levels**, chosen for the whole party as the mode is: **Normal** (the default, the
+game as the gates tuned it), **Hard** and **Very Hard**. A level lays a few numbers over the mode's preset. It never
+changes the waves, the counts, the gold or the windows, so the wave list and every tooltip read the same, and only
+the creeps' plates and the lives show the difference.
+
+| Over the mode's preset | Normal | Hard | Very Hard |
+|---|---|---|---|
+| Creep health, per mille, after the wave growth and the seat scaling | 1000 | 1300 | 1600 |
+| A boss's health instead (the Bristlesow, the Hollowtide Crest) | 1000 | 1500 | 2000 |
+| A boss's armour | +0 | +1 | +2 |
+| Lives | 20 | 15 | 10 |
+| Bounties, start gold, clear bonus, windows, Ready's pay, tolls | the preset's | the same | the same |
+
+- **Numbers** (all *tunable*, `SimContent.DIFFICULTIES`). Solo, wave 12's Crest has 2,625 health and armour 4 at
+  Normal, about 3,940 and 5 at Hard, 5,250 and 6 at Very Hard; wave 6's Bristlesow 1,125 and 6, about 1,690 and
+  7, 2,250 and 8. The gold stays Normal's, so more health is harder by itself. At Very Hard the Crest's toll is
+  every life the team has: it must die on the road, which is what "a close wave 12" asks for.
+- **Exactly** (`SimWaves.spawn`): `max_hp = hp × (1000 + growth) × seats_pm / 1000000`, as before, then
+  `× level_pm / 1000`, where `level_pm` is the level's boss health for a boss and its creep health for any other
+  creep. A boss's armour gains the level's boss armour where the rules turn armour on. At Normal the health is
+  1000 per mille and the armour +0, which changes no number and no state hash.
+- **Modes.** High Water and Tide Race take a level; a race's two teams play the same one. Undertow plays Normal
+  only (§1.4) and classic keeps M1's game.
+- **Where it lives.** The party's leader picks it, like the mode (§5.2); a change clears every Ready. Offline and
+  in a party of one it is the profile's, saved like the mode. Every match the hub starts plays the level it shows:
+  Play, Try and Race the caretaker; Duel the caretaker plays Normal. `MATCH_CONFIG` carries it, and the queue
+  matches only parties of one level (§6.5, §6.9).
+- **On screen** the levels are plain words (`world.md`): Normal, Hard, Very Hard. A level other than Normal is
+  named wherever the mode is: the hub's mode line, Match Found, the loading title, the results and the Esc menu.
+- **The caretaker** plays the same plan at every level, and stacks waves only at Normal (§2.7). A plan may later
+  carry a level's own block; M8 adds none.
+- **Gates** (§4.4): the plan bots must win Hard with a third of their lives; at Very Hard they must reach wave 12
+  and end it with at most half their lives, or fall to it.
+
+### 2.7 Stacked waves (M8)
+
+The same playtest (P6) found Ready no decision: it paid 9 to 11 gold every window and the next wave still came
+only after the clear, so it was "a tax on not clicking". M8 lets a wave be called while the last still walks, as
+sending early did in Element TD, and pays for the risk.
+
+- **When Ready counts.** In a build window, as before. During a wave, in a mode that stacks (High Water and Tide
+  Race: `stack_max` 2), a present player's Ready is taken while fewer than two waves are on the hollow's road, the
+  newest is not the last wave, and no seat of the hollow is returning from the caretaker (its hand-back needs a
+  window, §6.7). Otherwise it is refused (`NO_STACK`), and the screen says why. Un-Ready is always taken.
+- **The stacked horn** sounds when every present player of the hollow is Ready (caretaken seats count, as in a
+  window) and the Welling has sent the last creep of the newest wave. A Ready said earlier in the wave waits for
+  that. The called wave's first creep sets out its first group's interval after the horn and the rest follow as
+  listed, so the road reads as one stream and two waves never set out on top of each other.
+- **On the road.** A wave is on the road from its horn until it clears. Wave *k* clears when every creep of waves
+  1 to *k* has set out and none of them is on the road, so waves clear in order: a younger wave whose creeps are
+  all gone clears in the same tick, right after the older one. The hollow counts its waves cleared, and each
+  creep knows its wave.
+- **Gold.** Bounties pay at each kill, as always. Each wave's clear pays its own clear bonus (8 + 2 × its number)
+  and the Hive Tithe, whenever it clears; stipends are the duel's, which never stacks. A window's horn pays one
+  gold per whole second left, as before. A stacked horn pays each player the **whole window it skips** (10 s solo,
+  15 s with company: 10 or 15 gold) plus the **stake**: one gold (`stake_pm` 1000, *tunable*) for each life the
+  creeps on the road could still take (the sum of their tolls) at the horn. Calling wave 3 behind wave 2's last
+  Gourdling with 9 of them still walking pays 10 + 9; calling the Crest's wave behind wave 11 with 18 lives' worth
+  on the road pays 10 + 18.
+- **Why the stake, not the time saved.** The stake is known when the call is made, so the strip can show it
+  before the player commits, and it grows with exactly the risk taken: how much is still walking toward the
+  Holdfast. Paying for the time between the call and the older wave's clear would pay more the longer a weak
+  defence let that wave linger. Time saved is still rewarded where it matters, in Tide Race's clock.
+- **Windows.** No window comes between stacked waves: the call skips it. When the last wave on the road clears,
+  the next window opens with its usual length (10 s solo, 15 s with company), or the hollow is done after its last
+  wave. Wave 1 always comes from the first window. A Ready said during a wave that clears before its horn sounded
+  (a partner was not Ready yet) carries into the window that opens.
+- **Co-op.** Every present player Ready, as in a window: one player cannot stack the team alone. The party strip
+  shows Ready marks during a wave too, and "Waiting for you" glows in a wave as in a window.
+- **Tide Race.** Each hollow stacks on its own clock. Race time counts as before. A Holdfast that falls with two
+  waves on its road fell on the older one (its waves cleared plus one), and "more of that wave's creeps killed"
+  counts the kills of that wave's creeps, whichever horn they came with. The rival line names both waves on the
+  rival's road: "Rival · Waves 8–9 · 18 lives · 6:12 +20 s".
+- **Undertow and classic** never stack (§1.4): Ready in their waves stays refused as before.
+- **The caretaker** stacks only where it calls waves itself: in a race (as M6's caretaker calls each window's
+  wave) and for the harness's seats played by command that stack (the gates, §4.4). Beside a present player it
+  only counts as Ready, as before: the players decide. A plan names the waves it stacks (`"stack"` in
+  `data/plans/<builder>.json`): the caretaker says Ready during wave *k* − 1 for each listed wave *k*, once the
+  build steps it can pay for are done and its step does not hold Ready. It never stacks at Hard or Very Hard. The
+  first lists (*tunable*) stack each Builder's own checks during a wave of its own checks, never behind a boss:
+  the Lamplighter waves 2 and 3, the Lookout 5, the Bellfounder 4, the Beekeeper 2.
+- **On screen** (§5.7): the strip names the waves on the road ("Waves 6–7 / 12"); the Ready slot's tooltip names
+  the wave it would call, its checks and what it would pay now ("Call wave 8 early: +10 for the window, +7 for the
+  lives on the road"); during a wave a call takes a second press within 2 s, so a stray key never sends a wave; the
+  horn's banner reads "Wave 8 called early · +17 gold".
 
 ---
 
@@ -522,9 +637,11 @@ current health; the Toll Tower and the Clay Hive pulse at everything in reach.
 
 ### 3.4 The roster
 
-Costs in gold; damage per hit; cooldown in seconds; range and radii in tiles. Every fork costs its "Fork" price
-whichever branch is taken, and a fork is final. Keys are positional (§5.7): the three towers sit on Q, W and E for
-every Builder; on a selected, unforked tower of yours, Q and W choose branch A and branch B.
+Costs in gold; damage per hit; cooldown in seconds; range and radii in tiles. These are the design's starting
+numbers: `content.gd` holds the tuned ones, each with its reason (the M2 and M6 balance passes; after M8's fork
+pass, §3.8, these tables follow it). Every fork costs its "Fork" price whichever branch is taken, and a fork is
+final. Keys are positional (§5.7): the three towers sit on Q, W and E for every Builder; on a selected, unforked
+tower of yours, Q and W choose branch A and branch B.
 
 #### Tamsin Wick, the Lamplighter · Warden · ★ (the recommended first Builder)
 
@@ -581,7 +698,8 @@ anything that crawls or flies, and the honey pays her way.* She plays greedy: cl
 pay, timed against what the next wave brings. Strong against Winged and Swarm.
 **Signature:** bee clouds that hit ground and sky alike, and the only personal income in co-op.
 
-**Passive, Hive Tithe:** each Clay Hive and Hive Hum she owns pays her 2 gold at every wave clear, at most 12.
+**Passive, Hive Tithe:** each Clay Hive and Hive Hum she owns pays her 2 gold at every wave clear, at most 12. The
+clear's banner names it beside the bonus ("Wave 1 cleared · +10 gold · Tithe +4"), as a duel's names its stipend.
 
 | Tower (key) | Cost | Base | Fork | A, deepen | B, patch |
 |---|---|---|---|---|---|
@@ -632,6 +750,80 @@ Order of production: the Lamplighter's three B branches, the Duskmoth and the wh
 complementary pair first); the Bellfounder and the Beekeeper in M6. Art can start the day M2's content format is
 fixed and runs beside everything else.
 
+### 3.8 Fork jobs and the fork pass (M8)
+
+The first playtest (P7) found the Beekeeper's Apiary fork no choice: the Queen's Guard (50 every 1.2 s, pierces
+3) and the Royal Apiary (34 every 0.8 s) do 41.7 and 42.5 a second at armour 0, 40.8 and 37.5 at 4, 39.2 and 35 at
+6, and 62.5 and 63.8 to a flier, within 10% on every job. Other forks were real choices (Longbow or Skyward, Great
+Cannon or Iron Mortar). M8's fork pass gives every branch a job, measures each pair on both jobs in the
+simulation, and spreads the pairs so each branch wins its own clearly.
+
+**Each branch's job**, from §3.4's deepen and patch and the check a branch helps:
+
+| Builder | Tower | Branch A and its job | Branch B and its job |
+|---|---|---|---|
+| Lamplighter | Arrow | Longbow Loft: one ground creep | Skyward Loft: one flier |
+| | Cannon | Great Cannon: a crowd | Iron Mortar: armour |
+| | Frost Spire | Deep Frost: holding ground creeps | Rime Spire: holding fliers |
+| Lookout | Perch Ballista | Siege Perch: armour | Pinning Ballista: holding ground creeps |
+| | Hawk Roost | Falcon Roost: one flier | Kestrel Flock: a crowd |
+| | Owl's Eye | Owl's Glare: lifting the team on one big creep | Twin Gaze: lifting the team on a pack |
+| Bellfounder | Clapper Tower | Great Clapper: armour | Ringing Clapper: a crowd |
+| | Toll Tower | Great Toll: holding ground creeps | Sky Toll: fliers (damage and slow) |
+| | Chime Post | Deep Chime: lifting the team on high armour | Long Chime: lifting the team along more road |
+| Beekeeper | Clay Hive | Great Clay Hive: a crowd | Drowsy Clay Hive: holding ground creeps |
+| | Apiary | Royal Apiary: one flier | Queen's Guard: armour |
+| | Hive Hum | Great Hum: lifting a tight battery | Long Hum: lifting a wide battery |
+
+**The measurements** (the fork bench, `tests/sim/fork_bench.gd`): bare simulations in the sim harness, High Water
+at Normal, one seat of the form's Builder with its perk (Bronze Hand and Keen Sight count), the form built and
+forked on the bench cell (8, 11), between the two lower stretches of road, where the Lamplighter's plan starts.
+Both branches of a pair stand on the same cell against the same creeps. What a form does is read from the
+simulation's HIT events as **health removed**: each hit's damage less the overkill of the hit that killed, so a
+big hit on a small creep counts what it took, not what it rolled.
+
+| Job | Measure |
+|---|---|
+| One creep: ground, flier | `single(creep)`: health removed per second from one creep at wave 12's health, held still in the middle of the form's reach, a fresh one the tick after it dies, over 60 s; a Gourdling (armour 0), a Duskmoth (a flier) |
+| Armour | `single` against a Thornback (armour 4) and a Bristlesow (armour 6): both must hold |
+| A crowd | `crowd(creep)`: the share of a line's health removed as 12 creeps at wave 7's health, spaced as wave 7 sends them, walk through the reach once; Gourdlings, and Duskmoths for a form that reaches them |
+| Holding | `control(creep)`: the seconds a line of 12 Scuttlers (Duskmoths for a form that holds fliers) spends in the reach beyond its unslowed time, per creep |
+| Lifting the team | `lift(lane)`: the extra health a fixed battery of another seat's towers removes on a lane because the form stands (the lane with it, less the lane without it). The battery is three Arrow Towers and a Cannon Tower of a Lamplighter around the bench cell, the lanes one held Bristlesow and a line of Thornbacks; a hum's tight battery is three Arrow Towers within 2.2 of it and its wide one six, three of them between 2.2 and 3.0, on a line of Gourdlings |
+
+The two branches of a fork cost the same, so a pair's ratio is its ratio per gold too; across pairs the bench
+reports each form's measures per gold for the record.
+
+**Acceptance** (the `fork_pairs_apart` gate, §4.4):
+
+1. On its own job each branch does at least **25%** more than its sibling (`JOB_MARGIN_PM` 250, *tunable*). A
+   quarter is what a player sees at once in the tooltip's from-to numbers; within 10% is placement noise. A
+   sibling that cannot do the job at all (a ground form against a flier) is apart by definition.
+2. No branch beats its sibling by 10% on both jobs: a fork is a choice, never a trap.
+3. A patch lifts its check to passable, never to strong: a patch branch's measure on its job is at most 90% of the
+   best form, base or branch, of a Builder strong against that check.
+4. Every balance gate still holds with its bar unchanged; where one fails, the plans move first (they are
+   balance's first lever), then the numbers.
+5. Every changed number sits in `content.gd` with the reason beside it, as the M6 pass's do. The numbers classic
+   plays never change (the Lamplighter's three bases and her three A branches: `contract_ids_keep_state_hashes`
+   holds the classic match to its recorded hashes). §3.4's tables, `fork_branch_stats` and the scenarios that pin
+   a form's numbers follow the pass.
+
+**Where the arithmetic points first** (one target, by the armour rule; the bench decides, and every number here
+is a first proposal, *tunable*):
+
+| Pair | On its own job today | First proposal |
+|---|---|---|
+| Royal Apiary, Queen's Guard | a flier: 63.8 against 62.5 a second (+2%); armour 4: 40.8 against 37.5 (+9%) | Royal Apiary 28 every 0.8 s, +100% to fliers: 70 a second to a flier against the Queen's Guard's 38.6 (+81%). Queen's Guard 54 every 1.4 s, pierces 4, no flier bonus, and aims at the creep with the most health in reach: 38.6 a second at armour 4 against 30 (+29%), 37.1 at armour 6 against 27.5 (+35%), 87% of the Siege Perch's 42.7, so still passable |
+| Great Cannon, Iron Mortar | armour 4: 32.1 against 27.7 (+16%) | Iron Mortar every 1.3 s, not 1.4: 34.6 at armour 4 (+25%), 33.1 at armour 6 (+26%); the Great Cannon, which classic plays, keeps its numbers |
+| Falcon Roost, Kestrel Flock | a crowd: 38.6 against 32.7 a second over three creeps (+18%) | Kestrel Flock 10 a strike: 42.9 (+31%) |
+| Owl's Glare, Twin Gaze | a pack of two: 40% against 35% (+14%) | Twin Gaze marks two at +25%: 50% against 35% on a pack (+43%); Owl's Glare keeps +35% against 25% on one boss (+40%) |
+| Great Hum, Long Hum | a wide battery: 6 × 15% against 3 × 25% (+20%) | Long Hum 18%: 108% against 75% (+44%); a tight battery stays Great Hum's, 75% against 54% (+39%) |
+| Great Clapper, Ringing Clapper | a crowd of Gourdlings: about even by arithmetic | measure first |
+| Deep Chime, Long Chime | Long Chime's reach against Deep Chime's depth: with Bronze Hand, a crack of 2 already strips a Thornback | measure first |
+
+The Lamplighter's other two forks, the Lookout's Perch Ballista, the Bellfounder's Toll Tower and the Beekeeper's
+Clay Hive split by air or by control and are expected apart already; the bench holds them too.
+
 ---
 
 ## 4. Economy and balance
@@ -644,11 +836,12 @@ fixed and runs beside everything else.
 | Kill bounty | **every player on the team receives the creep's full bounty**, whoever's tower killed it | creep table |
 | Clear bonus | each player | 8 + 2 × wave (today's formula) |
 | Early Ready | when every present player of the hollow is Ready, each receives one gold per whole second left | 0 to 25 |
+| Stacked call (M8, §2.7) | when every present player is Ready during a wave, each receives the whole window it skips plus one gold for each life the creeps on the road could still take | about 12 to 35 |
 | Sell | the owner gets 70% of what was put in (Lamplighter 90%), rounded half up | |
 | Hive Tithe | the Beekeeper | 2 per Clay Hive or Hive Hum at each clear, at most 12 |
 | Interest | none: it rewards hoarding and widens skill gaps | |
 | Gold gifts | none: income is equal by rule | |
-| Lives | one pool per team; a leak costs the creep's toll | 20 |
+| Lives | one pool per team; a leak costs the creep's toll | 20 (M8: 15 at Hard, 10 at Very Hard, §2.6) |
 | Duel only (M7) | stipend `10 + 2 × wave + pack gains` at each window; breach pays the sender 2 × bounty | |
 
 Why "every player gets the full bounty" rather than a split: it keeps gold in integers with no remainder rule, it
@@ -681,6 +874,7 @@ const RULES := {
 		"hp_by_seats_pm": [1000, 2000, 2650, 3400],
 		"window_first_t": [900, 1500, 1500, 1500], "window_t": [600, 900, 900, 900],
 		"sell_pm": 700, "clear_bonus": [8, 2], "ready_pays": true, "cap_t": 0,
+		"stack_max": 2, "stake_pm": 1000, "levels": true,  # M8: stacked waves (§2.7), difficulty (§2.6)
 	},
 	"tide_race": {  # "high_water" plus:
 		"teams": 2, "seats": [1, 2], "race": true, "life_penalty_t": 600, "cap_t": 72000,
@@ -688,7 +882,14 @@ const RULES := {
 	"undertow": {  # M7; "tide_race" plus:
 		"seats": [1, 1], "clock": "shared", "drift": true, "corks": [1, 2], "uncork_t": [180, 1500],
 		"breach_mult": 2, "seawall": [4, 2], "surge_waves": 3, "surge_hp_pm": 1350, "surge_window_t": 480,
+		"stack_max": 1,  # M8: no stacked waves and no "levels" in a duel (§1.4)
 	},
+}
+
+const DIFFICULTIES := {  # M8 (§2.6): what a level lays over a preset with "levels"
+	"normal": {},
+	"hard": {"lives": 15, "hp_pm": 1300, "boss_hp_pm": 1500, "boss_armor_c": 100},
+	"very_hard": {"lives": 10, "hp_pm": 1600, "boss_hp_pm": 2000, "boss_armor_c": 200},
 }
 
 const TOWERS := {
@@ -712,7 +913,8 @@ const CREEPS := {
 
 `rules_hash()` is the first 8 bytes of SHA-256 (through `HashingContext`) over a canonical byte dump of
 `SIM_VERSION`, `RULES`, `TOWERS`, `CREEPS`, `WAVES`, `BUILDERS`, the caretaker plans in `data/plans/` and the map
-text. It is the matchmaking key (§6.9).
+text; from M8 also `DIFFICULTIES` and each plan's `stack` list, still one hash per build for every mode and level.
+It is the matchmaking key (§6.9).
 
 ### 4.3 Knobs
 
@@ -728,6 +930,10 @@ text. It is the matchmaking key (§6.9).
 | Armour | Thornback 4, Bristlesow 6, Hollowtide Crest 4 | the Armored check sharper |
 | Control resistance | 30% Bristlesow, 50% Hollowtide Crest | slows and stuns matter less against bosses |
 | Team effect sizes | slow 45%, mark 20%, crack 2, haste 15% | synergy stronger; watch for a must-pick Builder |
+| `stack_max` (M8) | 2 waves on the road | more overlap, faster races, harder to read |
+| `stake_pm` (M8) | 1000: one gold a life on the road | stacking pays more; at too much, stacking every wave becomes the only play |
+| `DIFFICULTIES` (M8) | Hard 1300 / 1500 / +1 / 15; Very Hard 1600 / 2000 / +2 / 10 (health, boss health, boss armour, lives) | the levels further apart |
+| `JOB_MARGIN_PM` (M8, the fork bench) | 250 | each fork branch's job further from its sibling's |
 
 ### 4.4 Balance gates (how `bot_wins` and `idle_player_loses` extend to multiplayer)
 
@@ -761,9 +967,31 @@ keeps at least 10 lives), `duel_balanced_beats_turtle` and `duel_turtle_beats_re
 at least 3 wins), `duel_counter_cork_beats_random` (corking the rival's weak checks wins at least 3 of 5) and
 `duel_seawall_saves`.
 
-`AGENTS.md`'s balance rule then reads: every `bot_wins*` wins with half the lives left, every `idle_*` loses,
-every `coverage_*` holds. Each gate prints a per-check leak table (leaks grouped by creep kind) as watches, which
-is what a balance pass reads.
+M8 adds the gates of stacked waves, of the difficulty levels and of the fork pass. No gate above calls a wave
+during a wave: High Water's are played by caretakers alone, which wait out their windows, or by seats that never
+press Ready; the duel never stacks; and all play Normal. So M8's rules must leave each of their summaries exactly
+as it was, except the two race gates, whose caretaker now stacks its plan's list (re-measured, bars unchanged).
+After the fork pass every gate is re-run with its bar unchanged.
+
+| Gate | Cases | Must hold |
+|---|---|---|
+| `bot_wins_stacking_<builder>` | 4 | each Builder's plan bot by command, Ready at once in every window and stacking its plan's list, wins High Water solo with at least 10 lives |
+| `stacking_pays` | 1 | the solo Lamplighter stacking its list clears wave 12 at least 30 s of match time sooner than the same bot Ready at once that never stacks, and its stacked calls pay on average at least the window's 10 gold plus 3 |
+| `stacking_every_wave_costs_lives` | 1 | the same bot stacking every wave it may loses at least 5 lives more than when it stacks its list, or falls: stacking is a decision, not free gold |
+| `race_stacking_beats_calling` | 1 | Tide Race: a Lamplighter stacking its list against one that calls every wave at once from its windows; played on, both clear wave 12 and the stacker's race time is the lower |
+| `bot_wins_hard_solo_<builder>` | 4 | each Builder alone wins Hard with at least 5 of its 15 lives |
+| `bot_wins_hard_2p` | 1 | the Lamplighter and the Lookout win Hard with at least 5 lives |
+| `bot_reaches_crest_very_hard_solo_<builder>` | 4 | each Builder alone stands until wave 12's horn at Very Hard and ends with at most 5 of its 10 lives, or falls to wave 12: a close wave 12, as the playtest asked |
+| `bot_reaches_crest_very_hard_2p` | 2 | both complementary duos, the same |
+| `idle_player_loses_hard`, `_very_hard` | 2 | two towers and nothing else lose before wave 12 |
+| `difficulty_orders_the_levels` | 1 | the solo Lamplighter keeps more lives at Normal than at Hard, and at Hard than at Very Hard (a fall counts below any lives, an earlier fall below a later) |
+| `race_mirror_is_fair_hard` | 1 | the race mirror at Hard: equal lives, equal clear tick, a draw |
+| `fork_pairs_apart` | 1 | the fork bench (§3.8): every pair's branches apart on their own jobs by `JOB_MARGIN_PM`, none ahead on both by 10%, every patch at most 90% of a strong Builder's best |
+
+`AGENTS.md`'s balance rule then reads: every `bot_wins*` wins with half the lives left (Hard's with a third),
+every `idle_*` loses, every `coverage_*` holds, every `race_*`, `duel_*`, `stacking_*` and `difficulty_*` gate
+holds, every `bot_reaches_crest_*` ends close, and `fork_pairs_apart` holds. Each gate prints a per-check leak
+table (leaks grouped by creep kind) as watches, which is what a balance pass reads.
 
 ---
 
@@ -855,6 +1083,12 @@ not duplicated.
   on a dim one ("Nobody here is strong against Winged").
 - **Right well, the command card's six slots:** top row the modes (**High Water**, **Tide Race**, and one slot
   reserved for Undertow, greyed until M7); bottom row **Builders** (B), **Join** (J) and the primary button (Enter).
+- **The level** (M8, §2.6), not to be confused with a Builder's stars: three words beside the arch's mode line,
+  **Normal · Hard · Very Hard**, the party's lit, like the open-seats switch beside it. The leader's click picks
+  one (a member sees the choice and cannot change it); the mode line names a level other than Normal ("High Water ·
+  Hard · 1–4 players · 12 waves"). Each word's tooltip says what it changes ("Hard: creeps have 30% more health,
+  the bosses 50% more and 1 more armour; 15 lives"). In Undertow the words grey, with "A duel is played at Normal:
+  your rival sets the pace". No key: the hub's keys stay B, J, Enter and Esc.
 - **Strip:** where the party lives. **Offline** (no server; solo, Try, and racing the caretaker), **LAN ·
   192.168.1.20** or **Online · groundhold.saschb2b.com**, with the party code and copy buttons once on a server.
 
@@ -873,8 +1107,10 @@ not duplicated.
 | A member on another rules version | disabled: "Ana needs to reload" (or "You need to reload") | |
 
 **Party rules** (server-side, §6.10): the creator leads; if the leader leaves, the member who joined earliest leads.
-The leader picks the mode, open seats and teams, and can remove a member, who cannot rejoin that code. Members
-change only their own Builder and Ready. Changing the mode clears every Ready; changing your Builder clears yours.
+The leader picks the mode, the level (M8), open seats and teams, and can remove a member, who cannot rejoin that
+code. Members change only their own Builder and Ready. Changing the mode or the level clears every Ready; changing
+your Builder clears yours. A new party starts at its creator's level; a party keeps its level through a change
+of mode, and a mode without levels plays Normal.
 A member who drops keeps the row for 40 s ("reconnecting"). An empty party's code expires after 15 minutes.
 
 ### 5.3 Join panel
@@ -942,7 +1178,8 @@ Opens above the right wing from **Join** (J).
 
 - Hovering a tower button shows exactly the in-game command-card tooltip (cost, numbers, both branches, `air`),
   one source of truth for both.
-- **Try** starts a solo High Water match with that Builder, offline, with Esc pause and restart.
+- **Try** starts a solo High Water match with that Builder, offline, with Esc pause and restart; from M8 at the
+  hub's level, which its tooltip names ("A solo High Water match at Hard").
 - Builders can be browsed while queued; the queue pill follows into the corner. Changing the main while queued
   applies to the next match and does not drop the queue.
 - Not shown: lore pages, per-level stat tables, skins, unlock tracks.
@@ -968,6 +1205,8 @@ Shown only when the queue joined players from outside the party.
 - Everyone accepts: Loading. Someone declines or times out: the match dissolves, those who accepted go back to the
   **front** of the queue ("A player didn't accept. You keep your place."), and the decliner's party returns to the
   hub. No penalties in v1 beyond that notice.
+- (M8) The queue finds only parties of one level, so the line names the party's own level when it is not Normal:
+  "High Water · Hard · 4 players · ~13 min".
 
 ### 5.6 Loading (the sync barrier)
 
@@ -1001,6 +1240,7 @@ Shown only when the queue joined players from outside the party.
   its playout buffer. §6.6 has the timers.
 - **Race:** two rows of cards (team A above, team B below) with a gilt rule between them and a coverage row under
   each. No big "VS", no tips.
+- (M8) The title names a level other than Normal: "HIGH WATER · HARD · WICKHOLLOW · 12 waves".
 - A web player whose tab is hidden shows "In another tab" to the others and sees "Keep this tab open while the
   match loads" on their own card.
 
@@ -1028,12 +1268,27 @@ The console stays as it is. Three additions and one change.
 
 - **Party strip** (top left, new, `scripts/ui/party_strip.gd`): one slim plate per player: glyph in seat colour,
   Builder icon, name, gold, link bars (from the round-trip times the server relays), and a Ready mark during the
-  window. "away", "caretaker" and "left" replace the gold when they apply.
+  window (from M8 during a wave too, where a mark is a call for the next wave). "away", "caretaker" and "left"
+  replace the gold when they apply.
 - **Resource strip** (top right, extended): your gold, the team's lives, "Wave 5 / 12", the next wave's check glyphs
   with its creeps' portraits beside them (during a wave, the current wave's), the window countdown and "Ready 1/2".
-  Hovering the wave label lists every remaining wave as icon rows. When everyone else is Ready and you are not,
-  your Ready slot glows and the strip says "Waiting for you". **Race** adds a second line:
-  "Rival · Wave 7 · 18 lives · 6:12 +20 s".
+  Hovering the wave label lists every remaining wave as icon rows, each creep with its count, health and armour
+  (§2.3); a Duel's list goes on into the Surge from the
+  first window, under a line that says when it is played ("The Surge, if both Holdfasts stand after wave 12: health
+  +35%"), as S1 to S3, each with the wave it repeats ("wave 9 again"). When everyone else is Ready and you are not,
+  your Ready slot glows and the strip says "Waiting for you". **Race** adds a second line, my own race clock and
+  then the rival's: "You 6:10 +10 s | Rival · Wave 7 · 18 lives · 6:12 +20 s" (once a Holdfast falls, the wave it
+  fell on decides and my clock goes). Where the race is chosen, its button's tooltip and the hub's mode line say how
+  it is won from its rules ("The lower time to clear wave 12 wins; each life lost adds 10 s").
+- **Stacked waves on screen** (M8, §2.7). With two waves on the road the strip says "Waves 6–7 / 12", its creeps
+  count both, and its glyphs are the newer wave's. During a wave the Ready slot's tooltip names the wave it would
+  call, its checks and what it would pay now ("Call wave 8 early: +10 for the window, +7 for the lives on the
+  road"), or why it cannot ("Two waves are on the road", "Wave 12 is the last", "Ben takes his seat back at the
+  next window", in a duel "Waves do not stack in a duel"). In a wave a call takes a second press: the first press
+  of D, N or Space, or a click on Ready, shows "Call wave 8 early? Press again" for 2 s, and only the second sends
+  it; un-Ready takes one press. Said early, the call waits on screen for the wave's last creep: "Wave 8 sets out
+  behind wave 7". The horn's banner: "Wave 8 called early · +17 gold". A race's rival line names both waves on the
+  rival's road ("Rival · Waves 8–9 · ...").
 - **Signals** (new): Alt+click on the ground, a creep, a tower or the minimap, or A then a click. A ring in your
   colour and glyph with a soft chime, and a blip on the minimap; on a creep it pulses the creep, on a tower it
   outlines the tower. One meaning ("look here"), no wheel, no text, at most 3 per 5 s. No chat in v1.
@@ -1048,11 +1303,11 @@ The console stays as it is. Three additions and one change.
 | A teammate's tower, or a creep | Tower 1 | Tower 2 | Tower 3 | Signal | (idle) | Ready |
 
   Today's hammer moves onto the branch buttons' frames; the war horn now means Ready (it toggles, lit while you
-  are Ready). N and Space also toggle Ready, except during a Duel wave, where Space uncorks a corked bottle. Branch
-  tooltips give the name, cost, one line of what changes in numbers and the check glyph it helps. Selecting a
-  teammate's tower shows the owner in the subtitle ("Cannon Tower · Ana's"); the simulation refuses your fork or
-  sell anyway. Shift keeps placing, Esc and right click cancel, Home frames the hollow, **V** shows the rival's
-  hollow in a Race.
+  are Ready). N and Space also toggle Ready, except during a Duel wave, where Space uncorks a corked bottle; in a
+  wave of a mode that stacks, a call needs the second press above. Branch tooltips give the name, cost, one line
+  of what changes in numbers and the check glyph it helps. Selecting a teammate's tower shows the owner in the
+  subtitle ("Cannon Tower · Ana's"); the simulation refuses your fork or sell anyway. Shift keeps placing, Esc and
+  right click cancel, Home frames the hollow, **V** shows the rival's hollow in a Race.
 - **Pending commands** (new): a tower you place appears at once as a ghost with a soft pulse and its cost greyed
   in your gold; when your command runs it becomes the tower, or vanishes with the refusal as a notice ("Cannot
   build there": a teammate took the cell in the same turn).
@@ -1084,7 +1339,7 @@ An overlay on the finished hollow, on the plate art widened. It never times out 
 |               lives  ''''''''''''''-.......------------------'''''''   (waves 1 to 12)            |
 |                                                                                                   |
 |   PLAYER        BUILDER          KILLS    DAMAGE     HELP    TOWERS                                |
-|   <> Sascha     Lamplighter        212     48.1k     9.2k    9 (4 forked)   Held wave 7            |
+|   <> Sascha     Lamplighter        212     48.1k     9.2k    9 (4 forked)   Most kills in wave 7   |
 |   () Ana        Lookout             97     31.7k    22.4k    7 (5 forked)   Most help              |
 |   /\ Ben        Bellfounder        130     30.2k    12.8k    8 (2 forked)   Most Thornbacks        |
 |   [] Kim        Beekeeper      (left at wave 6; the caretaker finished)                           |
@@ -1097,12 +1352,16 @@ An overlay on the finished hollow, on the plate art widened. It never times out 
   "You Outran the Tide" / "Your Rival Outran the Tide" / "Two Crews, One Time". Desync: "The Lands Fell Out of Step".
 - **Every number is computed by the simulation** on every client, so every client shows the same results; the
   server only confirms the outcome.
-- **One positive line per player**, picked from a fixed list by the player's best stat relative to the team (Held
-  wave N, Most help, Most kills, Most damage, Most Duskmoths / Thornbacks / Scuttlers / Gourdlings, No towers sold,
-  Fastest Ready); ties go to the lower seat, and no line repeats. No MVP.
+- **One positive line per player**, picked from a fixed list by the player's best stat relative to the team (Most
+  kills in wave N, the wave the player killed most in; Most help, Most kills, Most damage, Most Duskmoths /
+  Thornbacks / Scuttlers / Gourdlings, No towers sold, Fastest Ready); ties go to the lower seat, and no line
+  repeats. No MVP.
 - **No leaks column:** on a shared road a leak belongs to the team, and the lives line shows when it happened.
   **Help** (§3.2) makes the team-tower player's work visible.
 - **Race layout:** one block per team, both race times, the rule that decided it in one line.
+- (M8) The subtitle names a level other than Normal and counts the lives out of its own: "High Water · Very Hard
+  · 12 waves · 13:42 · 4 of 10 lives left". A race's rival line and blocks need no change: both teams play one
+  level, and their lives come from the records.
 
 ### 5.9 Back to the hub, and seat colours
 
@@ -1237,11 +1496,11 @@ The rules move out of the nodes into `RefCounted` records with no Nodes, no sign
 | Record | Holds |
 |---|---|
 | `SimMatch` | tick, seed, rules preset, RNG state, teams, hollows, seats, towers, creeps, shots, `next_id`, the event queue |
-| `SimHollow` | id, team, the road as integer millimetre corner points with cumulative micrometre lengths, buildable and occupied cells, phase (PREP, WAVE, DONE, FALLEN), wave, countdown in ticks, spawn queue, health scale |
+| `SimHollow` | id, team, the road as integer millimetre corner points with cumulative micrometre lengths, buildable and occupied cells, phase (PREP, WAVE, DONE, FALLEN), wave, (M8) waves cleared, countdown in ticks, spawn queue, health scale |
 | `SimTeam` | id, lives, hollows, race clock |
 | `SimSeat` | seat, team, hollow, Builder, gold, ready, state (present, away, returning, caretaker, left), stats (kills, damage, help, towers, forks), caretaker plan cursor |
 | `SimTower` | id, owner seat, hollow, cell, kind, branch (−1, 0, 1), invested, `cooldown_until`, target, range intervals (`PackedInt64Array` of road micrometres), haste and its source seat |
-| `SimCreep` | id, hollow, kind, `dist_um`, `hp_c`, `max_hp_c`, `armor_c`, winged, boss, and per effect: strength, until-tick, source seat (slow, stun with its immunity, mark, crack); `sent_by` for the Duel |
+| `SimCreep` | id, hollow, kind, `dist_um`, `hp_c`, `max_hp_c`, `armor_c`, winged, boss, and per effect: strength, until-tick, source seat (slow, stun with its immunity, mark, crack); `sent_by` for the Duel; (M8) its wave |
 | `SimShot` | id, tower, target, `land_tick`, `land_dist_um` for splash, payload (damage, pierce, effect) |
 
 ```gdscript
@@ -1263,7 +1522,8 @@ func state_hash() -> PackedByteArray                 # SHA-256(serialize()) thro
 1. On a turn boundary: apply system commands, then the turn's commands, validated identically everywhere (gold,
    cell, phase, ownership, the seat's Builder kit). An invalid command is a no-op plus a `REJECTED` event that only
    its sender's UI shows.
-2. Per hollow, in id order: the wave clock (countdown, Ready skip, the horn) and spawns.
+2. Per hollow, in id order: the wave clock (countdown, Ready skip, the horn; from M8 also a stacked horn once the
+   newest wave's last creep has set out) and spawns.
 3. Caretaker: for each caretaken seat, at the window's start and every 30 ticks, `caretaker.gd` picks commands from
    the seat's plan, and they are applied as if received.
 4. Creeps move, in id order: effects expire; a stunned creep stands; slows scale its speed; a creep reaching the
@@ -1271,7 +1531,8 @@ func state_hash() -> PackedByteArray                 # SHA-256(serialize()) thro
 5. Towers, in id order: cool down, keep or pick a target, fire (schedule a shot) or pulse.
 6. Shots landing this tick, in id order: damage by the armour rule, effects, bounces, splash; a death pays the bounty
    to every seat on the team and credits Help.
-7. Wave clears: clear bonus, Hive Tithe, the next PREP or DONE, and a checkpoint mark.
+7. Wave clears, in wave order (M8: two may clear in one tick): clear bonus, Hive Tithe, the next PREP (once no wave
+   is left on the road) or DONE, and a checkpoint mark.
 8. The match-end check; `tick += 1`. Every 60 ticks the client hashes the state.
 
 **Range without square roots per tick:** when a tower is built or forked, `SimRoad.intervals(cell, range_mm)` finds,
@@ -1340,8 +1601,8 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 
 | Constant | Value |
 |---|---|
-| `version` | 1 |
-| `subprotocol` | `groundhold.v1` |
+| `version` | 1 (M8: 2, for the difficulty's fields) |
+| `subprotocol` | `groundhold.v1` (M8: `groundhold.v2`) |
 | `path`, `port`, `beacon_port` | `/causeway`, 8766 (8765 stays free for a Cyberworld server on the same PC), 8767 |
 | `max_message` | 1,100 bytes, client to server |
 | `turn_ticks`, `turn_ms`, `hash_every` | 3, 50, 60 |
@@ -1358,8 +1619,8 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 | 7 | `PONG` | S→C | u32 client ms, u32 current turn (0 outside a match) |
 | 14 | `NOTICE` | S→C | u8 code, u32 argument; the connection stays |
 | 15 | `BYE` | both | |
-| 20 | `PARTY` | C→S | u8 op and its arguments: create(mode), join(5 bytes code), leave, remove(member), mode(mode), builders(main, backup), ready(on), team(member, team), open(on), start, cancel |
-| 21 | `PARTY_STATE` | S→C | 5 bytes code, u8 mode, u8 flags (open, LAN), u8 leader, u8 you (the recipient's member), u8 phase, u32 countdown ms, u8 n, then per member: u8 member, u8 team, u8 main, u8 backup, u8 state, u16 RTT, u32 build_seq, u64 rules_hash, u8 + name. A full snapshot on every change |
+| 20 | `PARTY` | C→S | u8 op and its arguments: create(mode), join(5 bytes code), leave, remove(member), mode(mode), builders(main, backup), ready(on), team(member, team), open(on), start, cancel; (M8) difficulty(level) |
+| 21 | `PARTY_STATE` | S→C | 5 bytes code, u8 mode, (M8) u8 difficulty, u8 flags (open, LAN), u8 leader, u8 you (the recipient's member), u8 phase, u32 countdown ms, u8 n, then per member: u8 member, u8 team, u8 main, u8 backup, u8 state, u16 RTT, u32 build_seq, u64 rules_hash, u8 + name. A full snapshot on every change |
 | 22 | `QUEUE` | C→S | u8 op (enter, leave, start_with_caretakers) |
 | 23 | `QUEUE_STATE` | S→C | u8 state (idle, entering, queued, leaving), u32 elapsed ms, u8 caretaker offer |
 | 24 | `MATCH_FOUND` | S→C | u32 match id, u8 mode, u8 seats, u8 accepted, u32 ms left |
@@ -1369,7 +1630,7 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 
 | Id | Message | Dir | Payload |
 |---|---|---|---|
-| 30 | `MATCH_CONFIG` | S→C | u32 match id, u8 mode, u8 map, u32 seed, u64 rules_hash, u8 your seat, u8 n, then per seat: u8 seat, u8 team, u8 Builder, u8 flags (caretaker), u8 + name; u8 flags (rejoin) |
+| 30 | `MATCH_CONFIG` | S→C | u32 match id, u8 mode, (M8) u8 difficulty, u8 map, u32 seed, u64 rules_hash, u8 your seat, u8 n, then per seat: u8 seat, u8 team, u8 Builder, u8 flags (caretaker), u8 + name; u8 flags (rejoin) |
 | 31 | `LOADING` | C→S | u16 per mille (at most 4 a second) |
 | 32 | `LOAD_STATE` | S→C | u8 n, then per seat: u8 seat, u16 per mille, u8 state; u16 seconds elapsed |
 | 33 | `LOADED` | C→S | u64 rules_hash, 8 bytes tick-0 state hash |
@@ -1399,7 +1660,7 @@ checks the exact length and bounds every field. Strings are a u8 length plus UTF
 | `BUILD` | slot 0 to 2, x, z | `CANNOT_BUILD_THERE`, `NOT_ENOUGH_GOLD`, `WRONG_PHASE` |
 | `FORK` | tower id, branch 0 or 1 | `NOT_YOURS`, `ALREADY_FORKED`, `NOT_ENOUGH_GOLD` |
 | `SELL` | tower id | `NOT_YOURS` |
-| `READY` | 0 or 1 | `WRONG_PHASE` |
+| `READY` | 0 or 1 | `WRONG_PHASE`; (M8) `NO_STACK` in a wave that cannot take another (§2.7) |
 | `SIGNAL` | x mm, z mm, target id | `RATE_LIMITED` |
 | `CORK` (M7) | tier, commit high 32 bits, commit low 32 bits | `WRONG_PHASE`, `NO_CORKS_LEFT`, `NOT_ENOUGH_GOLD` |
 | `UNCORK` (M7) | pack, salt high 32 bits, salt low 32 bits | `TOO_EARLY`, `NOTHING_CORKED`, `BAD_REVEAL` |
@@ -1415,6 +1676,12 @@ the same profile, 14 kicked (minutes left), 16 maintenance (with the host's line
 codes** (non-fatal) are new: party full, no such party, removed from the party, match dissolved ("you keep your
 place"), a member needs to reload, caretakers offered, no held seat for a resume. M4's additions are
 [`contract-m4.md`](contract-m4.md)'s.
+
+**M8's change** ([`contract-m8.md`](contract-m8.md) §5) is the difficulty's, and only that: `PARTY`'s op
+`difficulty` (u8 level: normal 0, hard 1, very hard 2), the level in `PARTY_STATE` and in `MATCH_CONFIG`, each a
+u8 after the mode, and the `levels` flag on High Water's and Tide Race's entries in `modes`. Layouts change, so
+`version` becomes 2: a game of version 1 hears error 2. `HELLO`, `LOADED`, `MATCH_FOUND`, the queue's messages and
+every message of a match stay as they are; stacked waves are the simulation's alone and need no message.
 
 **Rate limits** (token buckets per connection): hub and party messages, burst 40, refill 30 a second (Cyberworld's
 values); `CMD`, burst 10, refill 5 a second (a TD player never needs more); network traffic (`PING`, `HASH`,
@@ -1517,6 +1784,9 @@ scenarios the fake sequencer counts them in turns, so they stay deterministic.
 - **`rules_hash` is a matchmaking key, not a refusal.** Parties and queues merge only players with the same hash.
   A party member with another hash shows "needs to reload"; `build_seq` (the CI run number, written into
   `data/build.json`) says which side is older. **Balance patches therefore need no server deploy.**
+- **The level is a key too** (M8). The hash covers every level's numbers, so it stays one per build and `HELLO`
+  carries it as before; the queue keys on mode, rules hash and the match's level (Normal for a mode without
+  levels), and `MATCH_CONFIG` names the level every game builds its rules from.
 - **Server releases** follow protocol or server changes, from tags, as Cyberworld's do ("keep the shared protocol
   in the same release as the game"). Before a restart the owner sets the maintenance line; `/health` reports the
   running matches, so a restart can wait for 0. A restart ends running matches, because they live in memory.
@@ -1951,14 +2221,39 @@ for every pack of a tier), `uncork_reveal_checked` (a wrong salt gives `BAD_REVE
 `seawall_stuns_near_holdfast`, `surge_freezes_stipend`, `tiebreak_lives_then_breach`, the Duel's balance gates of
 §4.4, `duel_caretaker_plays_full_match`.
 
+### M8. Stacked waves, Hard and Very Hard, the bottle's candidates and the fork pass
+
+**Goal.** The answers to the first playtest (`halv`, session 1): a call for the next wave during a wave, paid for
+its risk (§2.7, P6); Hard and Very Hard for the whole party, matched on in the queue (§2.6, P5); a rival's corked
+bottle naming its candidates (§1.4, P3); and every fork pair spread so each branch has its own job (§3.8, P7).
+[`contract-m8.md`](contract-m8.md) fixes what the tracks share.
+
+| Track | Files |
+|---|---|
+| A. Rules | `scripts/sim/content.gd` (`DIFFICULTY_IDS`, `DIFFICULTIES`, the presets' `stack_max`, `stake_pm` and `levels`, `rules(mode, difficulty)`), `sim_waves.gd` and `sim_match.gd` (stacked horns, waves on the road, clears in order, the levels at spawn, the race's fall with two waves), `sim_undertow.gd` (the candidates query), `sim_codec.gd` (the M8 block), `caretaker.gd` (it stacks its plan's list); `data/plans/*.json` (`stack`); `tests/sim/sim_harness.gd` (`difficulty`, stacking seats); `tools/gen_balance_scenarios.py`, `tests/balance/` |
+| B. Views and hub | `scripts/game.gd`, `main.gd`, `hud.gd`, `resource_strip.gd`, `build_controller.gd` (Ready in a wave, its second press), `scripts/ui/hub_panel.gd` (the level's words), `builders_screen.gd`, `loading_screen.gd`, `results_panel.gd`, `match_found.gd`, `match_menu.gd`, `party_strip.gd`, `drift_tray.gd` and `duel_bar.gd` (the candidates); `tests/bot.gd` (it can stack its plan's list) |
+| C. Server and protocol | `shared/net/protocol.json` (version 2, `difficulties`, the fields), `shared/net/README.md`, transcripts; `server/groundhold_server/party.py`, `queue.py`, `lobby.py`, `match.py` and tests; `scripts/net/*` (`MATCH_CONFIG`'s level into the rules, the replay record, the desync dump's format 2); `scripts/session/*` (the party's and the profile's level); `tests/net/*`, `tools/net/smoke.py` |
+| D. Fork pass (after A) | `scripts/sim/content.gd`'s `TOWERS` numbers, `tests/sim/fork_bench.gd`, `fork_branch_stats.gd`; then the plans and gates the pass moves |
+
+**Acceptance:** `stack_ready_in_a_wave`, `stack_at_most_two`, `stack_pays_window_and_stake`,
+`stack_clears_in_order`, `stack_no_window_between`, `stack_ready_carries_into_window`, `stack_waits_for_returning`,
+`stack_not_in_classic_or_duel`, `race_stacked_fall_wave`, `sim_caretaker_stacks_its_list_in_a_race`,
+`difficulty_rules_apply`, `difficulty_normal_changes_nothing`, `sim_checkpoint_roundtrip_m8`,
+`bottle_candidates_are_its_window_offer`, the stacking, difficulty and fork gates of §4.4; `hud_stack_*`,
+`view_stack_banners`, `view_difficulty_*`, `view_duel_bottle_candidates`, `bot_stacks_through_its_orders`; Python
+`test_party_flow` and `test_queue`'s difficulty cases, `test_versions` (a version-1 game hears error 2),
+`test_contract_m8.py`, `protocol_golden_m8`, `flow_difficulty_*`, `net_rejoin_keeps_level`,
+`smoke.py --flow --difficulty hard`.
+
 ### Dependencies and parallel work
 
 ```
- M1a -> M1b --+--> M2 (rules, HUD, art) ---------------+--> M6 (roster, Race, queue) --> M7 (Duel, v1.1)
+ M1a -> M1b --+--> M2 (rules, HUD, art) ---------------+--> M6 (roster, Race, queue) --> M7 (Duel, v1.1) --> M8
               |                                        |
               +--> M3 (lobby, session, screens, LAN) --+--> M4 (resilience) --> M5 (ship) --> v1 release
  Art for M6 (track B) can start as soon as M2's recipe format is fixed. M5's tracks A and B (packaging, Compose
- files) can start once M3's server modules exist, beside M4.
+ files) can start once M3's server modules exist, beside M4. In M8, rules (A), views and hub (B) and the server
+ and protocol (C) start together; the fork pass (D) starts on A's merge, since balance follows the rules.
 ```
 
 - **M2 and M3 run in parallel.** M2 owns `scripts/sim/*`, `data/plans/`, `hud.gd`, `resource_strip.gd`,
@@ -1985,6 +2280,8 @@ for every pack of a tier), `uncork_reveal_checked` (a wrong salt gives `BAD_REVE
 | Four players crowd 141 near-road tiles | medium | measure with the four-player bots; a larger map is a text file |
 | A Builder becomes a must-pick through its team tower | medium | strongest applies, never stacks; Help shows who carries; per-Builder solo and team gates |
 | Too few players online for a queue | high | codes, links, LAN, caretakers after 60 s, racing the caretaker; High Water scales from 1 |
+| Three levels split a thin queue three ways (M8) | high | the level is a party's choice, so friends never wait; strangers get caretakers after 60 s, as before; `/stats` counts matches by mode and level, so a level nobody queues for shows |
+| A stray key stacks a wave and loses a match (M8) | medium | in a wave a call needs a second press within 2 s (§5.7); with two waves on the road Ready is refused; the duel never stacks |
 | A server restart ends running matches | certain | releases from tags only when the protocol changes; the maintenance line; `/health` shows running matches |
 | Background browser tabs | certain | 1 MiB buffer, the caretaker after 5 s, catch-up, `TURN_REQUEST` |
 | Version skew after a Pages deploy | certain | `rules_hash` as a matchmaking key; `build_seq`; `?v=` on the build files; errors 2 and 17 |
@@ -2004,7 +2301,7 @@ for every pack of a tier), `uncork_reveal_checked` (a wrong salt gives `BAD_REVE
 | Gold gifts | income is equal by rule | if playtests show stuck players |
 | Chat and quick phrases | signals and voice cover friends; free text needs moderation | later, fixed phrases only |
 | Boons, Embers, a Holdfast flare, Holdfast upgrades | the fork is v1's one mid-game system | later, one at a time |
-| Difficulty choice, Spring Tide, overlapping waves | one difficulty keeps the gates at 4 × 4 | after v1 |
+| Difficulty choice, overlapping waves | one difficulty keeps the gates at 4 × 4 | M8: Normal, Hard and Very Hard as the party's choice, not a mode (§2.6); stacked waves in High Water and Tide Race (§2.7) |
 | Random-pick bonus, drafts, bans | pick before Play is enough for 2 to 4 friends | later modes |
 | Ranked, ratings, accounts, friends, progression, cosmetics | no population yet | later; ranked needs the referee |
 | Spectating, the replay viewer, a weekly seeded flood | the turn log keeps the door open | after v1 |
@@ -2042,6 +2339,17 @@ for every pack of a tier), `uncork_reveal_checked` (a wrong salt gives `BAD_REVE
     original.
 14. **Corked sends in Undertow:** by commitment (proposed, no extra server), or visible as soon as bought (simpler),
     or hidden by a referee (needs a headless Godot on the server).
+15. **(M8) The duel and the new rules:** Undertow neither stacks waves nor takes a level (proposed, §1.4: its
+    shared windows hold the Drift and the corks, and its rival is its difficulty); or a duel stacks when both
+    sides call during the wave, skipping that window's corks for both. Decided on 1 November 2026: Undertow plays
+    Normal and never stacks.
+16. **(M8) Very Hard's bar:** the plan bots reach wave 12 and end it with at most half their lives, or fall to it
+    (proposed: "a close wave 12" for a fixed plan, so a player who adapts can win); or the plan bots must win it.
+    Decided on 1 November 2026: a close wave 12, as proposed.
+17. **(M8) A bottle's candidates:** with one tier a window, every candidate list is the window's three offered
+    packs (proposed: keep it, the bluff is "which of three"); or narrow them to two by offering a window's packs at
+    different tiers, a new Drift rule with its own gates. Decided on 1 November 2026: three candidates, one tier a
+    window.
 
 ---
 
@@ -2059,6 +2367,8 @@ counts them in turns).
 | Later windows | 600 ticks solo, 900 with company | simulation |
 | Duel surge window | 480 ticks | simulation |
 | Duel uncork | from 180 to 1,440 ticks after the horn; reveal deadline 1,500 | simulation |
+| Stacked horn (M8) | once every present seat is Ready and the newest wave's last creep has set out; its first creep its first group's interval later | simulation |
+| A call's second press in a wave (M8) | within 2 s of the first | client |
 | Slow (Frost Spire) | 120 ticks | simulation |
 | Stun immunity | 60 ticks | simulation |
 | Caretaker decisions | at each window's start and every 30 ticks | simulation |

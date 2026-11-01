@@ -15,6 +15,15 @@
 ## theirs), D is Ready. The strip shows the next wave's checks, each glyph with the
 ## portrait of the creep that brings it (during a wave, the current wave's), and
 ## hovering the wave lists every wave still to come.
+##
+## A duel (Undertow, M7: design 1.4 and 5.7, contract-m7.md §3) adds two pieces beside the
+## console's: the Drift tray (scripts/ui/drift_tray.gd), a shelf standing on the left wing
+## over the minimap with the window's packs, my bottles and the rival's, and the duel bar
+## (scripts/ui/duel_bar.gd), hung under the strip where a race's rival line hangs, with both
+## sides' lives, breach dealt, stipends and Seawall charges (F). At 1280 x 720 the tray
+## keeps left of the crest's arch and the bar right of the banner. Space is Ready in a build
+## window and uncorks my next bottle during a duel's wave; the end plate waits for the
+## duel's decision and says it in the duel's words.
 class_name Hud
 extends CanvasLayer
 
@@ -56,6 +65,9 @@ const ROW_FACE := 20.0
 ## The rival line's plate (a race): its right edge in from the screen's, and its height.
 const RIVAL_INSET := 14.0
 const RIVAL_HEIGHT := 28.0
+## The Drift tray (a duel): in from the left edge, and above the left wing's painted top.
+const TRAY_INSET := 12.0
+const TRAY_GAP := 4.0
 
 var controller: BuildController
 
@@ -98,6 +110,9 @@ var _end_detail: Label
 ## Whether my orders would go out (Game.order_refusal() == "": the match and the link take
 ## them, and my seat is mine, not the caretaker's) as the HUD last showed it.
 var _live := true
+## Whether Ready waits for a duel's window to open for both (Game.ready_refusal()) as the
+## HUD last showed it.
+var _ready_held := false
 ## The session's results plate is up (results_shown): no notice or banner over it.
 var _results_up := false
 var _minimap: Minimap
@@ -106,6 +121,15 @@ var _rival_plate: PanelContainer
 var _rival_tag: Label
 var _rival_text: Label
 var _rival_shown := ""
+## My own race clock at the line's start ("You 1:51 +10 s", then a rule) and what it shows.
+var _mine_tag: Label
+var _mine_text: Label
+var _mine_rule: ColorRect
+var _mine_shown := ""
+## The duel's pieces (M7) and whether they show.
+var _tray: DriftTray
+var _duel_bar: DuelBar
+var _duel_shown := false
 
 
 func setup(main: Node) -> void:
@@ -123,6 +147,7 @@ func setup(main: Node) -> void:
 	Game.ready_changed.connect(_refresh)
 	Game.towers_changed.connect(_refresh)
 	Game.race_changed.connect(_on_race)
+	Game.duel_changed.connect(_on_duel)
 	controller.selection_changed.connect(func(_t: Tower) -> void: _refresh())
 	controller.creep_selected.connect(func(_c: Creep) -> void: _refresh())
 	controller.mode_changed.connect(func(_k2: String) -> void: _refresh())
@@ -141,12 +166,20 @@ func _process(_delta: float) -> void:
 	if orders != _live:
 		_live = orders
 		_refresh()  # (the match started, its link went, or the caretaker took or gave back my seat)
+	var held := Game.ready_refusal() != ""
+	if held != _ready_held:
+		_ready_held = held
+		_refresh()  # (a duel's window opened for both, or my hollow cleared before the rival's)
 	var ready_cost := ""
 	if Game.sim == null or not live or Game.over():
 		# (networked, before START or after the link went: the world stands still, and
 		# the party strip says why; once the match is over for me, a decided race too,
 		# the end plate does)
 		_countdown.text = ""
+	elif Game.state == Game.State.PREP and Game.duel_wave():
+		# (a duel's one clock: my hollow has cleared, the rival's still plays the wave, and the
+		# window opens for both together)
+		_countdown.text = "· your rival's wave still runs"
 	elif Game.state == Game.State.PREP:
 		var seconds := ceili(Game.countdown)
 		if Game.wave == 0:
@@ -162,15 +195,19 @@ func _process(_delta: float) -> void:
 			if mine.state == SimTypes.SEAT_PRESENT and controller.wants_ready() != mine.ready:
 				count[0] += 1 if controller.wants_ready() else -1
 			_countdown.text += " · Ready %d/%d" % [count[0], count[1]]
-		if Game.early_gold() > 0 and Game.wave < Game.total_waves() and orders:
+		if Game.early_gold() > 0 and Game.wave < Game.last_wave() and orders:
 			ready_cost = "+%d" % Game.early_gold()  # the gold an early horn pays
+	elif Game.state == Game.State.WAVE and Game.held_line() != "":
+		# (a duel's wave that waits on the rival's bottle or pack with my road empty)
+		_countdown.text = "· " + Game.held_line()
 	elif Game.state == Game.State.WAVE:
 		var left := Game.creeps_left()
 		_countdown.text = "· %d %s left" % [left, "creep" if left == 1 else "creeps"]
 	else:
 		_countdown.text = ""
 	_set_cost(_ready_button, ready_cost)
-	_show_rival(Game.rival_line() if not _results_up else "")
+	_show_rival(Game.rival_line() if not _results_up else "", Game.my_race_line() if Game.sim else "")
+	_refresh_duel()
 	var creep := controller.selected_creep
 	if creep and is_instance_valid(creep) and not creep.dead:
 		# Only when what it shows changes, not every frame.
@@ -250,12 +287,34 @@ func checks_shown() -> Array:
 	return _checks.get_meta("shown", []) if _checks.visible else []
 
 
+## The console's end plate as shown, [title, detail], or [] while it hides, for tests.
+func end_plate() -> Array:
+	return [_end_label.text, _end_detail.text] if _end_panel.visible else []
+
+
+## The Drift tray and the duel bar (a duel's, M7), for tests.
+func drift_tray() -> DriftTray:
+	return _tray
+
+
+func duel_bar() -> DuelBar:
+	return _duel_bar
+
+
 ## The strip's second line in a race as shown ("Rival · Wave 7 · 18 lives · 6:12 +20 s"),
 ## "" while it hides, for tests.
 func rival_line() -> String:
 	if not _rival_plate.visible:
 		return ""
 	return ("Rival · " + _rival_text.text) if _rival_tag.visible else _rival_text.text
+
+
+## My own race clock at the start of that line as shown ("You · 6:10 +10 s"), "" while it
+## hides, for tests.
+func race_clock_line() -> String:
+	if not _rival_plate.visible or not _mine_tag.visible:
+		return ""
+	return "You · " + _mine_text.text
 
 
 # ── Layout ──
@@ -277,6 +336,7 @@ func _build(main: Node) -> void:
 	_build_console(root, main)
 	_build_strip(root)
 	_build_wave_list(root)
+	_build_duel(root)
 	_build_party(root, main)
 	_build_banner(root)
 	_build_notice(root)
@@ -464,8 +524,11 @@ func _build_strip(root: Control) -> void:
 
 
 ## The strip's second line in a race (design 5.7): a slim plate hung under the strip's
-## right end, "Rival" in gold, then the rival's wave, lives and race clock; once the rival
-## fell, what I need to win, in the notices' gold. Hidden outside a race. (The strip's art
+## right end, my own race clock ("You" in my seat's colour, then the clock and what my lost
+## lives add: playtest halv s1, P10, "my own time appears nowhere until the results"), a
+## thin rule, "Rival" in gold, then the rival's wave, lives and race clock; once the rival
+## fell, what I need to win, in the notices' gold (my clock hides once either Holdfast fell:
+## the wave it fell on decides then, not the time). Hidden outside a race. (The strip's art
 ## is a band with its gilt edge at the bottom: a second row inside it would stretch the
 ## edge, so the line hangs under it on the tooltip plate, as the wave list does.)
 func _build_rival_line(root: Control) -> void:
@@ -490,6 +553,20 @@ func _build_rival_line(root: Control) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
 	_rival_plate.add_child(row)
+	# (my own race clock first, "You 1:51 +10 s", then a thin rule: a race is run against it)
+	_mine_tag = _label("You", BOLD_FONT, 14, PartyStrip.MINE)
+	_mine_tag.name = "MineTag"
+	row.add_child(_mine_tag)
+	_mine_text = _label("", BODY_FONT, 14, TEXT)
+	_mine_text.name = "MineClock"
+	row.add_child(_mine_text)
+	_mine_rule = ColorRect.new()
+	_mine_rule.name = "MineRule"
+	_mine_rule.color = Color("#5c4b33")
+	_mine_rule.custom_minimum_size = Vector2(1, 16)
+	_mine_rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_mine_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_mine_rule)
 	_rival_tag = _label("Rival", BOLD_FONT, 14, GOLD)
 	_rival_tag.name = "RivalTag"
 	row.add_child(_rival_tag)
@@ -500,21 +577,114 @@ func _build_rival_line(root: Control) -> void:
 
 ## Shows `line` (Game.rival_line()) on the rival plate, or hides it for "": "Rival · ..."
 ## as the tag and the rest; any other line (the rival fell) whole, in the notices' gold.
+## `mine` (Game.my_race_line(), "You · 1:51 +10 s") stands before it while it says one.
 ## The wave list moves down under it while it shows.
-func _show_rival(line: String) -> void:
-	if line == _rival_shown:
+func _show_rival(line: String, mine := "") -> void:
+	if line == _rival_shown and mine == _mine_shown:
 		return
 	_rival_shown = line
+	_mine_shown = mine
+	var clock := mine != "" and line != ""
+	for part: Control in [_mine_tag, _mine_text, _mine_rule]:
+		part.visible = clock
+	_mine_text.text = mine.trim_prefix("You · ")
 	_rival_plate.visible = line != ""
 	var tagged := line.begins_with("Rival · ")
 	_rival_tag.visible = tagged
 	_rival_text.text = line.trim_prefix("Rival · ") if tagged else line
 	_rival_text.add_theme_color_override("font_color", TEXT if tagged else NOTICE)
 	_rival_text.add_theme_font_override("font", BODY_FONT if tagged else BOLD_FONT)
+	_place_wave_list()
+
+
+## The wave list hangs under the strip, and under the rival line or the duel bar while one shows.
+func _place_wave_list() -> void:
 	var below := float(_layout["strip"]["height"]) + 2
 	if _rival_plate.visible:
 		below += RIVAL_HEIGHT + 4
+	if _duel_bar and _duel_bar.visible:
+		below += _duel_bar.get_combined_minimum_size().y + 4
 	_wave_list.offset_top = below
+
+
+## The duel's pieces (design 1.4 and 5.7, M7), shown only in a duel: the Drift tray on the
+## console's tray plate, standing on the left wing's painted top over the minimap (clear of
+## the crest's arch at 1280 x 720), its bottles in the bottle sockets; and the duel bar on
+## the tooltip plate under the strip, where a race's rival line hangs.
+func _build_duel(root: Control) -> void:
+	var fonts := [BOLD_FONT, BODY_FONT, _caps]
+	_tray = DriftTray.new()
+	_tray.setup(
+		controller,
+		HdStyleBox.new(load(ART + "drift_tray.tres"), _k),
+		HdStyleBox.new(load(ART + "bottle_socket.tres"), _k),
+		HdStyleBox.new(load(ART + "bottle_socket_lit.tres"), _k),
+		HdStyleBox.new(load(ART + "tooltip.tres"), _k),
+		fonts,
+		_tight(ICONS + "res_gold.png")
+	)
+	_tray.anchor_left = 0.0
+	_tray.anchor_right = 0.0
+	_tray.anchor_top = 1.0
+	_tray.anchor_bottom = 1.0
+	_tray.offset_left = TRAY_INSET
+	_tray.offset_right = TRAY_INSET
+	var wing_top := _vec("wing").y - float(_layout.get("shadow", 14))
+	_tray.offset_bottom = -wing_top - TRAY_GAP
+	_tray.offset_top = _tray.offset_bottom
+	_tray.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_tray.grow_horizontal = Control.GROW_DIRECTION_END
+	root.add_child(_tray)
+	_duel_bar = DuelBar.new()
+	var box := HdStyleBox.new(load(ART + "tooltip.tres"), _k)
+	box.content_margin_left = 12
+	box.content_margin_right = 14
+	box.content_margin_top = 5
+	box.content_margin_bottom = 6
+	_duel_bar.setup(
+		box,
+		fonts,
+		{
+			"lives": _tight(ICONS + "res_lives.png", 0.6),
+			"breach": Game.icon(Game.BOTTLE_ICON),
+			"gold": _tight(ICONS + "res_gold.png"),
+			"seawall": Game.icon(Game.SEAWALL_ICON),
+		}
+	)
+	_duel_bar.anchor_left = 1.0
+	_duel_bar.anchor_right = 1.0
+	_duel_bar.offset_left = -RIVAL_INSET
+	_duel_bar.offset_right = -RIVAL_INSET
+	_duel_bar.offset_top = float(_layout["strip"]["height"]) + 2
+	_duel_bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	root.add_child(_duel_bar)
+
+
+## Shows the duel's pieces while a duel plays (not once its end plate or the results are
+## up) and lets them follow the records.
+func _refresh_duel() -> void:
+	var on := Game.is_duel() and not _results_up and not _end_panel.visible
+	if on != _duel_shown:
+		_duel_shown = on
+		_tray.visible = on
+		_duel_bar.visible = on
+		if on:
+			_duel_bar.refresh()
+			_duel_bar.reset_size()
+		_place_wave_list()
+	if on:
+		_tray.refresh()
+		_duel_bar.refresh()
+
+
+## The duel moved on (Game.duel_changed): once it is decided, the end plate in the duel's
+## words, the title from my outcome and the rule that decided it (design 5.8).
+func _on_duel() -> void:
+	_refresh()
+	if not Game.is_duel() or Game.outcome() == "" or _end_panel.visible:
+		return
+	controller.set_mode("")
+	_show_end(Game.duel_title(), Game.duel_rule_line())
 
 
 ## The waves still to come, one row each: its number, the glyphs of its checks and the
@@ -654,7 +824,12 @@ func _build_tooltip(root: Control) -> void:
 	_tooltip_glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_tooltip_helps.add_child(_tooltip_glyph)
 	_tooltip_helps_text = _label("", BOLD_FONT, 13, GOLD)
+	_tooltip_helps_text.name = "TooltipHelpsText"
 	_tooltip_helps_text.add_theme_constant_override("outline_size", 0)
+	# (it says what "passable" means, so it wraps under the body's width beside its glyph)
+	_tooltip_helps_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tooltip_helps_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tooltip_helps_text.custom_minimum_size.x = 262 - ROW_GLYPH - 6
 	_tooltip_helps.add_child(_tooltip_helps_text)
 
 
@@ -709,6 +884,9 @@ func _refresh() -> void:
 	_lives.text = str(Game.lives)
 	_lives.add_theme_color_override("font_color", _health_tone(Game.lives, Game.max_lives()))
 	_wave.text = "Wave %d/%d" % [Game.wave, Game.total_waves()]
+	if Game.is_duel() and Game.surge() > 0:
+		# (a duel's Surge repeats waves 9 to 11: which of its three runs now)
+		_wave.text = "Surge %d/%d" % [Game.surge(), Game.surge_waves()]
 	_wave.visible = Game.wave > 0  # before the first, the countdown says it all
 	_refresh_checks()
 	_refresh_card()
@@ -786,7 +964,9 @@ func _refresh_card() -> void:
 	_card["sell"].set_meta("what", "sell")
 	_command(_card["sell"], mine and live, true, "+%d" % tower.sell_value() if mine else "")
 	_ready_button.set_meta("what", "ready")
-	var can_call := Game.state == Game.State.PREP and Game.wave < Game.total_waves() and live
+	var can_call := (
+		Game.state == Game.State.PREP and Game.wave < Game.last_wave() and live and Game.ready_refusal() == ""
+	)
 	_command(_ready_button, can_call, true, (_ready_button.get_node("Cost") as Label).text)
 	_set_active(_ready_button, can_call and controller.wants_ready())
 
@@ -798,13 +978,21 @@ func _over() -> bool:
 
 
 ## The wave the strip speaks of: the next one in a build window, the current one while
-## it runs (0-based), or -1 when none is left to show.
+## it runs (0-based, in the list: a Surge's wave as the wave it repeats), or -1 when none is
+## left to show.
 func _strip_wave() -> int:
+	var number := _strip_number()
+	return Game.content_wave(number) - 1 if number > 0 else -1
+
+
+## The match's number of the wave the strip speaks of (1-based: a duel's Surge's are 13 to
+## 15), or -1 when none is left to show.
+func _strip_number() -> int:
 	if Game.sim == null or _over():
 		return -1
 	if Game.state == Game.State.WAVE:
-		return Game.wave - 1
-	return Game.wave if Game.wave < Game.total_waves() else -1
+		return Game.wave
+	return Game.wave + 1 if Game.wave < Game.last_wave() else -1
 
 
 ## The glyph of each check the strip's wave brings with the portrait of the creep that
@@ -847,10 +1035,15 @@ func _show_wave_list(on: bool) -> void:
 
 
 ## Every wave from the strip's on: "5", its checks' glyphs, its creeps' portraits with
-## their counts; the one running now is marked.
+## their counts; the one running now is marked. A duel's list goes on into the Surge, under
+## a line that says when it is played ("SurgeHead"), each of its waves "S1" to "S3" with the
+## creeps of the wave it repeats (Game.content_wave) and "wave 9 again" at its end, from the
+## first window on, so a player can plan for it (playtest halv s1, f136736: "Waves to come"
+## stood empty after wave 12 while the Surge was coming).
 func _fill_wave_list() -> void:
-	var first := _strip_wave()
-	var key := [first, Game.state]
+	var first := _strip_number()
+	# (a new match, Restart or another begin, may scale its creeps for other seats)
+	var key := [first, Game.state, Game.sim.get_instance_id() if Game.sim else 0]
 	if _wave_rows.get_meta("shown", []) == key:
 		return
 	_wave_rows.set_meta("shown", key)
@@ -858,13 +1051,19 @@ func _fill_wave_list() -> void:
 		child.free()
 	if first < 0:
 		return
-	for index in range(first, Game.total_waves()):
+	var last := Game.last_wave() if Game.is_duel() else Game.total_waves()
+	for wave_number in range(first, last + 1):
+		var index := Game.content_wave(wave_number) - 1
+		var surge := SimUndertow.surge_of(Game.sim, wave_number) if Game.is_duel() else 0
+		if surge > 0 and _wave_rows.get_node_or_null("SurgeHead") == null:
+			_wave_rows.add_child(_surge_head())
 		var row := HBoxContainer.new()
-		row.name = "WaveRow%d" % (index + 1)
+		row.name = "WaveRow%d" % wave_number
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_theme_constant_override("separation", 4)
-		var now := Game.state == Game.State.WAVE and index == Game.wave - 1
-		var number := _label(str(index + 1), BOLD_FONT, 14, GOLD if now else TEXT)
+		var now := Game.state == Game.State.WAVE and wave_number == Game.wave
+		var shown := "S%d" % surge if surge > 0 else str(wave_number)
+		var number := _label(shown, BOLD_FONT, 14, GOLD if now else TEXT)
 		number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		number.custom_minimum_size.x = 20
 		row.add_child(number)
@@ -890,6 +1089,23 @@ func _fill_wave_list() -> void:
 			var label := _label(words, BOLD_FONT if boss else BODY_FONT, 12, NOTICE if boss else DIM)
 			label.add_theme_constant_override("outline_size", 0)
 			row.add_child(label)
+			# (its health at this wave on my hollow and its armour, as its plate will show
+			# them: planned ahead, not read off the field once it walks in)
+			var numbers := _label(_creep_numbers(str(group["creep"]), wave_number), BODY_FONT, 11, TEXT)
+			numbers.name = "Numbers_%s" % group["creep"]
+			numbers.add_theme_constant_override("outline_size", 0)
+			row.add_child(numbers)
+			_gap(row, 5)  # (so each creep's group reads apart from the next)
+			if boss:
+				# (the boss's own checks after it: the wave's column above may name a check
+				# only for the creeps that come with it, and a player asks whether it flies)
+				row.add_child(_boss_checks(str(group["creep"])))
+		if surge > 0:
+			_gap(row, 4)
+			var again := _label("wave %d again" % (index + 1), BODY_FONT, 12, DIM)
+			again.name = "Again"
+			again.add_theme_constant_override("outline_size", 0)
+			row.add_child(again)
 		if now:
 			var mark := _label("now", BOLD_FONT, 12, GOLD)
 			mark.add_theme_constant_override("outline_size", 0)
@@ -897,14 +1113,100 @@ func _fill_wave_list() -> void:
 		_wave_rows.add_child(row)
 
 
+## A creep's numbers on a wave list row: its health when wave `number` sends it (my
+## hollow's seats, the wave's growth, a Surge's share) and its armour where it wears any:
+## "140 hp · armour 4", "42 hp".
+func _creep_numbers(kind: String, number: int) -> String:
+	var words := "%d hp" % Game.wave_health(kind, number)
+	var armor := Game.creep_armor(kind)
+	if armor > 0.0:
+		words += " · armour %s" % _num(armor)
+	return words
+
+
+## The line above a duel's Surge in the wave list: before it, when it is played (both
+## Holdfasts standing after the list's last wave) and what it adds (the rules' hp_pm);
+## during it, just its name.
+func _surge_head() -> Label:
+	var words := "The Surge"
+	if Game.surge() == 0:
+		# (before it, and while my hollow waits on the rival's last wave: not sure yet)
+		var surge: Dictionary = Game.duel_rules()["surge"]
+		words = "The Surge, if both Holdfasts stand after wave %d: health +%d%%" % [
+			Game.total_waves(), roundi((int(surge["hp_pm"]) - 1000) / 10.0)
+		]
+	var head := _label(words, BOLD_FONT, 12, GOLD)
+	head.name = "SurgeHead"
+	head.add_theme_constant_override("outline_size", 0)
+	return head
+
+
+## A boss's own checks' glyphs, as its plate shows them (Game.creep_checks), each with its
+## name on hover: "BossChecks_<boss>", one "BossCheck_<check>" a check.
+func _boss_checks(kind: String) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	box.name = "BossChecks_%s" % kind
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 1)
+	for check: String in Game.creep_checks(kind):
+		var glyph := _icon_rect(Vector2(ROW_GLYPH, ROW_GLYPH))
+		glyph.name = "BossCheck_%s" % check
+		glyph.texture = Game.icon(str(Game.CHECKS[check]["icon"]))
+		glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		glyph.tooltip_text = "%s: %s" % [Game.CREEPS[kind]["name"], Game.CHECKS[check]["name"]]
+		box.add_child(glyph)
+	return box
+
+
+## The wave list's rows as shown, for tests: one line a row, "6: armored | thornback ×3 ·
+## 180 hp · armour 4, bristlesow boss · 1125 hp · armour 6 (armored)" (its checks' glyphs,
+## then each creep with its count and its numbers, a boss with its own checks); a duel's
+## Surge under its line, "S1: swift armored | scuttler ×16 · 65 hp, ... · wave 9 again".
+func wave_list_lines() -> Array[String]:
+	var out: Array[String] = []
+	if not _wave_list.visible:
+		return out
+	for row in _wave_rows.get_children():
+		if not str(row.name).begins_with("WaveRow"):
+			out.append((row as Label).text)  # (the Surge's line)
+			continue
+		var number := str(row.name).trim_prefix("WaveRow").to_int()
+		var index := Game.content_wave(number) - 1
+		var checks := []
+		for pair: Array in Game.wave_checks(index):
+			checks.append(pair[0])
+		var creeps := []
+		for group: Dictionary in Game.wave_groups(index):
+			var kind := str(group["creep"])
+			var numbers := row.get_node_or_null("Numbers_" + kind) as Label
+			var said := (" · " + numbers.text) if numbers else ""
+			if bool(SimContent.CREEPS[kind].get("boss", false)):
+				var own := []
+				var box := row.find_child("BossChecks_" + kind, false, false)
+				if box:
+					for glyph in box.get_children():
+						own.append(str(glyph.name).trim_prefix("BossCheck_"))
+				creeps.append("%s boss%s (%s)" % [kind, said, " ".join(own)])
+			else:
+				creeps.append("%s ×%d%s" % [kind, int(group["count"]), said])
+		var again := row.get_node_or_null("Again") as Label
+		var shown := (row.get_child(0) as Label).text
+		out.append(
+			"%s: %s | %s%s" % [shown, " ".join(checks), ", ".join(creeps), (" · " + again.text) if again else ""]
+		)
+	return out
+
+
 ## Nothing selected: the Holdfast the player keeps, how it stands and what comes next.
 func _describe_holdfast() -> void:
 	_portrait.show_model("res://models/props/hearth.glb", "", 0.0, 1.0, true)
 	var line := ""  # at the end the plate tells how it went
-	if Game.state == Game.State.WAVE:
+	if Game.state == Game.State.WAVE and Game.surge() > 0:
+		line = "Surge %d of %d" % [Game.surge(), Game.surge_waves()]
+	elif Game.state == Game.State.WAVE:
 		line = "Wave %d of %d" % [Game.wave, Game.total_waves()]
-	elif Game.state == Game.State.PREP and Game.wave < Game.total_waves():
-		line = "Next: " + _wave_brings(Game.wave)
+	elif Game.state == Game.State.PREP and Game.wave < Game.last_wave():
+		line = "Next: " + _wave_brings(Game.content_wave(Game.wave + 1) - 1)
 	_head("The Holdfast", line)
 	_set_glyph_title("")
 	_set_stats(
@@ -968,7 +1270,7 @@ func _describe_creep(creep: Creep) -> void:
 	_creep_shown = _creep_key(creep)
 	var data: Dictionary = Game.CREEPS[creep.kind]
 	_portrait.show_model(str(data["model"]))
-	var parts := PackedStringArray(["Wave %d" % Game.wave])
+	var parts := PackedStringArray([Game.wave_name(Game.wave)])
 	if creep.winged:
 		parts.append("winged")
 	if creep.stunned:
@@ -1147,7 +1449,7 @@ func _show_tooltip(what: String) -> void:
 			if helps != "":
 				_tooltip_helps.visible = true
 				_tooltip_glyph.texture = Game.icon(str(Game.CHECKS[helps]["icon"]))
-				_tooltip_helps_text.text = "Lifts %s to passable" % Game.CHECKS[helps]["name"]
+				_tooltip_helps_text.text = Game.lifts_line(helps)
 		"idle":
 			_tooltip.visible = false
 			return
@@ -1174,14 +1476,18 @@ func _show_tooltip(what: String) -> void:
 			var everyone := "you are" if Game.seat_count() == 1 else "everyone is"
 			_tooltip_body.text = (
 				(
-					"Sounds the horn when %s Ready: the next wave comes at once, and each second left on the countdown pays one gold. N and Space too."
-					% everyone
+					"Sounds the horn when %s Ready: the next wave comes at once, and each second left on the countdown pays one gold. %s"
+					% [everyone, "N and Space too (during a wave Space uncorks your bottle)." if Game.is_duel() else "N and Space too."]
 				)
 				if not _ready_button.disabled
 				else (
-					"The horn waits until this wave is cleared."
-					if Game.order_refusal() == ""
-					else Game.order_refusal() + "."
+					(Game.order_refusal() + ".")
+					if Game.order_refusal() != ""
+					else (
+						(Game.ready_refusal() + ".")
+						if Game.ready_refusal() != ""
+						else "The horn waits until this wave is cleared."
+					)
 				)
 			)
 	if cost > 0:
@@ -1251,6 +1557,9 @@ func _on_state(state: int) -> void:
 			# plate waits for that, _on_race; the rival line says how it stands meanwhile)
 			_on_race()
 			return
+		if Game.is_duel():
+			_on_duel()  # (a duel's end plate says its decision: the fall, or the Surge's rule)
+			return
 		var won := state == Game.State.WON
 		var detail := "Fell in wave %d of %d" % [Game.wave, Game.total_waves()]
 		if won:
@@ -1263,8 +1572,8 @@ func _on_state(state: int) -> void:
 ## A race moved on (EV_RACE): once it is decided, the end plate in the race's words, the
 ## title from my team's outcome and the rule that decided it (design 5.8).
 func _on_race() -> void:
-	if Game.outcome() == "" or _end_panel.visible:
-		return
+	if Game.outcome() == "" or _end_panel.visible or Game.is_duel():
+		return  # (a duel decided by the race's machinery says it in its own words: _on_duel)
 	_show_end(Game.race_title(), Game.race_rule_line())
 
 

@@ -1,0 +1,66 @@
+{
+  "name": "duel_bottle_waits_for_its_horn",
+  "description": "A bottle fizzles at fizzle_t after its own wave's horn, never the wave's before: both seats stand six arrows by the road's descent along x = 15 and call wave 1 at once, so it clears and window 2 opens 15 to 25 s after the first horn. Seat 1 corks there and nobody presses Ready, so the window runs past tick 1500, wave 1's horn plus fizzle_t: the bottle stays corked through it, and after window 2's own horn and uncork_after_t its reveal is taken (a bottle once fizzled there, before its wave began).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {
+      "eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1})"
+    },
+    {
+      "eval": "scene.client(1)",
+      "as": "m"
+    },
+    {
+      "eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"
+    },
+    {
+      "eval": "[scene.cmd(1, 'BUILD', 0, 14, 7), scene.cmd(1, 'BUILD', 0, 16, 7), scene.cmd(1, 'BUILD', 0, 14, 8), scene.cmd(1, 'BUILD', 0, 16, 8), scene.cmd(1, 'BUILD', 0, 13, 7), scene.cmd(1, 'BUILD', 0, 16, 9)]"
+    },
+    {
+      "eval": "[scene.cmd(2, 'BUILD', 0, 14, 7), scene.cmd(2, 'BUILD', 0, 16, 7), scene.cmd(2, 'BUILD', 0, 14, 8), scene.cmd(2, 'BUILD', 0, 16, 8), scene.cmd(2, 'BUILD', 0, 13, 7), scene.cmd(2, 'BUILD', 0, 16, 9)]"
+    },
+    {
+      "eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"
+    },
+    {
+      "eval": "scene.run_to_horn()"
+    },
+    {
+      "eval": "scene.run_to_window()",
+      "as": "open"
+    },
+    {
+      "assert": "open > 900 and open < 1500 and m.drift_window == 2 and scene.refusals(1) == [] and scene.refusals(2) == []",
+      "msg": "wave 1 cleared and window 2 opened between 900 and 1500 ticks after the first horn, so tick 1500 falls inside it"
+    },
+    {
+      "eval": "scene.cork(1, m.drift_packs[0], 31, 32)"
+    },
+    {
+      "eval": "scene.run_to(1502)"
+    },
+    {
+      "assert": "scene.rows('FIZZLE', ['seat']) == [] and not m.bottles(1)[0]['fizzled'] and m.hollows[0].phase == 0",
+      "msg": "through tick 1500, still in the window, the bottle is corked"
+    },
+    {
+      "eval": "scene.run_to_horn()",
+      "as": "horn"
+    },
+    {
+      "eval": "scene.run_to(horn + 180)"
+    },
+    {
+      "eval": "scene.uncork(1, m.drift_packs[0], 31, 32)"
+    },
+    {
+      "eval": "scene.run_ticks(3)"
+    },
+    {
+      "assert": "scene.rows('UNCORK', ['seat', 'hollow']) == [[1, 1]] and scene.rows('FIZZLE', ['seat']) == []",
+      "msg": "and is uncorked in its own wave"
+    }
+  ]
+}

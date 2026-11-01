@@ -157,5 +157,20 @@
   },
   "divider": {
     "height": 6
-  }
+  },
+  "tray": {
+    "margin": 20,
+    "expand": 6,
+    "content": [
+      12,
+      9,
+      12,
+      10
+    ],
+    "socket": [
+      40,
+      40
+    ]
+  },
+  "shadow": 14
 }

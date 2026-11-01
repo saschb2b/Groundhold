@@ -85,7 +85,10 @@ between the decision and `MATCH_END`, the card greys and the party strip hides i
 (`race_decided_takes_no_orders`). The strip's second line (`Game.rival_line()`, `Hud.rival_line()`, the
 `RivalLine` plate under the strip) reads the rival team's record: "Rival · Wave 7 · 18 lives · 6:12 +20 s" (its race
 clock so far, `SimMatch.race_penalty_t`), or after its `EV_RACE` "fell" "Your rival fell on wave 9. Clear wave 9 to
-win" (`race_strip_rival_line`). `EV_RACE` is `Game.race_changed`: banners for a clear or a fall, and the decision's
+win" (`race_strip_rival_line`); my own clock leads it, "You 6:10 +10 s" (`Game.my_race_line()`,
+`Hud.race_clock_line()`, gone once a Holdfast fell), and the hub's Tide Race tooltip and mode line say the win order
+from the rules (`Game.race_rule_words(mode, short)`; `race_strip_my_clock_and_the_rule`). `EV_RACE` is
+`Game.race_changed`: banners for a clear or a fall, and the decision's
 title; a race's end plate waits for the decision, not for my hollow. The loading screen lays a race out in two rows
 (`LoadingScreen.rows()`, `is_race()`; `Cards` and `CardsB`, `TeamRule`, `CoverageRow` and `CoverageB`), the results
 one block per team, mine first (`ResultsPanel.team_lines()`, `race_time_text`; titles `Game.RACE_TITLES`, the rule
@@ -101,6 +104,96 @@ make them.
 `undertow` (mode 3), the Drift's packs keyed by check (`SimContent.PACKS[map][check]`, names in `Game.PACKS`),
 `EV_DRIFT` 21 to `EV_SURGE` 27, the commitment's exact bytes (`SimUndertow.commit`), the `undertow` preset's
 `duel` keys, and who owns which files. `contract_m7_tables` checks it.
+
+The duel on screen (M7, track B; contract-m7 §3). `Game` is a duel's client side and reads the duel's rules directly:
+`is_duel()` (`SimMatch.duel`), `duel_rules()` (`SimUndertow.rules_of`), `horn_tick()` (`SimMatch.horn_tick`), the
+tiers, prices and corks of a window (`SimUndertow.tiers_in`, `cork_price`, `corks_allowed`, `corks_of`), the bottles
+(`SimMatch.bottles(seat)`, `SimUndertow.pending` for those of the wave running), the sides (`breach_dealt`, `stipend`,
+`seawall_charges`, `seawall_ready_tick`) and the Surge (`surge()` from `SimUndertow.surge_of`: the wave running, or in a
+window the one it precedes; `surge_waves()`, `last_wave()` 15, `content_wave(n)`, so the strip says "Surge 2/3", the
+wave banner and the strip's glyphs are the repeated wave's, and Ready is asked for up to the last). One clock: the
+duel's wave runs from the shared horn until the last hollow clears (`duel_wave()`, `SimUndertow.wave_running`), so my
+hollow may stand in its window while the rival's still waits for my bottle; corks go in only once the window is open for
+both and drawn (`cork_window()`; else "The window opens once both waves are over", and the countdown says the rival's
+wave still runs), the tray's packs are `SimMatch.drift_offer()` only then, uncorking and the client's own at
+`auto_uncork_t` work while the duel's wave runs on either hollow, and no Ready goes out then: Space only uncorks, and
+D, N, Space with nothing to uncork and the card's horn are refused before they go out with the window's words
+(`Game.ready_refusal()`; the card's Ready greys and its tooltip says why), since a Ready said while the rival's wave
+still runs would sound the horn on the tick the window opened, the caretaker Ready on its first tick
+(`hud_duel_ready_waits_for_the_window`); a duel order whose turn comes after its moment (a cork run after the horn, an
+uncorking or a Seawall after the wave's end) is told what passed (`refusal_text(reason, cmd)`, `WRONG_MOMENT`), never a
+bare "Not now". In the Surge's last wave my hollow
+may be done while the rival's still waits for my bottle: the simulation takes the UNCORK until the duel is decided, so
+an uncorking meets the orders' refusal without my hollow's end (`_uncork_order_refusal`), while `over()` still shuts
+every other order, build, fork, sell, signal, Ready, cork and Seawall (`view_duel_uncork_after_my_last_clear`). A bottle whose salt is not on this
+machine shows "lost", Space says so, and its fizzle is told, as a rival's is; a wave held for the rival's bottle or
+pack with my road empty (`SimMatch.wave_held`) says so on the strip (`Game.held_line()`), not "0 creeps left"
+(`hud_drift_tray_asks_the_drift_in_a_build_window`, `view_duel_auto_uncork_at_24s`, `view_duel_fizzle_shown`,
+`hud_duel_surge_strip`, `hud_duel_wave_held`; from the first window the wave list goes on into the Surge, under its
+line (`SurgeHead`), as S1 to S3, each "wave 9 again" (`hud_duel_wave_list_shows_the_surge`), and
+`Game.wave_name(n)` names waves 13 to 15 by it for the clear banner, a creep's line and a fall's rule; `duel_stage.cork_as(n, check)` and `ready_as(n)` play a rival seat no
+client plays through the sequencer). `Game.cork(check)` draws an 8-byte salt from
+`Crypto`, sends `CORK(tier, b, c)` with `SimUndertow.commit`'s halves and keeps the salt by bottle (`_corks`, through
+a resync or a rejoin of the same match, never sent before the uncorking); networked it also files the salts in
+`user://duel/<match>-<seat>.cfg` from the CORK to the duel's end (`Game.salt_match`, from the `MatchClient`), so a
+game killed and started again takes them back with its seat, and a bottle a loaded checkpoint holds whose `EV_CORK`
+this client never saw takes the waiting salt it was committed with (`_claim_corked`, by window and
+`SimUndertow.commit`). Every attach first gives each kept salt to the bottle of the loaded world it opens, by the same
+commitment, never by the id it was kept under (`_rekey_corks`: a RESYNC(desync)'s world may number bottles otherwise,
+a refused build shifting `next_id`): one whose bottle is spent there goes, one no bottle there holds waits for its CORK
+again, unsure, which the turns run again bring by its seq (`view_duel_resync_rekeys_salts`, through
+`duel_stage.loaded_checkpoint` and `renumbered_checkpoint`). `EV_CORK` goes to its waiting cork by its seq, so a bottle the caretaker corked for my seat while
+it was away (salt 0) takes no salt of mine and shows its pack (`my_bottles()`'s `caretaker`;
+`hud_duel_caretaker_cork_takes_no_salt`, `view_duel_rejoin_claims_its_own_bottle`). An order the link drops is never
+answered, so nothing waits on one: `BuildController.forget_pending` calls `Game.forget_duel_orders()` (the Seawall
+and the uncorkings may go again; a waiting cork keeps its salt but is unsure, and no other cork goes out until it is
+known), `_order_ran` lets go of a duel order still waiting below a later order of mine that ran (my orders run in
+their seq's order), and `_drop_stale` of a cork whose window or a Seawall whose wave is over (`hud_duel_lost_orders`,
+`view_duel_salts_survive_a_restart`), though a standing bottle of mine first takes the waiting salt it was committed
+with (`_claim_corked`): `main.gd` hands the events over once a frame, so in a frame of several ticks the horn may move
+the window on before the CORK's own `EV_CORK` is read (`view_duel_cork_survives_a_multitick_horn`). `uncork(id)` sends `UNCORK(pack, salt_hi,
+salt_lo)`, Space (`BuildController.press_space`) or a click on a bottle corked for the duel's wave (on either hollow:
+the tray's socket answers while `my_bottles()`'s `due`, `view_duel_uncork_by_click_in_the_rivals_wave`) and only from
+`uncork_after_t` after the horn; `Game.before_tick()`, called by `main.gd` before every tick, sends the uncorking
+itself at `auto_uncork_t` on the tick it falls due at any fast-forward, earlier by the ticks an order sent now runs
+ahead of the simulation (`auto_uncork_send_tick()`, `TurnSource.order_lead`: 0 offline, online the turns held and not
+run yet), so a game up to a second behind its turns, which still takes orders, has it run by `auto_uncork_t` with the
+trip left in the second to `fizzle_t` (`view_duel_auto_uncork_while_behind`, its 30-frame hang read through
+`loopback_main.gd`'s `sealed_turns`); F is `seawall()`; keys 1
+to 3 cork the Drift tray's packs (both nothing, silent, outside a duel); each refusal is said here before anything
+goes out (`cork_refusal`, `uncork_refusal`, `seawall_refusal`), its seconds read from `duel_rules()`
+(`refusal_text(reason)`, `duel_seconds(key)`, the tray's words too: `hud_duel_timings_follow_the_rules`). While the client
+catches up or reconnects (`_catching_up()`, as for a teammate's seat notice) the duel's events still change my corks and
+orders but say nothing, no sound, notice or rival's moment from the turns a resync or a rejoin runs again
+(`view_duel_catch_up_says_no_old_moments`). `my_bottles()`, `rival_bottles()` (tier only), `duel_side(team)`,
+`drift_packs()`, `cork_price(window)`, `duel_title()` and `duel_rule_line()` feed the views: the Drift tray
+(`scripts/ui/drift_tray.gd`, `packs_shown()`, `mine_shown()`, `rivals_shown()`, `tip_shown()`) on the left wing over the
+minimap, the duel bar (`duel_bar.gd`, `lines()`; hovering a side's Seawall or its caption, `tip_shown()`, says
+`Game.seawall_rule_text()` from the rules' seawall block and where it stands, `hud_duel_seawall_tip`) under the strip, the end plate (`Hud.end_plate()`) and the results
+(`ResultsPanel._compute_duel`: a block per side with its breach dealt). `Fx.seawall` sends a breaking ring of surf
+from EV_SEAWALL's `x`, `z` (the road's end, where the rules measure the ring) out to its `r` in about 0.6 s and fades
+it by 1.05 s: one mesh in palettes/hollow.gpl's water (frost_dark, frost, snow) with foam broken along its crest, a
+following swell and a little spray, see-through throughout, drawn by a shader that keeps it on the hollow's floor:
+`Fx.shore_mask(map)` (one pixel a tile, the share of its 3 x 3 that is not high ground; main.gd makes it once) lays the
+wave down and thins it out over the last tile and a half before the hollow's cliffs, and nothing shows off the board
+(group `seawalls`, meta `radius`); `Fx.uncork` rings the Welling a pack wells up at, and a creep with `sent_by` carries
+`Fx.sent_bottle` (`Creep.effects_shown().bottle`). The duel scenarios play the real preset through
+`tests/ui/duel_stage.gd`: `start(scene, my_seat, seed, mine, rival, rival_caretaker)` (against the caretaker, or with
+`rival_caretaker` false a present seat that never acts, so two idle hollows play alike), `defend(scene)` (my seat
+plays its plan through `tests/bot.gd`), `to_window(w)` (both hollows' waves moved in the first window, so the next
+horn's wave opens window `w` and the Drift draws it), `in_window(w)`, `in_wave(w)`, `leak_all(hollow)` and
+`breach(by)` (the logged creep-distance setter), `forget_salts()`, fixed salts (`Game.salt_source`,
+`fixed_salt(seed, n)`, so two runs commit alike), and `partner_cork`, `partner_uncork`, `partner_ready` for
+`tests/net/loopback_main.gd`'s partner once its fake's `seq.mode` is set to `undertow` before the partner joins
+(`view_duel_networked_tray`). `view_duel_client_commit_matches_contract` holds `Game.duel_commit` and
+`SimUndertow.commit` to digests worked out apart from the game; `view_duel_results_titles` plays each deciding rule
+(a fall, both on one tick, and through the Surge's last wave lives, breach and a draw);
+`view_duel_offline_against_the_caretaker` is Duel the caretaker from the hub and `view_duel_loading_two_rows` the
+duel's loading barrier. B's duel scenarios are `view_duel_*` and `hud_duel*` (track A owns `duel_*`). The art: the tray and its bottle sockets are `console.py`'s
+(`drift_tray`, `bottle_socket`, `bottle_socket_lit`), the corked bottle and the Seawall are mesh recipes
+(`art_src/models/corked_bottle.json`, `seawall.json`), `icons.py` cuts `bottle.png` and `seawall.png` out of their
+renders and lays the bottle over each creep's framed portrait for the pack icons (`pack_hollow_<check>.png`), and
+`sfx.py`'s sweeps and washes make `cork`, `uncork`, `breach` and `seawall`.
 
 Multiplayer is server-sequenced lockstep (design §6): the Python server in `server/` never simulates, it closes a
 turn every 50 ms and sends every game the commands that arrived. The wire contract is `shared/net/protocol.json`;
@@ -207,6 +300,48 @@ no_held_seat`), holds `BACK` for a connection catching up until its `shown`, and
   `tower_on(hollow, x, z)`, `play_out(seats, every, limit, ready_at_once)` and reads `race_summary()`,
   `decided_tick()`, `wave_spawns(hollow, wave)`, `pulses(tower)`, `rows(type, fields, where)` and
   `creep_report(kind)` (a balance pass's per-creep damage).
+- Undertow (`undertow` in `RULES`, contract-m7 §2) is `SimUndertow`'s (`scripts/sim/sim_undertow.gd`; `SimMatch.duel`
+  and `shared_clock` from the rules, never state): the race's layout, one seat a team, under one clock
+  (`SimUndertow.run_clock`): a hollow that clears opens its window but it counts only once both have cleared, and the
+  horn sounds for both when every seat is Ready and one of them is present, or the countdown ends
+  (`duel_shared_clock_one_horn`): a caretaken seat says Ready once it has corked and built, and the caretaker thinks
+  on the shared window's first tick (`SimUndertow.shared_window_tick`), so a player's Ready never takes its window
+  (`duel_caretaker_has_its_window_before_a_ready_horn`). When the window opens for both, the Drift draws `offered`
+  packs from the match's `SimRng`, never leaving out last window's left-out (`EV_DRIFT`; SimMatch's query of the open
+  window's packs is the contract's); a window is "the wave it precedes", the Surge's 13 to 15 (their tier and health
+  are the wave they repeat's, `SimUndertow.content_wave`). CORK(tier, commit) in the shared window stands a
+  `SimRecords.SimBottle` (in `SimMatch.bottle_list`) holding only the commitment (`SimUndertow.commit`, the
+  contract's bytes); UNCORK(pack, salt) from `uncork_after_t` after the horn reveals the first matching bottle and
+  queues its pack on the rival's road (`SimHollow.sends`, one every `pack_interval_t`, `sent_by` the seat); at
+  `fizzle_t` after the horn a bottle of that wave still corked fizzles. A wave a rival's bottle is corked for, or
+  whose sends are still to come, does not clear (`SimUndertow.holds`), so a pack always walks its own wave: the
+  defender's road may stand empty while its wave waits, up to `fizzle_t` after the horn, and since the window opens
+  only once both have cleared, the sender's bottle holds back both hollows' next window that long
+  (`fizzle_without_reveal`; `SimMatch.wave_held(hollow)` tells a view; contract-m7 §2). Stipends grow at the uncorking (not in the Surge) and pay at each clear;
+  breaches pay the sender `breach_pay` bounties (`EV_BREACH`, `breach_dealt(team)`); the Seawall charges from
+  `set_lives` and bursts on SEAWALL (`seawall_charges(seat)`, `seawall_ready_tick(seat)`); the decision (a fall at
+  once, both on one tick a draw; after the Surge lives, then breach, then a draw) is `SimUndertow.decide`, in the
+  race's record (`outcomes()`, `decided_by()` adds "lives" and "breach") and `EV_RACE` "decided". `bottles(seat)`
+  never shows a corked pack. The codec's M7 block follows M6's (written empty then) only in a duel. The caretaker
+  corks in the shared window, before its plan spends, while its corks stay within `Caretaker.CORK_SHARE_PM` of what
+  it holds (contract-m7 §2's "while keeping its plan's next build", read as keeping that step's gold, never corks:
+  the budget stands in for it until the tracks agree a wording), the pack the rival's towers take longest to kill
+  (`SimUndertow.weakest_pack`), salt 0, uncorks at `uncork_after_t` (`SimMatch.uncork_tick`) and raises the Seawall
+  when the creeps in its ring carry 3 lives or a boss (`Caretaker.wants_seawall`). Its plan waits while its hollow
+  stands in its window and the rival's still plays the wave (`Caretaker.holds_plan`: a tower built on an empty road
+  defends nothing sooner), so on the shared window's first tick it corks with the gold it kept and builds after
+  (`duel_caretaker_corks_before_its_plan_spends`: 8 corks where it spent in the wait and corked 5; the plan bot waits
+  alike). The sim harness plays duels by command in the gates' styles (`duel_out(styles, options)`: turtle,
+  balanced, reckless, counter_cork, random, the three on the caretaker's budget holding their plan as it does,
+  `CARETAKER_BUDGET_STYLES`, while the reckless one builds in the wait: holding too, it beat the turtle in 3 of 5;
+  `duel_series(cfg, styles, seeds)` with cfg `builders_by_seed`, counting `distinct` matches and each seat's
+  `leading_picks`; `duel_line()`; `horns_before_ready(seat)`; `builds_while_held(seat)`) and drives one by hand:
+  `duel_to_window(w)`, `run_to_horn()`, `run_to_window()`, `cork(seat, pack, salt_hi, salt_lo)`, `uncork(...)`, `sent_fates(seat)`,
+  `ring_ids(hollow)`, `drift_draws(seed, n)`; a scenario setter that moves a hollow's wave (`DBG_WAVE`, which now
+  reaches the Surge's) parts a corked bottle from its wave, so set it after the uncorking (`surge_freezes_stipend`,
+  `tiebreak_lives_then_breach`). `sim_checkpoint_roundtrip_undertow` round-trips a whole busy duel (`busy_match.gd`'s
+  `duel_log`; `roundtrip_chain` compares `duel_state`), decided by a fall in the Surge's second wave and played on
+  (`play_on`), so the decision is round-tripped too.
 - Boot flags after `--`: `--seed=N`, `--bot`, `--hash-log[=file]`, `--quit-after-match`, `--ticks-per-frame=N`;
   networked: `--join=ADDRESS` (`127.0.0.1`, `192.168.1.20`, `host:port` or a `ws://` URL), `--name=NAME`;
   `--shot-at=T1,T2 --shot-dir=DIR` saves the window at those ticks.
@@ -270,6 +405,23 @@ leave the queue, so `Session.try_refusal()` keeps a member's Try (disabled on th
 the party is out of it. Open seats are a one-team mode's: `Session.open_seats()` is false in a race, and the server
 turns them off with the mode. Offline, a race party of one plays `Session.offline_match(mode, builder)` (its seats
 `Session.offline_seats`): a caretaker rival team with the same Builders, offered only where `Profile.offers`.
+Undertow around the match (M7, contract-m7 §4): `Session.is_duel(mode)` is a two-team mode of one seat a side
+(`team_seats`), and the queue serves it with the race's rules: a party of one finds a rival (one stranger, both
+mains kept: a clash never crosses the sides), a party of two is both sides and starts, `can_move` lets no row onto a
+duel's side already taken (a race's rows move freely, so a race of four regroups through 3-1), and a party larger
+than the duel waits ("A duel is one against one": the leader's Start, while a member may still say Ready). Duel the
+caretaker (`caretaker_word`) is the offline match of my seat against one caretaker of my Builder (company is clamped
+to a team's seats), and after the queue's offer the server's `start_with_caretakers` sets the same rival; the offer's
+notice is said in the mode's words (`offer_text`), Match Found says "Undertow · 1v1 · ~15 min", the mode line "1v1",
+and Play again queues a duellist who came alone. The hub's Undertow button lights once `Profile.offers("undertow")`.
+The `flow_duel_*` scenarios play the duel on track A's preset (a match the queue forms loads and plays on
+Undertow's own rules), and `tests/net/duel_checks.gd` reads the simulation's seats (`seats_seen()`, "" before it
+stands) and presses a button only where it stands; its `start_duel(scene)` stages a duel against a caretaker with
+fixed salts, on which `bot_duels_through_its_orders` holds the plan bot's corking, uncorking and Seawall to the
+turns, and `bot_duel_refused_orders` its refused orders (`step_until_cork`, `spoil_next`, `refuse_orders`): a cork
+refused or sent nowhere is no played window and goes again, an UNCORK the simulation refused is sent again after
+Game's retry wait, and one the client's own uncorking at 24 s made is said to be the client's. `m7_duel` is the
+server's duel recorded; `protocol_golden_m7` decodes it.
 
 - The main scene is the hub, so a scenario of the match names it: `"scene": "res://scenes/main.tscn"`.
 - `tests/net/loopback_hub.gd` runs the session against the fake sequencer in lobby mode (`flow_*` scenarios): add
@@ -286,11 +438,14 @@ turns them off with the mode. Offline, a race party of one plays `Session.offlin
   `--code=K7Q4M`'s); `--name=NAME` and `--main=lookout` set this run's name and main without saving them.
   `--flow-bot` hands the hub to `tests/net/flow_bot.gd`, which makes or joins a party (`--code-out=FILE` writes the
   code, `--code-in=FILE` waits for it), says Ready or starts once `--party=N` are there, lets the session play the
-  match (`--bot` plays the seat: `tests/bot.gd` plays any Builder outside classic as the caretaker would,
-  `--ready-calls` calls every wave), presses Play again and prints a `FLOW ...` line per step;
+  match (`--bot` plays the seat: `tests/bot.gd` plays any Builder outside classic as the caretaker would, a duel's
+  corks, uncorkings and Seawall too, printing a `BOT ...` line for each; `--ready-calls` calls every wave, in a duel
+  once the bot has played the shared window), presses Play again and prints a `FLOW ...` line per step;
   `--quit-after-flow` quits once everyone is back. `tests/net/live/flow_*_live.json` and `smoke.py --flow` use it.
   `--queue` plays the queue instead, alone: open seats, Find players, Accept, the match, and Play again until it is
-  queued again (`smoke.py --flow --queue`).
+  queued again (`smoke.py --flow --queue`). `--mode=undertow` (a mode the hub offers, unsaved like `--main`) makes
+  the party in that mode; with `--queue` the bot finds a rival instead (`smoke.py --flow --queue --mode undertow`).
+  `loopback_hub.gd`'s `finish(outcome, per_team)` ends a race or a duel one outcome a team (`["won", "lost"]`).
 
 Verify changes with godot-agent ([godot-agent-kit](https://github.com/saschb2b/godot-agent-kit): clone it and run
 its `install.sh` for the CLI, the MCP server and the skill, which explains each command):
@@ -319,6 +474,19 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   same plan on both hollows draws) and `race_bots_both_finish` (a bot calling every wave against one waiting out
   every window, played on past the decision: both finish, the lower race time won). A tuned number says why beside
   it in `content.gd`; balance is the plans' first, then the M6 kits' numbers (they are the contract's *tunable*).
+  M7 adds the duel's six, each a mirror of Builders: over a series each seed puts the next Builder of the
+  generator's `DUEL_ROSTER` (Lamplighter, Lookout, Bellfounder, Beekeeper, Lamplighter) on both seats, since the
+  match's `SimRng` feeds only the Drift and two Lamplighter duels of two seeds often played one match
+  (`duel_mirror_is_draw`: four seeds of caretakers, every one a draw with both records equal; `duel_turtle_holds`:
+  two Lamplighters, 10 lives through the Surge; `duel_balanced_beats_turtle`, `duel_turtle_beats_reckless`,
+  `duel_counter_cork_beats_random`: at least 3 of seeds 1 to 5, the counter-corker's most-uncorked pack not the same
+  in every match; `duel_seawall_saves`: the defender raising its Seawall beats a reckless corker in at least 3 of 5
+  and in more than without it), each a `duel_series` keeping one line per match and holding its matches to being
+  all different. The duel's numbers are the `duel` block's (all *tunable*) and the caretaker's `CORK_SHARE_PM`;
+  measured (the same counts since the styles on the caretaker's budget hold their plan in the wait): balanced 3 of
+  5 (the Lamplighters and the Lookouts win, the Bellfounders and the Beekeepers lose to the turtle on lives),
+  reckless loses 4 of 5, counter_cork 4 of 5 and a draw, the Seawall turns 1 of 5 into 4 of 5. A
+  duel through the Surge lasts 13.2 to 15.2 minutes; one a Holdfast's fall ends may be over by wave 7, in 6.5.
 - `godot-agent run . --renderer gl_compatibility` shows the scene as the browser build draws it.
 - The server: `python3 -m unittest discover -s server/tests -t server/tests` (Python 3.11+).
 - Networking against the real server: `godot-agent scenario . tests/net/live --headless -j 1` (nine topology
@@ -326,7 +494,23 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   --clients 2 --turn-ms 10`, a whole classic match by two headless bots in about 80 s with equal hash streams
   (`--turn-ms` is the server's dev-match turn length); `--mode tide_race` (2 or 4 clients, two teams) checks that
   the RESULTs share their tick and hash and the teams' outcomes answer each other, and can pass only once
-  `content.gd` has the `tide_race` preset. `python3 tools/net/smoke.py --flow` plays the loop against
+  `content.gd` has the `tide_race` preset; `--mode undertow --turn-ms 10` (two clients, seat 1 against seat 2,
+  about three minutes) checks a duel the same way and as a duel: the plan bot (`tests/bot.gd`) duels as the
+  caretaker would through `Game.cork`, `uncork` and `seawall` (Caretaker's `cork_tier` budget,
+  `SimUndertow.weakest_pack`, uncorked from `uncork_after_t`, `Caretaker.wants_seawall`), so its `CORK`, `UNCORK`
+  and `SEAWALL` cross the real server, and the smoke reads each game's `BOT` lines (`bottle ... corked`, `uncorked
+  ... by bot` when Game settled the bot's own `UNCORK` as the one that ran, `walking`; `duel_game`,
+  `duel_problems`): both games corked and their bots uncorked, an uncorked pack
+  walked the rival's road, the hash streams agree, one outcome a side (seed 1 corked four to six packs a side in two
+  runs, each decided after the Surge, with a Seawall or two; the bots' timing over the wire makes runs differ).
+  `smoke.py --flow --queue --mode undertow` (about twelve minutes, the hub's 50 ms turns; its default `--timeout`
+  1500 s) has two games alone find each other as rivals through the real server's queue, duel one a side with
+  their own mains (`--bot` plays the duel as above and is checked so, one outcome a side; its `--ready-calls` wait
+  for the bot's `played_window`, so a Ready on both sides never takes a window from the corking), and Play again
+  queues each again; `--no-bot` only calls the waves. `server/tests/test_duel_commands.py`
+  holds the server's CMD path for the duel's orders (any 32-bit halves, stamped and resent as sent; one outside
+  its limits lets that seat go and closes only its link).
+  `python3 tools/net/smoke.py --flow` plays the loop against
   the server's hub: two games boot into the hub, one makes a party and the other joins by its code, Ready, Start,
   loading, a High Water match with a Lamplighter and a Lookout played by the plan bots (about eight minutes; the
   hub's matches keep the protocol's 50 ms turns), the results, and both back in the party; `--no-bot` only calls
@@ -366,6 +550,28 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   `--name=Edda --main=lookout --code=<the code on the first window's strip>`; or open the game plainly and use Join
   (J): the address `127.0.0.1` makes a party there, a code joins one. Both Ready, the leader starts, and Play again
   brings both back to the party.
+
+Playtests (`.claude/skills/playtest-loop/`): a persona agent plays the game through the kit's play harness,
+`godot-agent play start NAME [--fresh] [--pin]` (GL Compatibility, from the project setting
+`godot_agent/play_renderer`, kept across a session's starts), then `play do NAME "COMMANDS" [--every N] [--grid]`
+a batch at a time (`wait 3600 until build window|screen: results` lets a wave run to its end), `play stop
+NAME`, and `play replay FROM NAME --until FRAME [--start K]` to see a moment again (every batch's frame and
+state checked; K picks an earlier start, each counting its frames from 0). A session is one Godot process
+frozen between calls, its files in `.build/play/NAME/` (ignored: its `user://`, `history.txt` and an earlier
+start's `history-K.txt`, `shots/`, a pinned copy). After each batch it prints `tools/play/describe.gd`
+(project setting `godot_agent/play_describe`): what a player sees at a glance on every screen and where to
+click (`@x,y`), never what a player cannot see (the build grid, not a list of free cells; a creep's health
+bar, not its number); its `watch` lines (the screen, the wave's line, a Surge's too, a banner) are all a `wait
+until` reads; `play_describe_says_what_shows` holds both, and `play_describe_says_what_a_duel_shows` a duel's
+tray (its head, packs by name with why one greys, my bottles by their pack, the rival's by tier), its bar and the
+Seawall's plate, and its wave line, "build window" only once the window is open for both ("waiting for the window"
+while the rival's wave still runs). A fresh session's `user://` starts from `tools/play/user/` (a fixed
+device key, so the first launch's generated name, and its replays, are the same every time). Play in GL
+Compatibility: on llvmpipe an undrawn frame costs about 0.4 ms there and 0.24 s in Forward+; a picture about
+two thirds of a second. The loop (pin, patch notes, launch, watch, triage, fix, improve) is the skill's `SKILL.md`, its log
+`lessons.md`; who plays is `personas/NAME.md`, written from `research/`: `halv` (a Warcraft III custom-map TD
+veteran, the base), `ysr` (a send-duel player), `teo` (a co-op regular) and `noa` (a fresh tester, who rotates and
+gets no game guide); each report is rated blind (`ledger.md` read only after) and audited (`auditor.md`).
 
 Releases (design §7.6 and M5; `server/README.md`, At a release, is the checklist). A tag `vX.Y.Z` runs
 `.github/workflows/release.yml`: `gate` (`tools/release/gate.py plan`, then `check`: the tag, `project.godot`'s
@@ -438,7 +644,9 @@ the records at every step, `m6_views.gd`'s `effects_off_records`). Each M6 muzzl
 middle, a Clay Hive's middle row of pipe mouths, an Apiary's top ring of bee holes; `view_m6_muzzles`), and their
 sounds sit level with the M2 towers' as played (the file's loudest tenth of a second plus the gain in `Game.TOWERS`). The
 command card's slots are `CardQ`, `CardW`, `CardE`, `Signal`, `Sell` and `Ready`; `Hud.card()` says what each holds
-and `Hud.checks_shown()` what the strip shows, for `hud_*` scenarios; `view_*` scenarios cover the views.
+and `Hud.checks_shown()` what the strip shows, `Hud.wave_list_lines()` the waves to come (each creep's count, its
+health at that wave, `Game.wave_health` from the very sum its spawn takes, `SimWaves.health_c`, and its armour,
+`hud_wave_list_health_and_armour`), for `hud_*` scenarios; `view_*` scenarios cover the views.
 The screens outside a match draw with the console's own pieces (`panel`, whose stone tile-fits, with
 `panel_jewel` on its top edge; `card_frame` and `card_frame_lit`; `portrait_plate` over `portrait_plate_bg`;
 `field`, `field_focus`; `bar_trough`, `bar_fill`; `divider`), each `.tres` through `HdStyleBox` at the layout's

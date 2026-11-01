@@ -10,7 +10,11 @@
 ## or a rival, then reads "Cancel · 0:42" while queued (Esc cancels too) and, once the
 ## caretakers are offered, "Start with caretakers" or "Race the caretaker" with Cancel
 ## beside its line. In a race the party's rows stand by team, team A then team B, and the
-## leader clicks a row to move it to the other team.
+## leader clicks a row to move it to the other team (in a duel only onto an empty side).
+##
+## Undertow (M7): its mode button lights once this build has the duel's rules
+## (Profile.offers), the mode line says "1v1", and a duel's two rows are one a side, so
+## neither moves; a party of one duels the caretaker offline, or finds a rival online.
 class_name HubPanel
 extends Control
 
@@ -23,6 +27,13 @@ const STATE_TEXT := {
 	"in_match": "in a match",
 }
 const SOON := "Comes with a later version"
+## What each mode's button says once this build offers it (design 1.2 to 1.4), map-neutral;
+## a race's adds how it is won, from its rules (mode_tip).
+const MODE_TIPS := {
+	"high_water": "Play with up to four on one shared road",
+	"tide_race": "Two crews race the same waves, each on its own copy of the land",
+	"undertow": "One against one: cork packs from the Drift and uncork them on your rival's road",
+}
 ## The two teams of a race, as the rows and the loading cards name them (design 5.6).
 const TEAM_NAMES := ["A", "B"]
 
@@ -86,10 +97,19 @@ func refresh() -> void:
 	var played := Profile.played_mode(mode)
 	var waves := (SimContent.WAVES[SimContent.RULES[played]["waves"]] as Array).size()
 	var seats: Array = NetProtocol.spec()["modes"][mode]["seats"]
-	_mode_line.text = "%s · %d–%d players · %d waves" % [Profile.mode_name(mode), seats[0], seats[1], waves]
+	var players := "%d–%d players" % [seats[0], seats[1]]
+	if Session.is_duel(mode):
+		players = "1v1"
+	_mode_line.text = "%s · %s · %d waves" % [Profile.mode_name(mode), players, waves]
+	var won := Game.race_rule_words(played, true)
+	if won != "":
+		# (how a race is won, where it is chosen: playtest halv s1, P10, "the hub says only
+		# 'Tide Race · 2–4 players · 12 waves'")
+		_mode_line.text += " · " + won
 	for id: String in _modes:
 		var button: Button = _modes[id]
 		button.disabled = not Profile.offers(id) or not Session.is_leader()
+		button.tooltip_text = mode_tip(id) if Profile.offers(id) else SOON
 		Shell.set_lit(button, id == mode)
 	_fill_primary()
 	_place.text = Session.place_text()
@@ -97,6 +117,16 @@ func refresh() -> void:
 	_code.text = Session.show_code(Session.party_code())
 	# (the link opens the official server: on a LAN or another server only the code leads here)
 	_code_box.get_node("CopyLink").visible = Session.join_link() != ""
+
+
+## Mode `id`'s button tooltip: MODE_TIPS', and for a race how it is won, from its rules
+## ("... The lower time to clear wave 12 wins; each life lost adds 10 s.").
+static func mode_tip(id: String) -> String:
+	var tip := str(MODE_TIPS.get(id, SOON))
+	var won := Game.race_rule_words(id)
+	if won != "":
+		tip += ". " + won[0].to_upper() + won.substr(1) + "."
+	return tip
 
 
 ## The members in the order their rows show them: by row number; in a race by team, then
@@ -158,7 +188,8 @@ func key(code: int) -> void:
 				Session.leave_queue()
 
 
-## The leader's click on a row in a race: that member to the other team.
+## The leader's click on a row in a race: that member to the other team, where Session.can_move
+## (any row in a race; in a duel only onto an empty side, so never in a duel of two, one a side).
 func move_row(index: int) -> void:
 	var members := shown_members()
 	if index < members.size():
@@ -291,8 +322,8 @@ func _fill_row(row: Dictionary, member: Variant, index: int, solo: bool) -> void
 	(row["invite"] as Button).text = "+ open seat" if Session.open_seats() else "+ invite"
 	var race := Session.is_race(Session.mode_id()) and not Session.party.is_empty()
 	(row["team"] as Control).visible = filled and race and member != null
-	var leads := Session.is_leader() and race and str(Session.party.get("phase", "")) == "forming"
-	(row["row"] as Control).tooltip_text = "Click to move to the other team" if leads and filled else ""
+	var movable := member != null and race and Session.can_move(int((member as Dictionary)["member"]))
+	(row["row"] as Control).tooltip_text = "Click to move to the other team" if movable else ""
 	if not filled:
 		row["builder_id"] = ""
 		return
@@ -374,9 +405,7 @@ func _build_card() -> void:
 	var buttons := []
 	for id: String in Profile.HUB_MODES:
 		var button := Shell.socket("Mode_" + id, Profile.mode_name(id))
-		button.tooltip_text = (
-			"Play with up to four on one shared road" if id == "high_water" else SOON
-		)
+		button.tooltip_text = mode_tip(id) if Profile.offers(id) else SOON
 		button.pressed.connect(Session.set_mode.bind(id))
 		_modes[id] = button
 		buttons.append(button)

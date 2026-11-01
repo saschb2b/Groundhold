@@ -80,6 +80,9 @@
 ## offer_frames (60 s) queued: NOTICE caretakers_offered and the offer in QUEUE_STATE; then
 ## start_with_caretakers forms the party's match with caretaker seats (High Water: covering
 ## what the party lacks; a race: a mirror on team 1), each listed "gone" in LOAD_STATE.
+## A duel (Undertow, M7) is a two-team mode of one seat a side, served by the race's rules: a
+## party of one queues, one stranger is its rival, start_with_caretakers sets a caretaker of
+## its Builder on team 1, and finish(result, per_team) ends it with one outcome a side.
 @warning_ignore_start("integer_division")
 extends RefCounted
 
@@ -962,9 +965,13 @@ func _all_back() -> void:
 		party["phase"] = "forming"
 
 
-## Ends the match now with `result` (a test's way to the results).
-func finish(result := "won") -> void:
-	_end(result, "result", turn * 3)
+## Ends the match now with `result` (a test's way to the results); `per_team` gives each team
+## its own outcome by name, as a race's or a duel's RESULT does (["won", "lost"]: team 0 won).
+func finish(result := "won", per_team := []) -> void:
+	var outcomes := []
+	for name: Variant in per_team:
+		outcomes.append(NetProtocol.enum_value("outcomes", str(name)))
+	_end(str(per_team[0]) if not per_team.is_empty() else result, "result", turn * 3, outcomes)
 
 
 # ── Resilience (M4) ──

@@ -40,6 +40,14 @@
 ## a match of strangers is queued again by Play again. Only the leader may leave the queue,
 ## so a member's Try waits for it (try_refusal). Offline, a party of one in a race races the
 ## caretaker: a rival team of caretakers with the same Builders (offline_match).
+##
+## Undertow (M7, contract-m7.md §4; design 1.4, 1.5): a duel is a two-team mode of one seat a
+## side (is_duel). A party of one finds a rival through the queue (Find a rival), or, offline
+## or after the queue's offer, duels the caretaker: a caretaker of the same Builder on team 1
+## (offline_seats; the server's start_with_caretakers). A party of two is both sides, one on
+## each team: it starts, and no row moves onto a side already taken (can_move; a race's rows
+## move freely, as before). Play again queues a duellist who came alone again, as any player
+## the queue found strangers for.
 extends Node
 
 ## Anything the hub or the Builders screen shows changed.
@@ -87,6 +95,14 @@ const NOTICE_TEXT := {
 ## The queue's words (design 5.2): the pill and a member's button, by the mode's teams.
 const FINDING_PLAYERS := "Finding players"
 const FINDING_RIVAL := "Finding a rival"
+## What a party of one plays against the caretaker in a two-team mode (design 1.5), and what
+## the queue's offer of caretakers says there (caretaker_word, offer_text).
+const RACE_CARETAKER := "Race the caretaker"
+const DUEL_CARETAKER := "Duel the caretaker"
+const OFFER_RACE := "Caretakers can race your team"
+const OFFER_DUEL := "The caretaker can be your rival"
+## A party larger than a duel's two sides (design 1.4: one against one).
+const DUEL_TOO_MANY := "A duel is one against one"
 ## Why a member cannot Try while the party is queued (try_refusal).
 const TRY_QUEUED := "The party is in the queue: only the leader can leave it"
 const MATCH_FOUND_OVERLAY := "res://scripts/ui/match_found.gd"
@@ -188,9 +204,10 @@ func state_name() -> String:
 ## The hub scene asks first, each time it opens. With boot flags for a match (--join,
 ## --seed, --bot, ...) the match scene plays them as it always did, and the hub steps
 ## aside: true. With --server=ADDRESS the hub connects there at its first opening and
-## makes a party (or joins --code's); --name and --main set this run's name and main
-## without saving them; --flow-bot hands the hub to tests/net/flow_bot.gd, which goes
-## through the loop by itself (tools/net/smoke.py --flow). Inside the session's matches
+## makes a party (or joins --code's); --name, --main and --mode (one the hub offers) set
+## this run's name, main and the party's mode without saving them; --flow-bot hands the
+## hub to tests/net/flow_bot.gd, which goes through the loop by itself (tools/net/smoke.py
+## --flow). Inside the session's matches
 ## the match flags still count (--bot, --hash-log), so a flow's seat can be played.
 func boot() -> bool:
 	if not _announced:
@@ -243,6 +260,9 @@ func _boot_hub(flags: Dictionary) -> void:
 		if profile.backup == chosen:
 			profile.backup = profile.main
 		profile.main = chosen
+	var mode := str(flags.get("mode", ""))
+	if Profile.HUB_MODES.has(mode) and Profile.offers(mode):
+		profile.mode = mode  # (the mode the party is made in, for this run: M7's --mode=undertow)
 	if flags.has("flow-bot") and ResourceLoader.exists(FLOW_BOT):
 		var bot: Node = load(FLOW_BOT).new()
 		bot.call("setup", flags)
@@ -279,7 +299,7 @@ func primary() -> Dictionary:
 			return _button(finding, "", false, "")
 		var cancel := "Cancel · " + clock_text(queue_ms())
 		if queue_offer():
-			var word := "Race the caretaker" if is_race(mode_id()) else "Start with caretakers"
+			var word := caretaker_word(mode_id()) if is_race(mode_id()) else "Start with caretakers"
 			var button := _button(word, finding, true, "caretakers")
 			button["second"] = {"text": cancel, "act": "leave_queue"}
 			return button
@@ -301,10 +321,18 @@ func primary() -> Dictionary:
 		if race:
 			if partied:
 				return _button("Find a rival", "", true, "queue")
-			return _button("Race the caretaker", "", true, "play")  # (no party to queue: offline)
+			return _button(caretaker_word(mode), "", true, "play")  # (no party to queue: offline)
 		if _connected() and open_seats():
 			return _button("Find players", "", true, "queue")
 		return _button("Play", "", true, "play")
+	if party_size() > max_seats(mode):
+		# (only a duel's two seats are fewer than a party may hold: the leader's Start waits
+		# until the party is two again, and a member still says Ready or Not ready meanwhile)
+		if leads:
+			return _button("Start", DUEL_TOO_MANY, false, "")
+		if my_ready():
+			return _button("Not ready", DUEL_TOO_MANY, true, "unready")
+		return _button("Ready", DUEL_TOO_MANY, true, "ready")
 	if leads:
 		var waiting := not_ready_names()
 		var finds := ""
@@ -377,11 +405,13 @@ func play_offline(builder: String, try := false, company := 0, company_builder :
 
 ## The offline match play_offline plays ({"offline", "mode" (the rules played), "shown_mode",
 ## "seats", "names", "chosen", "seed", "try"}): `mode` with `builder` and `company` caretaker
-## partners playing `company_builder`; in a race the rival team mirrors them, its chosen
-## Builders the same (racing the caretaker).
+## partners playing `company_builder` (as many as a team's seats hold: none in a duel); in a
+## race the rival team mirrors them, its chosen Builders the same (racing the caretaker); in a
+## duel the rival is one caretaker of my Builder (duelling the caretaker).
 func offline_match(
 	mode: String, builder: String, try := false, company := 0, company_builder := "lamplighter"
 ) -> Dictionary:
+	company = clampi(company, 0, team_seats(mode) - 1)
 	var seats := offline_seats(mode, builder, company, company_builder)
 	var chosen := [builder] + _caretaker_builders(company, company_builder)
 	if is_race(mode):
@@ -399,9 +429,11 @@ func offline_match(
 
 
 ## An offline match's seats ({"team", "builder", "caretaker"}): mine first, then `company`
-## caretaker partners playing `company_builder`; in a race (two teams) the rival team after
-## them, caretakers with the same Builders, a mirror (racing the caretaker, design 1.3).
+## caretaker partners playing `company_builder`, as many as a team's seats hold; in a race
+## (two teams) the rival team after them, caretakers with the same Builders, a mirror (racing
+## the caretaker, design 1.3); in a duel, one a side, a caretaker of my Builder (design 1.5).
 static func offline_seats(mode: String, builder: String, company := 0, company_builder := "lamplighter") -> Array:
+	company = clampi(company, 0, team_seats(mode) - 1)
 	var seats := [{"team": 0, "builder": Profile.fielded(builder)}]
 	for i in company:
 		seats.append({"team": 0, "builder": Profile.fielded(company_builder), "caretaker": true})
@@ -646,15 +678,31 @@ func set_open(on: bool) -> void:
 		_party("open", {"on": 1 if on else 0})
 
 
-## The leader moves `member` to the other team (a race party, design 5.2).
+## The leader moves `member` to the other team (a race party, design 5.2), where can_move.
 func move_team(member: int) -> void:
-	if not is_leader() or party.is_empty() or not is_race(mode_id()):
-		return
-	if str(party["phase"]) != "forming":
+	if not can_move(member):
 		return
 	for m: Dictionary in members():
 		if int(m["member"]) == member:
 			_party("team", {"member": member, "team": 1 - int(m["team"])})
+
+
+## Whether the leader may move `member` to the other team now: a forming two-team party. In a
+## race any row moves, as in 0.7.0: a full race of four at 2-2 regroups through 3-1, one move
+## at a time. In a duel no row moves onto the side already taken, so a duel of two stays one a
+## side (two on one side may part).
+func can_move(member: int) -> bool:
+	if not is_leader() or party.is_empty() or not is_race(mode_id()) or str(party["phase"]) != "forming":
+		return false
+	var sizes := [0, 0]
+	var team := -1
+	for m: Dictionary in members():
+		sizes[clampi(int(m["team"]), 0, 1)] += 1
+		if int(m["member"]) == member:
+			team = clampi(int(m["team"]), 0, 1)
+	if team < 0:
+		return false
+	return not is_duel(mode_id()) or sizes[1 - team] < team_seats(mode_id())
 
 
 ## Find players or Find a rival: QUEUE enter ("Entering queue..." until the server answers).
@@ -809,6 +857,35 @@ static func is_race(mode: String) -> bool:
 static func max_seats(mode: String) -> int:
 	var modes: Dictionary = NetProtocol.spec()["modes"]
 	return int(modes[mode]["seats"][1]) if modes.has(mode) else NetProtocol.number("max_seats")
+
+
+## Whether `mode` is a duel: two teams of one seat each (Undertow, design 1.4).
+static func is_duel(mode: String) -> bool:
+	return is_race(mode) and team_seats(mode) == 1
+
+
+## The most seats a team of `mode` holds: all of them in a one-team mode, half in a race.
+@warning_ignore("integer_division")
+static func team_seats(mode: String) -> int:
+	var modes: Dictionary = NetProtocol.spec()["modes"]
+	var teams := int(modes[mode]["teams"]) if modes.has(mode) else 1
+	return maxi(1, max_seats(mode) / maxi(1, teams))
+
+
+## What a party of one in a two-team mode plays against the caretaker: "Race the caretaker"
+## (Tide Race) or "Duel the caretaker" (Undertow).
+static func caretaker_word(mode: String) -> String:
+	return DUEL_CARETAKER if is_duel(mode) else RACE_CARETAKER
+
+
+## NOTICE caretakers_offered in the words of the party's mode: a one-team mode's open seats,
+## a race's rival team, a duel's rival.
+func offer_text() -> String:
+	if is_duel(mode_id()):
+		return OFFER_DUEL
+	if is_race(mode_id()):
+		return OFFER_RACE
+	return str(NOTICE_TEXT["caretakers_offered"])
 
 
 ## Whether the party has open seats on (PARTY_STATE flags): a one-team mode's, so never in
@@ -1012,6 +1089,8 @@ func _on_hub_message(type: String, fields: Dictionary) -> void:
 			if key == "no_such_party" and argument > 0:
 				# (the lookups ran out: the argument is the seconds until the next one)
 				_notice("Too many codes tried: wait %d s" % argument)
+			elif key == "caretakers_offered":
+				_notice(offer_text())
 			else:
 				_notice(str(NOTICE_TEXT.get(key, "The server says no")))
 		"QUEUE_STATE":

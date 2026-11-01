@@ -1,0 +1,29 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_clear_banner_counts_lives_lost",
+  "description": "A wave's clear banner says what got through cost (playtest halv s1: 'Wave 6 cleared · +20 gold' after the Bristlesow took 5 lives, with no word of the leak on screen). The plan bot holds the classic match; in wave 1 two Gourdlings are let through to the Holdfast and the banner says 'Wave 1 cleared · 2 lives lost · +N gold', in wave 2 one ('1 life lost'), and wave 3, which costs nothing, keeps the plain 'Wave 3 cleared · +N gold'.",
+  "seed": 1,
+  "ticks_per_frame": 4,
+  "timeout_frames": 6000,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"wait": 2},
+    {"set": "scene._bot", "value_expr": "resource('res://tests/bot.gd').new()"},
+    {"wait": 30},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "scene.creep_views.size() >= 2", "timeout": 600},
+    {"set": "scene.creep_views.values()[0].distance", "value": 999},
+    {"set": "scene.creep_views.values()[1].distance", "value": 999},
+    {"wait_until": "Game.wave == 1 and Game.state == 0", "timeout": 2000},
+    {"assert": "Game.lives == 18 and node('BannerTitle').text.begins_with('Wave 1 cleared · 2 lives lost · +') and node('BannerTitle').text.ends_with(' gold')", "msg": "two Gourdlings got through: the clear says the two lives"},
+    {"capture": "clear_banner_two_lives_lost"},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.wave == 2 and Game.state == 1 and scene.creep_views.size() >= 1", "timeout": 600},
+    {"set": "scene.creep_views.values()[0].distance", "value": 999},
+    {"wait_until": "Game.wave == 2 and Game.state == 0", "timeout": 2000},
+    {"assert": "Game.lives == 17 and node('BannerTitle').text.begins_with('Wave 2 cleared · 1 life lost · +') and node('BannerTitle').text.ends_with(' gold')", "msg": "one got through: '1 life lost'"},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.wave == 3 and Game.state == 0", "timeout": 2400},
+    {"assert": "Game.lives == 17 and node('BannerTitle').text.begins_with('Wave 3 cleared · +') and not node('BannerTitle').text.contains('lost')", "msg": "a wave that cost nothing keeps the plain clear"}
+  ]
+}

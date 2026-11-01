@@ -49,6 +49,14 @@
 ## frames it and V shows the rival's; an order on the rival's hollow is refused here. One
 ## hollow (High Water, classic) builds and shows exactly the one map as before.
 ##
+## A duel (Undertow, M7: design 1.4, contract-m7.md §3) plays the race's two hollows on one
+## clock. Before each tick Game.before_tick() sends the uncorking the client does by itself;
+## the Drift tray and the duel bar are the HUD's (scripts/ui/drift_tray.gd, duel_bar.gd); a
+## Seawall sends a ring of surf out from its Holdfast to the ring's radius, kept on that
+## hollow's ground (Fx.seawall, from EV_SEAWALL's place and reach), an uncorked pack wells
+## up at the rival's Welling, and its creeps carry a small bottle that glints over them
+## (Creep), a breach foams at the Holdfast it hit.
+##
 ## Helpers for tests and tools: cell_center(cell), build(kind, cell), fork(cell, branch),
 ## sell(cell), tower_at(cell) (cells of my hollow, as the plan bot and the caretaker count
 ## them), tower_on(board_cell), board_center(board_cell), spawn(kind, hollow), settled(),
@@ -73,6 +81,9 @@ const FLASH_TEXT := "Groundhold · the caretaker keeps your seat"
 ## with one hollow, every hollow's copy side by side with two (_board_of).
 var map: HollowMap
 var board: HollowMap
+## (M7) Where a Seawall's surf runs on `map` (Fx.shore_mask), made at the first burst.
+var _shore: Image
+var _shore_map: HollowMap
 var sim: SimMatch
 var source: TurnSource
 var seat := 1
@@ -210,6 +221,8 @@ func begin(
 	sim = existing if existing else SimMatch.new(SimContent.rules(mode), seat_list, match_seed)
 	source = turns
 	source.seat = my_seat
+	if client == null:
+		Game.forget_duel()  # (a new match: no cork of the last one's; a rejoin keeps them)
 	hashes.clear()
 	_ring_shots.clear()
 	_tally = _new_tally()  # (the results count this match's events only)
@@ -249,6 +262,7 @@ func _physics_process(_delta: float) -> void:
 			# decision, and nothing after it may change what the results show)
 			break
 		_submit_scheduled()
+		Game.before_tick()  # (a duel's horn and the uncorking at 24 s, on its tick)
 		if not source.prepare(sim):
 			break
 		sim.step()
@@ -417,6 +431,7 @@ func _on_net_configured() -> void:
 func _on_net_ended(outcome: String, reason: String) -> void:
 	print("MATCH_END %s %s %d" % [outcome, reason, client.final_tick])
 	controller.forget_pending()
+	Game.match_ended()  # (a duel's salts' file: no bottle of this match matters any more)
 	# (no order goes out any more: the placement grid, the ghost and the lit slot go too)
 	controller.set_mode("")
 	if client.dump_path != "":
@@ -561,7 +576,8 @@ func _show_results(outcome: String, said := "") -> void:
 
 
 ## Counts what the results need from this frame's events: a kill counts on its creep's
-## hollow's wave, and the lives after each wave are my team's, on my hollow's waves.
+## hollow's wave, and the lives after each wave are my team's, on my hollow's waves. What got
+## through to my Holdfast is kept by wave too (`leaks_in`), as a player saw it walk in.
 func _count(events: Array) -> void:
 	for e: Dictionary in events:
 		match int(e["type"]):
@@ -574,6 +590,14 @@ func _count(events: Array) -> void:
 				var waves: Dictionary = _tally["wave_kills"].get_or_add(by, {})
 				var wave := sim.hollows[int(e.get("hollow", 0))].wave
 				waves[wave] = int(waves.get(wave, 0)) + 1
+			SimTypes.EV_LEAK:
+				if int(e.get("hollow", 0)) != Game.my_hollow():
+					continue
+				var wave := sim.hollows[int(e.get("hollow", 0))].wave
+				var leaks: Dictionary = _tally["leaks"].get_or_add(wave, {"kinds": {}, "lives": 0})
+				var kinds: Dictionary = leaks["kinds"]
+				kinds[str(e["kind"])] = int(kinds.get(str(e["kind"]), 0)) + 1
+				leaks["lives"] = int(leaks["lives"]) + int(e.get("toll", 0))
 			SimTypes.EV_SOLD:
 				var sold: Dictionary = _tally["sold"]
 				sold[int(e["seat"])] = int(sold.get(int(e["seat"]), 0)) + 1
@@ -589,7 +613,13 @@ func _count(events: Array) -> void:
 
 
 static func _new_tally() -> Dictionary:
-	return {"kind_kills": {}, "wave_kills": {}, "sold": {}, "lives": [], "team_lives": {}}
+	return {"kind_kills": {}, "wave_kills": {}, "sold": {}, "lives": [], "team_lives": {}, "leaks": {}}
+
+
+## What got through to my Holdfast in `wave` of my hollow: {"kinds": {creep kind: count},
+## "lives": the lives it cost}, empty when nothing did.
+func leaks_in(wave: int) -> Dictionary:
+	return _tally["leaks"].get(wave, {})
 
 
 # ── Events to views ──
@@ -649,6 +679,30 @@ func _show(events: Array) -> void:
 				ring.add_to_group("signal_rings")  # (while it shows, for tests)
 			SimTypes.EV_PULSE:
 				_pulsed(e)
+			SimTypes.EV_SEAWALL:
+				# (round the Holdfast where the rules measure the ring from: the road's end)
+				var h := int(e["hollow"])
+				var at := Game.world_at(h, int(e["x"]), int(e["z"]))
+				var origin := Game.hollow_origin(h)
+				if _shore == null or _shore_map != map:
+					_shore = Fx.shore_mask(map)
+					_shore_map = map
+				Fx.seawall(get_tree(), at, int(e["r"]) / 1000.0, Rect2(origin.x, origin.z, map.width, map.depth), _shore)
+			SimTypes.EV_UNCORK:
+				# (the pack wells up at the rival's Welling, where its creeps set out)
+				Fx.uncork(get_tree(), _welling_at(int(e.get("hollow", 0))), PartyStrip.SEAT_COLORS[(int(e.get("seat", 1)) - 1) % 4])
+			SimTypes.EV_BREACH:
+				var at := _holdfast_at(sim.teams[int(e.get("team", 0))].hollows[0])
+				Fx.burst(get_tree(), at + Vector3(0, 0.5, 0), Color(0.86, 0.97, 0.95), 16, 2.4, 0.07, 0.6, -4.0)
+
+
+## Hollow `h`'s Holdfast and Welling, on the ground of the world.
+func _holdfast_at(h: int) -> Vector3:
+	return map.center(map.holdfast) + Game.hollow_origin(h)
+
+
+func _welling_at(h: int) -> Vector3:
+	return map.center(map.spawn) + Game.hollow_origin(h)
 
 
 ## A pulse tower rang (EV_PULSE, M6: the Toll Tower): the bell ring where the event says,

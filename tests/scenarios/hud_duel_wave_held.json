@@ -1,0 +1,30 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_duel_wave_held",
+  "description": "A wave the rival's bottle is corked for does not clear while the bottle may still be uncorked (SimUndertow.holds, SimMatch.wave_held): on Undertow's own rules, a duel with a rival seat that corks in window 2 (through the sequencer as its own game would) and never uncorks. In wave 2 my road empties (its creeps leak at once), yet my wave stands: the strip says why ('your rival's bottle is still corked') instead of '0 creeps left'. At 25 s after the horn the bottle fizzles, my hollow clears wave 2 and stands in its window, and while the rival's hollow still plays its wave the strip says that instead.",
+  "seed": 1,
+  "timeout_frames": 2400,
+  "steps": [
+    {"wait": 2},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').start(scene, 1, 1, 'lamplighter', 'lamplighter', false)", "msg": "a duel with a rival seat no caretaker plays"},
+    {"wait": 2},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').to_window(2) and resource('res://tests/ui/duel_stage.gd').ready_as(2) > 0", "msg": "both Ready: the horn sounds wave 1"},
+    {"repeat": 300, "steps": [{"eval": "resource('res://tests/ui/duel_stage.gd').leak_all(0) + resource('res://tests/ui/duel_stage.gd').leak_all(1)"}, {"wait": 4}], "until": "resource('res://tests/ui/duel_stage.gd').in_window(2)"},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').cork_as(2, Game.sim.drift_offer()[0]) > 0", "msg": "the rival corks a pack of window 2"},
+    {"wait_until": "Game.rival_bottles().size() == 1", "timeout": 30},
+    {"key": "N"},
+    {"eval": "resource('res://tests/ui/duel_stage.gd').ready_as(2)"},
+    {"wait_until": "resource('res://tests/ui/duel_stage.gd').in_wave(2)", "timeout": 60},
+    {"eval": "Game.horn_tick()", "as": "horn"},
+    {"repeat": 300, "steps": [{"eval": "resource('res://tests/ui/duel_stage.gd').leak_all(0)"}, {"wait": 4}], "until": "Game.sim.wave_held(0)"},
+    {"wait": 1},
+    {"assert": "Game.state == Game.State.WAVE and Game.creeps_left() == 0 and Game.sim.tick < horn + 1500", "msg": "my road is empty, but my wave stands: the rival's bottle may still be uncorked"},
+    {"assert": "node('Countdown').text == \"· your rival's bottle is still corked\"", "msg": "the strip says why, not '0 creeps left'"},
+    {"set_ticks_per_frame": 20},
+    {"wait_until": "Game.state == Game.State.PREP", "timeout": 200},
+    {"set_ticks_per_frame": 1},
+    {"wait": 1},
+    {"assert": "Game.bottles_of(2)[0]['fizzled'] and Game.sim.tick >= horn + 1500 and Game.wave == 2", "msg": "at 25 s the bottle fizzled, and my hollow cleared wave 2"},
+    {"assert": "Game.duel_wave() and node('Countdown').text == \"· your rival's wave still runs\"", "msg": "while the rival's hollow still plays its wave, the strip says that"}
+  ]
+}

@@ -8,12 +8,14 @@
 ## simulation reads (the kit, the perk, the plan and the checks a Builder covers, which
 ## the caretaker's forks follow) is hashed.
 ##
-## Three presets: `classic`, M1's solo game kept as it was (eight waves, the three towers,
+## Four presets: `classic`, M1's solo game kept as it was (eight waves, the three towers,
 ## today's upgrade standing in for fork branch A; no armour, no perks, no Help),
 ## `high_water`, the co-op mode of design 1.2 on Wickhollow's `hollow12` (a wave list is
 ## named after its map, not its mode) with flat armour, boss control resistance, the
-## Builders' perks and Help, both for one to four seats on one shared hollow, and (M6)
-## `tide_race`, High Water for two teams of one or two, each on its own hollow (design 1.3).
+## Builders' perks and Help, both for one to four seats on one shared hollow, (M6)
+## `tide_race`, High Water for two teams of one or two, each on its own hollow (design 1.3),
+## and (M7) `undertow`, the duel: one seat on each of two hollows under one clock, with the
+## Drift, corked packs, the Seawall and the Surge (design 1.4, SimUndertow).
 ##
 ## The M2/M3 contract (docs/design/contract-m2m3.md) fixes the id lists, the BUILDERS
 ## fields and the tower and creep keys documented below. M2 tunes the numbers and makes
@@ -25,10 +27,11 @@ extends RefCounted
 const SIM_VERSION := 1
 ## How the caretaker plays a seat, outside the tables (caretaker.gd): 2 since M4, which takes
 ## a seat over mid-match at its plan cursor, over the towers its player built; 3 since M6,
-## which calls the waves of a race (its plan's `ready` hints). The rules hash covers it, so
-## builds whose caretakers decide differently never share a match; SIM_VERSION, which the
-## codec writes, does not move for it, since that would move every recorded state hash.
-const CARETAKER_VERSION := 3
+## which calls the waves of a race (its plan's `ready` hints); 4 since M7, which corks,
+## uncorks and raises the Seawall in a duel. The rules hash covers it, so builds whose
+## caretakers decide differently never share a match; SIM_VERSION, which the codec writes,
+## does not move for it, since that would move every recorded state hash.
+const CARETAKER_VERSION := 4
 
 const RULES := {
 	"classic":
@@ -119,6 +122,87 @@ const RULES := {
 		"cap_t": 72000,
 		"signals": [3, 300],
 		"race": {"life_t": 600},
+	},
+	# Design 1.4 and the M7 contract (docs/design/contract-m7.md §2): High Water's rules for
+	# two teams of one, each on a hollow of its own (the race's layout), under one clock.
+	# The keys High Water lacks:
+	#   clock  "shared": both hollows' windows, Ready and horn are one (SimUndertow.run_clock):
+	#          the window counts down once both hollows have cleared their wave, and the horn
+	#          sounds for both when every seat present is Ready or the countdown ends
+	#   duel   the Drift, corks, stipends, breaches, the Seawall and the Surge
+	#          (SimUndertow), all of it tunable against the duel's balance gates:
+	#     drift_from       the first window the Drift brings packs to
+	#     offered          how many of the four packs (SimContent.PACKS) each window offers
+	#     tiers            by window ([first, last], the wave it precedes; a Surge window
+	#                      counts as the wave it repeats): a cork's price and the stipend an
+	#                      uncorking adds for the rest of the match
+	#     corks            corks a seat may make in a window, corks_two from corks_two_from
+	#     uncork_after_t   ticks after the horn before a bottle may be uncorked
+	#     auto_uncork_t    ticks after the horn the client uncorks by itself (the client's)
+	#     fizzle_t         ticks after the horn a bottle with no valid reveal fizzles
+	#     pack_interval_t  ticks between an uncorked pack's creeps on the rival's road (not
+	#                      the contract's: a pack all on one tick is one splash's worth)
+	#     breach_pay       an uncorked creep that leaks pays its sender this many bounties
+	#     seawall          a charge every every_lives lives lost, at most charges; it
+	#                      stuns every creep within radius_mm of the Holdfast stun_t and
+	#                      takes hp_pm of its maximum health, a boss's boss_hp_pm and a
+	#                      boss_slow_pm slow instead; cooldown_t between two
+	#     surge            after wave 12 with both standing: waves again (with hp_pm
+	#                      health), windows of window_t, stipends that no longer grow, corks
+	#                      at cork_price_pm of their price
+	"undertow":
+	{
+		"teams": 2,
+		"seats": [2, 2],
+		"map": "hollow",
+		"waves": "hollow12",
+		"clock": "shared",
+		"start_gold": 120,
+		"lives": 20,
+		"hp_growth_pm": 250,
+		"hp_by_seats_pm": [1000, 2000, 2650, 3400],
+		"window_first_t": [900, 1500, 1500, 1500],
+		"window_t": [600, 900, 900, 900],
+		"sell_pm": 700,
+		"clear_bonus": [8, 2],
+		"ready_pays": true,
+		"armor": true,
+		"control_resist": true,
+		"perks": true,
+		"help": true,
+		"cap_t": 0,
+		"signals": [3, 300],
+		"duel":
+		{
+			"drift_from": 2,
+			"offered": 3,
+			"tiers":
+			[
+				{"windows": [2, 4], "price": 30, "stipend": 4},
+				{"windows": [5, 8], "price": 55, "stipend": 6},
+				{"windows": [9, 12], "price": 85, "stipend": 8},
+			],
+			"corks": 1,
+			"corks_two": 2,
+			"corks_two_from": 9,
+			"uncork_after_t": 180,
+			"auto_uncork_t": 1440,
+			"fizzle_t": 1500,
+			"pack_interval_t": 30,
+			"breach_pay": 2,
+			"seawall":
+			{
+				"every_lives": 4,
+				"charges": 2,
+				"radius_mm": 3000,
+				"stun_t": 120,
+				"hp_pm": 250,
+				"boss_hp_pm": 80,
+				"boss_slow_pm": 500,
+				"cooldown_t": 900,
+			},
+			"surge": {"waves": [9, 10, 11], "hp_pm": 1350, "window_t": 480, "cork_price_pm": 500},
+		},
 	},
 }
 

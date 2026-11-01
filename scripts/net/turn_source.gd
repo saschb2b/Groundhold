@@ -60,6 +60,14 @@ func allows_debug() -> bool:
 	return false
 
 
+## How many ticks past `sim`'s tick an order submitted now runs at the earliest: 0 here,
+## where it lands in the next turn sealed (LocalSequencer); online the turns this client
+## holds and has not run yet (RemoteSequencer), since the server stamps a CMD into a turn
+## after every one it has sent. Game times the client's own uncorking by it.
+func order_lead(_sim: SimMatch) -> int:
+	return 0
+
+
 ## Logs a debug write made at the start of `tick`, so a replay reproduces it.
 func record_debug(_tick: int, _op: int, _a: int, _b: int, _c: int) -> void:
 	pass

@@ -1,0 +1,26 @@
+{
+  "name": "fizzle_without_reveal",
+  "description": "A corked bottle with no valid reveal by fizzle_t (25 s after the horn) fizzles (contract-m7 §2): seat 2 corks the Gourd Rush in window 2 and never uncorks; at 1499 ticks after the horn it is still corked, on the 1500th EV_FIZZLE, the 30 gold stays spent, no stipend and no creep follow, and an UNCORK after it finds nothing corked. Seat 1's wave waits for the bottle (SimUndertow.holds): its eight arrows by the Welling have killed all of wave 2 long before, yet its wave clears only on the fizzle's tick, and SimMatch.wave_held says so to the views meanwhile (seat 2's, with no bottle aimed at it, is not).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 3, 3), scene.cmd(1, 'BUILD', 0, 4, 3), scene.cmd(1, 'BUILD', 0, 5, 3), scene.cmd(1, 'BUILD', 0, 6, 3), scene.cmd(1, 'BUILD', 0, 4, 1), scene.cmd(1, 'BUILD', 0, 5, 1), scene.cmd(1, 'BUILD', 0, 6, 1), scene.cmd(1, 'BUILD', 0, 8, 3)]"},
+    {"eval": "scene.duel_to_window(2)"},
+    {"eval": "scene.cork(2, 0, 9, 9)"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_to_horn()", "as": "horn"},
+    {"eval": "scene.run_to(horn + 1500)"},
+    {"assert": "scene.rows('FIZZLE', ['seat']) == [] and not m.bottles(2)[0]['fizzled']", "msg": "through tick 1499 after the horn the bottle is corked"},
+    {"assert": "m.creeps_on(0) == 0 and m.spawns_left(0) == 0 and m.hollows[0].phase == 1 and m.wave_held(0) and not m.wave_held(1)", "msg": "seat 1's road is empty, yet its wave waits for the bottle"},
+    {"eval": "scene.run_ticks(1)"},
+    {"assert": "scene.rows('FIZZLE', ['tick', 'seat']) == [[horn + 1500, 2]] and m.bottles(2)[0]['fizzled'] and not m.bottles(2)[0].has('pack')", "msg": "on tick 1500 after the horn it fizzled, its pack never named"},
+    {"assert": "scene.events_where('WAVE', {'hollow': 0, 'cleared': true, 'wave': 2})[0]['tick'] == horn + 1500 and not m.wave_held(0)", "msg": "and seat 1's wave cleared on that tick"},
+    {"eval": "scene.uncork(2, 0, 9, 9)"},
+    {"eval": "scene.run_to_window()"},
+    {"assert": "scene.last_refusal(2) == 'NOTHING_CORKED' and m.stipend(2) == 0 and scene.sent_by(2) == [] and scene.rows('GOLD', ['change'], {'seat': 2, 'why': 'cork'}) == [[-30]] and scene.gold_to(2, 'stipend') == 0", "msg": "too late to reveal: the gold stays spent, no stipend, no creeps"}
+  ]
+}

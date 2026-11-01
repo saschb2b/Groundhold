@@ -15,9 +15,10 @@
 ## nothing through its link, which never closes (the game's silence rule finds it); hide(frames)
 ## hides its tab as the browser would (WebBridge's handler, main.tab_hidden): its loop
 ## sleeps while its link fills; corrupt(field, value) writes into its simulation (its next
-## hash parts from the partner's); sealed(type) counts this window's sealed commands;
-## flood(n) sends n commands around the client's command bucket; stall_partner(frames)
-## hangs the partner's game, hide_partner(frames) hides its tab.
+## hash parts from the partner's); sealed(type) counts this window's sealed commands and
+## sealed_turns(type) names the turns they went into; flood(n) sends n commands around the
+## client's command bucket; stall_partner(frames) hangs the partner's game,
+## hide_partner(frames) hides its tab.
 @warning_ignore_start("integer_division")
 extends Node
 
@@ -122,6 +123,18 @@ func sealed(type_name: String) -> int:
 			if int(e[0]) == mine.seat - 1 and int(e[2]) == type:
 				count += 1
 	return count
+
+
+## The turns the sequencer sealed this window's commands of `type_name` ("UNCORK") in, in
+## order: each runs on tick turn * TURN_TICKS.
+func sealed_turns(type_name: String) -> Array:
+	var type := SimTypes.command_type(type_name)
+	var out := []
+	for k in seq.turns.size():
+		for e: Array in seq.turns[k]:
+			if int(e[0]) == mine.seat - 1 and int(e[2]) == type:
+				out.append(k)
+	return out
 
 
 ## Sends `n` READY commands at once around the client's own bucket, as a game without

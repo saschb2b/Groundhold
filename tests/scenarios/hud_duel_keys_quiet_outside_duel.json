@@ -1,0 +1,19 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_duel_keys_quiet_outside_duel",
+  "description": "The duel's keys say nothing outside a duel (contract-m7.md §3): in the match the scene plays by itself (High Water, no duel block in its rules) F, which bursts a Seawall in a duel, and keys 1 to 3, which cork the Drift tray's packs, play no error and show no notice, and send nothing.",
+  "seed": 1,
+  "timeout_frames": 1500,
+  "steps": [
+    {"wait": 2},
+    {"assert": "Game.sim != null and not Game.is_duel()", "msg": "a High Water match, no duel"},
+    {"key": "F"},
+    {"wait": 1},
+    {"assert": "not node('Notice').visible", "msg": "F is nothing outside a duel, silent"},
+    {"key": "1"},
+    {"key": "2"},
+    {"key": "3"},
+    {"wait": 1},
+    {"assert": "not node('Notice').visible and scene.settled()", "msg": "as keys 1 to 3 are"}
+  ]
+}

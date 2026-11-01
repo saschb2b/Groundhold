@@ -1,0 +1,70 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "bot_duel_refused_orders",
+  "description": "The plan bot (tests/bot.gd) in a duel when its orders are refused (M7; contract-m7 §2 and §3). A cork its policy wants that is refused before it goes out (short of gold) or goes nowhere (the sequencer takes no order, as a full command bucket's Not so fast online) is not a played window: played_window stays where it was, so the flow bot's --ready-calls still wait, the plan does not spend, and the cork goes at the next step. An UNCORK of the bot's the simulation refuses (here one spoiled before its turn: BAD_REVEAL) is not one the bot took: left to the client, whose own uncorking at 24 s reveals the salt, the bot says the bottle was uncorked by the client, not by the bot (tools/net/smoke.py --mode undertow counts only the bot's own); stepping on, the bot sends it again once Game's retry wait has passed, long before 24 s, and that one is its own.",
+  "seed": 1,
+  "ticks_per_frame": 8,
+  "timeout_frames": 12000,
+  "watch": {
+    "wave": "Game.wave",
+    "gold": "Game.gold",
+    "bottles": "Game.sim.bottles(1).size() if Game.sim else 0",
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {"wait": 2},
+    {"eval": "resource('res://tests/net/duel_checks.gd')", "as": "checks"},
+    {"assert": "checks.start_duel(scene, 1)", "msg": "a duel against a caretaker"},
+    {"eval": "resource('res://tests/bot.gd').new()", "as": "bot"},
+    {
+      "repeat": 600,
+      "steps": [{"wait": 15}, {"eval": "checks.step_until_cork(bot, scene)", "as": "due"}],
+      "until": "due or Game.sim.over"
+    },
+    {"assert": "due and Game.state == Game.State.PREP and bot.corks_sent == 0 and bot.played_window < Game.wave + 1", "msg": "in the window both hollows share, a cork is due"},
+    {"eval": "bot.done", "as": "done_before"},
+    {"eval": "Game.set('pending_gold', 100000)"},
+    {"eval": "bot.step(scene)"},
+    {"eval": "Game.set('pending_gold', 0)"},
+    {"assert": "bot.corks_sent == 0 and bot.played_window < Game.wave + 1 and bot.done == done_before and scene.settled()", "msg": "refused before it goes out (short of gold): the window is not played, and the plan has not spent"},
+    {"eval": "checks.refuse_orders(true)"},
+    {"eval": "bot.step(scene)"},
+    {"eval": "checks.refuse_orders(false)"},
+    {"assert": "bot.corks_sent == 0 and bot.played_window < Game.wave + 1 and bot.done == done_before", "msg": "a cork that goes nowhere: not played either, and the plan has not spent"},
+    {
+      "repeat": 40,
+      "steps": [{"eval": "bot.step(scene)"}, {"wait": 6}],
+      "until": "bot.played_window == Game.wave + 1 or Game.state != Game.State.PREP"
+    },
+    {"assert": "bot.corks_sent == 1 and Game.sim.bottles(1).size() == 1 and bot.played_window == Game.wave + 1 and Game.state == Game.State.PREP", "msg": "the cork goes at the next step, the bottle stands, and the window is played"},
+    {"wait_until": "Game.state == Game.State.WAVE and Game.sim.uncork_tick() >= 0 and Game.sim.tick >= Game.sim.uncork_tick()", "timeout": 3000},
+    {"eval": "bot.step(scene)"},
+    {"eval": "checks.spoil_next(7)", "as": "spoiled"},
+    {"assert": "bot.uncorks_sent == 1 and spoiled >= 0", "msg": "from uncork_after_t the bot uncorks; its UNCORK is spoiled before its turn"},
+    {"wait_until": "Game.sim.bottles(1)[0]['uncorked']", "timeout": 600},
+    {"assert": "Game.sim.tick >= Game.sim.horn_tick + 1440 and checks.sent(1, 7).size() == 2", "msg": "the simulation refused the bot's, and the client's own uncorking at 24 s revealed the salt"},
+    {"eval": "bot.step(scene)"},
+    {"eval": "Game.sim.bottles(1)[0]", "as": "first"},
+    {"assert": "bot.log.has('bottle %d window %d uncorked %s by client' % [first['id'], first['window'], first['pack']])", "msg": "the bot says the client uncorked it"},
+    {"assert": "not bot.log.has('bottle %d window %d uncorked %s by bot' % [first['id'], first['window'], first['pack']])", "msg": "not the bot"},
+    {
+      "repeat": 900,
+      "steps": [{"eval": "bot.step(scene)"}, {"wait": 15}],
+      "until": "Game.sim.bottles(1).size() >= 2 or Game.sim.over"
+    },
+    {"assert": "not Game.sim.over and bot.uncorks_sent == 1", "msg": "a second bottle stands in a later window, not uncorked yet"},
+    {"wait_until": "Game.state == Game.State.WAVE and Game.sim.uncork_tick() >= 0 and Game.sim.tick >= Game.sim.uncork_tick()", "timeout": 3000},
+    {"eval": "bot.step(scene)"},
+    {"eval": "checks.spoil_next(7)", "as": "spoiled"},
+    {"assert": "bot.uncorks_sent == 2 and spoiled >= 0", "msg": "the bot uncorks it; that UNCORK is spoiled too"},
+    {
+      "repeat": 200,
+      "steps": [{"wait": 2}, {"eval": "bot.step(scene)"}],
+      "until": "Game.sim.bottles(1)[1]['uncorked'] or Game.sim.over"
+    },
+    {"eval": "Game.sim.bottles(1)[1]", "as": "second"},
+    {"assert": "second['uncorked'] and Game.sim.tick < Game.sim.horn_tick + 1440", "msg": "stepping on, the bot uncorked it again after the retry wait, long before the client's own at 24 s"},
+    {"assert": "bot.uncorks_sent == 3 and checks.sent(1, 7).size() == 4", "msg": "its second UNCORK for that bottle went out through the turns"},
+    {"assert": "bot.log.has('bottle %d window %d uncorked %s by bot' % [second['id'], second['window'], second['pack']])", "msg": "and the bot says it uncorked it itself"}
+  ]
+}

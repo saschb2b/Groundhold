@@ -7,8 +7,9 @@ Ready, nobody away, in a match or on another rules hash (the start's rule,
 less the size): `QUEUE enter`. In a one-team mode (High Water) the party
 has open seats on and a seat free, and the queue fills them with strangers
 up to the mode's most seats (**Find players**). In a two-team mode (Tide
-Race) the party is one team of at most half the seats (1 or 2), and the
-queue finds one rival team of the same size (**Find a rival**). Parties
+Race, Undertow) the party is one team of at most half the seats (1 or 2 in
+a race; 1 in Undertow's duel, M7, whose seats are [2, 2]), and the queue
+finds one rival team of the same size (**Find a rival**). Parties
 merge only with the same mode and the same rules hash (the newest build's,
 `Party.reference`). The party's phase is `queued`; every member hears
 `QUEUE_STATE queued` with the time since it queued.
@@ -38,8 +39,9 @@ party and avoided between strangers who share a team: whoever queued first
 keeps their main, a later stranger whose main is taken plays their backup,
 and one whose backup is taken too a free Builder drawn from the server's
 random number generator (`Server.queue_rng`). The server writes the result
-into `MATCH_CONFIG`; no game rolls. (In a Race each team is one party and
-plays its own hollow, so every seat keeps its main.)
+into `MATCH_CONFIG`; no game rolls. (In a Race or a duel each team is one
+party and plays its own hollow, so every seat keeps its main: a clash never
+crosses the sides.)
 
 **Caretakers.** `caretaker_offer_ms` (60 s) after a ticket came,
 `QUEUE_STATE` sets `caretaker_offer` and every member hears `NOTICE
@@ -48,7 +50,8 @@ at once, the party's own match: High Water fills the free seats with
 caretakers whose Builders cover the checks the party lacks (the most lacking
 covered first, then a Builder not yet on the team, ties in BUILDER_IDS
 order); a Race sets a caretaker rival team against it with the same
-Builders, a mirror. A caretaker's seat has the `caretaker` flag in
+Builders, a mirror, and a duel so one caretaker of the duellist's own
+Builder on team 1 (Duel the caretaker). A caretaker's seat has the `caretaker` flag in
 `MATCH_CONFIG`: nobody plays it, the simulation's caretaker does from tick 0.
 
 **Afterwards** each party is its own again on its results plate (lobby.py).

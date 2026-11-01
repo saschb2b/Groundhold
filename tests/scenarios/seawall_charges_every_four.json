@@ -1,0 +1,31 @@
+{
+  "name": "seawall_charges_every_four",
+  "description": "The Seawall charges by damage taken (design 1.4): every 4 lives seat 2's Holdfast loses add a charge, at most 2. Its lives set down in steps (a logged scenario setter, which counts as lives lost as a leak does): 3 lost, none yet; the 4th, one; 7, still one; 8, two; 12, still two (the cap, the extra four go nowhere); a burst spends one, and 4 more lost give it back. Gaining lives charges nothing, and seat 1, whose team lost none, holds none.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "scene.debug(2, 1, 17)"},
+    {"eval": "m.seawall_charges(2)", "as": "after3"},
+    {"eval": "scene.debug(2, 1, 16)"},
+    {"eval": "m.seawall_charges(2)", "as": "after4"},
+    {"eval": "scene.debug(2, 1, 13)"},
+    {"eval": "m.seawall_charges(2)", "as": "after7"},
+    {"eval": "scene.debug(2, 1, 12)"},
+    {"eval": "m.seawall_charges(2)", "as": "after8"},
+    {"eval": "scene.debug(2, 1, 8)"},
+    {"eval": "m.seawall_charges(2)", "as": "after12"},
+    {"assert": "[after3, after4, after7, after8, after12] == [0, 1, 1, 2, 2]", "msg": "a charge for every 4 lives lost, at most 2"},
+    {"eval": "scene.debug(2, 1, 15)"},
+    {"assert": "m.seawall_charges(2) == 2 and m.seat(2).seawall_lost == 0", "msg": "lives gained charge nothing"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"eval": "scene.cmd(2, 'SEAWALL')"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.rows('SEAWALL', ['seat', 'charges']) == [[2, 1]] and m.seawall_charges(2) == 1", "msg": "a burst in the wave spent one"},
+    {"eval": "scene.debug(2, 1, 11)"},
+    {"assert": "m.seawall_charges(2) == 2 and m.seawall_charges(1) == 0", "msg": "4 more lost gave it back; seat 1 lost none and holds none"}
+  ]
+}

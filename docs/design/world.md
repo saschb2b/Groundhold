@@ -16,7 +16,8 @@ with a craft is a Builder, and at low water Builders cross the bared Flats to ho
 - **Why Builders gather.** There is no council and no list of members. The Tide is one water, so a land given up
   raises it on every other shore; the custom is "hold my ground in this flood and I will hold yours in the next".
 - **Why waves come.** The Tide floods in surges, and each surge is a wave. The build window is slack water. A match
-  is one flood rising to a crest.
+  is one flood rising to a crest. A crew that sounds its horn before slack water calls the next surge in behind
+  the last, and two walk the road at once.
 - **Why lands of different ages meet.** At low water the Flats lie bare, like the Wadden Sea at ebb, and anyone can
   walk from one shore to another. The Tide keeps no calendar, so a bronze-age beekeeper and a steam-age
   engine-wright can share a road. No portals and no rifts are needed.
@@ -58,6 +59,8 @@ land. Wrack falls apart into its stuff with a hiss of foam. There is no gore.
 | Start of a map (rift gate) | **the Welling** | Where the Tide wells up |
 | End of a map (hearth) | **the Holdfast** | What holds a land in place, as a kelp holdfast holds to a rock. Lives show as a floodmark climbing it |
 | Menu lines | Match Found: *"The tide turns at Wickhollow"* · Loading: *"Walking out"* · Results: *"the Ebb"* | |
+| Difficulty (M8) | **Normal · Hard · Very Hard** | Plain words, as every tower defense says them, so a level reads at a glance in any language; no tide word, since a level runs on every map. Spring Tide names no level: the spring tide stays the race's mirror |
+| A wave called during a wave (M8) | **called early** ("Wave 8 called early") | The horn sounded before slack water calls the next surge in behind the last. "Stack" is the code's word and the design's, never the screen's |
 
 **The v1 Builders**
 

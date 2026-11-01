@@ -1,0 +1,27 @@
+{
+  "name": "uncork_auto_at_24s",
+  "description": "The simulation's side of the client's automatic uncork (contract-m7 §2-3): the client sends the UNCORK by itself at auto_uncork_t, 24 s after the horn, and that is track B's (its own scenarios hold the client to sending it); here the scenario sends the UNCORK the client would, so it runs on the first turn from the horn plus 1440 ticks, and holds the rules to taking it. auto_uncork_t is a second under fizzle_t (25 s); seat 1 corks the Moth Cloud in window 2, nothing uncorks it before 24 s, and the reveal sent then runs before the fizzle: EV_UNCORK on that tick, no fizzle, and the four Duskmoths walk seat 2's road; seat 2's wave clears only after them. The simulation keeps no timer of its own for it: the uncork at 24 s is the client's to send.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"assert": "int(m.rules['duel']['auto_uncork_t']) == 1440 and int(m.rules['duel']['fizzle_t']) == 1500", "msg": "the client's auto uncork comes a second before the fizzle"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"},
+    {"eval": "scene.duel_to_window(2)"},
+    {"eval": "scene.cork(1, 3, 5, 6)"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_to_horn()", "as": "horn"},
+    {"eval": "scene.run_to(horn + 1440)"},
+    {"assert": "scene.client(1).hollows[1].phase == 1 and scene.rows('UNCORK', ['seat']) == []", "msg": "at 24 s the bottle is still corked and seat 2's wave runs"},
+    {"eval": "scene.uncork(1, 3, 5, 6)"},
+    {"eval": "scene.run_ticks(3)"},
+    {"eval": "scene.rows('UNCORK', ['tick', 'pack', 'creeps', 'hollow'])", "as": "uncorked"},
+    {"assert": "uncorked.size() == 1 and uncorked[0][0] >= horn + 1440 and uncorked[0][0] < horn + 1500 and uncorked[0][1] == 'winged' and uncorked[0][3] == 1", "msg": "the reveal at 24 s ran, before the fizzle"},
+    {"eval": "scene.run_to_window()"},
+    {"assert": "scene.rows('FIZZLE', ['seat']) == [] and scene.sent_fates(1).size() == 4", "msg": "nothing fizzled, and four Duskmoths were sent"},
+    {"eval": "scene.events_where('WAVE', {'hollow': 1, 'cleared': true, 'wave': 2})[0]['tick']", "as": "cleared"},
+    {"assert": "cleared > uncorked[0][0]", "msg": "seat 2's wave cleared only after the pack it was waiting for came"}
+  ]
+}

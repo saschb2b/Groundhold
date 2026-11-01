@@ -1,0 +1,17 @@
+{
+  "name": "duel_caretaker_corks_before_its_plan_spends",
+  "description": "The caretaker corks before its plan spends (contract-m7 §2): when its hollow clears first and stands in its window while the rival's still plays the wave (its own bottle may hold it), its plan waits (Caretaker.holds_plan), so on the first tick of the window both hollows share it corks with the gold it kept, and builds after. Seat 1 plays its plan by command every 3 ticks and says Ready as soon as each window opens, so the caretaker (seat 2, from tick 0) has one think in each shared window, its first tick. It builds nothing while its window waits (scene.builds_while_held), corks in 8 windows and uncorks every bottle; while its plan spent the gold in the wait, it corked in 5.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1, 'caretakers': [2]})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "scene.play_out([1], 3, 120000, [1])"},
+    {"eval": "scene.duel_line()", "as": "line"},
+    {"eval": "scene.builds_while_held(2)", "as": "held"},
+    {"assert": "m.over and m.decided_by() != '' and scene.horns_before_ready(2).is_empty()", "msg": "the duel ran to its decision, the caretaker Ready before every horn"},
+    {"assert": "held.is_empty() and scene.towers_of(2).size() >= 10", "msg": "it built from its plan, but nothing while its window waited on the rival's wave"},
+    {"assert": "scene.duel_count(2, 'cork') >= 8 and scene.duel_count(2, 'uncork') == scene.duel_count(2, 'cork') and scene.duel_count(2, 'fizzle') == 0", "msg": "so the gold was there for its corks: 8 windows, each bottle uncorked"}
+  ]
+}

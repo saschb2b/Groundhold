@@ -44,8 +44,8 @@ RETIRED = [
     (r"(?:(?<![a-z])vigil|(?-i:(?<=[a-z])Vigil))(?:s|\d+)?(?-i:(?![a-z]))",
      "the co-op mode is High Water (high_water)"),
     (r"lantern[ ._-]?race", "the race mode is Tide Race (tide_race)"),
-    (r"rift[ _-]?duel", "the duel mode is Undertow (undertow)"),
-    (r"rift[ _-]?offer", "the Duel's offer is the Drift"),
+    (r"(?<![a-z])rift[ _-]?duel", "the duel mode is Undertow (undertow)"),
+    (r"(?<![a-z])rift[ _-]?offer", "the Duel's offer is the Drift"),
     (r"(?<![a-z])rous(?:e[sd]?|ings?)(?![a-z])", "a send is corked (CORK, NO_CORKS_LEFT)"),
     # 'loose' stays an English word ("a loose dome"); only the command and its ids are retired
     (r"(?-i:(?<![A-Za-z])LOOSE(?![A-Za-z]))|(?<![a-z])loose_|_loose(?![a-z])",
@@ -103,7 +103,7 @@ SAMPLES = {
         "lantern", "the lands fell out of step", "SEAWALL", "SEAWALL_STANDING", "NO_CORKS_LEFT",
         "NOTHING_CORKED", "nothing sealed after TIMEOUT", "FLARE_R = 0.052", "[FLARE_R, 0.032]",
         "a flared rim", "a stem flaring out of", "flare = 1 + 0.1 * impact(lag2)",
-        "a Holdfast flare", "the Drift", "a bramble hedge", "Brambles line the lane",
+        "a Holdfast flare", "the Drift", "SimMatch.drift_offer()", "the drift offer", "drift_duel", "a bramble hedge", "Brambles line the lane",
     ],
 }
 

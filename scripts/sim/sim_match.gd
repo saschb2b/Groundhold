@@ -15,6 +15,13 @@
 ## a hollow ever draws must come from a stream of its own, seeded from the match seed and
 ## the hollow id, for that to hold. The race is decided by design 1.3's win order as soon
 ## as the outcome is certain (_decide_race): outcomes(), race_time(), decided_by().
+##
+## A duel (M7, Undertow: the rules' "duel" key) plays the race's layout under one clock
+## (the rules' "clock": "shared"), and is SimUndertow's: the Drift draws from the match's
+## SimRng when a window opens for both, CORK, UNCORK and SEAWALL are its commands, and its
+## own stage after the hollows' clocks fizzles bottles and spawns the uncorked packs on the
+## rival's road. It is decided as soon as a Holdfast falls, or after the Surge
+## (SimUndertow.decide), into the same record as a race: outcomes(), decided_by().
 @warning_ignore_start("integer_division")
 class_name SimMatch
 extends RefCounted
@@ -55,6 +62,19 @@ var race_outcomes := PackedInt32Array()
 ## hollow is done or fallen (or the cap), so a gate can hold the early decision against
 ## the finish. The decision stands as it was taken.
 var play_on := false
+## (M7) A duel (the rules' "duel" key, SimUndertow) and one clock for every hollow (the
+## rules' "clock": "shared"): set from the rules, never state of their own.
+var duel := false
+var shared_clock := false
+## (M7) The duel's state (the codec's M7 block): every bottle corked, in id order; the
+## Drift's latest window (the wave it precedes, 0 before the first), its packs (CHECK_IDS
+## indexes) and the packs it left out (a bit per CHECK_IDS index); the tick of the latest
+## shared horn, -1 before the first.
+var bottle_list: Array[SimRecords.SimBottle] = []
+var drift_window := 0
+var drift_packs := PackedInt32Array()
+var drift_left := 0
+var horn_tick := -1
 
 var _events: Array = []
 var _tower_by_id := {}
@@ -95,6 +115,8 @@ func _init(match_rules := {}, seat_list := [], start_seed := 1, text := "") -> v
 		)
 	for h in hollows:
 		SimWaves.open_window(self, h, true)
+	if duel:
+		SimUndertow.window_opened(self, hollows[0])
 
 
 ## A match of `mode` with `seat_count` Lamplighter seats on one team.
@@ -119,6 +141,8 @@ func setup(match_rules: Dictionary, start_seed: int, text: String) -> void:
 	waves = SimContent.WAVES[rules["waves"]]
 	race = rules.get("race") is Dictionary
 	life_t = int((rules.get("race", {}) as Dictionary).get("life_t", 0)) if race else 0
+	duel = rules.get("duel") is Dictionary
+	shared_clock = str(rules.get("clock", "hollow")) == "shared"
 	for builder: String in SimContent.BUILDER_IDS:
 		plans[builder] = SimContent.plan_steps(builder, mode)
 	for t in int(rules["teams"]):
@@ -162,8 +186,12 @@ func apply_turn(turn: int, commands: Array) -> void:
 
 ## One tick. Never reads a clock: the same turns give the same ticks everywhere.
 func step() -> void:
+	if shared_clock:
+		SimUndertow.run_clock(self)
 	for h in hollows:
 		SimWaves.run_clock(self, h)
+	if duel:
+		SimUndertow.run_stage(self)
 	_caretakers()
 	_move_creeps()
 	_fire_towers()
@@ -227,6 +255,11 @@ func total_waves() -> int:
 	return waves.size()
 
 
+## (M7) The last wave the hollows play: total_waves(), and in a duel the Surge's after it.
+func last_wave() -> int:
+	return SimUndertow.last_wave(self)
+
+
 ## Spawns of the current wave still to come on a hollow.
 func spawns_left(hollow: int) -> int:
 	var h := hollows[hollow]
@@ -259,7 +292,7 @@ func ready_count(hollow: int) -> Array:
 ## waves won and any other lost. A match the server's TIMEOUT aborted decided nothing.
 func outcomes() -> Array:
 	var out := []
-	if race:
+	if race or duel:
 		if race_rule != 0:
 			for v in race_outcomes:
 				out.append(v)
@@ -290,8 +323,8 @@ func race_penalty_t(team: int) -> int:
 	return life_t * maxi(0, int(rules["lives"]) - teams[team].lives)
 
 
-## (M6) What decided the race: "time", "fell", "cap" or "draw"; "" while it runs and in a
-## match that is no race.
+## (M6) What decided the race: "time", "fell", "cap" or "draw"; (M7) a duel's "fell",
+## "lives", "breach" or "draw"; "" while it runs and in a match that is neither.
 func decided_by() -> String:
 	return str(SimTypes.RACE_RULES[race_rule]) if race_rule > 0 and race_rule < SimTypes.RACE_RULES.size() else ""
 
@@ -307,6 +340,63 @@ func cleared_waves(team: int) -> int:
 		SimTypes.PHASE_FALLEN:
 			return maxi(0, (t.fell_wave if t.fell_wave > 0 else h.wave) - 1)
 	return maxi(0, h.wave - 1)
+
+
+## (M7) The Drift's packs for the window that is open, or for the wave it precedes,
+## as CHECK_IDS ids in CHECK_IDS order; [] outside a duel and before drift_from.
+func drift_offer() -> Array:
+	var out := []
+	if not duel or drift_window == 0:
+		return out
+	var wave := hollows[0].wave
+	if drift_window != wave and drift_window != wave + 1:
+		return out
+	for i in drift_packs:
+		out.append(SimContent.CHECK_IDS[i])
+	return out
+
+
+## (M7) Lives team `team`'s uncorked creeps took from the rival's Holdfast.
+func breach_dealt(team: int) -> int:
+	return teams[team].breach_dealt if team >= 0 and team < teams.size() else 0
+
+
+## (M7) The gold seat `seat_no` is paid at each of its wave clears.
+func stipend(seat_no: int) -> int:
+	var s := seat(seat_no)
+	return s.stipend if s else 0
+
+
+## (M7) Seat `seat_no`'s bottles, oldest first: {id, tier, window, price, uncorked,
+## fizzled}, and "pack" (a CHECK_IDS id) only once uncorked, so a view never holds the
+## pack of a rival's corked bottle.
+func bottles(seat_no: int) -> Array:
+	return SimUndertow.bottles_of(self, seat_no)
+
+
+## (M7) The Seawall charges seat `seat_no` holds.
+func seawall_charges(seat_no: int) -> int:
+	var s := seat(seat_no)
+	return s.seawall_charges if s else 0
+
+
+## (M7) The tick seat `seat_no`'s Seawall may rise again (0 before its first).
+func seawall_ready_tick(seat_no: int) -> int:
+	var s := seat(seat_no)
+	return s.seawall_ready if s else 0
+
+
+## (M7) Whether hollow `hollow_id`'s wave is held by the duel alone: nothing left to spawn
+## and its road empty, yet a rival's bottle for it is still corked or its uncorked creeps
+## are still to come (SimUndertow.holds), so it clears only at the pack's last creep or the
+## bottle's fizzle, up to fizzle_t after the horn, and the next window for both waits.
+func wave_held(hollow_id: int) -> bool:
+	if not duel or hollow_id < 0 or hollow_id >= hollows.size():
+		return false
+	var h := hollows[hollow_id]
+	if h.phase != SimTypes.PHASE_WAVE or h.cursor < h.queue.size() / 2 or creeps_on(h.id) > 0:
+		return false
+	return SimUndertow.holds(self, h)
 
 
 ## Gold each seat would get if the horn sounded now: one per whole second left.
@@ -439,6 +529,12 @@ func execute(cmd: Dictionary, from_caretaker := false) -> void:
 			_set_ready(s, cmd)
 		SimTypes.CMD_SIGNAL:
 			_signal(s, cmd)
+		SimTypes.CMD_CORK when duel:
+			SimUndertow.cork(self, s, cmd)
+		SimTypes.CMD_UNCORK when duel:
+			SimUndertow.uncork(self, s, cmd)
+		SimTypes.CMD_SEAWALL when duel:
+			SimUndertow.seawall(self, s, cmd)
 		_:
 			_reject(s, cmd, SimTypes.REFUSE_BAD_COMMAND)
 
@@ -617,6 +713,11 @@ func _system(type: int, seat_no: int) -> void:
 		_emit({"type": SimTypes.EV_SEAT, "seat": s.seat, "state": s.state})
 
 
+## A command refused for `reason` (REJECTED), as SimUndertow's commands refuse theirs.
+func reject(s: SimRecords.SimSeat, cmd: Dictionary, reason: int) -> void:
+	_reject(s, cmd, reason)
+
+
 func _reject(s: SimRecords.SimSeat, cmd: Dictionary, reason: int) -> void:
 	_emit(
 		{
@@ -645,7 +746,7 @@ func debug(op: int, a: int, b := 0, c := 0) -> void:
 				set_lives(teams[a], maxi(0, b))
 		SimTypes.DBG_WAVE:
 			var h := hollows[a]
-			h.wave = clampi(b, 0, waves.size())
+			h.wave = clampi(b, 0, last_wave())  # (a duel's Surge too, M7)
 			_emit(
 				{
 					"type": SimTypes.EV_WAVE,
@@ -693,6 +794,8 @@ func set_lives(team: SimRecords.SimTeam, lives: int) -> void:
 	var change := lives - team.lives
 	team.lives = lives
 	_emit({"type": SimTypes.EV_LIVES, "team": team.id, "lives": lives, "change": change})
+	if duel and change < 0:
+		SimUndertow.lives_lost(self, team, -change)
 	if lives == 0:
 		_fall(team)
 
@@ -780,12 +883,23 @@ func _list_posts() -> void:
 func _caretakers() -> void:
 	if over:
 		return
+	# (M7) in a duel also on the first tick of the window both hollows share, so it corks
+	# and says Ready before the horn (SimUndertow._all_ready), and when it may uncork
+	var duel_tick := duel and (tick == uncork_tick() or tick == SimUndertow.shared_window_tick(self))
 	for s in seats:
 		if s.state == SimTypes.SEAT_PRESENT:
 			continue
 		var h := hollows[s.hollow]
-		if tick % 30 == 0 or tick == h.window_tick:
+		if tick % 30 == 0 or tick == h.window_tick or duel_tick:
 			Caretaker.think(self, s)
+
+
+## (M7) The first tick of the current wave a bottle may be uncorked on (-1 before the
+## first horn): when the caretaker uncorks its own.
+func uncork_tick() -> int:
+	if horn_tick < 0:
+		return -1
+	return horn_tick + int(SimUndertow.rules_of(self)["uncork_after_t"])
 
 
 func _move_creeps() -> void:
@@ -827,7 +941,10 @@ func _leak(c: SimRecords.SimCreep) -> void:
 		}
 	)
 	if team.lives > 0:
-		set_lives(team, maxi(0, team.lives - c.toll))
+		var taken := mini(team.lives, c.toll)
+		set_lives(team, team.lives - taken)
+		if duel and c.sent_by != 0:
+			SimUndertow.breach(self, c, team, taken)
 
 
 func _fall(team: SimRecords.SimTeam) -> void:
@@ -1203,6 +1320,16 @@ func _hurt(c: SimRecords.SimCreep, shot: SimRecords.SimShot, raw_c: int, splash:
 		_die(c, shot)
 
 
+## (M7) A creep the Seawall of seat `seat_no` killed: it dies as to a shot of no tower.
+func kill(c: SimRecords.SimCreep, seat_no: int) -> void:
+	var strike := SimRecords.SimShot.new()
+	strike.seat = seat_no
+	strike.hollow = c.hollow
+	strike.fire_tick = tick
+	strike.land_tick = tick
+	_die(c, strike)
+
+
 ## A death pays the full bounty to every seat on the team (design 4.1).
 func _die(c: SimRecords.SimCreep, shot: SimRecords.SimShot) -> void:
 	c.alive = false
@@ -1239,8 +1366,11 @@ func _die(c: SimRecords.SimCreep, shot: SimRecords.SimShot) -> void:
 func _check_end() -> void:
 	if over:
 		return
-	if race and race_rule == 0:
-		_decide_race()
+	if (race or duel) and race_rule == 0:
+		if race:
+			_decide_race()
+		else:
+			SimUndertow.decide(self)
 		if race_rule != 0 and not play_on:
 			over = true
 			return

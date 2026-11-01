@@ -15,6 +15,9 @@
 ## the results Play again, which queues it again: done once it is queued again (before the
 ## next Match Found, which the server may send in the same breath as QUEUE_STATE: so it
 ## reads the session's queue, not only its state, which may skip QUEUED within a frame).
+## With --mode=undertow (or tide_race; the hub makes the party in it, Session's boot flag)
+## the party is one side of a two-team mode: no open seats, Find a rival (M7); a party in
+## another mode than the one asked for (a build without the mode's rules) is a failure.
 ##
 ## It prints one line per step for the tool reading its output:
 ##   FLOW party <code> members <n> me <row> leader|member
@@ -27,7 +30,8 @@
 ##   FLOW back <code> members <n> phase <phase>
 ##   FLOW notice <text>   FLOW failed <why>
 ## Flags: --code-out=FILE writes the party's code to FILE once made; --ready-calls says
-## Ready in every build window, so the waves come at once (a short match); --matches=N
+## Ready in every build window, so the waves come at once (a short match; in a duel with --bot
+## once the plan bot has corked and built in the window both hollows share); --matches=N
 ## plays N matches before it is done (default 1); --quit-after-flow quits when done (exit
 ## 0) or on a failure (exit 1); --linger=S stays S seconds on the results before Play again
 ## (the server closes a connection silent for 15 s: the plate must keep it).
@@ -194,7 +198,11 @@ func _queue_from_hub() -> void:
 	if str(Session.party["phase"]) != "forming" or _frame - _asked_at < ASK_FRAMES:
 		return
 	_asked_at = _frame
-	if not Session.open_seats():
+	var wanted := str(flags.get("mode", ""))
+	if wanted != "" and Session.mode_id() != wanted:
+		_fail("the party plays %s, not %s: this build does not offer %s" % [Session.mode_id(), wanted, wanted])
+		return
+	if not Session.is_race(Session.mode_id()) and not Session.open_seats():
 		Session.set_open(true)
 		return
 	var button := Session.primary()
@@ -256,9 +264,19 @@ func _play() -> void:
 		print("FLOW config builders %s" % ",".join(chosen))
 	if flags.has("ready-calls") and Game.state == Game.State.PREP and Game.accepts_commands():
 		var controller: BuildController = main.get("controller")
-		if controller and not controller.wants_ready() and _frame - _asked_at >= ASK_FRAMES:
+		if controller and not controller.wants_ready() and _frame - _asked_at >= ASK_FRAMES and _window_played(main):
 			_asked_at = _frame
 			controller.toggle_ready()
+
+
+## Whether this window's Ready may go: at once, but in a duel the plan bot's (--bot) only once
+## it has played the window both hollows share (tests/bot.gd played_window: corked and built),
+## as the caretaker's Ready waits for its window, for a Ready on both sides sounds the horn.
+func _window_played(main: Node) -> bool:
+	var bot: Variant = main.get("_bot")
+	if not Game.is_duel() or not bot is RefCounted:
+		return true
+	return int((bot as RefCounted).get("played_window")) == Game.wave + 1
 
 
 func _on_results() -> void:

@@ -50,6 +50,28 @@
     "emblem_bellfounder": {"render": "art_src/ui/renders/builder_bellfounder.png", "centre": "#6a4a2e", "edge": "#140c06", "foot": 0.0},
     "emblem_beekeeper": {"render": "art_src/ui/renders/builder_beekeeper.png", "centre": "#56683a", "edge": "#0e1408", "foot": 0.0}
   },
+  "cutouts": {
+    "size": 64,
+    "margin": 1.5,
+    "outline": 1.0,
+    "line": "#0b1416",
+    "items": {
+      "bottle": {"render": "art_src/ui/renders/corked_bottle.png"},
+      "seawall": {"render": "art_src/ui/renders/seawall.png", "margin": 1.0}
+    }
+  },
+  "packs": {
+    "size": 64,
+    "bottle": "art_src/ui/renders/corked_bottle.png",
+    "mark": {"height": 0.48, "inset": 0.07, "outline": 1.1, "zoom": 1.45, "frame": 1.6},
+    "line": "#0b1416",
+    "items": {
+      "pack_hollow_swarm": {"portrait": "art_src/ui/renders/pack_gourdling.png"},
+      "pack_hollow_swift": {"portrait": "art_src/ui/renders/pack_scuttler.png"},
+      "pack_hollow_armored": {"portrait": "art_src/ui/renders/pack_thornback.png"},
+      "pack_hollow_winged": {"portrait": "art_src/ui/renders/pack_duskmoth.png"}
+    }
+  },
   "marks": {
     "size": 64,
     "finishes": {

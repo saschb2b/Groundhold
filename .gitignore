@@ -18,3 +18,5 @@ __pycache__/
 # Claude Code's worktrees and local settings, beside the checkout: never the project's
 .claude/worktrees/
 .claude/settings.local.json
+# godot-agent play sessions (their user://, pictures and pinned copies): never the project's
+.build/

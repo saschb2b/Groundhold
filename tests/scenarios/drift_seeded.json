@@ -1,0 +1,23 @@
+{
+  "name": "drift_seeded",
+  "description": "The Drift is drawn from the match's own SimRng (contract-m7 §2): the same seed gives the same packs in every window, another seed another sequence, and the generator's state at the end is the same for the same seed (it is in the checkpoint). Played by both seats' plans with Ready to window 7.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 7})"},
+    {"eval": "scene.duel_to_window(7)"},
+    {"eval": "scene.rows('DRIFT', ['window', 'packs', 'left_out'])", "as": "a"},
+    {"eval": "scene.client(1).rng.state", "as": "a_rng"},
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 7})"},
+    {"eval": "scene.duel_to_window(7)"},
+    {"eval": "scene.rows('DRIFT', ['window', 'packs', 'left_out'])", "as": "b"},
+    {"eval": "scene.client(1).rng.state", "as": "b_rng"},
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 8})"},
+    {"eval": "scene.duel_to_window(7)"},
+    {"eval": "scene.rows('DRIFT', ['window', 'packs', 'left_out'])", "as": "c"},
+    {"assert": "a.size() == 6 and a == b and a_rng == b_rng", "msg": "seed 7 twice: the same six offers and the same generator state"},
+    {"assert": "c.size() == 6 and c != a", "msg": "seed 8 draws another sequence"},
+    {"assert": "a_rng != 7", "msg": "the offers were drawn from the match's generator"}
+  ]
+}

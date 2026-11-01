@@ -1,0 +1,18 @@
+{
+  "name": "drift_never_skips_a_check_twice",
+  "description": "The pack the Drift leaves out of a window is never the one it left out of the window before (design 1.4): 200 draws of SimUndertow.draw_drift from three seeds each leave out a different pack than the draw before, every one of the four is left out at times, and every offer is three packs in CHECK_IDS order; in a duel played to window 12 the EV_DRIFT left-outs never repeat either.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "[scene.drift_draws(1, 200), scene.drift_draws(2, 200), scene.drift_draws(99, 200)]", "as": "draws"},
+    {"assert": "draws[0].size() == 200 and draws[1].size() == 200 and draws[2].size() == 200", "msg": "each draw left out one pack, and every offer was three in order (no 'bad offer' rows)"},
+    {"assert": "scene.repeats(draws[0]) == 0 and scene.repeats(draws[1]) == 0 and scene.repeats(draws[2]) == 0", "msg": "no pack left out twice in a row"},
+    {"assert": "draws[0].has('swarm') and draws[0].has('swift') and draws[0].has('armored') and draws[0].has('winged')", "msg": "every pack is left out at times"},
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 5})"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000)]"},
+    {"eval": "scene.duel_to_window(12)"},
+    {"eval": "scene.rows('DRIFT', ['left_out'])", "as": "left"},
+    {"assert": "left.size() == 11 and scene.repeats(left) == 0", "msg": "in a duel's eleven offers too"}
+  ]
+}

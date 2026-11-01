@@ -193,6 +193,15 @@ func take_turn(turn: int) -> Array:
 	return turns[turn]
 
 
+## The ticks from `sim`'s tick to the end of the newest turn seen: an order sent now is
+## stamped into a turn after it (the server has sent every turn up to it), so it runs that
+## far ahead of the simulation at the earliest, and later by the trip there and back.
+func order_lead(sim: SimMatch) -> int:
+	if sim == null:
+		return 0
+	return maxi(0, (highest + 1) * SimTypes.TURN_TICKS - sim.tick)
+
+
 ## How many ticks `sim` could run now with the turns that are here.
 func ticks_available(sim: SimMatch) -> int:
 	if sim == null:

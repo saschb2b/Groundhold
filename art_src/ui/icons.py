@@ -14,6 +14,13 @@ top-left corner stays clear for the hotkey tab. An icon may set its own "foot" a
 emblem, its signature prop, has no cost and no hotkey, so both are 0). A file whose bytes come out as
 they were is left alone, its manifest entry too.
 
+The duel's (Undertow, M7) come from the same renders: "cutouts" crops a raw render to its
+subject and fits it, outlined in a dark line so it reads on stone, into a transparent icon
+(the Drift tray's corked bottle, the duel bar's Seawall); "packs" lays the corked bottle,
+small, outlined and shadowed, over the lower right corner of a creep's framed portrait
+(rendered with the creep portraits' gold frame over the sea's dark), one per pack of the
+Drift, so a pack reads as the creep it sends, corked.
+
 Seeded and deterministic; only Pillow is needed. Outputs are recorded in asset_manifest.json.
 """
 
@@ -287,6 +294,80 @@ def mark(shapes: list, finish: dict, size: int, seed: int = 1) -> Image.Image:
     return out.convert("RGBa").resize((size, size), Image.LANCZOS).convert("RGBA")
 
 
+def _cut(render: Image.Image, size: int, margin: float, outline: float, line: str) -> Image.Image:
+    """The subject of a raw render cropped to its pixels, fitted inside `size` less `margin`
+    each side (at 4x, then down), outlined `outline` px in `line` and centred."""
+    s4 = size * 4
+    alpha = render.getchannel("A").point(lambda a: 255 if a > 16 else 0)
+    crop = render.crop(alpha.getbbox())
+    room = s4 - 2 * margin * 4
+    scale = min(room / crop.width, room / crop.height)
+    sub = crop.resize((max(1, round(crop.width * scale)), max(1, round(crop.height * scale))), Image.LANCZOS)
+    out = Image.new("RGBA", (s4, s4), (0, 0, 0, 0))
+    at = ((s4 - sub.width) // 2, (s4 - sub.height) // 2)
+    if outline > 0:
+        mask = Image.new("L", (s4, s4), 0)
+        mask.paste(sub.getchannel("A"), at)
+        ring = mask.filter(ImageFilter.MaxFilter(_odd(outline * 4 * 2))).filter(ImageFilter.GaussianBlur(1.2))
+        dark = Image.new("RGBA", (s4, s4), (*hex_to_rgb(line), 0))
+        dark.putalpha(ring.point(lambda v: int(v * 0.9)))
+        out.alpha_composite(dark)
+    out.alpha_composite(sub, at)
+    return out.convert("RGBa").resize((size, size), Image.LANCZOS).convert("RGBA")
+
+
+def _pack(portrait: Image.Image, bottle: Image.Image, size: int, mark: dict, line: str) -> Image.Image:
+    """A pack's icon: the creep's framed portrait with the corked bottle over its lower right
+    corner, `mark["height"]` of the icon tall, its foot `mark["inset"]` in from the corner,
+    outlined in `line` and casting a soft shadow, so it reads as a pack corked."""
+    s4 = size * 4
+    # (the creep fills more of a small icon than of the kit's portrait: its middle, inside
+    # the kit's gold frame, drawn larger, and the gold frame drawn again round it)
+    zoom = mark.get("zoom", 1.0)
+    w = portrait.width
+    cut = round(w * (1 - 1 / zoom) / 2)
+    out = portrait.convert("RGBA").crop((cut, cut, w - cut, w - cut)).resize((s4, s4), Image.LANCZOS)
+    if zoom > 1.0:
+        _gold_frame(out, mark.get("frame", 1.5) * 4)
+    alpha = bottle.getchannel("A").point(lambda a: 255 if a > 16 else 0)
+    crop = bottle.crop(alpha.getbbox())
+    tall = round(s4 * mark["height"])
+    sub = crop.resize((max(1, round(crop.width * tall / crop.height)), tall), Image.LANCZOS)
+    inset = round(s4 * mark["inset"])
+    at = (s4 - inset - sub.width, s4 - inset - sub.height)
+    mask = Image.new("L", (s4, s4), 0)
+    mask.paste(sub.getchannel("A"), at)
+    shadow = Image.new("L", (s4, s4), 0)
+    shadow.paste(mask, (-6, 6))
+    shade = Image.new("RGBA", (s4, s4), (0, 0, 0, 0))
+    shade.putalpha(shadow.filter(ImageFilter.GaussianBlur(6)).point(lambda v: int(v * 0.6)))
+    out.alpha_composite(shade)
+    ring = mask.filter(ImageFilter.MaxFilter(_odd(mark["outline"] * 4 * 2))).filter(ImageFilter.GaussianBlur(1.0))
+    dark = Image.new("RGBA", (s4, s4), (*hex_to_rgb(line), 0))
+    dark.putalpha(ring)
+    out.alpha_composite(dark)
+    out.alpha_composite(sub, at)
+    return out.resize((size, size), Image.LANCZOS)
+
+
+def _gold_frame(img: Image.Image, width: float) -> None:
+    """A bevelled gold border `width` px wide round `img`, lit from the top left like the
+    kit's portrait frames: a dark outer line, the gold (light along the top and left edges,
+    shaded along the bottom and right) and a dark inner line."""
+    n = img.width
+    draw = ImageDraw.Draw(img)
+    dark, light, gold, shade = (34, 24, 10, 255), (246, 218, 140, 255), (201, 160, 72, 255), (138, 100, 38, 255)
+    wi = max(1, round(width))
+    for i in range(wi + 2):
+        if i == 0 or i == wi + 1:
+            draw.rectangle([i, i, n - 1 - i, n - 1 - i], outline=dark)
+            continue
+        draw.line([(i, i), (n - 1 - i, i)], fill=light)
+        draw.line([(i, i), (i, n - 1 - i)], fill=light)
+        draw.line([(i, n - 1 - i), (n - 1 - i, n - 1 - i)], fill=shade)
+        draw.line([(n - 1 - i, i), (n - 1 - i, n - 1 - i)], fill=gold)
+
+
 def _odd(v: float) -> int:
     n = max(3, int(round(v)))
     return n if n % 2 else n + 1
@@ -319,6 +400,28 @@ def main(argv: list[str]) -> int:
         record(project, [path], {"tool": "script", "script": script, "spec": spec_rel, "source": icon["render"],
                                  "regen": f"python3 {script} {spec_rel}"}, keep=keep)
         print(f"wrote {path.relative_to(project).as_posix()}")
+    cutouts = spec.get("cutouts", {})
+    for name, c in cutouts.get("items", {}).items():
+        with Image.open(project / c["render"]) as img:
+            out = _cut(img.convert("RGBA"), cutouts["size"], c.get("margin", cutouts.get("margin", 1.0)),
+                       c.get("outline", cutouts.get("outline", 1.2)), cutouts.get("line", "#0b0908"))
+        path = project / spec["dest"] / f"{name}.png"
+        keep = _save(out, path)
+        record(project, [path], {"tool": "script", "script": script, "spec": spec_rel, "source": c["render"],
+                                 "regen": f"python3 {script} {spec_rel}"}, keep=keep)
+        print(f"wrote {path.relative_to(project).as_posix()}")
+    packs = spec.get("packs", {})
+    if packs:
+        with Image.open(project / packs["bottle"]) as img:
+            bottle = img.convert("RGBA")
+        for name, pk in packs["items"].items():
+            with Image.open(project / pk["portrait"]) as img:
+                out = _pack(img, bottle, packs["size"], packs["mark"], packs.get("line", "#0b0908"))
+            path = project / spec["dest"] / f"{name}.png"
+            keep = _save(out, path)
+            record(project, [path], {"tool": "script", "script": script, "spec": spec_rel, "source": pk["portrait"],
+                                     "bottle": packs["bottle"], "regen": f"python3 {script} {spec_rel}"}, keep=keep)
+            print(f"wrote {path.relative_to(project).as_posix()}")
     marks = spec.get("marks", {})
     for name, m in marks.get("items", {}).items():
         out = mark(m["shapes"], marks["finishes"][m["finish"]], m.get("size", marks.get("size", 64)),

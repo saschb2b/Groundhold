@@ -1,0 +1,22 @@
+{
+  "name": "uncorked_creeps_pay_defender",
+  "description": "Defending pays (design 1.4): seat 1 uncorks the Gourd Rush in wave 2 onto seat 2's road, where seat 2's towers kill all six. Each one dies to seat 2's towers on hollow 1 and pays seat 2 a Gourdling's bounty of 3 (the bounty goes to the hollow's team, the defender's), 18 in all; seat 1, the sender, is paid nothing for them (no breach).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1})"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 3000)]"},
+    {"eval": "scene.duel_to_window(2)"},
+    {"eval": "scene.cork(1, 0, 40, 41)"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_to_horn()", "as": "horn"},
+    {"eval": "scene.run_to(horn + 180)"},
+    {"eval": "scene.uncork(1, 0, 40, 41)"},
+    {"eval": "scene.run_to_window()"},
+    {"eval": "scene.sent_fates(1)", "as": "fates"},
+    {"assert": "fates == ['died to seat 2 for 3', 'died to seat 2 for 3', 'died to seat 2 for 3', 'died to seat 2 for 3', 'died to seat 2 for 3', 'died to seat 2 for 3']", "msg": "all six Gourdlings died to seat 2's towers, each worth 3"},
+    {"assert": "scene.gold_to(2, 'bounty') == scene.bounty_on(1) and scene.gold_to(1, 'bounty') == scene.bounty_on(0) and scene.bounty_on(1) - scene.bounty_on(0) >= 18", "msg": "every death on seat 2's road paid seat 2, the pack's 18 among them; seat 1 was paid only for deaths on its own"},
+    {"assert": "scene.gold_to(1, 'breach') == 0 and scene.rows('BREACH', ['by']) == []", "msg": "the sender gets nothing for creeps the defender killed"}
+  ]
+}

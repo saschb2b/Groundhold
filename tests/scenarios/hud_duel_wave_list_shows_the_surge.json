@@ -1,0 +1,32 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_duel_wave_list_shows_the_surge",
+  "description": "A duel's waves to come go on into the Surge from the first window (playtest halv s1, f136736: 'Wave 12/12 · next in 8 s' and hovering showed 'Waves to come' empty; 'Nobody told me about a Surge'). On Undertow's own rules against the caretaker, before wave 1 the list holds the twelve waves, then the Surge's line ('The Surge, if both Holdfasts stand after wave 12: health +35%', from the rules' hp_pm), then S1 to S3, each with the checks and creeps of the wave it repeats and 'wave 9 again' at its end. With both hollows moved on so the next horn plays wave 12, my hollow clears it first while the rival's still plays it: the list then holds S1 to S3 under the same line (it stood empty there before), and the strip's next glyphs are S1's, wave 9's.",
+  "seed": 1,
+  "timeout_frames": 2400,
+  "steps": [
+    {"wait": 2},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').start(scene)", "msg": "a duel against the caretaker"},
+    {"wait": 2},
+    {"hover": "node('WaveArea')"},
+    {"wait": 2},
+    {"assert": "node('WaveList').visible and node('WaveRow12') != null and node('WaveRow13') != null and node('WaveRow15') != null", "msg": "from the first window the list goes past wave 12 into the Surge"},
+    {"assert": "node('SurgeHead').text == 'The Surge, if both Holdfasts stand after wave 12: health +35%' and node('WaveRows').get_child_count() == 16", "msg": "twelve waves, the Surge's line, its three waves"},
+    {"assert": "node('WaveRow13').get_child(0).text == 'S1' and node('WaveRow14').get_child(0).text == 'S2' and node('WaveRow15').get_child(0).text == 'S3'", "msg": "each named by the Surge"},
+    {"assert": "node('Hud').wave_list_lines()[12] == 'The Surge, if both Holdfasts stand after wave 12: health +35%' and node('Hud').wave_list_lines()[13] == 'S1: swift armored | scuttler ×16 · 65 hp, thornback ×5 · 324 hp · armour 4 · wave 9 again' and node('Hud').wave_list_lines()[15].begins_with('S3: ') and node('Hud').wave_list_lines()[15].ends_with(' · wave 11 again')", "msg": "S1 holds wave 9's checks and creeps and says so; S3 is wave 11 again"},
+    {"capture": "surge_rows_ahead"},
+    {"hover": [640, 300]},
+    {"wait": 1},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').to_window(13)", "msg": "both hollows moved on in the first window: the next horn plays wave 12"},
+    {"wait_until": "resource('res://tests/ui/duel_stage.gd').in_wave(12)", "timeout": 1200},
+    {"repeat": 300, "steps": [{"eval": "resource('res://tests/ui/duel_stage.gd').leak_all(0)"}, {"wait": 4}], "until": "Game.state == Game.State.PREP"},
+    {"wait": 2},
+    {"assert": "Game.state == Game.State.PREP and Game.wave == 12 and Game.duel_wave() and Game.sim.hollows[1].phase == 1", "msg": "my hollow cleared wave 12; the rival's still plays it"},
+    {"assert": "node('Hud').checks_shown() == Game.wave_checks(8) and not Game.wave_checks(8).is_empty()", "msg": "the strip's next glyphs are S1's: wave 9's"},
+    {"hover": "node('WaveArea')"},
+    {"wait": 2},
+    {"assert": "node('WaveList').visible and node('WaveRows').get_child_count() == 4 and node('WaveRow12') == null and node('WaveRow13').get_child(0).text == 'S1'", "msg": "the list is not empty: the Surge's line and its three waves"},
+    {"assert": "node('SurgeHead').text == 'The Surge, if both Holdfasts stand after wave 12: health +35%'", "msg": "still if both stand: the rival's wave 12 is not over"},
+    {"capture": "surge_rows_while_waiting"}
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "sim_duel_commands_only_in_a_duel",
+  "description": "CORK, UNCORK and SEAWALL are Undertow's (contract-m7 §2): in High Water and in Tide Race, in the window and in a wave, each is refused as BAD_COMMAND and changes nothing (no gold, no bottle, no event of the duel's), and neither mode draws a Drift or writes the codec's M7 block.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "[scene.cmd(1, 'CORK', 0, 1, 2), scene.cmd(1, 'UNCORK', 0, 1, 2), scene.cmd(1, 'SEAWALL'), scene.cmd(1, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"eval": "[scene.cmd(1, 'CORK', 0, 1, 2), scene.cmd(1, 'UNCORK', 0, 1, 2), scene.cmd(1, 'SEAWALL')]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.refusals(1) == ['BAD_COMMAND', 'BAD_COMMAND', 'BAD_COMMAND', 'BAD_COMMAND', 'BAD_COMMAND', 'BAD_COMMAND'] and scene.client(1).hollows[0].phase == 1", "msg": "High Water refuses all three, in the window and in the wave"},
+    {"assert": "scene.client(1).bottle_list.is_empty() and scene.client(1).drift_window == 0 and scene.events_of('DRIFT').is_empty() and scene.gold_to(1, 'cork') == 0 and not scene.client(1).duel", "msg": "nothing of the duel's happened"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2})"},
+    {"eval": "[scene.cmd(1, 'CORK', 0, 1, 2), scene.cmd(2, 'SEAWALL')]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.refusals(1) == ['BAD_COMMAND'] and scene.refusals(2) == ['BAD_COMMAND'] and not scene.client(1).duel and not scene.client(1).shared_clock", "msg": "nor does the race take them"}
+  ]
+}

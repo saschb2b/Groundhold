@@ -1,6 +1,6 @@
 {
   "name": "flow_esc_menu_offline",
-  "description": "There is a way out of a match (design 5.1, 5.4): in an offline match Esc with nothing placed or selected opens a small plate on the console's panel, Resume, Restart and Leave to hub, and the match waits while it is up; Esc again resumes. Esc while placing a tower only stops the placing, and Esc (or a right click) with a creep selected only drops the selection; the next Esc opens the menu. Restart plays the same match from its start; Leave to hub goes back to the hub, offline.",
+  "description": "There is a way out of a match (design 5.1, 5.4): in an offline match Esc with nothing placed or selected opens a small plate on the console's panel, Resume, Restart and Leave to hub, and the match waits while it is up; Esc again resumes. Esc while placing a tower only stops the placing, and Esc (or a right click) with a creep selected only drops the selection; the next Esc opens the menu. Restart, once asked and answered, plays the same match from its start; Leave to hub, likewise, goes back to the hub, offline.",
   "seed": 1,
   "timeout_frames": 1500,
   "steps": [
@@ -37,6 +37,9 @@
     {"wait": 1},
     {"click": "node('MenuRestart')"},
     {"wait": 3},
+    {"assert": "node('MatchMenu').visible and node('MatchMenu').asking() == 'restart' and Game.sim.tick >= before_restart", "msg": "Restart asks first: the same match still stands"},
+    {"click": "node('MenuConfirm')"},
+    {"wait": 3},
     {"wait_until": "Game.sim != null", "timeout": 120},
     {"wait_until": "Game.sim.tick > 0", "timeout": 60},
     {"assert": "Game.sim.tick < before_restart", "msg": "the match starts over"},
@@ -64,6 +67,9 @@
     {"assert": "node('MatchMenu').visible", "msg": "with nothing selected, Esc opens the menu"},
     {"capture": "esc_menu_offline_next_esc_opens_the_menu"},
     {"click": "node('MenuLeave')"},
+    {"wait": 2},
+    {"assert": "scene_path() == 'res://scenes/main.tscn' and node('MatchMenu').asking() == 'leave'", "msg": "Leave to hub asks first"},
+    {"click": "node('MenuConfirm')"},
     {"wait_until": "scene_path() == 'res://scenes/hub.tscn'", "timeout": 120},
     {"wait": 2},
     {"assert": "node('HubPanel').visible and Session.state_name() == 'OFFLINE'", "msg": "Leave to hub: back in the hub, offline"}

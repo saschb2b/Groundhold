@@ -19,6 +19,7 @@ from groundhold_server.protocol import SPEC
 OPS = SPEC["queue_ops"]
 QUEUE = SPEC["queue_states"]
 ERRORS = SPEC["errors"]
+OUTCOMES = SPEC["outcomes"]
 CARETAKER = SPEC["seat_flags"]["caretaker"]
 OPEN = SPEC["party_flags"]["open"]
 OTHER_RULES = bytes.fromhex("99887766554433ff")
@@ -629,8 +630,148 @@ class Ceiling(QueueTest, unittest.IsolatedAsyncioTestCase):
             self.assertEqual(got.count(offered), 1 if index == 3 else 0, client.name)
 
 
+class Duel(QueueTest, unittest.IsolatedAsyncioTestCase):
+    """Undertow (M7, contract-m7.md §4): Find a rival for one player a side, the duel's
+    caretaker of your own Builder after the offer, and a duel's RESULT, one outcome a side."""
+
+    async def duellist(self, name, number, **builders):
+        return await self.solo(name, number, mode="undertow", open_seats=False, **builders)
+
+    async def test_a_duellist_queues_alone_and_two_in_a_party_start_instead(self):
+        await self.start()
+        tamsin = await self.duellist("Tamsin", 1)
+        self.assertEqual(await self.enter(tamsin), dict(state=QUEUE["queued"], elapsed_ms=0, caretaker_offer=0))
+        # (two in a party are both sides already, one on each team: they Start, never queue)
+        pair = await self.group(["Edda", "Ottilie"], 10, mode="undertow", open_seats=False)
+        code = self.code_of("Edda")
+        duel = self.server.lobby.parties[code]
+        self.assertEqual([m.team for m in duel.ordered()], [0, 1])
+        self.assertEqual(await self.enter(pair[0]), idle())
+        self.assertEqual((duel.startable(), self.server.lobby.queue.refusal(duel)), ("", "two teams"))
+        # (two on one side are no duel: neither the queue nor a start takes them)
+        await party(pair[0], "team", member=1, team=0)
+        await self.everyone(pair)
+        await party(pair[1], "ready", on=1)
+        await self.everyone(pair)
+        self.assertEqual(await self.enter(pair[0]), idle())
+        self.assertEqual((duel.startable(), self.server.lobby.queue.refusal(duel)), ("teams", "team size"))
+        # (and a duel has no open seats: the queue finds the rival)
+        await party(tamsin, "open", on=1)
+        self.assertEqual((await state(tamsin))["flags"], 0)
+        self.assertEqual(list(self.server.lobby.queue.tickets), [self.server.lobby.parties[self.code_of("Tamsin")]])
+
+    async def test_two_duellists_meet_one_a_side_and_keep_their_mains(self):
+        await self.start()
+        tamsin = await self.duellist("Tamsin", 1)
+        await self.enter(tamsin)
+        # (a racer alone is no rival for a duellist: the mode is the queue's key)
+        racer = await self.solo("Racer", 2, mode="tide_race", open_seats=False)
+        await self.enter(racer)
+        self.assertEqual(named(await drain(tamsin), "MATCH_FOUND"), [])
+        edda = await self.duellist("Edda", 3)       # (a Lamplighter too: two sides, no clash)
+        await edda.send_message("QUEUE", op=OPS["enter"])
+        found = await self.found([tamsin, edda])
+        self.assertEqual([(f["mode"], f["seats"], f["accepted"]) for f in found], [(MODES["undertow"], 2, 0)] * 2)
+        self.assertEqual(found[0]["ms_left"], SPEC["accept_ms"])
+        await self.accept([tamsin, edda], found[0]["match"])
+        configs = [await c.until("MATCH_CONFIG", skip=("PARTY_STATE", "MATCH_FOUND", "PONG")) for c in (tamsin, edda)]
+        self.assertEqual([(s["seat"], s["team"], s["name"], NAMES[s["builder"]], s["flags"])
+                          for s in configs[0]["seats"]],
+                         [(0, 0, "Tamsin", "lamplighter", 0), (1, 1, "Edda", "lamplighter", 0)])
+        self.assertEqual([(c["mode"], c["your_seat"], c["match"]) for c in configs],
+                         [(MODES["undertow"], 0, found[0]["match"]), (MODES["undertow"], 1, found[0]["match"])])
+        self.assertTrue(self.match().barrier.strangers)
+        # (the racer waits on for a racer)
+        racing = self.server.lobby.parties[self.code_of("Racer")]
+        self.assertEqual([t.party for t in self.server.lobby.queue.tickets.values()], [racing])
+
+    def test_builder_clashes_never_cross_the_sides(self):
+        lamp, look, bell, bee = (BUILDERS[n] for n in ("lamplighter", "lookout", "bellfounder", "beekeeper"))
+        # (each side is one party alone on its hollow: both keep the main, the same one or not)
+        for mains in ((lamp, lamp), (look, look), (bell, bee)):
+            sides = [[_M(main, look if main != look else lamp)] for main in mains]
+            self.assertEqual(queue.builders_for(sides, False, random.Random(1)), [[mains[0]], [mains[1]]])
+
+    async def test_duel_the_caretaker_after_60_s_a_rival_of_your_builder(self):
+        await self.start()
+        sefa = await self.duellist("Sefa", 1, main="beekeeper", backup="lookout")
+        await self.enter(sefa)
+        await self.clock.advance(SPEC["caretaker_offer_ms"])
+        self.assertEqual(await sync(sefa), [
+            ("NOTICE", dict(code=NOTICES["caretakers_offered"], argument=0)),
+            ("QUEUE_STATE", dict(state=QUEUE["queued"], elapsed_ms=SPEC["caretaker_offer_ms"], caretaker_offer=1))])
+        await sefa.send_message("QUEUE", op=OPS["start_with_caretakers"])
+        config = await sefa.until("MATCH_CONFIG", skip=("PARTY_STATE",))
+        self.assertEqual([(s["seat"], s["team"], s["name"], NAMES[s["builder"]], s["flags"]) for s in config["seats"]],
+                         [(0, 0, "Sefa", "beekeeper", 0), (1, 1, "Caretaker 1", "beekeeper", CARETAKER)])
+        self.assertEqual(config["mode"], MODES["undertow"])
+        self.assertFalse(self.server.lobby.queue.tickets)
+        match = self.match()
+        self.assertFalse(match.barrier.strangers)       # (the party's own match, its rival a caretaker)
+        loading = await sefa.until("LOAD_STATE")
+        self.assertEqual([s["state"] for s in loading["seats"]], [LOAD["connecting"], LOAD["gone"]])
+        await sefa.send_message("LOADED", rules_hash=config["rules_hash"], tick0_hash=TICK0)
+        await sefa.until("START", skip=("LOAD_STATE", "PARTY_STATE"))
+        await self.clock.advance(SPEC["start_delay_ms"])
+        await self.clock.turns(2)
+        self.assertEqual([s.index for s in match.present()], [0])
+        # (her RESULT names both sides; the caretaker's seat sends none and is never waited on)
+        await sefa.send_message("RESULT", tick=3, hash=b"r" * 8,
+                                outcomes=[dict(outcome=OUTCOMES["lost"]), dict(outcome=OUTCOMES["won"])])
+        end = await sefa.until("MATCH_END", skip=("TURN", "LINKS", "PARTY_STATE", "LOAD_STATE"))
+        self.assertEqual(end, dict(outcome=OUTCOMES["lost"], reason=SPEC["end_reasons"]["result"], final_tick=3))
+
+    async def duel(self):
+        """Two duellists through the queue to the first turn: (tamsin, edda)."""
+        tamsin, edda = await self.duellist("Tamsin", 1), await self.duellist("Edda", 2, main="lookout")
+        await self.enter(tamsin)
+        await edda.send_message("QUEUE", op=OPS["enter"])
+        match_id = (await self.found([tamsin, edda]))[0]["match"]
+        await self.accept([tamsin, edda], match_id)
+        for client in (tamsin, edda):
+            config = await client.until("MATCH_CONFIG", skip=("PARTY_STATE", "MATCH_FOUND", "PONG"))
+            await client.send_message("LOADED", rules_hash=config["rules_hash"], tick0_hash=TICK0)
+        await self.clock.advance(SPEC["loading_min_ms"])
+        for client in (tamsin, edda):
+            await client.until("START", skip=("LOAD_STATE", "PARTY_STATE"))
+        await self.clock.advance(SPEC["start_delay_ms"])
+        await self.clock.turns(4)
+        return tamsin, edda
+
+    async def test_a_duels_result_is_one_outcome_a_side_and_play_again_queues_again(self):
+        await self.start()
+        tamsin, edda = await self.duel()
+        won, lost = OUTCOMES["won"], OUTCOMES["lost"]
+        for client in (tamsin, edda):
+            await client.send_message("RESULT", tick=9, hash=b"r" * 8, outcomes=[dict(outcome=won), dict(outcome=lost)])
+        ends = [await c.until("MATCH_END", skip=("TURN", "LINKS", "PARTY_STATE", "LOAD_STATE")) for c in (tamsin, edda)]
+        # (each side its own outcome: Tamsin's team 0 won, Edda's team 1 lost)
+        self.assertEqual([(e["outcome"], e["reason"], e["final_tick"]) for e in ends],
+                         [(won, SPEC["end_reasons"]["result"], 9), (lost, SPEC["end_reasons"]["result"], 9)])
+        # (two parties, each on its own results plate; Play again queues the one who came alone)
+        parties = [self.server.lobby.parties[self.code_of(name)] for name in ("Tamsin", "Edda")]
+        self.assertEqual([p.phase for p in parties], [PHASES["results"]] * 2)
+        await tamsin.send_message("LEAVE_MATCH")
+        await sync(tamsin)
+        self.assertEqual(parties[0].phase, PHASES["forming"])
+        self.assertEqual((await self.enter(tamsin))["state"], QUEUE["queued"])
+        await edda.send_message("LEAVE_MATCH")
+        await sync(edda)
+        await edda.send_message("QUEUE", op=OPS["enter"])
+        found = await self.found([tamsin, edda])
+        self.assertEqual((found[0]["mode"], found[0]["seats"]), (MODES["undertow"], 2))
+
+    async def test_a_duels_result_with_one_outcome_is_outside_its_limits(self):
+        await self.start()
+        tamsin, edda = await self.duel()
+        await tamsin.send_message("RESULT", tick=9, hash=b"r" * 8, outcomes=[dict(outcome=OUTCOMES["won"])])
+        error = await tamsin.until("ERROR", skip=("TURN", "LINKS", "PARTY_STATE"))
+        self.assertEqual(error["code"], ERRORS["out_of_limits"])
+        self.assertIsNone(self.match().seats[0].result)
+
+
 class Transcripts(unittest.TestCase):
-    """The m6_* golden transcripts, as the server served them (README, The queue)."""
+    """The m6_* and m7_* golden transcripts, as the server served them (README, The queue)."""
 
     def said(self, name):
         import sys
@@ -667,6 +808,22 @@ class Transcripts(unittest.TestCase):
                          [(0, "lookout", 0), (1, "lookout", CARETAKER)])
         self.assertEqual([(c, f["code"]) for d, c, kind, f in said if kind == "NOTICE"],
                          [(0, NOTICES["match_dissolved"]), (0, NOTICES["caretakers_offered"])])
+
+
+    def test_m7_duel_one_a_side_two_outcomes_and_queued_again(self):
+        said = self.said("m7_duel")
+        found = [(c, f["mode"], f["seats"], f["accepted"]) for d, c, kind, f in said if kind == "MATCH_FOUND"]
+        self.assertEqual(found, [(0, MODES["undertow"], 2, 0), (1, MODES["undertow"], 2, 0),
+                                 (0, MODES["undertow"], 2, 1), (1, MODES["undertow"], 2, 1)])
+        config = next(f for d, c, kind, f in said if kind == "MATCH_CONFIG")
+        self.assertEqual([(s["team"], s["name"], NAMES[s["builder"]]) for s in config["seats"]],
+                         [(0, "Tamsin", "lamplighter"), (1, "Edda", "lamplighter")])
+        results = [len(f["outcomes"]) for d, c, kind, f in said if kind == "RESULT"]
+        self.assertEqual(results, [2, 2])
+        ends = [(c, f["outcome"]) for d, c, kind, f in said if kind == "MATCH_END"]
+        self.assertEqual(ends, [(0, OUTCOMES["won"]), (1, OUTCOMES["lost"])])
+        last = [f for d, c, kind, f in said if kind == "QUEUE_STATE" and c == 0][-1]
+        self.assertEqual(last["state"], QUEUE["queued"])
 
 
 class _T:

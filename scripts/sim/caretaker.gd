@@ -13,6 +13,22 @@
 ## says Ready, unless the step it waits on holds Ready (a plan step's "ready": false,
 ## SimContent.STEP_HOLDS_READY), so a hollow it plays alone races as a player would.
 ##
+## In a duel (M7, Undertow) it builds from its plan (a plan's "undertow" block where one is
+## written) and says Ready in the window both hollows share once it has corked and built
+## (it thinks on that window's first tick), so the shared horn waits for the player across
+## the board, or the window's end, but never sounds before the caretaker had its window
+## (SimUndertow._all_ready). It corks by a policy (contract-m7 §2): in the
+## window both hollows share, while it has corks left, the cheapest tier it can pay for
+## while its corks stay within CORK_SHARE_PM of everything it holds, so the plan keeps the
+## rest (cork_tier), and before its plan spends: while its hollow stands in its window and
+## the rival's still plays the wave, its plan waits (holds_plan), so on the shared window's
+## first tick it corks first and builds after, the offered pack the rival's standing towers take longest to kill
+## (SimUndertow.weakest_pack), with salt 0, so its corks are not hidden; it uncorks them at
+## uncork_after_t after the horn. In a wave it raises the
+## Seawall once the creeps near its Holdfast would take CARETAKER_SEAWALL_TOLL lives or a
+## boss stands there (wants_seawall). A bottle its player corked with a salt of their own
+## it cannot reveal: it fizzles.
+##
 ## Taking a seat mid-match (design 6.7, M4), it starts at the seat's plan cursor (0 for a
 ## player who never left) over towers the player built: a build step is done where the
 ## seat already has a tower on one of the step's cells, so it never builds a step twice
@@ -23,6 +39,18 @@
 class_name Caretaker
 extends RefCounted
 
+## (M7) The most of what a duel seat holds (its gold, the gold in its towers and in its
+## corks so far, worth()) the caretaker puts into corks. Tuned against the duel's gates
+## (tests/balance/duel_*): the design's "while keeping its plan's next build", read as the
+## gold above the next step, never corked (the plan always waits on a step it cannot pay
+## yet: 0 corks in each of seeds 1 to 5 against a turtle and in the mirror, so
+## duel_caretaker_plays_full_match fails), nor did corking only the gold the plan's builds
+## leave (the plan first, then the cheapest tier from the rest: 0 again); corking whenever
+## a cork was affordable starved the defence until it fell on wave 8 with five towers; a
+## fifth of its worth corks about one window in two. This budget stands in for contract-m7
+## §2's words, which no track changes alone: the tracks agree it at the merge.
+const CORK_SHARE_PM := 200
+
 ## What decide() says about a step.
 const SKIP := 0  # nothing to do here any more: move on
 const WAIT := 1  # possible once the seat has the gold
@@ -30,9 +58,15 @@ const BUILD := 2  # [BUILD, slot, x, z]
 const FORK := 3  # [FORK, tower id, branch]
 
 
-## Called at the window's start and every 30 ticks for each caretaken seat.
+## Called at the window's start and every 30 ticks for each caretaken seat (in a duel also
+## on the first tick of the window both hollows share and on the first tick a bottle may
+## be uncorked, SimMatch.uncork_tick).
 static func think(m: SimMatch, s: SimRecords.SimSeat) -> void:
 	var steps: Array = m.plans.get(s.builder, [])
+	if m.duel:
+		_duel(m, s)
+		if holds_plan(m, s):
+			return  # (its window is not open for both yet: it corks first once it is)
 	while s.plan_cursor < steps.size():
 		var d := decide(m, s, steps[s.plan_cursor], s.gold)
 		if d[0] == WAIT:
@@ -45,6 +79,97 @@ static func think(m: SimMatch, s: SimRecords.SimSeat) -> void:
 	if m.race and not s.ready and m.hollows[s.hollow].phase == SimTypes.PHASE_PREP:
 		if not holds_ready(steps, s.plan_cursor):
 			m.execute_as(s.seat, SimTypes.CMD_READY, 1)
+	# (M7) in the window both hollows share, once it has corked and built: the horn waits
+	# for this, and still for the player (SimUndertow._all_ready)
+	if m.duel and not s.ready and SimUndertow.window_open(m):
+		m.execute_as(s.seat, SimTypes.CMD_READY, 1)
+
+
+## The duel's part of a think (M7): corks before the plan spends the window's gold, then
+## its uncorkings and the Seawall in a wave.
+static func _duel(m: SimMatch, s: SimRecords.SimSeat) -> void:
+	var window := m.hollows[s.hollow].wave + 1
+	if SimUndertow.window_open(m) and m.drift_window == window:
+		while SimUndertow.corks_of(m, s.seat, window) < SimUndertow.corks_allowed(m, window):
+			var tier := cork_tier(m, s)
+			var pack := SimUndertow.weakest_pack(m, s.seat)
+			if tier < 0 or pack < 0:
+				break
+			var made := SimUndertow.corks_of(m, s.seat, window)
+			var c := SimUndertow.commit(m.match_seed, s.seat, window, pack, 0, 0)
+			m.execute_as(s.seat, SimTypes.CMD_CORK, tier, int(c[0]), int(c[1]))
+			if SimUndertow.corks_of(m, s.seat, window) == made:
+				break  # (refused: it never asks twice)
+		return
+	var from := m.uncork_tick()
+	if from >= 0 and m.tick >= from:
+		for b in SimUndertow.pending(m, s.seat):
+			var pack := SimUndertow.salt_zero_pack(m, b)
+			if pack >= 0:
+				m.execute_as(s.seat, SimTypes.CMD_UNCORK, pack, 0, 0)
+	if wants_seawall(m, s):
+		m.execute_as(s.seat, SimTypes.CMD_SEAWALL)
+
+
+## (M7) Whether seat `s`'s plan waits in a duel: its hollow has cleared and stands in its
+## window while the rival's still plays the wave (its bottles may hold it), so the window is
+## not open for both yet. Nothing is built meanwhile: on the shared window's first tick the
+## caretaker corks before its plan spends (contract-m7 §2), and a tower built while its road
+## stands empty would defend nothing sooner.
+static func holds_plan(m: SimMatch, s: SimRecords.SimSeat) -> bool:
+	return (
+		m.duel and m.hollows[s.hollow].phase == SimTypes.PHASE_PREP and not SimUndertow.window_open(m)
+	)
+
+
+## The cheapest tier the open window offers that seat `s` can pay for, with `reserved` gold
+## already promised, while all its corks stay within `share_pm` of its worth(); -1 if none.
+static func cork_tier(
+	m: SimMatch, s: SimRecords.SimSeat, reserved := 0, share_pm := CORK_SHARE_PM
+) -> int:
+	var window := m.hollows[s.hollow].wave + 1
+	var tier := SimUndertow.cheapest_tier(m, window, s.gold - reserved)
+	if tier < 0:
+		return -1
+	var corked := corked_gold(m, s.seat) + reserved
+	var price := SimUndertow.cork_price(m, tier, window)
+	if (corked + price) * 1000 > worth(m, s) * share_pm:
+		return -1
+	return tier
+
+
+## What seat `s` holds: its gold, the gold in its standing towers and in its corks so far.
+static func worth(m: SimMatch, s: SimRecords.SimSeat) -> int:
+	var total := s.gold + corked_gold(m, s.seat)
+	for t in m.towers:
+		if t.owner == s.seat:
+			total += t.invested
+	return total
+
+
+## The gold seat `seat` has put into corks.
+static func corked_gold(m: SimMatch, seat: int) -> int:
+	var total := 0
+	for b in m.bottle_list:
+		if b.seat == seat:
+			total += b.price
+	return total
+
+
+## Whether seat `s` would raise its Seawall now: in its wave, with a charge and the wall
+## down, once the creeps inside the ring carry CARETAKER_SEAWALL_TOLL lives or a boss.
+static func wants_seawall(m: SimMatch, s: SimRecords.SimSeat) -> bool:
+	var h := m.hollows[s.hollow]
+	if not m.duel or h.phase != SimTypes.PHASE_WAVE:
+		return false
+	if s.seawall_charges <= 0 or m.tick < s.seawall_ready:
+		return false
+	var toll := 0
+	for c in SimUndertow.in_ring(m, h):
+		if c.boss:
+			return true
+		toll += c.toll
+	return toll >= SimUndertow.CARETAKER_SEAWALL_TOLL
 
 
 ## Whether the step at `cursor` (the one the caretaker waits on) holds its Ready in a race.

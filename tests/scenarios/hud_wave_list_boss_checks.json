@@ -1,0 +1,23 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_wave_list_boss_checks",
+  "description": "The waves to come name a boss's own checks on its row (playtest halv s1, f35463: wave 12's row showed the Hollowtide Crest's face and 'boss', and the Winged and Armored glyphs that came with its Duskmoths and Thornbacks: 'had to guess whether it flies'). After 'boss' stand the glyphs of the checks the boss itself tests, as its plate's glyph shows them (Game.creep_checks: the check it brings, and Winged too if it flies): the Bristlesow's and the Crest's Armored, and no Winged glyph for either, since neither flies. The wave's own glyph column is unchanged.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"hover": "node('WaveArea')"},
+    {"wait": 2},
+    {"assert": "node('WaveList').visible and node('WaveRows').get_child_count() == 12", "msg": "hovering the wave lists all twelve"},
+    {"assert": "node('WaveRow12').find_child('BossCheck_armored', true, false) != null and node('WaveRow6').find_child('BossCheck_armored', true, false) != null", "msg": "the Crest's row and the Bristlesow's show the boss's own Armored glyph"},
+    {"assert": "node('WaveRow12').find_child('BossCheck_winged', true, false) == null and node('WaveRow6').find_child('BossCheck_winged', true, false) == null", "msg": "and no Winged glyph: neither boss flies"},
+    {"assert": "node('Hud').wave_list_lines()[11] == '12: winged armored | duskmoth ×6 · 113 hp, thornback ×4 · 300 hp · armour 4, hollowtide_crest boss · 2625 hp · armour 4 (armored)' and node('Hud').wave_list_lines()[5] == '6: armored | thornback ×3 · 180 hp · armour 4, bristlesow boss · 1125 hp · armour 6 (armored)'", "msg": "each row reads its checks, then its creeps with their numbers, the boss with its own checks"},
+    {"assert": "node('BossCheck_armored').texture.resource_path == 'res://ui/icons/check_armored.png' and node('BossCheck_armored').tooltip_text == 'The Bristlesow: Armored'", "msg": "drawn from the painted Armored glyph, named on hover"},
+    {"assert": "node('WaveRow12').get_child(1).get_child_count() == 2 and node('WaveRow11').get_child(1).get_child_count() == 4", "msg": "the wave's glyph column is as before"},
+    {"assert": "Game.creep_checks('duskmoth') == ['winged'] and Game.creep_checks('hollowtide_crest') == ['armored'] and Game.creep_checks('gourdling') == ['swarm']", "msg": "a creep's own checks: its check, Winged once"},
+    {"capture": "wave_list_boss_checks"}
+  ]
+}

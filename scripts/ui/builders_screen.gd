@@ -33,6 +33,9 @@ var _tip_title: Label
 var _tip_key: Label
 var _tip_cost: Label
 var _tip_body: Label
+## The kit slot whose card is open (0 to 2: Q, W, E), or -1: the card follows the Builder
+## shown, so picking another (1 to 4, a click on the roster) shows that Builder's tower.
+var _tip_slot := -1
 
 
 func setup(owner: Shell) -> void:
@@ -89,6 +92,7 @@ func select(builder: String) -> void:
 	_try.disabled = refusal != ""
 	_try.tooltip_text = refusal if refusal != "" else TRY_TIP
 	_fill_kit(builder)
+	_hover(_tip_slot)  # (an open card shows this Builder's tower on its slot)
 
 
 ## Esc back to the hub; Q W E show a tower's tooltip; 1 to 4 pick from the roster.
@@ -396,7 +400,7 @@ func _fill_kit(builder: String) -> void:
 			glyph.mouse_filter = Control.MOUSE_FILTER_STOP
 			if helps != "":
 				glyph.texture = Game.icon(str(Game.CHECKS[helps]["icon"]))
-				glyph.tooltip_text = "Lifts %s to passable" % Game.CHECKS[helps]["name"]
+				glyph.tooltip_text = Game.lifts_line(helps)
 			_kit.add_child(glyph)
 	for child in _kit.get_children():
 		if child is Label:
@@ -444,7 +448,13 @@ func _build_tooltip() -> void:
 	box.add_child(_tip_body)
 
 
+## The tower card as it shows, for tests: [title, key, cost], or [] while it hides.
+func tip_shown() -> Array:
+	return [_tip_title.text, _tip_key.text, _tip_cost.text] if _tooltip.visible else []
+
+
 func _hover(slot: int) -> void:
+	_tip_slot = slot
 	if slot < 0:
 		_tooltip.visible = false
 		return
