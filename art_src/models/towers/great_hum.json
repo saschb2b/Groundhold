@@ -1,0 +1,26 @@
+{
+  "note": "Great Hum (Hive Hum, branch A): a bigger six-coil straw hive with two honey bands, a gold knob, a brighter door and a honey pot beside it.",
+  "colors": {"rock": "#c4703a", "rock_dark": "#94502a", "clay": "#c8642e", "straw": "#d0a860", "straw_lit": "#e6c47a", "honey": "#e0a030", "glow": "#ffb040", "bee": "#e8c04a", "bee_dark": "#1a1410", "wing": "#efe6d6", "wood": "#7a5534", "gold": "#e0b040", "water": "#4aa0c8"},
+  "ground_ao": 0.3,
+  "parts": [
+    {"shape": "box", "size": [0.9, 0.07, 0.9], "bevel": 0.015, "pattern": "stone", "jitter": 0.004, "at": [0.0, 0.0, 0.0], "color": "rock_dark"},
+    {"shape": "box", "size": [0.76, 0.07, 0.76], "bevel": 0.015, "pattern": "stone", "jitter": 0.004, "at": [0.0, 0.07, 0.0], "color": "rock"},
+    {"shape": "box", "size": [0.5, 0.012, 0.05], "at": [0.0, 0.062, 0.415], "color": "water"},
+    {"shape": "cylinder", "radius": 0.17, "height": 0.3, "sides": 8, "radius_top": 0.14, "phase": 22.5, "bevel": 0.012, "pattern": "stone", "at": [0.0, 0.14, 0.0], "color": "rock"},
+    {"shape": "cylinder", "radius": 0.32, "height": 0.04, "sides": 10, "bevel": 0.01, "pattern": "planks", "at": [0.0, 0.44, 0.0], "color": "wood"},
+    {"shape": "cylinder", "radius": 0.308, "height": 0.0952, "sides": 12, "radius_top": 0.3114, "bevel": 0.0269, "pattern": "thatch", "at": [0.0, 0.48, 0.0], "color": "straw"},
+    {"shape": "cylinder", "radius": 0.3091, "height": 0.0952, "sides": 12, "radius_top": 0.2979, "bevel": 0.0269, "pattern": "gold", "at": [0.0, 0.5752, 0.0], "color": "honey"},
+    {"shape": "cylinder", "radius": 0.2934, "height": 0.0952, "sides": 12, "radius_top": 0.2688, "bevel": 0.0269, "pattern": "thatch", "at": [0.0, 0.6704, 0.0], "color": "straw"},
+    {"shape": "cylinder", "radius": 0.2643, "height": 0.0952, "sides": 12, "radius_top": 0.2296, "bevel": 0.0269, "pattern": "thatch", "at": [0.0, 0.7656, 0.0], "color": "straw_lit"},
+    {"shape": "cylinder", "radius": 0.2218, "height": 0.0952, "sides": 12, "radius_top": 0.177, "bevel": 0.0269, "pattern": "gold", "at": [0.0, 0.8608, 0.0], "color": "honey"},
+    {"shape": "cylinder", "radius": 0.168, "height": 0.0952, "sides": 12, "radius_top": 0.112, "bevel": 0.0269, "pattern": "thatch", "at": [0.0, 0.956, 0.0], "color": "straw_lit"},
+    {"shape": "sphere", "radius": 0.112, "segments": [10, 4], "scale": [1.0, 0.55, 1.0], "pattern": "thatch", "at": [0.0, 1.0512, 0.0], "color": "straw_lit"},
+    {"shape": "sphere", "radius": 0.0392, "segments": [6, 3], "at": [0.0, 1.1128, 0.0], "color": "gold"},
+    {"shape": "box", "size": [0.1344, 0.0784, 0.0784], "emit": 1.2, "at": [0.0, 0.484, 0.2744], "color": "glow"},
+    {"shape": "cylinder", "radius": 0.05, "height": 0.07, "sides": 7, "radius_top": 0.04, "at": [0.27, 0.48, 0.2], "color": "clay"},
+    {"shape": "sphere", "radius": 0.04, "segments": [6, 3], "scale": [1.0, 0.6, 1.0], "at": [0.27, 0.555, 0.2], "color": "honey"},
+    {"parts": [{"shape": "sphere", "radius": 0.034, "segments": [6, 4], "scale": [0.85, 0.85, 1.35], "at": [0.0, 0.0, 0.0], "color": "bee"}, {"shape": "cylinder", "radius": 0.031, "height": 0.014, "sides": 5, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, -0.012], "color": "bee_dark"}, {"shape": "sphere", "radius": 0.021, "segments": [5, 3], "at": [0.0, 0.004, 0.05], "color": "bee_dark"}, {"shape": "box", "size": [0.044, 0.004, 0.032], "rotate": [0.0, 0.0, -24.0], "at": [0.024, 0.026, -0.004], "color": "wing"}, {"shape": "box", "size": [0.044, 0.004, 0.032], "rotate": [0.0, 0.0, 24.0], "at": [-0.024, 0.026, -0.004], "color": "wing"}], "at": [0.3, 1.0628, 0.18], "rotate": [0.0, -50.0, 0.0]},
+    {"parts": [{"shape": "sphere", "radius": 0.034, "segments": [6, 4], "scale": [0.85, 0.85, 1.35], "at": [0.0, 0.0, 0.0], "color": "bee"}, {"shape": "cylinder", "radius": 0.031, "height": 0.014, "sides": 5, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, -0.012], "color": "bee_dark"}, {"shape": "sphere", "radius": 0.021, "segments": [5, 3], "at": [0.0, 0.004, 0.05], "color": "bee_dark"}, {"shape": "box", "size": [0.044, 0.004, 0.032], "rotate": [0.0, 0.0, -24.0], "at": [0.024, 0.026, -0.004], "color": "wing"}, {"shape": "box", "size": [0.044, 0.004, 0.032], "rotate": [0.0, 0.0, 24.0], "at": [-0.024, 0.026, -0.004], "color": "wing"}], "at": [-0.3, 0.9128, 0.1], "rotate": [0.0, 70.0, 0.0]},
+    {"parts": [{"shape": "sphere", "radius": 0.0306, "segments": [6, 4], "scale": [0.85, 0.85, 1.35], "at": [0.0, 0.0, 0.0], "color": "bee"}, {"shape": "cylinder", "radius": 0.0279, "height": 0.0126, "sides": 5, "rotate": [90.0, 0.0, 0.0], "at": [0.0, 0.0, -0.0108], "color": "bee_dark"}, {"shape": "sphere", "radius": 0.0189, "segments": [5, 3], "at": [0.0, 0.0036, 0.045], "color": "bee_dark"}, {"shape": "box", "size": [0.0396, 0.0036, 0.0288], "rotate": [0.0, 0.0, -24.0], "at": [0.0216, 0.0234, -0.0036], "color": "wing"}, {"shape": "box", "size": [0.0396, 0.0036, 0.0288], "rotate": [0.0, 0.0, 24.0], "at": [-0.0216, 0.0234, -0.0036], "color": "wing"}], "at": [0.0, 1.2128, 0.25], "rotate": [0.0, 170.0, 0.0]}
+  ]
+}

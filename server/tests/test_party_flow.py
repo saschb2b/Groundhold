@@ -223,14 +223,15 @@ class PartyFlowTests(HubTest, unittest.IsolatedAsyncioTestCase):
         raced = await self.everyone(clients)
         self.assertEqual([m["team"] for m in raced[0]["members"]], [0, 1])
 
-    async def test_open_seats_and_the_queue_to_come(self):
+    async def test_open_seats_and_a_queue_request_the_party_cannot_make(self):
         await self.start()
         clients, _ = await self.party_of("A", "B")
         await party(clients[0], "open", on=1)
         opened = await self.everyone(clients)
         self.assertEqual(opened[0]["flags"], SPEC["party_flags"]["open"])
         self.assertEqual(self.server.lobby.open_parties(), 1)
-        # (no public queue before M6: every QUEUE op is answered idle)
+        # (B is not Ready, so the party cannot queue: every QUEUE op is answered with its
+        # queue state, idle, and an ACCEPT of no match is let pass; test_queue has the rest)
         for op in SPEC["queue_ops"].values():
             await clients[0].send_message("QUEUE", op=op)
             self.assertEqual(await clients[0].until("QUEUE_STATE"), dict(state=0, elapsed_ms=0, caretaker_offer=0))

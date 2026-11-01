@@ -35,6 +35,9 @@ signal settled(seq: int, accepted: bool)
 signal ready_changed
 ## A tower was built, upgraded or sold, by anyone.
 signal towers_changed
+## (M6) A race moved on (EV_RACE): a team cleared its last wave or fell, or the race was
+## decided.
+signal race_changed
 
 enum State { PREP, WAVE, WON, LOST }
 
@@ -68,6 +71,15 @@ const SIGNAL_ICON := "res://ui/icons/signal.png"
 ##   flash        the muzzle's light and sparks, [colour, size]; bows and birds have none
 ##   pennant      where the pennant pole stands on the model
 ##   shards       ice shards circling a spinning head
+## M6's forms (contract-m6.md §5) turn no head. Their effects come from the records and
+## the pulse event, so they need no projectile: the Toll Tower's bell rings on EV_PULSE
+## (Fx.bell_ring), a Clay Hive's bees swarm over the creep its cloud stings (Fx.bee_cloud),
+## a Chime Post's crack shimmers on its creeps and a Hive Hum's haste glows under the
+## towers it hastens. Their "sound" sounds when the pulse rings, the cloud forms, or the
+## aura first takes hold. Two more keys:
+##   projectile   "clap": the Clapper Tower's strike is instant, a clap on its creep
+##                (Projectile.INSTANT), no model in flight
+##   burst        "ring": a splash shows as a bronze ring through the crowd, not a blast
 const TOWERS := {
 	"arrow":
 	{
@@ -294,115 +306,191 @@ const TOWERS := {
 		"head_height": 0.99,
 		"sound": ["mark", -8.0],
 	},
-	# M6 (contract-m6.md): names and icons; the views track adds each form's model, head,
-	# muzzle or bore, projectile and sound
+	# M6 (contract-m6.md §5): the Bellfounder's and the Beekeeper's forms, each its own
+	# model (models/towers/<form>.glb), none with a head. Each muzzle is measured on its
+	# model (art_src/models/towers/m6_kits.py's recipe): a bell's middle, between its lip
+	# and its crown (the toll's ring bursts there); the middle row of a Clay Hive's pipe
+	# mouths; an Apiary's top ring of bee holes, in the house's middle, so a bee leaves
+	# through the wall toward its creep; the middle of a post's chimes or a straw hive.
+	# Their sounds sit level with the M2 towers' as played (the loudest tenth of a second
+	# of the file plus this gain): a strike or a pulse about -12 dB like the cannon's and
+	# the mortar's, a frequent Apiary about -15 like the ballistas', an aura taking hold
+	# about -12 to -14 like a new mark. The files (sfx/toll, chime, bees, clap) peak at
+	# -1.5 dB, so no gain here is above 0.
+	# The Bellfounder's: a bell frame whose clapper strikes at once, a belfry whose bell
+	# rings a pulse, a post of chimes that cracks armour.
 	"clapper_tower":
 	{
 		"name": "Clapper Tower",
 		"description": "A bronze clapper that strikes hard at close range.",
 		"icon": "res://ui/icons/clapper_tower.png",
+		"model": "res://models/towers/clapper_tower.glb",
+		"muzzle": Vector3(0, 0.92, 0),
+		"projectile": "clap",
+		"sound": ["clap", -1.0],
 	},
 	"toll_tower":
 	{
 		"name": "Toll Tower",
 		"description": "Rings out a pulse that stuns every ground creep in reach.",
 		"icon": "res://ui/icons/toll_tower.png",
+		"model": "res://models/towers/toll_tower.glb",
+		"muzzle": Vector3(0, 1.26, 0),
+		"sound": ["toll", -2.0],
 	},
 	"chime_post":
 	{
 		"name": "Chime Post",
 		"description": "Its hum cracks the armour of every creep in reach, for every tower.",
 		"icon": "res://ui/icons/chime_post.png",
+		"model": "res://models/towers/chime_post.glb",
+		"muzzle": Vector3(0, 1.15, 0),
+		"sound": ["chime", -1.0],
 	},
 	"great_clapper":
 	{
 		"name": "Great Clapper",
 		"gain": "a far heavier strike",
 		"icon": "res://ui/icons/great_clapper.png",
+		"model": "res://models/towers/great_clapper.glb",
+		"muzzle": Vector3(0, 1.04, 0),
+		"projectile": "clap",
+		"sound": ["clap", 0.0],
 	},
 	"ringing_clapper":
 	{
 		"name": "Ringing Clapper",
 		"gain": "each strike rings through a crowd",
 		"icon": "res://ui/icons/ringing_clapper.png",
+		"model": "res://models/towers/ringing_clapper.glb",
+		"muzzle": Vector3(0, 0.92, 0),
+		"projectile": "clap",
+		"burst": "ring",
+		"sound": ["clap", -1.0],
 	},
 	"great_toll":
 	{
 		"name": "Great Toll",
-		"gain": "a harder pulse, a longer stun",
+		"gain": "a harder, wider pulse and a longer stun",
 		"icon": "res://ui/icons/great_toll.png",
+		"model": "res://models/towers/great_toll.glb",
+		"muzzle": Vector3(0, 1.25, 0),
+		"sound": ["toll", -1.0],
 	},
 	"sky_toll":
 	{
 		"name": "Sky Toll",
-		"gain": "reaches fliers, which it slows instead",
+		"gain": "reaches fliers, slowing them by half for 2 s and striking them 80% harder",
 		"icon": "res://ui/icons/sky_toll.png",
+		"model": "res://models/towers/sky_toll.glb",
+		"muzzle": Vector3(0, 1.94, 0),
+		"sound": ["toll", -2.0],
 	},
 	"deep_chime":
 	{
 		"name": "Deep Chime",
 		"gain": "cracks twice the armour",
 		"icon": "res://ui/icons/deep_chime.png",
+		"model": "res://models/towers/deep_chime.glb",
+		"muzzle": Vector3(0, 1.12, 0),
+		"sound": ["chime", 0.0],
 	},
 	"long_chime":
 	{
 		"name": "Long Chime",
 		"gain": "cracks armour farther out",
 		"icon": "res://ui/icons/long_chime.png",
+		"model": "res://models/towers/long_chime.glb",
+		"muzzle": Vector3(0, 1.2, 0),
+		"sound": ["chime", -1.0],
 	},
+	# The Beekeeper's: clay pipe hives whose bees cloud over a creep, a hive house whose
+	# bees fly at fliers first, a straw hive whose hum hastens every tower near it.
 	"clay_hive":
 	{
 		"name": "Clay Hive",
 		"description": "A bee cloud over the foremost creep stings all near it, on the ground or in the air.",
 		"icon": "res://ui/icons/clay_hive.png",
+		"model": "res://models/towers/clay_hive.glb",
+		"muzzle": Vector3(0, 0.46, 0.3),
+		"sound": ["bees", -2.0],
 	},
 	"apiary":
 	{
 		"name": "Apiary",
 		"description": "Bees that hunt fliers first and sting them hardest.",
 		"icon": "res://ui/icons/apiary.png",
+		"model": "res://models/towers/apiary.glb",
+		"muzzle": Vector3(0, 0.88, 0),
+		"projectile": "bee",
+		"sound": ["bees", -5.0],
 	},
 	"hive_hum":
 	{
 		"name": "Hive Hum",
 		"description": "Every tower in reach fires faster, whoever built it.",
 		"icon": "res://ui/icons/hive_hum.png",
+		"model": "res://models/towers/hive_hum.glb",
+		"muzzle": Vector3(0, 0.65, 0),
+		"sound": ["bees", -4.0],
 	},
 	"great_clay_hive":
 	{
 		"name": "Great Clay Hive",
 		"gain": "a wider cloud, sharper stings",
 		"icon": "res://ui/icons/great_clay_hive.png",
+		"model": "res://models/towers/great_clay_hive.glb",
+		"muzzle": Vector3(0, 0.5, 0.3),
+		"sound": ["bees", -1.0],
 	},
 	"drowsy_clay_hive":
 	{
 		"name": "Drowsy Clay Hive",
-		"gain": "stung creeps slow down",
+		"gain": "stung creeps slow by a quarter",
 		"icon": "res://ui/icons/drowsy_clay_hive.png",
+		"model": "res://models/towers/drowsy_clay_hive.glb",
+		"muzzle": Vector3(0, 0.46, 0.3),
+		"sound": ["bees", -2.0],
 	},
 	"royal_apiary":
 	{
 		"name": "Royal Apiary",
 		"gain": "much harder stings",
 		"icon": "res://ui/icons/royal_apiary.png",
+		"model": "res://models/towers/royal_apiary.glb",
+		"muzzle": Vector3(0, 1.13, 0),
+		"projectile": "bee",
+		"projectile_scale": 1.2,
+		"sound": ["bees", -4.0],
 	},
 	"queens_guard":
 	{
 		"name": "Queen's Guard",
-		"gain": "slower, far heavier stings",
+		"gain": "slower, far heavier stings that pierce armour",
 		"icon": "res://ui/icons/queens_guard.png",
+		"model": "res://models/towers/queens_guard.glb",
+		"muzzle": Vector3(0, 0.83, 0),
+		"projectile": "bee",
+		"projectile_scale": 1.4,
+		"sound": ["bees", -3.0],
 	},
 	"great_hum":
 	{
 		"name": "Great Hum",
 		"gain": "a stronger hum",
 		"icon": "res://ui/icons/great_hum.png",
+		"model": "res://models/towers/great_hum.glb",
+		"muzzle": Vector3(0, 0.77, 0),
+		"sound": ["bees", -3.0],
 	},
 	"long_hum":
 	{
 		"name": "Long Hum",
 		"gain": "hums farther out",
 		"icon": "res://ui/icons/long_hum.png",
+		"model": "res://models/towers/long_hum.glb",
+		"muzzle": Vector3(0, 1.35, 0),
+		"sound": ["bees", -4.0],
 	},
 }
 
@@ -561,6 +649,31 @@ const NOTICES := {
 	SimTypes.REFUSE_CARETAKEN: "The caretaker hands back at the next build window",
 	SimTypes.REFUSE_RATE_LIMITED: "Too many signals",
 }
+## An order aimed at the other team's hollow in a race, refused here before it goes out
+## (contract-m6.md §5): the simulation reads a seat's cells on its own hollow, so the same
+## cell sent would land on mine.
+const RIVAL_HOLLOW := "That is your rival's hollow"
+## An order given once the match is over for me (over()), refused here: MatchClient's
+## own words for an order after MATCH_END.
+const MATCH_OVER := "The match is over"
+## MATCH_END's outcome names (protocol.json "outcomes") by SimTypes.OUTCOME_*.
+const OUTCOME_NAMES := {
+	SimTypes.OUTCOME_WON: "won",
+	SimTypes.OUTCOME_LOST: "lost",
+	SimTypes.OUTCOME_DRAW: "draw",
+}
+## A race's titles by my team's outcome (design 5.8).
+const RACE_TITLES := {
+	"won": "You Outran the Tide",
+	"lost": "Your Rival Outran the Tide",
+	"draw": "Two Crews, One Time",
+}
+
+## Tide Race (design 2.2, contract-m6.md §5): hollow h stands this many tiles along +x
+## from the first, beyond a two-tile cliff band (the map is 24 wide). The board, the world
+## the views stand in, counts cells across every hollow; the simulation's cells and
+## millimetres are local to their hollow, so a view adds hollow_origin(h).
+const HOLLOW_STRIDE := 26
 
 ## The match this client shows, the source its turns come from, and my seat in it.
 var sim: SimMatch
@@ -679,15 +792,29 @@ func command_refusal() -> String:
 
 
 ## Why an order of mine would be refused before it goes out, checked before its gold or
-## its cell: the match or the link (accepts_commands()), or my seat still the caretaker's
-## (away, or back and waiting for the next build window, design 6.7), which the simulation
-## would refuse anyway; "" when it may go. The bucket ("Not so fast") is the command's own.
+## its cell: the match or the link (accepts_commands()), the match over for me (over():
+## online a decided race takes no order between the decision and MATCH_END, which closes
+## the link's side), or my seat still the caretaker's (away, or back and waiting for the
+## next build window, design 6.7), which the simulation would refuse anyway; "" when it
+## may go. The bucket ("Not so fast") is the command's own.
 func order_refusal() -> String:
 	if not accepts_commands():
 		return command_refusal()
+	if over():
+		return MATCH_OVER
 	if caretaken():
 		return NOTICES[SimTypes.REFUSE_CARETAKEN]
 	return ""
+
+
+## Whether the match is over for me: my hollow done or fallen, the match ended
+## (SimMatch.over, the cap too), or a race decided while my hollow still plays (my rival
+## cleared first, or fell and I cleared that wave: my hollow is in a window or a wave, but
+## nothing it does counts any more).
+func over() -> bool:
+	if sim == null:
+		return false
+	return state == State.WON or state == State.LOST or sim.over or outcome() != ""
 
 
 ## Whether the caretaker plays my seat now (away, or back until the next build window).
@@ -734,6 +861,8 @@ func handle(events: Array) -> void:
 			SimTypes.EV_REJECTED:
 				if e["seat"] == seat:
 					_refused(e)
+			SimTypes.EV_RACE:
+				_on_race(e)
 
 
 ## A teammate's seat changed hands (EV_SEAT): the notice design 5.7 asks for, with their
@@ -799,10 +928,14 @@ func _on_wave(e: Dictionary) -> void:
 			wave_changed.emit(wave)
 		SimTypes.PHASE_DONE:
 			state_changed.emit(State.WON)
+			if is_race():
+				return  # (my hollow is done, the race may not be: EV_RACE says, _on_race)
 			announce("The Holdfast stands. Victory!")
 			Sfx.play("victory")
 		SimTypes.PHASE_FALLEN:
 			state_changed.emit(State.LOST)
+			if is_race():
+				return  # (a fall decides a race only once the rival clears that wave)
 			announce("The Holdfast has gone under")
 			Sfx.play("defeat")
 
@@ -927,12 +1060,18 @@ func sell_share() -> int:
 
 ## A tower form's numbers for people, with the display table's keys: the base `kind`
 ## standing as `branch` (-1 unforked, 0 for A, 1 for B), reaching `bonus_mm` farther
-## (Keen Sight's; my_range_bonus() for my own). numbers() says what each number means;
-## "form" is the form's id, "cost" the base's price and "fork_cost" a fork's.
-func form_stats(kind: String, branch := -1, bonus_mm := 0) -> Dictionary:
+## (Keen Sight's; my_range_bonus() for my own) and ignoring `pierce_c` more armour (Bronze
+## Hand's, M6: SimMatch.pierce_bonus, which the simulation adds to every tower of its
+## owner's). numbers() says what each number means; "form" is the form's id, "cost" the
+## base's price and "fork_cost" a fork's.
+func form_stats(kind: String, branch := -1, bonus_mm := 0, pierce_c := 0) -> Dictionary:
 	var form := SimContent.tower_form(kind, branch)
 	var stats: Dictionary = TOWERS[form].duplicate()
-	stats.merge(numbers(SimContent.tower_stats(kind, branch), bonus_mm), true)
+	var sim_stats := SimContent.tower_stats(kind, branch)
+	if pierce_c > 0:
+		sim_stats = sim_stats.duplicate()
+		sim_stats["pierce_c"] = int(sim_stats.get("pierce_c", 0)) + pierce_c
+	stats.merge(numbers(sim_stats, bonus_mm), true)
 	stats["form"] = form
 	stats["cost"] = int(SimContent.TOWERS[kind]["cost"])
 	stats["fork_cost"] = int(SimContent.TOWERS[kind]["fork_cost"])
@@ -966,31 +1105,67 @@ static func numbers(sim_stats: Dictionary, bonus_mm := 0) -> Dictionary:
 	if int(sim_stats.get("bounces", 0)) > 0:
 		out["bounces"] = int(sim_stats["bounces"])
 		out["bounce_range"] = int(sim_stats.get("bounce_mm", 0)) / 1000.0
+	# M6 (contract-m6.md §3): a pulse's stun in seconds, a cloud's reach in tiles, a crack
+	# in armour, a hum's haste as a share
+	if int(sim_stats.get("stun_t", 0)) > 0:
+		out["stun"] = int(sim_stats["stun_t"]) / ticks
+	if int(sim_stats.get("cloud_mm", 0)) > 0:
+		out["cloud"] = int(sim_stats["cloud_mm"]) / 1000.0
+	if int(sim_stats.get("crack_c", 0)) > 0:
+		out["crack"] = int(sim_stats["crack_c"]) / 100.0
+	if int(sim_stats.get("haste_pm", 0)) > 0:
+		out["haste"] = int(sim_stats["haste_pm"]) / 1000.0
+	# (any form with air_bonus_pm strikes fliers harder: the Apiary's, the Sky Toll's; a
+	# pulse that reaches fliers slows them, not stuns them)
+	if int(sim_stats.get("air_bonus_pm", 0)) > 0:
+		out["air_bonus"] = int(sim_stats["air_bonus_pm"]) / 1000.0
+	if int(sim_stats.get("air_slow_pm", 0)) > 0:
+		out["air_slow"] = int(sim_stats["air_slow_pm"]) / 1000.0
+		out["air_slow_time"] = int(sim_stats.get("air_slow_t", 0)) / ticks
 	return out
 
 
 ## The command tooltip's body for kit slot `slot` (0 to 2) of `builder`: the tower's line,
-## its numbers (reaching `bonus_mm` farther: Keen Sight's) and both branches with the
-## fork's price, what each gains and the check a patching branch lifts. One source for the
+## its numbers (reaching `bonus_mm` farther: Keen Sight's; ignoring `pierce_c` more
+## armour: Bronze Hand's, as form_stats() counts them) and both branches with the fork's
+## price, what each gains and the check a patching branch lifts. One source for the
 ## in-game card's Q W E and the Builders screen (design 5.4). A branch line starts with
 ## FORK_MARK, never a letter: the card's keys are positional, Q and W take the branches
 ## and A signals, so "A" or "B" before a branch would read as the key to press.
-func kit_tip(builder: String, slot: int, bonus_mm := 0) -> String:
+func kit_tip(builder: String, slot: int, bonus_mm := 0, pierce_c := 0) -> String:
 	var kind := SimContent.kit_tower(builder, slot)
-	var data := form_stats(kind, -1, bonus_mm)
+	var data := form_stats(kind, -1, bonus_mm, pierce_c)
 	var lines := PackedStringArray([str(data.get("description", ""))])
 	var parts := PackedStringArray()
+	# (an aura deals nothing and has no cooldown to show: it holds what is in reach)
+	var aura := float(data["damage"]) <= 0.0 and (data.has("crack") or data.has("haste"))
 	if float(data["damage"]) > 0.0:
 		parts.append("Damage %s" % _tip_num(float(data["damage"])))
 	parts.append("Range %s" % _tip_num(float(data["range"])))
-	parts.append("Cooldown %ss" % _tip_num(float(data["cooldown"])))
+	if not aura:
+		parts.append("Cooldown %ss" % _tip_num(float(data["cooldown"])))
 	if data.has("splash"):
 		parts.append("Splash %s" % _tip_num(float(data["splash"])))
 	if data.has("slow"):
 		parts.append("Slow %d%%" % roundi(float(data["slow"]) * 100.0))
+	if data.has("pierce") and not aura:
+		# (a form's own, and Bronze Hand's on every hit; an aura strikes nothing to pierce)
+		parts.append("Pierce %s" % _tip_num(float(data["pierce"])))
 	if data.has("mark"):
 		parts.append("Mark +%d%%" % roundi(float(data["mark"]) * 100.0))
-	parts.append("Hits fliers" if bool(data["air"]) else "Ground only")
+	if data.has("stun"):
+		parts.append("Stun %ss" % _tip_num(float(data["stun"])))
+	if data.has("cloud"):
+		parts.append("Cloud %s" % _tip_num(float(data["cloud"])))
+	if data.has("crack"):
+		parts.append("Crack %s" % _tip_num(float(data["crack"])))
+	if data.has("haste"):
+		parts.append("Haste +%d%%" % roundi(float(data["haste"]) * 100.0))
+	if data.has("air_bonus"):
+		parts.append("Fliers +%d%%" % roundi(float(data["air_bonus"]) * 100.0))
+	if not data.has("haste"):
+		# (a hum hastens towers: it reaches no creep, on the ground or in the air)
+		parts.append("Hits fliers" if bool(data["air"]) else "Ground only")
 	lines.append(" · ".join(parts))
 	for b in 2:
 		var branch_id := str(SimContent.BUILDERS[builder]["branches"][slot][b])
@@ -1048,6 +1223,11 @@ func kit_tower(slot: int) -> String:
 ## How much farther my towers reach (Keen Sight where perks are on), millimetres.
 func my_range_bonus() -> int:
 	return sim.range_bonus(seat) if sim else 0
+
+
+## How much more armour my towers ignore (Bronze Hand where perks are on, M6), hundredths.
+func my_pierce_bonus() -> int:
+	return sim.pierce_bonus(seat) if sim else 0
 
 
 ## The checks wave `index` (0-based) tests, in the order its groups come, each once with
@@ -1133,6 +1313,238 @@ func glyph_tint(builder: String) -> Color:
 ## The kit slot (0 to 2) my Builder places `kind` from, or -1.
 func slot_of(kind: String) -> int:
 	return (SimContent.BUILDERS[builder()]["towers"] as Array).find(kind)
+
+
+# ── The hollows (M6: two in a race, one in High Water and classic) ──
+
+
+## Where hollow `h` stands in the world (tiles as the board's units).
+static func hollow_origin(h: int) -> Vector3:
+	return Vector3(HOLLOW_STRIDE * h, 0, 0)
+
+
+## How many hollows the match plays: two in a race, else one.
+func hollow_count() -> int:
+	return sim.hollows.size() if sim else 1
+
+
+## The hollow my seat defends, and my team.
+func my_hollow() -> int:
+	return _seat().hollow if sim else 0
+
+
+func my_team() -> int:
+	return _seat().team if sim else 0
+
+
+## The other team's hollow in a race; -1 when my team plays alone.
+func rival_hollow() -> int:
+	if sim == null:
+		return -1
+	for h in sim.hollows:
+		if h.team != my_team():
+			return h.id
+	return -1
+
+
+## The hollow a board cell lies in, or -1 for the cliff band between them and outside.
+func hollow_at(board: Vector2i) -> int:
+	if sim == null or board.x < 0 or board.y < 0:
+		return -1
+	@warning_ignore("integer_division")
+	var h := board.x / HOLLOW_STRIDE
+	if h >= sim.hollows.size():
+		return -1
+	var road := sim.hollows[h].road
+	return h if board.x - HOLLOW_STRIDE * h < road.width and board.y < road.depth else -1
+
+
+## A cell of hollow `h` as the board counts it, and back.
+static func board_cell(h: int, cell: Vector2i) -> Vector2i:
+	return cell + Vector2i(HOLLOW_STRIDE * h, 0)
+
+
+static func local_cell(h: int, board: Vector2i) -> Vector2i:
+	return board - Vector2i(HOLLOW_STRIDE * h, 0)
+
+
+## A point the simulation gives in millimetres on hollow `h`, on the ground of the world.
+static func world_at(h: int, x_mm: int, z_mm: int) -> Vector3:
+	return Vector3(x_mm / 1000.0, 0.0, z_mm / 1000.0) + hollow_origin(h)
+
+
+# ── The race (M6, Tide Race: design 1.3, 5.7 and 5.8) ──
+
+
+## Whether the match is a race: two teams, each on a hollow of its own.
+func is_race() -> bool:
+	return sim != null and sim.race
+
+
+## The other team in a race; -1 when my team plays alone.
+func rival_team() -> int:
+	if not is_race():
+		return -1
+	return 1 - my_team() if sim.teams.size() == 2 else -1
+
+
+## My team's outcome as the simulation decided it ("won", "lost" or "draw"), from
+## SimMatch.outcomes(), one per team; "" while nothing is decided (a race until its win
+## order is certain, any other match until it is over, and a match the server aborted).
+func outcome() -> String:
+	if sim == null:
+		return ""
+	var all := sim.outcomes()
+	var team := my_team()
+	if team < 0 or team >= all.size():
+		return ""
+	return OUTCOME_NAMES.get(int(all[team]), "")
+
+
+## A race clock in ticks as people read it: "6:12", with "+20 s" when lost lives add to it.
+static func race_clock(ticks: int, penalty_t := 0) -> String:
+	@warning_ignore("integer_division")
+	var seconds := maxi(0, ticks) / SimTypes.TICKS_PER_SECOND
+	@warning_ignore("integer_division")
+	var text := "%d:%02d" % [seconds / 60, seconds % 60]
+	if penalty_t > 0:
+		@warning_ignore("integer_division")
+		text += " +%d s" % (penalty_t / SimTypes.TICKS_PER_SECOND)
+	return text
+
+
+## A team's race clock so far: the tick it cleared its last wave once it has (its race
+## time, frozen), else the match's tick now; and what its lost lives add.
+func race_clock_of(team: int) -> String:
+	var t := sim.teams[team]
+	var ticks := t.clear_tick if t.clear_tick >= 0 else sim.tick
+	return race_clock(ticks, sim.race_penalty_t(team))
+
+
+## The resource strip's second line in a race (design 5.7): the rival team's wave, lives
+## and race clock so far with what its lost lives add ("Rival · Wave 7 · 18 lives · 6:12
+## +20 s"); once its Holdfast went under, what I need to win ("Your rival fell on wave 9.
+## Clear wave 9 to win"). "" outside a race.
+func rival_line() -> String:
+	var rival := rival_team()
+	if rival < 0:
+		return ""
+	var t := sim.teams[rival]
+	if t.fell_wave > 0:
+		return "Your rival fell on wave %d. Clear wave %d to win" % [t.fell_wave, t.fell_wave]
+	var h := sim.hollows[t.hollows[0]]
+	var where := "Wave %d" % h.wave
+	if h.phase == SimTypes.PHASE_DONE:
+		where = "Wave %d cleared" % h.wave
+	elif h.wave == 0:
+		where = "Before wave 1"
+	var lives := "%d %s" % [t.lives, "life" if t.lives == 1 else "lives"]
+	return "Rival · %s · %s · %s" % [where, lives, race_clock_of(rival)]
+
+
+## The race's title from my team's view (design 5.8): "You Outran the Tide", "Your Rival
+## Outran the Tide" or "Two Crews, One Time"; "" until it is decided.
+func race_title() -> String:
+	return str(RACE_TITLES.get(outcome(), "")) if is_race() else ""
+
+
+## The rule that decided the race, in one line from my team's view (decided_by()): "You
+## cleared wave 12 first", "Fewer lives lost: your race time is the lower" (a crew that
+## cleared later, or on the same tick, and lost fewer lives), "Your rival fell on wave 9",
+## "Twenty minutes: more waves cleared"; a draw names the rule that tied, which
+## decided_by() does not say, from the teams' records (draw_rule_line()); "" until it is
+## decided.
+func race_rule_line() -> String:
+	if not is_race():
+		return ""
+	var mine := my_team()
+	var rival := rival_team()
+	if rival < 0:
+		return ""
+	var by := sim.decided_by()
+	var won := outcome() == "won"
+	var me := sim.teams[mine]
+	var them := sim.teams[rival]
+	match by:
+		"time":
+			var winner := me if won else them
+			var loser := them if won else me
+			# (first only when strictly earlier: on the same tick lost lives decided it)
+			var first := loser.clear_tick < 0 or winner.clear_tick < loser.clear_tick
+			if first:
+				return "%s wave %d first" % ["You cleared" if won else "Your rival cleared", total_waves()]
+			return "%s: %s race time is the lower" % [
+				"Fewer lives lost", "your" if won else "your rival's"
+			]
+		"fell":
+			if me.fell_wave > 0 and them.fell_wave > 0:
+				if me.fell_wave == them.fell_wave:
+					return "Both fell on wave %d: %s more of it" % [
+						me.fell_wave, "you killed" if won else "your rival killed"
+					]
+				return "Both fell: you on wave %d, your rival on wave %d" % [me.fell_wave, them.fell_wave]
+			if won:
+				return "Your rival fell on wave %d" % them.fell_wave
+			return "You fell on wave %d" % me.fell_wave
+		"cap":
+			var minutes := _cap_words()
+			if sim.cleared_waves(mine) != sim.cleared_waves(rival):
+				return "%s: more waves cleared" % minutes
+			if me.lives != them.lives:
+				return "%s: more lives kept" % minutes
+			return "%s: the lower race time" % minutes
+		"draw":
+			return draw_rule_line()
+	return ""
+
+
+## Which rule tied a drawn race (design 1.3), read from the records since decided_by()
+## says only "draw": both Holdfasts fell on the same wave with as many of it killed; both
+## crews cleared the last wave in the same race time; or at the cap, as many waves cleared
+## and lives kept with no race time to tell them apart.
+func draw_rule_line() -> String:
+	var me := sim.teams[my_team()]
+	var them := sim.teams[rival_team()]
+	if me.fell_wave > 0 and them.fell_wave > 0:
+		return "Both fell on wave %d with as many of its creeps killed" % me.fell_wave
+	if sim.race_time(my_team()) >= 0 and sim.race_time(rival_team()) >= 0:
+		return "Both cleared wave %d in the same race time" % total_waves()
+	return "%s: as many waves cleared and lives kept" % _cap_words()
+
+
+## The race's cap in words ("Twenty minutes", the rules' cap_t).
+func _cap_words() -> String:
+	@warning_ignore("integer_division")
+	var minutes := int(sim.rules.get("cap_t", 0)) / (60 * SimTypes.TICKS_PER_SECOND)
+	if minutes == 20:
+		return "Twenty minutes"
+	return "%d minutes" % minutes if minutes != 1 else "One minute"
+
+
+## An EV_RACE (M6): a team cleared its last wave, fell, or the race was decided. The strip
+## reads the records (rival_line()); the moments that are mine get their banner and sound.
+func _on_race(e: Dictionary) -> void:
+	race_changed.emit()
+	var team := int(e.get("team", -1))
+	match str(e.get("what", "")):
+		"cleared":
+			# (the first crew home sets the time to beat, design 1.3)
+			if team == my_team():
+				announce("All %d waves cleared · %s" % [total_waves(), race_clock_of(team)])
+			else:
+				announce("Your rival cleared all %d waves · %s" % [total_waves(), race_clock_of(team)])
+		"fell":
+			if team == my_team():
+				announce("The Holdfast has gone under on wave %d" % int(e.get("wave", 0)))
+			else:
+				announce("Your rival fell on wave %d" % int(e.get("wave", 0)))
+		"decided":
+			announce(race_title())
+			match outcome():
+				"won":
+					Sfx.play("victory")
+				"lost":
+					Sfx.play("defeat")
 
 
 func _seat() -> SimRecords.SimSeat:

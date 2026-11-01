@@ -9,6 +9,8 @@ class_name BuildersScreen
 extends Control
 
 const SLOTS := 4
+## Try's tooltip while it can start (Session.try_refusal says why when it cannot).
+const TRY_TIP := "A solo practice match with this Builder, offline"
 
 var shell: Shell
 var selected := ""
@@ -82,6 +84,10 @@ func select(builder: String) -> void:
 	Shell.set_lit(_backup, builder == Session.profile.backup)
 	Shell.set_words(_main, "Main" if builder != Session.profile.main else "Your main")
 	Shell.set_words(_backup, "Backup" if builder != Session.profile.backup else "Your backup")
+	# (a member of a queued party waits for the queue: Session.try_refusal says why)
+	var refusal := Session.try_refusal()
+	_try.disabled = refusal != ""
+	_try.tooltip_text = refusal if refusal != "" else TRY_TIP
 	_fill_kit(builder)
 
 
@@ -125,13 +131,15 @@ func roster_lines() -> Array[String]:
 ## perk in High Water, the hub's mode, and both branches), so the two never differ.
 static func tower_tip(builder: String, slot: int) -> Dictionary:
 	var tower := SimContent.kit_tower(builder, slot)
-	var perks := bool(SimContent.RULES[Profile.played_mode(Session.profile.mode)].get("perks", false))
+	var perks := bool(SimContent.RULES[Profile.played_mode(Session.mode_id())].get("perks", false))
 	var bonus := SimContent.perk_value(builder, "keen_sight", "range_mm", 0) if perks else 0
+	# (Bronze Hand, M6: the in-game card counts it, so the roster's tooltip does too)
+	var pierce := SimContent.perk_value(builder, "bronze_hand", "pierce_c", 0) if perks else 0
 	return {
 		"title": str(Game.TOWERS[tower]["name"]),
 		"key": Game.CARD_KEYS[slot],
 		"cost": int(SimContent.TOWERS[tower]["cost"]),
-		"body": Game.kit_tip(builder, slot, bonus),
+		"body": Game.kit_tip(builder, slot, bonus, pierce),
 	}
 
 
@@ -322,7 +330,7 @@ func _build_card() -> void:
 		Session.set_backup(selected)
 		select(selected))
 	_try = Shell.socket("Try", "Try")
-	_try.tooltip_text = "A solo practice match with this Builder, offline"
+	_try.tooltip_text = TRY_TIP
 	_try.pressed.connect(func() -> void: Session.try_builder(selected))
 	buttons.append_array([_main, _backup, _try])
 	Shell.lay_card(card, buttons)

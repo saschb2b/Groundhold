@@ -1,0 +1,32 @@
+{
+  "name": "flow_race_the_caretaker_mirror_and_greyed_mode",
+  "description": "Racing the caretaker offline (design 1.3, 5.2), as far as this build goes: the match a party of one in Tide Race would race (Session.offline_match, what Race the caretaker plays) is a rival team of caretakers with the same Builders, a mirror: the seats (Session.offline_seats), the chosen Builders and the names; High Water has no rival team. The hub offers the race only where this build has its rules (Session.profile.offers('tide_race'), true once track A adds the preset): until then the mode is greyed and a Tide Race party of one gets a disabled Play that says the mode comes later, and with them Race the caretaker. Pressing it and the race itself wait for the preset: this build plays no race.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"eval": "Session.offline_seats('tide_race', 'lookout')", "as": "race"},
+    {"assert": "race.size() == 2 and race[0]['team'] == 0 and race[0]['builder'] == 'lookout' and not race[0].get('caretaker', false)", "msg": "my seat on team 0"},
+    {"assert": "race[1]['team'] == 1 and race[1]['builder'] == 'lookout' and race[1]['caretaker']", "msg": "the rival: a caretaker with my Builder on team 1"},
+    {"eval": "Session.offline_seats('tide_race', 'lookout', 1, 'lamplighter')", "as": "pair"},
+    {"assert": "pair.size() == 4 and pair[1]['team'] == 0 and pair[2]['team'] == 1 and pair[3]['team'] == 1 and pair[2]['builder'] == 'lookout' and pair[3]['builder'] == 'lamplighter'", "msg": "with a caretaker partner, the rival team mirrors both"},
+    {"eval": "Session.offline_match('tide_race', 'lookout', false, 1, 'lamplighter')", "as": "spec"},
+    {"assert": "spec['shown_mode'] == 'tide_race' and spec['offline'] and not spec['try'] and spec['seats'] == pair", "msg": "the match Race the caretaker plays: the race's seats"},
+    {"assert": "spec['chosen'] == ['lookout', 'lamplighter', 'lookout', 'lamplighter']", "msg": "the rival team's chosen Builders mirror mine and my partner's"},
+    {"assert": "spec['names'] == ['Sascha', 'Caretaker 1', 'Caretaker 2', 'Caretaker 3']", "msg": "a name for every caretaker, the rivals' too"},
+    {"eval": "Session.offline_seats('high_water', 'lookout', 1, 'lamplighter')", "as": "coop"},
+    {"assert": "coop.size() == 2 and coop[1]['team'] == 0", "msg": "High Water: no rival team"},
+    {"assert": "node('Mode_tide_race').disabled == (not Session.profile.offers('tide_race'))", "msg": "the mode is greyed until this build has its rules"},
+    {"set": "Session.profile.mode", "value": "tide_race"},
+    {"eval": "Session.show_screen('hub')"},
+    {"wait": 1},
+    {"assert": "(Session.profile.offers('tide_race') and node('HubPanel').primary_text() == 'Race the caretaker' and not node('Primary').disabled) or (not Session.profile.offers('tide_race') and node('HubPanel').primary_text() == 'Play' and node('Primary').disabled and node('PrimaryLine').text == 'Tide Race comes with a later version')", "msg": "offline, a party of one in a race: Race the caretaker, where offered"},
+    {"set": "Session.profile.mode", "value": "high_water"},
+    {"eval": "Session.show_screen('hub')"},
+    {"wait": 1},
+    {"assert": "node('HubPanel').primary_text() == 'Play' and not node('Primary').disabled", "msg": "High Water alone offline: Play"}
+  ]
+}

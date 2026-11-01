@@ -19,6 +19,16 @@
 ## fake sequencer. cut(frames) loses the session's link at once (the cable pulled) and
 ## refuses its new links for `frames` frames (-1, the default: for good): in a match the
 ## MatchClient reconnects meanwhile with a resume HELLO (M4) and takes its seat back after.
+##
+## The queue (M6): stranger(name, main, backup, accepts) puts a stranger in the queue (it
+## fills an open seat, or a race's rival team, in the order strangers came; one made with
+## `accepts` false answers Match Found only through stranger_answer(name, yes));
+## party_mode(mode) sets the party's mode as its leader would (a race party, which this
+## build's hub cannot pick before track A's preset); party_open(on) sets its open seats and
+## queue_party() queues it as a scripted
+## leader would; member_answer(name, yes) is a scripted member's answer to Match Found. The fake answers QUEUE and ACCEPT as
+## the server does (fake_sequencer.gd, The queue): `seq.queue_log`, `seq.ticket`,
+## `seq.found`, `seq.founds_sent`.
 @warning_ignore_start("integer_division")
 extends Node
 
@@ -65,6 +75,35 @@ func leave(who: String) -> void:
 
 func set_member(who: String, key: String, value: Variant) -> void:
 	seq.set_member(who, key, value)
+
+
+## A stranger queued (M6): the fake's add_stranger.
+func stranger(who: String, main := "lamplighter", backup := "lookout", accepts := true) -> void:
+	seq.add_stranger(who, main, backup, accepts)
+
+
+## A stranger's answer to Match Found.
+func stranger_answer(who: String, yes := true) -> void:
+	seq.stranger_answer(who, yes)
+
+
+## Open seats as a scripted leader's PARTY open would set them.
+func party_open(on := true) -> void:
+	seq.set_party_open(on)
+
+
+## The party queues as a scripted leader's QUEUE enter would.
+func queue_party() -> bool:
+	return seq.queue_party()
+
+
+func member_answer(who: String, yes := true) -> void:
+	seq.member_answer(who, yes)
+
+
+## The party's mode by name, as its leader would set it (Ready cleared, teams laid out).
+func party_mode(mode_name: String) -> void:
+	seq.set_party_mode(mode_name)
 
 
 func load_member(who: String, per_mille: int, loaded := false) -> void:

@@ -1,0 +1,15 @@
+{
+  "name": "net_race_outcome_per_team",
+  "description": "A 1v1 Tide Race over the loopback, played out by the plan bots: the sequencer seats client 1 on team 0 and client 2 on team 1, as the server's dev match does, each game simulates both hollows, both send a RESULT with one outcome per team, and each seat's MATCH_END carries its own team's outcome (a win and a loss, or a draw for both), with every hash agreeing.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "steps": [
+    {"eval": "scene.start({'mode': 'tide_race', 'clients': 2, 'seed': 5, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 900},
+    {"assert": "scene.client(1).seat_list[0]['team'] == 0 and scene.client(1).seat_list[1]['team'] == 1 and scene.client(2).seat == 2", "msg": "a dev race seats client 1 on team 0 and client 2 on team 1"},
+    {"eval": "scene.run_until('client(1).phase_name() == \"ENDED\" and client(2).phase_name() == \"ENDED\"', 90000)", "as": "ended"},
+    {"eval": "[scene.client(1).outcome, scene.client(2).outcome]", "as": "outcomes"},
+    {"assert": "ended and ((outcomes == ['won', 'lost']) or (outcomes == ['lost', 'won']) or (outcomes == ['draw', 'draw']))", "msg": "each seat's MATCH_END carries its own team's outcome"},
+    {"assert": "scene.seq.hashes_agree() and scene.client(1).sim.outcomes().size() == 2", "msg": "every hash agrees, and the simulation decided both teams"}
+  ]
+}

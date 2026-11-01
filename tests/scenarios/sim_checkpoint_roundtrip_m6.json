@@ -1,0 +1,33 @@
+{
+  "name": "sim_checkpoint_roundtrip_m6",
+  "description": "The codec round-trips every field M6 added: the busy three-seat match of sim_checkpoint_roundtrip_busy played in High Water by two Bellfounders (by command, contesting cells) and a caretaken Beekeeper, so stuns and their immunity, cracks, hastes, bee clouds over their creeps (SimTower.cloud_creep) and Apiary bolts with their air bonus in flight are in the state; then the same in Tide Race, the third seat alone on the second hollow, with the race's own state (the kills of each team's wave) in the codec's trailing block; then that race again with the first team's lives set to 0 mid-wave at tick 6000 (a logged scenario setter), so its fall (the wave and that wave's kills) stands in the state while the other team catches up, and the race is decided by the fall once that team clears the wave, playing on past the decision (SimMatch.play_on) so the decided race (its rule and both outcomes) is round-tripped for the rest of the log. Replayed into a simulation replaced by deserialize(serialize()) every 7 ticks and every 61 with events on: every tick's hash equals the uninterrupted run's, and the race's state (rule, outcomes, each team's fall, wave kills, clear tick and lives) is the same after each trip as before it, which a field the codec neither wrote nor read would part without moving a hash.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "resource('res://tests/sim/busy_match.gd')", "as": "B"},
+    {"eval": "B.busy_log(11, 24000, 'high_water', ['bellfounder', 'beekeeper', 'bellfounder'])", "as": "rec"},
+    {"eval": "[rec['final_tick'], rec['wave'], rec['towers'], rec['m6_seen'], rec['help'], rec['forms']]", "as": "summary"},
+    {"assert": "rec['final_tick'] == 24000 and rec['wave'] >= 6", "msg": "the busy High Water match ran past the first Duskmoths and the Bristlesow"},
+    {"assert": "rec['m6_seen']['stunned'] > 0 and rec['m6_seen']['cracked'] > 0 and rec['m6_seen']['hastened'] > 0 and rec['m6_seen']['clouds'] > 0 and rec['m6_seen']['bolts'] > 0", "msg": "stuns, cracks, hastes, clouds and Apiary bolts were all in the state"},
+    {"eval": "B.roundtrip_chain(rec, 7, 3, false)", "as": "every7"},
+    {"assert": "every7['first_bad'] == -1 and every7['final'] == rec['final_tick'] and every7['trips'] > 1000", "msg": "a round trip every 7 ticks keeps every tick's hash"},
+    {"eval": "B.roundtrip_chain(rec, 61, 59, true)", "as": "every61"},
+    {"assert": "every61['first_bad'] == -1 and every61['final'] == rec['final_tick']", "msg": "and every 61 ticks with events on"},
+    {"eval": "B.busy_log(11, 15000, 'tide_race', ['bellfounder', 'beekeeper', 'beekeeper'])", "as": "race"},
+    {"assert": "race['mode'] == 'tide_race' and race['race'][2] == 2 and race['final_tick'] > 3000", "msg": "the race ran on two hollows"},
+    {"eval": "B.roundtrip_chain(race, 7, 3, false)", "as": "race7"},
+    {"assert": "race7['first_bad'] == -1 and race7['final'] == race['final_tick']", "msg": "a race round-trips every 7 ticks too"},
+    {"eval": "B.roundtrip_chain(race, 61, 59, true)", "as": "race61"},
+    {"assert": "race61['first_bad'] == -1 and race61['final'] == race['final_tick']", "msg": "and every 61 with events on"},
+    {"eval": "B.busy_log(11, 12000, 'tide_race', ['bellfounder', 'beekeeper', 'beekeeper'], [0, 6000])", "as": "fell"},
+    {"eval": "[fell['race_state'], fell['decided_tick'], fell['final_tick']]", "as": "fell_summary"},
+    {"assert": "fell['race_state'][0] == 'fell' and fell['race_state'][1] == [1, 0]", "msg": "the first team fell and the race was decided by the fall: the second team won (OUTCOME_WON 0), the first lost (1)"},
+    {"assert": "fell['race_state'][2][0][0] >= 1 and fell['race_state'][2][0][1] > 0 and fell['race_state'][2][0][4] == 0 and fell['race_state'][2][1][0] == 0 and fell['race_state'][2][1][4] > 0", "msg": "the fallen team's state holds the wave it fell on and that wave's kills; the other still stands"},
+    {"assert": "fell['decided_tick'] > 6600 and fell['decided_tick'] < 11000 and fell['final_tick'] == 12000 and not fell['over']", "msg": "the fall stood undecided while the other team caught up, then the decided race played on to the end of the log"},
+    {"eval": "B.roundtrip_chain(fell, 7, 3, false)", "as": "fell7"},
+    {"assert": "fell7['first_bad'] == -1 and fell7['final'] == 12000 and fell7['race'] == fell['race_state'] and fell7['decided_trips'] > 100", "msg": "the fall and the decision round-trip every 7 ticks: same hashes, same race state after every trip, the decision kept to the end"},
+    {"eval": "B.roundtrip_chain(fell, 61, 59, true)", "as": "fell61"},
+    {"assert": "fell61['first_bad'] == -1 and fell61['final'] == 12000 and fell61['race'] == fell['race_state'] and fell61['decided_trips'] > 10", "msg": "and every 61 with events on"}
+  ]
+}

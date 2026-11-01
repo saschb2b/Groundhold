@@ -4,7 +4,11 @@
 ## each screen needs. The hub (HubPanel) puts the
 ## party in the left well, your Builder in the arch and the modes and the one button in
 ## the right well; the Builders screen (BuildersScreen) the roster, the selected Builder
-## and its kit. Overlays: the Join panel, the name prompt on first launch, notices.
+## and its kit. Overlays: the Join panel, the name prompt on first launch, notices, and
+## while the party is queued the queue pill ("Finding players 0:42", design 5.1): at the
+## top of the hub, and in the corner of the Builders screen, which may be browsed while
+## queued (design 5.4). Match Found is the session's own overlay (match_found.gd), which
+## takes the keys while it is up.
 ##
 ## The statics are the console kit every screen shares: fonts, colours, the theme, the
 ## painted pieces, plates and command sockets.
@@ -41,6 +45,9 @@ var _glyph: TextureRect
 var _notice: Label
 var _notice_tween: Tween
 var _shown_builder := ""
+var _pill: PanelContainer
+var _pill_text: Label
+var _pill_screen := ""
 
 
 func _ready() -> void:
@@ -68,6 +75,7 @@ func _ready() -> void:
 	_root.add_child(join)
 	join.setup(self)
 	_build_notice()
+	_build_pill()
 	prompt = NamePrompt.new()
 	_root.add_child(prompt)
 	prompt.setup(self)
@@ -84,6 +92,15 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Session.beacon.stop()
+
+
+func _process(_delta: float) -> void:
+	_fill_pill()
+
+
+## The queue pill's words while queued, "" while it is hidden (for tests).
+func pill_text() -> String:
+	return _pill_text.text if _pill and _pill.visible else ""
 
 
 ## Shows the screen the session names and fills it.
@@ -139,6 +156,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo or prompt.visible:
 		return
+	if Session.state == Session.State.MATCH_FOUND:
+		return  # (Match Found answers its own Enter and Esc)
 	if Session.screen == "builders":
 		builders.key(key.keycode)
 	elif join.visible and key.keycode == KEY_ESCAPE:
@@ -210,6 +229,38 @@ func _build_notice() -> void:
 	_notice.add_theme_color_override("font_outline_color", INK)
 	_notice.visible = false
 	_root.add_child(_notice)
+
+
+## The queue pill: a small plate with the queue's clock, over the hub's top and in the
+## Builders screen's corner.
+func _build_pill() -> void:
+	_pill = PanelContainer.new()
+	_pill.name = "QueuePill"
+	_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pill.add_theme_stylebox_override("panel", plate_box(Vector4(16, 7, 16, 8)))
+	_pill_text = label("", BOLD_FONT, 15, TEXT)
+	_pill_text.name = "QueuePillText"
+	_pill_text.add_theme_constant_override("outline_size", 3)
+	_pill.add_child(_pill_text)
+	_pill.visible = false
+	_root.add_child(_pill)
+
+
+func _fill_pill() -> void:
+	if _pill == null:
+		return
+	var shown := Session.state == Session.State.QUEUED
+	_pill.visible = shown
+	if not shown:
+		return
+	_pill_text.text = Session.queue_text()
+	if _pill_screen != Session.screen:
+		_pill_screen = Session.screen
+		_pill.reset_size()
+		if Session.screen == "builders":
+			_pill.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+		else:
+			_pill.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 14)
 
 
 # ── The console kit ──

@@ -77,6 +77,7 @@ class Client:
 
     def __init__(self, record=None, index=0):
         self.record, self.index = record, index
+        self.backlog = []       # (decoded messages settle() read ahead, for the next reads)
 
     async def open(self, port, subprotocol=None, origin=None):
         self.reader, self.writer = await asyncio.open_connection("127.0.0.1", port)
@@ -120,6 +121,8 @@ class Client:
 
     async def next(self, timeout=2):
         """The next message, decoded: (name, fields); ("CLOSE", None) for a close frame."""
+        if self.backlog:
+            return self.backlog.pop(0)
         data = await self.raw(timeout)
         if data is None:
             return "CLOSE", None
@@ -332,7 +335,7 @@ def state_bytes(size, salt=0):
 async def drain(client, wait=0.05):
     """Every message that arrives until `wait` seconds pass without one,
     decoded (and kept in `client.inbox`)."""
-    out = []
+    out, client.backlog = client.backlog, []
     for _ in range(MOST_MESSAGES):
         try:
             data = await client.raw(wait)
@@ -364,6 +367,13 @@ async def sync(client):
         raise AssertionError(f"no PONG among {MOST_MESSAGES} messages")
     client.inbox = getattr(client, "inbox", []) + out
     return out
+
+
+async def settle(client):
+    """A PING through and its PONG back, as sync() does, with what came
+    meanwhile kept for the next reads (until, next, drain)."""
+    got = await sync(client)
+    client.backlog.extend(got)
 
 
 async def news(client):

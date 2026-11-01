@@ -1,0 +1,31 @@
+{
+  "name": "race_offline_outcome_cap_draw",
+  "description": "A race drawn at the 20-minute cap says that rule (design 1.3: at the cap more waves cleared, then more lives, then the lower race time, else a draw; review of M6's race views: every draw read 'Two crews, one time', the title again, though neither crew set a time). Over the session's offline race, a Tide Race of two seats waits out long windows with five waves cleared on each hollow and every life kept. At the cap the simulation calls it a draw for both teams, and the results say 'Two Crews, One Time' with the rule 'Twenty minutes: as many waves cleared and lives kept'.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 1},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 1},
+    {"eval": "scene.begin('tide_race', [{'team': 0, 'builder': 'lamplighter'}, {'team': 1, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"eval": "Game.debug(3, 0, 5)"},
+    {"eval": "Game.debug(3, 1, 5)"},
+    {"eval": "Game.debug(4, 0, 100000)"},
+    {"eval": "Game.debug(4, 1, 100000)"},
+    {"set_ticks_per_frame": 2000},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 120},
+    {"set_ticks_per_frame": 1},
+    {"wait": 2},
+    {"assert": "Game.sim.tick == int(Game.sim.rules['cap_t']) and Game.sim.cleared_waves(0) == 5 and Game.sim.cleared_waves(1) == 5 and Game.sim.teams[0].lives == Game.sim.teams[1].lives", "msg": "twenty minutes of match time, five waves cleared on each hollow and as many lives"},
+    {"assert": "Game.sim.race_time(0) < 0 and Game.sim.race_time(1) < 0", "msg": "neither crew set a race time"},
+    {"assert": "Game.sim.decided_by() == 'draw' and Game.sim.outcomes() == [2, 2] and Game.outcome() == 'draw'", "msg": "the cap calls it a draw for both teams"},
+    {"assert": "node('ResultsTitle').text == 'TWO CREWS, ONE TIME' and node('ResultsRule').text == 'Twenty minutes: as many waves cleared and lives kept'", "msg": "the results name the rule that tied, not the title again"}
+  ]
+}

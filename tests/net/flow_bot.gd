@@ -10,10 +10,19 @@
 ##   session runs them (--bot lets the plan bot play the seat) -> on the results it waits
 ##   a moment and presses Play again -> back in the party, every member here again.
 ##
+## With --queue (smoke.py --flow --queue) it plays the queue instead, a party of one of its
+## own: open seats on, Find players, Accept on Match Found, the match of strangers, and on
+## the results Play again, which queues it again: done once it is queued again (before the
+## next Match Found, which the server may send in the same breath as QUEUE_STATE: so it
+## reads the session's queue, not only its state, which may skip QUEUED within a frame).
+##
 ## It prints one line per step for the tool reading its output:
 ##   FLOW party <code> members <n> me <row> leader|member
 ##   FLOW state <the session's state>
-##   FLOW match <mode> seat <k> of <n> builders <b1,b2,...>
+##   FLOW queued <code>                          (--queue: the server's QUEUE_STATE queued)
+##   FLOW found <match> seats <n>                (--queue: Match Found, accepted)
+##   FLOW match <mode> seat <k> of <n> builders <b1,b2,...>   (as this build fields them)
+##   FLOW config builders <b1,b2,...>            (MATCH_CONFIG's, as the server chose them)
 ##   FLOW results <outcome> <the results' title>
 ##   FLOW back <code> members <n> phase <phase>
 ##   FLOW notice <text>   FLOW failed <why>
@@ -28,6 +37,8 @@ extends Node
 const RESULTS_FRAMES := 90
 ## Frames between two asks of the same thing (Ready, Start) while the answer is on its way.
 const ASK_FRAMES := 30
+## --queue: frames in the hub after Play again before it counts as not queued again.
+const REQUEUE_FRAMES := 600
 
 var flags := {}
 ## Frames on the results before Play again (--linger, else RESULTS_FRAMES).
@@ -36,6 +47,9 @@ var party_size := 2
 var matches := 1
 var played := 0
 var done := false
+## --queue: the queue instead of a party by code.
+var queue := false
+var _said_queued := false
 
 var _frame := 0
 var _joined := false
@@ -55,7 +69,8 @@ func _init() -> void:
 
 func setup(boot: Dictionary) -> void:
 	flags = boot
-	party_size = maxi(1, int(boot.get("party", "2")))
+	queue = boot.has("queue")
+	party_size = 1 if queue else maxi(1, int(boot.get("party", "2")))
 	matches = maxi(1, int(boot.get("matches", "1")))
 	if boot.has("linger"):
 		results_frames = maxi(RESULTS_FRAMES, int(float(str(boot["linger"])) * Engine.physics_ticks_per_second))
@@ -109,6 +124,8 @@ func _physics_process(_delta: float) -> void:
 		"HUB":
 			_join_again()
 			_in_hub()
+		"QUEUED", "MATCH_FOUND":
+			_in_queue()
 		"IN_MATCH":
 			_play()
 		"RESULTS":
@@ -145,6 +162,9 @@ func _say_party() -> void:
 func _in_hub() -> void:
 	if Session.party.is_empty() or Session.me < 0:
 		return
+	if queue:
+		_queue_from_hub()
+		return
 	if played > 0 and _back_together():
 		print("FLOW back %s members %d phase %s" % [Session.party_code(), Session.party_size(), Session.party["phase"]])
 		if played >= matches:
@@ -162,6 +182,49 @@ func _in_hub() -> void:
 	elif not Session.my_ready():
 		_asked_at = _frame
 		Session.set_ready(true)
+
+
+## --queue in the hub: open seats on, then Find players; after a match Play again queues by
+## itself, and a hub that stays forming is a failure.
+func _queue_from_hub() -> void:
+	if played > 0:
+		if Session.queue_request == "" and _frame - _asked_at > REQUEUE_FRAMES:
+			_fail("Play again left the party forming, not queued again")
+		return
+	if str(Session.party["phase"]) != "forming" or _frame - _asked_at < ASK_FRAMES:
+		return
+	_asked_at = _frame
+	if not Session.open_seats():
+		Session.set_open(true)
+		return
+	var button := Session.primary()
+	if button["act"] == "queue" and button["enabled"]:
+		Session.play()
+
+
+## --queue, queued or in Match Found: the first time Match Found's Accept; after a match,
+## queued again by Play again, and done.
+func _in_queue() -> void:
+	if not queue or Session.party.is_empty():
+		return
+	if not _said_queued and str(Session.queue.get("state", "")) == "queued":
+		_said_queued = true
+		print("FLOW queued %s" % Session.party_code())
+	if played > 0:
+		if _said_queued:
+			print("FLOW back %s members %d phase %s" % [Session.party_code(), Session.party_size(), Session.party["phase"]])
+			_done(0)
+		return
+	if Session.state == Session.State.MATCH_FOUND:
+		_on_found()
+
+
+## Match Found: Accept, once.
+func _on_found() -> void:
+	if Session.found.is_empty() or str(Session.found["answer"]) != "":
+		return
+	print("FLOW found %d seats %d" % [int(Session.found["match"]), int(Session.found["seats"])])
+	Session.accept_match()
 
 
 ## Every member of the party is here again after the match (none on the results plate).
@@ -187,6 +250,10 @@ func _play() -> void:
 		print("FLOW match %s seat %d of %d builders %s" % [
 			client.mode, client.seat, client.seat_list.size(), ",".join(builders)
 		])
+		var chosen := []
+		for entry: Dictionary in client.config.get("seats", []):
+			chosen.append(NetProtocol.enum_name("builders", int(entry["builder"])))
+		print("FLOW config builders %s" % ",".join(chosen))
 	if flags.has("ready-calls") and Game.state == Game.State.PREP and Game.accepts_commands():
 		var controller: BuildController = main.get("controller")
 		if controller and not controller.wants_ready() and _frame - _asked_at >= ASK_FRAMES:
@@ -204,6 +271,7 @@ func _on_results() -> void:
 		_results_at = -1
 		played += 1
 		_asked_at = _frame
+		_said_queued = false
 		Session.play_again()
 
 

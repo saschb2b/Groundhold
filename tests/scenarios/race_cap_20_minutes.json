@@ -1,0 +1,31 @@
+{
+  "name": "race_cap_20_minutes",
+  "description": "The hard cap (design 1.3, contract-m6 4: cap_t 72000, honoured now): a race neither team has finished ends when the match reaches 20 minutes, 72000 ticks, and not a tick before. At the cap the waves cleared decide, then the lives, then (where both have one) the race time; all equal is a draw. Here both teams' windows are held open by countdown writes. High Water has no cap: it plays on.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 300,
+  "steps": [
+    {"assert": "resource('res://scripts/sim/content.gd').RULES['tide_race']['cap_t'] == 72000 and resource('res://scripts/sim/content.gd').RULES['high_water']['cap_t'] == 0", "msg": "Tide Race's cap is 20 minutes; High Water has none"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'events': false})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "[scene.debug(3, 0, 3), scene.debug(3, 1, 2), scene.debug(4, 0, 100000), scene.debug(4, 1, 100000)]"},
+    {"eval": "scene.run_to(71999)"},
+    {"assert": "not m.over and m.decided_by() == '' and m.tick == 71999", "msg": "a tick before 20 minutes, the race goes on"},
+    {"eval": "scene.run_ticks(1)"},
+    {"assert": "m.over and m.tick == 72000 and m.decided_by() == 'cap' and m.outcomes() == [0, 1]", "msg": "at 20 minutes it is over: team A cleared three waves to team B's two"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'events': false})"},
+    {"eval": "scene.client(1)", "as": "m2"},
+    {"eval": "[scene.debug(3, 0, 3), scene.debug(3, 1, 3), scene.debug(2, 0, 15), scene.debug(4, 0, 100000), scene.debug(4, 1, 100000)]"},
+    {"eval": "scene.run_to(72000)"},
+    {"assert": "m2.over and m2.decided_by() == 'cap' and m2.outcomes() == [1, 0]", "msg": "as many waves: the more lives win"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'events': false})"},
+    {"eval": "scene.client(1)", "as": "m3"},
+    {"eval": "[scene.debug(3, 0, 5), scene.debug(3, 1, 5), scene.debug(4, 0, 100000), scene.debug(4, 1, 100000)]"},
+    {"eval": "scene.run_to(72000)"},
+    {"assert": "m3.over and m3.decided_by() == 'draw' and m3.outcomes() == [2, 2]", "msg": "as many waves and lives, no race times: a draw"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1, 'events': false})"},
+    {"eval": "scene.debug(4, 0, 100000)"},
+    {"eval": "scene.run_to(72100)"},
+    {"assert": "not scene.client(1).over and scene.client(1).outcomes() == []", "msg": "High Water plays on past 20 minutes"}
+  ]
+}

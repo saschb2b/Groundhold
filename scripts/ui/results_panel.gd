@@ -10,7 +10,8 @@
 ## browser), never its user:// path. A match this game lost its link to (`link_lost`: the
 ## others play on) says so in its title and why in a plain line (shown["said"]). A match
 ## that stopped (desynced, called off, the link lost) says in which wave, not how many
-## waves the mode has.
+## waves the mode has. A race (Tide Race, M6) shows one block per team, mine first, with
+## both race times and the rule that decided it in one line (_compute_race).
 class_name ResultsPanel
 extends CanvasLayer
 
@@ -33,6 +34,8 @@ const REPORT_LINE := "The games disagreed, so the match was stopped. A report wa
 ## per creep kind; "held" names the wave.
 const LINES := ["held", "help", "kills", "damage", "most_creep", "towers", "unsold"]
 const FALLBACK := ["Kept watch", "Held the line", "Stood fast", "Saw it through"]
+## How much taller a race's plate stands, for its two blocks.
+const RACE_TALLER := 56.0
 
 var results := {}
 var _rows: VBoxContainer
@@ -50,6 +53,7 @@ static func compute(sim: SimMatch, names: Array, outcome: String, tally: Diction
 		rows.append(
 			{
 				"seat": s.seat,
+				"team": s.team,
 				"name": str(names[i]) if i < names.size() else "Seat %d" % s.seat,
 				"builder": s.builder,
 				"kills": s.kills,
@@ -61,6 +65,8 @@ static func compute(sim: SimMatch, names: Array, outcome: String, tally: Diction
 				"line": "",
 			}
 		)
+	if sim.race:
+		return _compute_race(sim, rows, outcome, tally, shown_mode)
 	_pick_lines(rows, sim, tally)
 	var lives := int(team.lives)
 	var waves := sim.total_waves()
@@ -84,6 +90,72 @@ static func compute(sim: SimMatch, names: Array, outcome: String, tally: Diction
 		"max_lives": int(sim.rules["lives"]),
 		"waves": waves,
 	}
+
+
+## A race's results (design 5.8, M6): the title from my team's outcome ("You Outran the
+## Tide", "Your Rival Outran the Tide", "Two Crews, One Time"; a stopped match keeps its
+## own), the match in one line, the rule that decided it in one line, and one block per
+## team, mine first: its race time (the tick it cleared its last wave plus 10 s a life
+## lost, "12:41 +20 s"; where it set none, where it fell or how far it got), its lives with
+## their line along its own waves, and its players' rows, each with a line picked against
+## its own team.
+static func _compute_race(
+	sim: SimMatch, rows: Array, outcome: String, tally: Dictionary, shown_mode: String
+) -> Dictionary:
+	var mine := Game.my_team()
+	var order := [mine] + range(sim.teams.size()).filter(func(t: int) -> bool: return t != mine)
+	var blocks := []
+	var by_team: Dictionary = tally.get("team_lives", {})
+	for t: int in order:
+		var team_rows := rows.filter(func(r: Dictionary) -> bool: return int(r["team"]) == t)
+		_pick_lines(team_rows, sim, tally)
+		var rec := sim.teams[t]
+		blocks.append(
+			{
+				"team": t,
+				"mine": t == mine,
+				"name": "Your crew" if t == mine else "Rival crew",
+				"time": race_time_text(sim, t),
+				"lives": rec.lives,
+				"lives_line": by_team.get(t, []),
+				"seats": team_rows.map(func(r: Dictionary) -> int: return int(r["seat"])),
+			}
+		)
+	var waves := sim.total_waves()
+	var minutes := sim.tick / 3600
+	var seconds := (sim.tick / 60) % 60
+	var detail := "%s · %d waves · %d:%02d" % [Profile.mode_name(shown_mode), waves, minutes, seconds]
+	var title := str(Game.RACE_TITLES.get(outcome, TITLES.get(outcome, "The Ebb")))
+	var rule := Game.race_rule_line() if Game.RACE_TITLES.has(outcome) else ""
+	if outcome in STOPPED:
+		var reached := sim.hollows[sim.teams[mine].hollows[0]].wave
+		var where := "stopped in wave %d of %d" % [reached, waves] if reached > 0 else "stopped before the first wave"
+		detail = "%s · %s · %d:%02d" % [Profile.mode_name(shown_mode), where, minutes, seconds]
+	return {
+		"outcome": outcome,
+		"race": true,
+		"title": title,
+		"detail": detail,
+		"rule": rule,
+		"rows": rows,
+		"teams": blocks,
+		"lives": tally.get("lives", []),
+		"max_lives": int(sim.rules["lives"]),
+		"waves": waves,
+	}
+
+
+## A team's race time as the results show it: "12:41 +20 s" (the tick it cleared its last
+## wave, and what its lost lives added); without one, "fell on wave 9", or where its race
+## clock stood when the race was decided ("on wave 12 at 7:20").
+static func race_time_text(sim: SimMatch, team: int) -> String:
+	var rec := sim.teams[team]
+	if sim.race_time(team) >= 0:
+		return Game.race_clock(rec.clear_tick, sim.race_penalty_t(team))
+	if rec.fell_wave > 0:
+		return "fell on wave %d" % rec.fell_wave
+	var wave := maxi(1, sim.hollows[rec.hollows[0]].wave)
+	return "on wave %d at %s" % [wave, Game.race_clock(sim.tick, sim.race_penalty_t(team))]
 
 
 ## Fills each row's "line": candidates are the lines a seat truly leads the team in (ties
@@ -194,17 +266,19 @@ func show_results(shown: Dictionary) -> void:
 	dim.color = Color(0.02, 0.015, 0.01, 0.5)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(dim)
+	var race := bool(shown.get("race", false))
 	var plate := Shell.WidePlate.new()
 	plate.name = "ResultsPlate"
 	plate.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	plate.offset_left = -470
 	plate.offset_right = 470
-	plate.offset_top = -250
-	plate.offset_bottom = 200
+	# (a race's two blocks stand on a taller plate)
+	plate.offset_top = -250 - RACE_TALLER * 0.5 if race else -250.0
+	plate.offset_bottom = 200 + RACE_TALLER * 0.5 if race else 200.0
 	root.add_child(plate)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
-	Shell.place(box, Rect2(46, 64, 848, 360))
+	Shell.place(box, Rect2(46, 64, 848, 360 + (RACE_TALLER if race else 0.0)))
 	plate.add_child(box)
 	var title := Shell.label(str(shown["title"]).to_upper(), Shell.TITLE_FONT, 26, Shell.GOLD)
 	title.name = "ResultsTitle"
@@ -227,27 +301,33 @@ func show_results(shown: Dictionary) -> void:
 		said.name = "ResultsSaid"
 		said.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(said)
-	var lives := LivesLine.new()
-	lives.values = shown.get("lives", [])
-	lives.top = int(shown.get("max_lives", 20))
-	lives.waves = int(shown.get("waves", 1))
-	box.add_child(lives)
+	if race:
+		var rule := Shell.label(str(shown.get("rule", "")), Shell.BOLD_FONT, 15, Shell.GOLD)
+		rule.name = "ResultsRule"
+		rule.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rule.visible = rule.text != ""
+		box.add_child(rule)
+		box.add_child(Shell.gilt_rule(300))
+	else:
+		var lives := LivesLine.new()
+		lives.values = shown.get("lives", [])
+		lives.top = int(shown.get("max_lives", 20))
+		lives.waves = int(shown.get("waves", 1))
+		box.add_child(lives)
 	_rows = VBoxContainer.new()
 	_rows.name = "Rows"
 	_rows.add_theme_constant_override("separation", 3)
 	box.add_child(_rows)
 	_rows.add_child(_row(["Player", "Builder", "Kills", "Damage", "Help", "Towers", ""], true, -1))
-	for r: Dictionary in shown["rows"]:
-		var cells := []
-		var builder_title := str(SimContent.BUILDERS[r["builder"]]["title"]).trim_prefix("the ")
-		if bool(r["left"]):
-			cells = [r["name"], builder_title, "", "", "", "", "left the match; the caretaker finished"]
-		else:
-			cells = [
-				r["name"], builder_title, str(r["kills"]), _short(int(r["damage_c"]) / 100),
-				_short(int(r["help_c"]) / 100), "%d (%d forked)" % [r["towers"], r["forks"]], r["line"]
-			]
-		_rows.add_child(_row(cells, false, int(r["seat"]) - 1, str(r["builder"])))
+	if race:
+		for block: Dictionary in shown["teams"]:
+			_rows.add_child(_team_head(block, shown))
+			for r: Dictionary in shown["rows"]:
+				if (block["seats"] as Array).has(int(r["seat"])):
+					_rows.add_child(_player_row(r))
+	else:
+		for r: Dictionary in shown["rows"]:
+			_rows.add_child(_player_row(r))
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(spacer)
@@ -296,6 +376,86 @@ static func show_report(path: String) -> void:
 		JavaScriptBridge.download_buffer(FileAccess.get_file_as_bytes(path), "groundhold-" + path.get_file())
 	else:
 		OS.shell_show_in_file_manager(ProjectSettings.globalize_path(path), true)
+
+
+## One player's row: name, Builder, kills, damage, help, towers and the line picked.
+func _player_row(r: Dictionary) -> HBoxContainer:
+	var cells := []
+	var builder_title := str(SimContent.BUILDERS[r["builder"]]["title"]).trim_prefix("the ")
+	if bool(r["left"]):
+		cells = [r["name"], builder_title, "", "", "", "", "left the match; the caretaker finished"]
+	else:
+		cells = [
+			r["name"], builder_title, str(r["kills"]), _short(int(r["damage_c"]) / 100),
+			_short(int(r["help_c"]) / 100), "%d (%d forked)" % [r["towers"], r["forks"]], r["line"]
+		]
+	return _row(cells, false, int(r["seat"]) - 1, str(r["builder"]))
+
+
+## A race team's head over its rows: "YOUR CREW" or "RIVAL CREW", its race time, its lives
+## and the line of them along its own waves, over a thin bronze rule.
+func _team_head(block: Dictionary, shown: Dictionary) -> VBoxContainer:
+	var holder := VBoxContainer.new()
+	holder.name = "Team%d" % (int(block["team"]) + 1)
+	holder.add_theme_constant_override("separation", 2)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 4)
+	holder.add_child(gap)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	holder.add_child(head)
+	var rule := ColorRect.new()
+	rule.color = Color("#5c4b33")
+	rule.custom_minimum_size = Vector2(0, 1)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(rule)
+	var name_label := Shell.caps(str(block["name"]), 12, Shell.GOLD if bool(block["mine"]) else Shell.DIM)
+	name_label.name = "TeamName"
+	name_label.custom_minimum_size.x = 104
+	name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(name_label)
+	var time := Shell.label(str(block["time"]), Shell.BOLD_FONT, 16, PartyStrip.MINE if bool(block["mine"]) else Shell.TEXT)
+	time.name = "TeamTime"
+	# (wide enough for "on wave 12 at 12:58 +20 s", so both crews' lives line up)
+	time.custom_minimum_size.x = 200
+	time.add_theme_constant_override("outline_size", 0)
+	head.add_child(time)
+	var top := int(shown.get("max_lives", 20))
+	var lives := Shell.label("%d of %d lives" % [int(block["lives"]), top], Shell.BODY_FONT, 14, Shell.TEXT)
+	lives.name = "TeamLives"
+	lives.custom_minimum_size.x = 104
+	lives.add_theme_constant_override("outline_size", 0)
+	head.add_child(lives)
+	var line := LivesLine.new()
+	line.name = "TeamLivesLine"
+	line.values = block.get("lives_line", [])
+	line.top = top
+	line.waves = int(shown.get("waves", 1))
+	# (the lives along the waves to the right, clear of the numbers' columns, no rule of
+	# its own: the head's rule runs under it)
+	line.span = Vector2(0.3, 0.7)
+	line.baseline = false
+	line.custom_minimum_size = Vector2(0, 24)
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(line)
+	return holder
+
+
+## The race's team blocks as one line each, for tests: "Your crew 12:41 +20 s 18 of 20
+## lives: Sascha, Ana" (empty outside a race).
+func team_lines() -> Array[String]:
+	var out: Array[String] = []
+	for block: Dictionary in results.get("teams", []):
+		var who := []
+		for r: Dictionary in results["rows"]:
+			if (block["seats"] as Array).has(int(r["seat"])):
+				who.append(str(r["name"]))
+		out.append(
+			"%s %s %d of %d lives: %s" % [
+				block["name"], block["time"], int(block["lives"]), int(results["max_lives"]), ", ".join(who)
+			]
+		)
+	return out
 
 
 ## The player rows as one line each, for tests: "Sascha Lamplighter 12 Most kills".
@@ -373,15 +533,20 @@ class LivesLine:
 	var values: Array = []
 	var top := 20
 	var waves := 8
+	## Where the line runs across the control: from x (a share of its width), for y.
+	var span := Vector2(0.2, 0.6)
+	## Whether a dim rule marks no lives under it.
+	var baseline := true
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(0, 34)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var left := size.x * 0.2
-		var width := size.x * 0.6
-		draw_line(Vector2(left, size.y - 2), Vector2(left + width, size.y - 2), Color("#5c4b33"), 1.0)
+		var left := size.x * span.x
+		var width := size.x * span.y
+		if baseline:
+			draw_line(Vector2(left, size.y - 2), Vector2(left + width, size.y - 2), Color("#5c4b33"), 1.0)
 		if values.is_empty():
 			return
 		var points := PackedVector2Array([Vector2(left, 2)])

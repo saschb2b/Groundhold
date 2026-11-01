@@ -1,0 +1,26 @@
+{
+  "name": "flow_play_plays_the_party_mode",
+  "description": "Play plays the mode the hub shows (design 5.2): my own saved mode is Tide Race, but I joined Ana's High Water party and she left, so I lead a party of one in High Water. The hub says Play under High Water, and Play starts an offline High Water match, not a race against the caretaker.",
+  "seed": 1,
+  "timeout_frames": 3000,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"eval": "Session.profile.set_mode('tide_race')"},
+    {"assert": "Session.profile.mode == 'tide_race'", "msg": "my saved mode is Tide Race"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.get_node('LoopbackHub').host('Ana', 'lookout')"},
+    {"eval": "Session.join_code('K7Q4M')"},
+    {"wait_until": "Session.party_size() == 2", "timeout": 120},
+    {"assert": "Session.mode_id() == 'high_water'", "msg": "Ana's party plays High Water"},
+    {"eval": "Session.get_node('LoopbackHub').leave('Ana')"},
+    {"wait_until": "Session.party_size() == 1 and Session.is_leader()", "timeout": 120},
+    {"assert": "Session.mode_id() == 'high_water' and Session.primary()['act'] == 'play'", "msg": "alone in a High Water party, the hub offers Play"},
+    {"eval": "Session.play_offline(Session.profile.main)"},
+    {"wait": 2},
+    {"assert": "str(Session.match_spec.get('shown_mode', '')) == 'high_water' and not Session.is_race(str(Session.match_spec.get('mode', '')))", "msg": "Play starts High Water, the hub's mode, not my saved Tide Race"}
+  ]
+}

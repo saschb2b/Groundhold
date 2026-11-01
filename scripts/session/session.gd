@@ -1,8 +1,10 @@
 ## The way through the game between matches (design 5.1): autoloaded as `Session`.
 ##
 ##   OFFLINE ---connect---> CONNECTING ---WELCOME---> HUB <---> COUNTDOWN (3-2-1)
-##      |                                              |  (QUEUED, MATCH_FOUND: M6)
-##      | Play, Try (a party of one: in-process turns) | MATCH_CONFIG
+##      |                                              |  ^
+##      |                              QUEUE enter     v  | QUEUE_STATE idle (Cancel, a decline)
+##      |                                            QUEUED <---> MATCH_FOUND (15 s, Accept)
+##      | Play, Try (a party of one: in-process turns) | MATCH_CONFIG (a party's, the queue's)
 ##      v                                              v
 ##   IN_MATCH <------------- START, turn 0 ------- LOADING (the sync barrier)
 ##      | won, lost, desynced, everyone left
@@ -27,6 +29,17 @@
 ## match that started without this game still takes its LOADED once the match scene
 ## stands (match_loaded). In the web build a ?join=CODE on the page joins that party at
 ## the first opening of the hub (WebBridge.query).
+##
+## The queue (M6, design 5.1, 5.2, 5.5, 5.9; shared/net/README.md The queue): the leader of
+## a party with open seats (High Water: Find players) or of one race team (Find a rival)
+## sends QUEUE enter; "Entering queue..." and "Leaving queue..." show until the server's
+## QUEUE_STATE answers. Queued, the hub's pill counts from its elapsed_ms ("Finding players
+## 0:42") and the leader's button cancels; after the offer it starts with caretakers (Race
+## the caretaker). MATCH_FOUND opens the Match Found overlay (scripts/ui/match_found.gd) on
+## the server's countdown; ACCEPT answers it. A player who came alone through the queue to
+## a match of strangers is queued again by Play again. Only the leader may leave the queue,
+## so a member's Try waits for it (try_refusal). Offline, a party of one in a race races the
+## caretaker: a rival team of caretakers with the same Builders (offline_match).
 extends Node
 
 ## Anything the hub or the Builders screen shows changed.
@@ -71,6 +84,12 @@ const NOTICE_TEXT := {
 	"parties_full": "This server has no room for another party",
 	"no_held_seat": "The match went on without you: back to the party",
 }
+## The queue's words (design 5.2): the pill and a member's button, by the mode's teams.
+const FINDING_PLAYERS := "Finding players"
+const FINDING_RIVAL := "Finding a rival"
+## Why a member cannot Try while the party is queued (try_refusal).
+const TRY_QUEUED := "The party is in the queue: only the leader can leave it"
+const MATCH_FOUND_OVERLAY := "res://scripts/ui/match_found.gd"
 
 var state := State.OFFLINE
 var profile: Profile
@@ -116,7 +135,25 @@ var return_screen := "hub"
 var match_host: Node
 var matches_played := 0
 
+## The queue as the server's last QUEUE_STATE told it: {"state" ("idle" or "queued"),
+## "elapsed" (ms queued then), "offer" (caretakers offered), "at" (the clock's ms it came)};
+## {} before one.
+var queue := {}
+## The QUEUE op on its way, "enter" or "leave" ("" for none): the button says "Entering
+## queue..." or "Leaving queue..." until the next QUEUE_STATE.
+var queue_request := ""
+## The match the queue found, as the last MATCH_FOUND said it: {"match", "mode", "seats",
+## "accepted", "ms_left", "at", "answer" ("", "accept" or "decline")}; {} while none.
+var found := {}
+## The match this session plays is one of strangers the queue found for a party of one
+## (through Match Found, not a start with caretakers): Play again queues it again (design 5.9).
+var requeue_after := false
+## The match came through Match Found (strangers): the leader cannot start it without a
+## seat; the barrier's timers decide (design 6.6).
+var strangers_match := false
+
 var _loading: LoadingScreen
+var _match_found: Node
 var _builders_sent := []
 var _booted := false
 var _flags_played := false
@@ -219,39 +256,86 @@ func _boot_hub(flags: Dictionary) -> void:
 
 ## What the hub's primary button says and does now (design 5.2): {"text" (the button's
 ## word, or the 3-2-1's digit), "line" (the sentence beside it: "Waiting for Ana", "Ana
-## needs to reload"; "" for none), "enabled", "act"}, where "act" is "play", "start",
-## "ready", "unready", "cancel" or "".
+## needs to reload", "Finding players 0:42"; "" for none), "enabled", "act", "second"}, where
+## "act" is "play", "start", "ready", "unready", "cancel", "queue", "leave_queue",
+## "caretakers" or "", and "second" is the other action beside it once the caretakers are
+## offered ({"text": "Cancel · 1:02", "act": "leave_queue"}; {} otherwise).
 func primary() -> Dictionary:
 	if state == State.CONNECTING:
 		return _button("Play", "Connecting to %s ..." % server_host, false, "")
 	if state == State.COUNTDOWN:
 		var left := countdown_left()
 		return _button(str(left), "Starting in %d · Enter cancels" % left, true, "cancel")
+	if queue_request == "enter":
+		return _button("Entering queue...", "", false, "")
+	if queue_request == "leave":
+		return _button("Leaving queue...", "", false, "")
 	var leads := is_leader()
+	if state == State.MATCH_FOUND:
+		return _button("Match found", "", false, "")
+	if state == State.QUEUED:
+		var finding := queue_text()
+		if not leads:
+			return _button(finding, "", false, "")
+		var cancel := "Cancel · " + clock_text(queue_ms())
+		if queue_offer():
+			var word := "Race the caretaker" if is_race(mode_id()) else "Start with caretakers"
+			var button := _button(word, finding, true, "caretakers")
+			button["second"] = {"text": cancel, "act": "leave_queue"}
+			return button
+		return _button(cancel, finding, true, "leave_queue")
+	var mode := mode_id()
+	var race := is_race(mode)
 	var word := "Start" if leads else ("Not ready" if my_ready() else "Ready")
 	var reload := reload_names()
 	if party_size() > 1 and not reload.is_empty():
 		var who := "You need" if reload.has(my_name()) else "%s needs" % reload[0]
 		return _button(word, who + " to reload", false, "")
+	var partied := _connected() and not party.is_empty()
+	if party_size() <= 1 and not partied and not Profile.offers(mode):
+		# (offline, or on a server without a party, the match plays here, by this build's
+		# rules; in a party the leader chose the mode where its build offers it, and a member
+		# on another build needs to reload)
+		return _button("Play", "%s comes with a later version" % Profile.mode_name(mode), false, "")
 	if party_size() <= 1:
+		if race:
+			if partied:
+				return _button("Find a rival", "", true, "queue")
+			return _button("Race the caretaker", "", true, "play")  # (no party to queue: offline)
+		if _connected() and open_seats():
+			return _button("Find players", "", true, "queue")
 		return _button("Play", "", true, "play")
 	if leads:
 		var waiting := not_ready_names()
+		var finds := ""
+		if race and one_team() and party_size() * 2 <= max_seats(mode):
+			finds = "Find a rival"
+		elif race and not even_teams():
+			return _button("Start", "Two teams of one size: click a row to move it", false, "")
+		elif not race and open_seats() and party_size() < max_seats(mode):
+			finds = "Find players"
+		var act := "queue" if finds != "" else "start"
+		var shown := finds if finds != "" else "Start"
 		if waiting.is_empty():
-			return _button("Start", "Everyone is Ready", true, "start")
-		return _button("Start", "Waiting for " + waiting[0], false, "")
+			return _button(shown, "Everyone is Ready", true, act)
+		return _button(shown, "Waiting for " + waiting[0], false, "")
 	if my_ready():
 		return _button("Not ready", "Waiting for the leader to start", true, "unready")
 	return _button("Ready", "", true, "ready")
 
 
 static func _button(text: String, line: String, enabled: bool, act: String) -> Dictionary:
-	return {"text": text, "line": line, "enabled": enabled, "act": act}
+	return {"text": text, "line": line, "enabled": enabled, "act": act, "second": {}}
 
 
-## Presses the primary button.
-func play() -> void:
-	match str(primary()["act"]):
+## Presses the primary button (`second`: the action beside it, Cancel once caretakers are
+## offered).
+func play(second := false) -> void:
+	var button := primary()
+	var act := str(button["act"])
+	if second:
+		act = str((button["second"] as Dictionary).get("act", ""))
+	match act:
 		"play":
 			play_offline(profile.main)
 		"start":
@@ -262,32 +346,69 @@ func play() -> void:
 			set_ready(false)
 		"cancel":
 			_party("cancel")
+		"queue":
+			enter_queue()
+		"leave_queue":
+			leave_queue()
+		"caretakers":
+			start_with_caretakers()
 
 
 ## An offline match at once (a party of one): the chosen mode with `builder`, in-process
 ## turns. `company` adds caretaker seats (tests and practice) playing `company_builder`;
 ## `try` returns to the Builders screen afterwards.
 func play_offline(builder: String, try := false, company := 0, company_builder := "lamplighter") -> void:
+	if state == State.MATCH_FOUND:
+		decline_match()  # (practising instead: the found match goes on without me)
+	elif state == State.QUEUED and is_leader():
+		leave_queue()  # (a member cannot: try_refusal keeps a member's Try for after the queue)
 	if my_ready():
 		set_ready(false)  # (the party cannot start a match while I practise)
-	var seats := [{"team": 0, "builder": Profile.fielded(builder)}]
-	for i in company:
-		seats.append({"team": 0, "builder": Profile.fielded(company_builder), "caretaker": true})
+	# (a Try is a solo High Water; Play in a race mode races the caretaker; Play plays the
+	# mode the hub shows, the party's where I am in one)
+	var mode := "high_water" if try else mode_id()
 	matches_played += 1
-	match_spec = {
-		"offline": true,
-		"mode": Profile.played_mode(profile.mode),
-		"shown_mode": profile.mode,
-		"seats": seats,
-		"names": [profile.player_name] + _caretaker_names(company),
-		"chosen": [builder] + _caretaker_builders(company, company_builder),
-		"seed": matches_played,
-		"try": try,
-	}
+	match_spec = offline_match(mode, builder, try, company, company_builder)
 	return_screen = "builders" if try else "hub"
 	results = {}
 	_set_state(State.IN_MATCH)
 	_go(MATCH_SCENE)
+
+
+## The offline match play_offline plays ({"offline", "mode" (the rules played), "shown_mode",
+## "seats", "names", "chosen", "seed", "try"}): `mode` with `builder` and `company` caretaker
+## partners playing `company_builder`; in a race the rival team mirrors them, its chosen
+## Builders the same (racing the caretaker).
+func offline_match(
+	mode: String, builder: String, try := false, company := 0, company_builder := "lamplighter"
+) -> Dictionary:
+	var seats := offline_seats(mode, builder, company, company_builder)
+	var chosen := [builder] + _caretaker_builders(company, company_builder)
+	if is_race(mode):
+		chosen += chosen.duplicate()  # (the rival team: the same Builders, a mirror)
+	return {
+		"offline": true,
+		"mode": Profile.played_mode(mode),
+		"shown_mode": mode,
+		"seats": seats,
+		"names": [profile.player_name] + _caretaker_names(seats.size() - 1),
+		"chosen": chosen,
+		"seed": matches_played,
+		"try": try,
+	}
+
+
+## An offline match's seats ({"team", "builder", "caretaker"}): mine first, then `company`
+## caretaker partners playing `company_builder`; in a race (two teams) the rival team after
+## them, caretakers with the same Builders, a mirror (racing the caretaker, design 1.3).
+static func offline_seats(mode: String, builder: String, company := 0, company_builder := "lamplighter") -> Array:
+	var seats := [{"team": 0, "builder": Profile.fielded(builder)}]
+	for i in company:
+		seats.append({"team": 0, "builder": Profile.fielded(company_builder), "caretaker": true})
+	if is_race(mode):
+		for i in company + 1:
+			seats.append({"team": 1, "builder": seats[i]["builder"], "caretaker": true})
+	return seats
 
 
 ## The match menu's Restart (design 5.4): the offline match the session plays, from its
@@ -301,8 +422,23 @@ func restart_match() -> void:
 
 
 ## Try (design 5.4): a solo match with `builder`, offline, back to the Builders screen after.
+## Not while try_refusal() says why.
 func try_builder(builder: String) -> void:
+	var refusal := try_refusal()
+	if refusal != "":
+		_notice(refusal)
+		return
 	play_offline(builder, true)
+
+
+## Why Try cannot start now ("" where it can): a member of a queued party. The leader's Try
+## takes the party out of the queue, but only the leader may (a member's Ready and QUEUE
+## leave are refused while queued), and a member gone into a Try would leave every Match
+## Found the queue makes for the party to run out. In Match Found a Try is a decline.
+func try_refusal() -> String:
+	if state == State.QUEUED and not is_leader():
+		return TRY_QUEUED
+	return ""
 
 
 ## The match scene's first question: what to play. {} when it was booted on its own (its
@@ -328,9 +464,14 @@ func match_over(shown: Dictionary) -> void:
 
 
 ## Play again (design 5.9): back to the hub with the party, mode and Builders unchanged and
-## Ready cleared; after a Try, back to the Builders screen.
+## Ready cleared; after a Try, back to the Builders screen. A player who came alone through
+## the queue to a match of strangers is queued again at once ("Entering queue..." until the
+## server says queued); after a start with caretakers the party is forming, as after Start.
 func play_again() -> void:
+	var again := requeue_after and match_spec.has("networked")
 	to_hub(return_screen)
+	if again and _connected() and party_size() <= 1:
+		enter_queue()
 
 
 ## Leaves whatever plays or shows for the hub (or the Builders screen).
@@ -365,10 +506,14 @@ func to_hub(where_to := "hub") -> void:
 	if client:
 		client.rearm()
 	_hide_loading()
+	_hide_match_found()
 	match_host = null
 	match_spec = {}
+	requeue_after = false
+	found = {}
 	screen = where_to
-	_set_state(State.HUB if _connected() else State.OFFLINE)
+	var queued := _connected() and str(queue.get("state", "")) == "queued"
+	_set_state(State.QUEUED if queued else (State.HUB if _connected() else State.OFFLINE))
 	_go(HUB_SCENE)
 
 
@@ -468,6 +613,7 @@ func leave_party() -> void:
 
 
 func disconnect_server() -> void:
+	_forget_queue()
 	if client:
 		for sig: Signal in [client.welcomed, client.hub_message, client.configured, client.ended, client.failed]:
 			for c: Dictionary in sig.get_connections():
@@ -492,6 +638,67 @@ func set_mode(id: String) -> void:
 	profile.set_mode(id)
 	if is_leader() and party_size() > 0:
 		_party("mode", {"mode": Profile.wire_mode(id)})
+
+
+## Open seats (design 5.2), the leader's: the queue fills them with strangers.
+func set_open(on: bool) -> void:
+	if is_leader() and not party.is_empty():
+		_party("open", {"on": 1 if on else 0})
+
+
+## The leader moves `member` to the other team (a race party, design 5.2).
+func move_team(member: int) -> void:
+	if not is_leader() or party.is_empty() or not is_race(mode_id()):
+		return
+	if str(party["phase"]) != "forming":
+		return
+	for m: Dictionary in members():
+		if int(m["member"]) == member:
+			_party("team", {"member": member, "team": 1 - int(m["team"])})
+
+
+## Find players or Find a rival: QUEUE enter ("Entering queue..." until the server answers).
+func enter_queue() -> void:
+	if not _connected() or party.is_empty() or queue_request != "":
+		return
+	queue_request = "enter"
+	client.send("QUEUE", {"op": NetProtocol.enum_value("queue_ops", "enter")})
+	changed.emit()
+
+
+## Cancel: QUEUE leave ("Leaving queue..." until the server answers).
+func leave_queue() -> void:
+	if not _connected() or queue_request != "" or state != State.QUEUED or not is_leader():
+		return
+	queue_request = "leave"
+	client.send("QUEUE", {"op": NetProtocol.enum_value("queue_ops", "leave")})
+	changed.emit()
+
+
+## After the offer: the party's match at once, caretakers in the free seats (a race: a
+## caretaker rival team).
+func start_with_caretakers() -> void:
+	if not _connected() or not queue_offer() or not is_leader():
+		return
+	client.send("QUEUE", {"op": NetProtocol.enum_value("queue_ops", "start_with_caretakers")})
+
+
+## Match Found's Accept (design 5.5).
+func accept_match() -> void:
+	_answer_found(true)
+
+
+## Match Found's decline: the match dissolves, this party back to forming.
+func decline_match() -> void:
+	_answer_found(false)
+
+
+func _answer_found(yes: bool) -> void:
+	if found.is_empty() or str(found["answer"]) != "" or not _connected():
+		return
+	found["answer"] = "accept" if yes else "decline"
+	client.send("ACCEPT", {"match": int(found["match"]), "yes": 1 if yes else 0})
+	changed.emit()
 
 
 func set_main(builder: String) -> void:
@@ -529,6 +736,8 @@ func my_name() -> String:
 func start_without_name() -> String:
 	if client == null or party.is_empty() or not is_leader() or state != State.LOADING:
 		return ""
+	if strangers_match:
+		return ""  # (strangers never start without a seat: their barrier's timers decide)
 	if client.phase >= MatchClient.Phase.STARTING or client.load_seconds < START_WITHOUT_AFTER:
 		return ""
 	var loaded := false
@@ -582,6 +791,87 @@ func party_builders() -> Array:
 	for m: Dictionary in members():
 		out.append(str(m["main"]))
 	return out
+
+
+## The mode the hub plays: the party's (its leader's choice), else mine.
+func mode_id() -> String:
+	if not party.is_empty() and str(party.get("mode", "")) != "":
+		return str(party["mode"])
+	return profile.mode
+
+
+## Whether `mode` sets two teams against each other (Tide Race, Undertow).
+static func is_race(mode: String) -> bool:
+	var modes: Dictionary = NetProtocol.spec()["modes"]
+	return modes.has(mode) and int(modes[mode]["teams"]) > 1
+
+
+static func max_seats(mode: String) -> int:
+	var modes: Dictionary = NetProtocol.spec()["modes"]
+	return int(modes[mode]["seats"][1]) if modes.has(mode) else NetProtocol.number("max_seats")
+
+
+## Whether the party has open seats on (PARTY_STATE flags): a one-team mode's, so never in
+## a race, whose queue finds a rival team (the server turns them off with the mode).
+func open_seats() -> bool:
+	if party.is_empty() or is_race(mode_id()):
+		return false
+	return (int(party["flags"]) & NetProtocol.enum_value("party_flags", "open")) != 0
+
+
+## A race party all on one team (Find a rival).
+func one_team() -> bool:
+	var teams := {}
+	for m: Dictionary in members():
+		teams[int(m["team"])] = true
+	return teams.size() <= 1
+
+
+## A race party on two teams of one size (Start).
+func even_teams() -> bool:
+	var sizes := [0, 0]
+	for m: Dictionary in members():
+		sizes[clampi(int(m["team"]), 0, 1)] += 1
+	return sizes[0] > 0 and sizes[0] == sizes[1]
+
+
+## Milliseconds queued, counted on from the server's elapsed_ms.
+func queue_ms() -> int:
+	if str(queue.get("state", "")) != "queued":
+		return 0
+	return int(queue["elapsed"]) + maxi(0, _now() - int(queue["at"]))
+
+
+func queue_offer() -> bool:
+	return str(queue.get("state", "")) == "queued" and bool(queue.get("offer", false))
+
+
+## The pill's words: "Finding players 0:42", "Finding a rival 1:05".
+func queue_text() -> String:
+	var finding := FINDING_RIVAL if is_race(mode_id()) else FINDING_PLAYERS
+	return "%s %s" % [finding, clock_text(queue_ms())]
+
+
+## Seconds left to answer Match Found, from the server's ms_left (0 when none).
+func found_seconds() -> int:
+	if found.is_empty():
+		return 0
+	var left := int(found["ms_left"]) - maxi(0, _now() - int(found["at"]))
+	return maxi(0, ceili(left / 1000.0))
+
+
+## The share of Match Found's window left, 1 at its start.
+func found_share() -> float:
+	if found.is_empty():
+		return 0.0
+	var left := int(found["ms_left"]) - maxi(0, _now() - int(found["at"]))
+	return clampf(float(left) / float(NetProtocol.number("accept_ms")), 0.0, 1.0)
+
+
+## "0:42", "12:05".
+static func clock_text(ms: int) -> String:
+	var seconds := maxi(0, ms) / 1000
+	return "%d:%02d" % [seconds / 60, seconds % 60]
 
 
 ## Seconds left on the 3-2-1, counted from the server's countdown_ms.
@@ -725,14 +1015,9 @@ func _on_hub_message(type: String, fields: Dictionary) -> void:
 			else:
 				_notice(str(NOTICE_TEXT.get(key, "The server says no")))
 		"QUEUE_STATE":
-			var queued := NetProtocol.enum_name("queue_states", int(fields["state"])) == "queued"
-			if queued and state in [State.HUB, State.COUNTDOWN]:
-				_set_state(State.QUEUED)
-			elif not queued and state == State.QUEUED:
-				_set_state(State.HUB)
+			_on_queue_state(fields)
 		"MATCH_FOUND":
-			if state in [State.HUB, State.QUEUED]:
-				_set_state(State.MATCH_FOUND)
+			_on_match_found(fields)
 
 
 func _on_party_state(fields: Dictionary) -> void:
@@ -741,7 +1026,9 @@ func _on_party_state(fields: Dictionary) -> void:
 		party = {}
 		me = -1
 		_builders_sent = []
-		if state in [State.COUNTDOWN, State.QUEUED, State.CONNECTING]:
+		if state in [State.COUNTDOWN, State.QUEUED, State.MATCH_FOUND, State.CONNECTING]:
+			# (out of the party, out of its queue and its Match Found too)
+			_forget_queue()
 			_set_state(State.HUB)
 		changed.emit()
 		return
@@ -777,18 +1064,76 @@ func _on_party_state(fields: Dictionary) -> void:
 			me = int(m["member"])
 	if me >= 0 and _builders_sent != [profile.main, profile.backup]:
 		_send_builders()
-	if state in [State.HUB, State.COUNTDOWN, State.QUEUED, State.CONNECTING]:
+	if state in [State.HUB, State.COUNTDOWN, State.QUEUED, State.CONNECTING, State.MATCH_FOUND]:
 		match str(party["phase"]):
 			"countdown":
 				_set_state(State.COUNTDOWN)
 			"queued":
-				_set_state(State.QUEUED)
+				if state != State.MATCH_FOUND:
+					_set_state(State.QUEUED)
 			"forming", "results":
+				found = {}
+				_hide_match_found()
 				_set_state(State.HUB)
 	changed.emit()
 
 
+## QUEUE_STATE: the queue as the server has it now; the request on its way is answered.
+func _on_queue_state(fields: Dictionary) -> void:
+	var queued := NetProtocol.enum_name("queue_states", int(fields["state"])) == "queued"
+	var offer := int(fields["caretaker_offer"]) != 0
+	# (the server answers each QUEUE with one QUEUE_STATE, but also says the offer unasked at
+	# 60 s: one that comes while a Cancel is on its way answers nothing, and the Cancel's own
+	# answer follows it. Every other QUEUE_STATE answers the request on its way.)
+	if not (queue_request == "leave" and queued and offer and not queue_offer()):
+		queue_request = ""
+	queue = {
+		"state": "queued" if queued else "idle",
+		"elapsed": int(fields["elapsed_ms"]),
+		"offer": offer,
+		"at": _now(),
+	}
+	if queued and state in [State.HUB, State.COUNTDOWN, State.QUEUED, State.MATCH_FOUND]:
+		# (back in the queue after a match dissolved, too: the overlay goes)
+		found = {}
+		_hide_match_found()
+		_set_state(State.QUEUED)
+	elif not queued and state in [State.QUEUED, State.MATCH_FOUND]:
+		found = {}
+		_hide_match_found()
+		_set_state(State.HUB)
+	changed.emit()
+
+
+## MATCH_FOUND: strangers found (design 5.5): the overlay, on the server's countdown.
+func _on_match_found(fields: Dictionary) -> void:
+	if not state in [State.HUB, State.QUEUED, State.MATCH_FOUND]:
+		return
+	var same := not found.is_empty() and int(found["match"]) == int(fields["match"])
+	found = {
+		"match": int(fields["match"]),
+		"mode": NetProtocol.enum_name("modes", int(fields["mode"])),
+		"seats": int(fields["seats"]),
+		"accepted": int(fields["accepted"]),
+		"ms_left": int(fields["ms_left"]),
+		"at": _now(),
+		"answer": str(found["answer"]) if same else "",
+	}
+	_set_state(State.MATCH_FOUND)
+	_show_match_found()
+	changed.emit()
+
+
 func _on_configured() -> void:
+	# (a match of strangers the queue found for a party of one: Play again queues again,
+	# design 5.9; strangers always come through Match Found. Starting with caretakers left
+	# the queue for the party's own match, which Play again leaves forming, as any start)
+	requeue_after = state == State.MATCH_FOUND and party_size() <= 1
+	strangers_match = state == State.MATCH_FOUND
+	found = {}
+	queue = {}
+	queue_request = ""
+	_hide_match_found()
 	match_spec = {"networked": true}
 	matches_played += 1
 	return_screen = "hub"
@@ -817,6 +1162,7 @@ func _on_failed(text: String) -> void:
 	me = -1
 	where = "offline"
 	server_host = ""
+	_forget_queue()
 	if not in_match:
 		client = null
 		_hide_loading()
@@ -851,6 +1197,11 @@ func _send_builders() -> void:
 	)
 
 
+## Whether the session is on a server with its link open (outside a failed one).
+func online() -> bool:
+	return _connected()
+
+
 func _connected() -> bool:
 	return client != null and client.link != null and client.link.is_open() and client.phase >= MatchClient.Phase.WAITING and client.phase != MatchClient.Phase.FAILED
 
@@ -873,6 +1224,25 @@ func _go(path: String) -> void:
 		changed.emit()
 		return
 	tree.change_scene_to_file(path)
+
+
+func _forget_queue() -> void:
+	queue = {}
+	queue_request = ""
+	found = {}
+	_hide_match_found()
+
+
+func _show_match_found() -> void:
+	if _match_found == null and ResourceLoader.exists(MATCH_FOUND_OVERLAY):
+		_match_found = load(MATCH_FOUND_OVERLAY).new()
+		add_child(_match_found)
+
+
+func _hide_match_found() -> void:
+	if _match_found:
+		_match_found.queue_free()
+		_match_found = null
 
 
 func _show_loading() -> void:

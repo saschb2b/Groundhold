@@ -1,0 +1,30 @@
+{
+  "name": "race_offline_outcome_rival_fell",
+  "description": "An offline race won by the rival's fall ends won, though my own hollow is neither done nor fallen (design 1.3's win order; review of M6: main.gd judged an offline race by my hollow's phase and called this lost). Racing the caretaker, the mirror's Holdfast goes under on a wave: the strip's second line says what I need ('Your rival fell on wave 8. Clear wave 8 to win') and nothing is decided yet; once my hollow has cleared that wave the simulation decides the race for me, SimMatch.outcomes() says won for my team, and the results say so: 'You Outran the Tide', 'Your rival fell on wave 8'.",
+  "seed": 1,
+  "timeout_frames": 1200,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 1},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 2},
+    {"set": "Game.countdown", "value": 900},
+    {"eval": "Game.debug(3, 1, 8)"},
+    {"eval": "Game.debug(2, 1, 0)"},
+    {"wait": 2},
+    {"eval": "Game.sim.teams[1].fell_wave", "as": "fell"},
+    {"assert": "fell >= 8 and Game.outcome() == '' and not Game.sim.over", "msg": "the mirror fell; the race goes on until I clear that wave"},
+    {"assert": "node('Hud').rival_line() == 'Your rival fell on wave %d. Clear wave %d to win' % [fell, fell]", "msg": "the strip says what I need to win"},
+    {"eval": "Game.debug(3, 0, fell)"},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Game.state == 0 and Game.sim.hollows[0].phase == 0", "msg": "my hollow is in a build window: neither done nor fallen"},
+    {"assert": "Game.sim.decided_by() == 'fell' and Game.sim.outcomes()[0] == 0 and Game.outcome() == 'won'", "msg": "the simulation decided the race for my team"},
+    {"assert": "node('ResultsPanel').results['outcome'] == 'won' and node('ResultsTitle').text == 'YOU OUTRAN THE TIDE' and node('ResultsRule').text == 'Your rival fell on wave %d' % fell", "msg": "and the results say won, with the rule"}
+  ]
+}

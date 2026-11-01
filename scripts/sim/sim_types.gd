@@ -138,7 +138,8 @@ const EV_REJECTED := 16  # seat, seq, cmd, reason
 ## (M2) An effect took hold, was replaced by a stronger one or refreshed: effect (an
 ## EFFECT_* id), creep (0 for a tower's), tower (the one that gave it; for haste the
 ## hastened one), seat (whose tower gave it), amount (per mille for slow, mark and
-## haste, 1000 for a stun, hundredths of armour for crack), until (the tick it ends)
+## haste, 1000 for a stun, hundredths of armour for crack), until (the tick it ends; 0
+## for the auras, crack and haste, which hold while the creep or tower stays in reach)
 const EV_STATUS := 17
 ## (M2) Help (design 3.2): a hit landed on a creep another seat's tower had slowed,
 ## stunned, marked or cracked, or came from a tower another seat's hive hastens; the
@@ -155,6 +156,15 @@ const EV_PULSE := 19
 ## ticks, -1 while it has none), and for "decided" outcomes (one MATCH_END outcome id per
 ## team, protocol.json's "outcomes") and rule ("time", "fell", "cap", "draw")
 const EV_RACE := 20
+
+## A team's outcome, as MATCH_END and RESULT number them (protocol.json's "outcomes"):
+## SimMatch.outcomes() gives one per team.
+const OUTCOME_WON := 0
+const OUTCOME_LOST := 1
+const OUTCOME_DRAW := 2
+## What decided a race (SimMatch.decided_by(), EV_RACE "rule"), by its index in the
+## match's state: "" while it runs.
+const RACE_RULES := ["", "time", "fell", "cap", "draw"]
 
 const EVENT_TYPES := {
 	"SPAWN": EV_SPAWN,

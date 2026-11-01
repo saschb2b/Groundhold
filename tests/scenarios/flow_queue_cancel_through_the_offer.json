@@ -1,0 +1,30 @@
+{
+  "name": "flow_queue_cancel_through_the_offer",
+  "description": "A Cancel on its way when the caretakers are offered (design 5.2, Request pending): the leader presses Cancel a moment before the minute, the server's QUEUE_STATE with the offer arrives before the Cancel's answer, and the button stays 'Leaving queue...', disabled, instead of flashing an enabled Start with caretakers; the Cancel's own QUEUE_STATE idle then ends it: back to forming, Find players.",
+  "seed": 1,
+  "timeout_frames": 5000,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.create_party()"},
+    {"wait_until": "Session.party_code() == 'K7Q4M'", "timeout": 120},
+    {"eval": "Session.set_open(true)"},
+    {"wait_until": "node('HubPanel').primary_text() == 'Find players'", "timeout": 60},
+    {"click": "node('Primary')"},
+    {"wait_until": "Session.state_name() == 'QUEUED'", "timeout": 60},
+    {"wait_until": "Session.get_node('LoopbackHub').frame - int(Session.get_node('LoopbackHub').seq.ticket.get('since', 0)) >= Session.get_node('LoopbackHub').seq.offer_frames - 2", "timeout": 4000},
+    {"assert": "not Session.queue_offer() and node('HubPanel').primary_text().begins_with('Cancel · 0:59')", "msg": "a moment before the minute: Cancel"},
+    {"eval": "Session.play()"},
+    {"assert": "node('HubPanel').primary_text() == 'Leaving queue...'", "msg": "the Cancel on its way"},
+    {"wait_until": "Session.queue_offer() or Session.state_name() == 'HUB'", "timeout": 60},
+    {"assert": "Session.queue_offer() and Session.queue_request == 'leave'", "msg": "the offer came first, unasked: it answers nothing"},
+    {"assert": "Session.primary()['text'] == 'Leaving queue...' and not Session.primary()['enabled'] and node('HubPanel').primary_text() == 'Leaving queue...'", "msg": "the button still waits for the Cancel's answer, disabled"},
+    {"wait_until": "Session.state_name() == 'HUB'", "timeout": 60},
+    {"wait": 1},
+    {"assert": "Session.queue_request == '' and Session.get_node('LoopbackHub').seq.queue_log == ['enter', 'leave']", "msg": "the Cancel's answer: out of the queue"},
+    {"assert": "node('HubPanel').primary_text() == 'Find players' and not node('Primary').disabled", "msg": "forming again: Find players"}
+  ]
+}

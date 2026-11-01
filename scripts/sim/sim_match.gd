@@ -7,7 +7,14 @@
 ## state_hash() its first 8 bytes of SHA-256.
 ##
 ## Tick order (design 6.4): the turn's commands; each hollow's wave clock and spawns; the
-## caretaker; creeps move; towers fire; shots land; wave clears; the end check.
+## caretaker; creeps move; towers fire or pulse; shots land; wave clears; the end check.
+##
+## A race (M6, Tide Race: the rules' "race" key) gives each team a hollow of its own from
+## the same map text; nothing crosses between them, and each runs its own clock, so a
+## mirror plays out the same on both. The simulation draws nothing random today; anything
+## a hollow ever draws must come from a stream of its own, seeded from the match seed and
+## the hollow id, for that to hold. The race is decided by design 1.3's win order as soon
+## as the outcome is certain (_decide_race): outcomes(), race_time(), decided_by().
 @warning_ignore_start("integer_division")
 class_name SimMatch
 extends RefCounted
@@ -36,6 +43,18 @@ var map_text := ""
 ## The wave list for this mode (content), and each Builder's plan for the caretaker.
 var waves: Array = []
 var plans := {}
+## (M6) A race (the rules' "race" key): two teams on hollows of their own, decided by the
+## race's win order; life_t is what a lost life adds to a team's race time.
+var race := false
+var life_t := 0
+## (M6) The race's decision once it is certain: its rule (an index into
+## SimTypes.RACE_RULES, 0 while undecided) and one outcome per team (SimTypes.OUTCOME_*).
+var race_rule := 0
+var race_outcomes := PackedInt32Array()
+## (M6) A switch for the balance gates, never state: a decided race plays on until every
+## hollow is done or fallen (or the cap), so a gate can hold the early decision against
+## the finish. The decision stands as it was taken.
+var play_on := false
 
 var _events: Array = []
 var _tower_by_id := {}
@@ -53,6 +72,11 @@ var _looking := false
 ## or loaded: sim_bench holds with it that a real tick (step(), not a test that opens the
 ## look itself) looks along the road. Never state, like the order above.
 var walks := 0
+## The Chime Posts standing (towers with a crack aura), in id order, rebuilt whenever a
+## tower is built, forked or sold, and whether a creep may still hold a crack from one:
+## stage 5 refreshes the cracks only then. Never state.
+var crack_posts: Array[SimRecords.SimTower] = []
+var _cracks_out := true
 
 
 ## `seat_list` holds one Dictionary per seat: {"team", "builder", "caretaker"}; seat
@@ -93,6 +117,8 @@ func setup(match_rules: Dictionary, start_seed: int, text: String) -> void:
 	rng = SimRng.new(match_seed)
 	map_text = text if text != "" else SimContent.map_text(str(rules["map"]))
 	waves = SimContent.WAVES[rules["waves"]]
+	race = rules.get("race") is Dictionary
+	life_t = int((rules.get("race", {}) as Dictionary).get("life_t", 0)) if race else 0
 	for builder: String in SimContent.BUILDER_IDS:
 		plans[builder] = SimContent.plan_steps(builder, mode)
 	for t in int(rules["teams"]):
@@ -228,6 +254,61 @@ func ready_count(hollow: int) -> Array:
 	return [ready, h.seats.size()]
 
 
+## (M6) One MATCH_END outcome per team (SimTypes.OUTCOME_*), in team order; empty until
+## the match is decided. A race gives its decision; otherwise a team that cleared its
+## waves won and any other lost. A match the server's TIMEOUT aborted decided nothing.
+func outcomes() -> Array:
+	var out := []
+	if race:
+		if race_rule != 0:
+			for v in race_outcomes:
+				out.append(v)
+		return out
+	if not over or aborted:
+		return out
+	for team in teams:
+		var won := true
+		for id in team.hollows:
+			won = won and hollows[id].phase == SimTypes.PHASE_DONE
+		out.append(SimTypes.OUTCOME_WON if won else SimTypes.OUTCOME_LOST)
+	return out
+
+
+## (M6) A team's race time in ticks: the tick it cleared its last wave plus life_t for
+## every life it lost; -1 while it has not cleared them (or outside a race).
+func race_time(team: int) -> int:
+	if not race or team < 0 or team >= teams.size() or teams[team].clear_tick < 0:
+		return -1
+	return teams[team].clear_tick + race_penalty_t(team)
+
+
+## (M6) What the lives a team lost so far add to its race time, in ticks: the "+20 s" of
+## the rival line (0 outside a race).
+func race_penalty_t(team: int) -> int:
+	if not race or team < 0 or team >= teams.size():
+		return 0
+	return life_t * maxi(0, int(rules["lives"]) - teams[team].lives)
+
+
+## (M6) What decided the race: "time", "fell", "cap" or "draw"; "" while it runs and in a
+## match that is no race.
+func decided_by() -> String:
+	return str(SimTypes.RACE_RULES[race_rule]) if race_rule > 0 and race_rule < SimTypes.RACE_RULES.size() else ""
+
+
+## (M6) How many waves a team has cleared: its hollow's wave in a build window or once done,
+## the one before it during a wave, and the one before the wave it fell on.
+func cleared_waves(team: int) -> int:
+	var t := teams[team]
+	var h := hollows[t.hollows[0]]
+	match h.phase:
+		SimTypes.PHASE_PREP, SimTypes.PHASE_DONE:
+			return h.wave
+		SimTypes.PHASE_FALLEN:
+			return maxi(0, (t.fell_wave if t.fell_wave > 0 else h.wave) - 1)
+	return maxi(0, h.wave - 1)
+
+
 ## Gold each seat would get if the horn sounded now: one per whole second left.
 func early_gold(hollow: int) -> int:
 	var h := hollows[hollow]
@@ -257,6 +338,15 @@ func range_bonus(seat_no: int) -> int:
 	if s == null or not bool(rules.get("perks", true)):
 		return 0
 	return SimContent.perk_value(s.builder, "keen_sight", "range_mm", 0)
+
+
+## (M6) Armour every hit of seat `seat_no`'s towers ignores besides their own pierce: the
+## Bronze Hand perk's, where perks are on.
+func pierce_bonus(seat_no: int) -> int:
+	var s := seat(seat_no)
+	if s == null or not bool(rules.get("perks", true)):
+		return 0
+	return SimContent.perk_value(s.builder, "bronze_hand", "pierce_c", 0)
 
 
 ## Effective speed this tick: stunned creeps stand, slowed ones walk slower.
@@ -390,6 +480,7 @@ func _build(s: SimRecords.SimSeat, cmd: Dictionary) -> void:
 	_tower_by_id[t.id] = t
 	h.occupied[z * h.road.width + x] = t.id
 	s.towers += 1
+	_towers_changed(h.id)
 	_emit(
 		{
 			"type": SimTypes.EV_BUILT,
@@ -428,6 +519,7 @@ func _fork(s: SimRecords.SimSeat, cmd: Dictionary) -> void:
 	t.invested += cost
 	resolve_tower(t)
 	s.forks += 1
+	_towers_changed(t.hollow)
 	_emit(
 		{
 			"type": SimTypes.EV_FORKED,
@@ -455,6 +547,7 @@ func _sell(s: SimRecords.SimSeat, cmd: Dictionary) -> void:
 	towers.erase(t)
 	_tower_by_id.erase(t.id)
 	s.towers -= 1
+	_towers_changed(h.id)
 	_emit(
 		{
 			"type": SimTypes.EV_SOLD,
@@ -647,6 +740,16 @@ func resolve_tower(t: SimRecords.SimTower) -> void:
 	t.mark_pm = int(stats.get("mark_pm", 0))
 	t.marks = int(stats.get("marks", 0))
 	t.mark_t = int(stats.get("mark_t", 0))
+	t.pierce_c += pierce_bonus(t.owner)
+	t.pulse = bool(stats.get("pulse", false))
+	t.stun_t = maxi(0, int(stats.get("stun_t", 0)))
+	t.stun_immune_t = maxi(0, int(stats.get("stun_immune_t", 0)))
+	t.air_slow_pm = int(stats.get("air_slow_pm", 0))
+	t.air_slow_t = int(stats.get("air_slow_t", 0))
+	t.cloud_mm = maxi(0, int(stats.get("cloud_mm", 0)))
+	t.crack_c = maxi(0, int(stats.get("crack_c", 0)))
+	t.hum_pm = maxi(0, int(stats.get("haste_pm", 0)))
+	t.air_bonus_pm = maxi(0, int(stats.get("air_bonus_pm", 0)))
 	var road := hollows[t.hollow].road
 	t.intervals = road.intervals(SimRoad.centre_mm(t.x), SimRoad.centre_mm(t.z), t.range_mm)
 
@@ -655,6 +758,20 @@ func resolve_tower(t: SimRecords.SimTower) -> void:
 ## SimEffects).
 func apply_slow(c: SimRecords.SimCreep, pm: int, ticks: int, from_seat: int, from_tower := 0) -> void:
 	SimEffects.apply_slow(self, c, pm, ticks, from_seat, from_tower)
+
+
+## After a tower on hollow `hollow` was built, forked or sold: the hums' haste there is
+## worked out again (SimEffects.recompute_haste) and the Chime Posts listed again.
+func _towers_changed(hollow: int) -> void:
+	SimEffects.recompute_haste(self, hollow)
+	_list_posts()
+
+
+func _list_posts() -> void:
+	crack_posts.clear()
+	for t in towers:
+		if t.crack_c > 0:
+			crack_posts.append(t)
 
 
 # ── The tick's stages ──
@@ -718,6 +835,11 @@ func _fall(team: SimRecords.SimTeam) -> void:
 		var h := hollows[id]
 		if h.phase == SimTypes.PHASE_DONE or h.phase == SimTypes.PHASE_FALLEN:
 			continue
+		if race and team.fell_wave == 0:
+			# (in a window it falls facing the next wave, of which it has killed nothing)
+			team.fell_wave = h.wave + 1 if h.phase == SimTypes.PHASE_PREP else maxi(1, h.wave)
+			team.fell_kills = team.wave_kills if h.phase == SimTypes.PHASE_WAVE else 0
+			race_event("fell", team.id, team.fell_wave)
 		h.phase = SimTypes.PHASE_FALLEN
 		h.cursor = h.queue.size() / 2
 		_emit(
@@ -730,26 +852,148 @@ func _fall(team: SimRecords.SimTeam) -> void:
 		)
 
 
-## Stage 5, in id order. A tower that fires no shot (shot_um_t 0) works by its team
-## effect alone (SimEffects.team_tower: the Owl's Eye's marks); the others keep or pick a
-## target by their aim (SimTargeting) and fire when cooled down.
+## Stage 5, in id order. The Chime Posts' cracks come first (SimEffects.refresh_cracks),
+## so every hit this tick meets the armour the creep has where it stands. A pulse (the
+## Toll Tower) strikes every creep in its reach, a bee cloud (the Clay Hive) every creep
+## near the one it aims at; a tower that fires no shot otherwise works by its team effect
+## alone (SimEffects.team_tower: the Owl's Eye's marks; the auras need no turn); the
+## others keep or pick a target by their aim (SimTargeting) and fire when cooled down.
+## The strikes of pulses and clouds land once every tower has looked (_strike_all), so
+## no creep dies while the towers look along the road (by_distance).
 func _fire_towers() -> void:
+	if not crack_posts.is_empty() or _cracks_out:
+		SimEffects.refresh_cracks(self, crack_posts)
+		_cracks_out = not crack_posts.is_empty()
+	var strikes := PackedInt32Array()
 	open_look()
 	for t in towers:
+		if t.pulse:
+			_pulse(t, strikes)
+			continue
+		if t.cloud_mm > 0:
+			_cloud(t, strikes)
+			continue
 		if t.shot_um_t == 0:
 			SimEffects.team_tower(self, t)
 			continue
 		t.target = SimTargeting.target_for(self, t)
 		if t.target != 0 and tick >= t.cooldown_until:
 			_fire(t, creep(t.target))
-			t.cooldown_until = tick + _cooldown(t)
+			t.cooldown_until = tick + cooldown_of(t)
 	close_look()
+	if not strikes.is_empty():
+		_strike_all(strikes)
 
 
-func _cooldown(t: SimRecords.SimTower) -> int:
+## A tower's ticks until it may act again: its cd_t, divided by 1 + its haste (M6).
+func cooldown_of(t: SimRecords.SimTower) -> int:
 	if t.haste_pm > 0:
 		return maxi(1, t.cd_t * 1000 / (1000 + t.haste_pm))
 	return t.cd_t
+
+
+## (M6) A pulse, once cooled down and with a creep in reach: every creep in its reach
+## (fliers only where it has `air`) is struck at once (as [tower, creep] pairs into
+## `strikes`), and EV_PULSE says where it rang. A pulse that has cooled down waits for
+## a creep every tick, so it asks the walk along the road first whether one is in reach
+## (SimTargeting.furthest, the same test as in_range), and scans every creep, in id
+## order, only on the tick it rings (sim_bench's M6 board: the scan of a waiting Toll
+## Tower was a third of a busy tick).
+func _pulse(t: SimRecords.SimTower, strikes: PackedInt32Array) -> void:
+	if tick < t.cooldown_until:
+		return
+	if SimTargeting.furthest(self, t, false) == 0:
+		return
+	var struck := false
+	for c in creeps:
+		if in_range(t, c):
+			strikes.append(t.id)
+			strikes.append(c.id)
+			struck = true
+	if not struck:
+		return
+	t.shots += 1
+	t.cooldown_until = tick + cooldown_of(t)
+	_emit(
+		{
+			"type": SimTypes.EV_PULSE,
+			"tower": t.id,
+			"form": SimContent.tower_form(t.kind, t.branch),
+			"hollow": t.hollow,
+			"x": SimRoad.centre_mm(t.x),
+			"z": SimRoad.centre_mm(t.z),
+			"r": t.range_mm
+		}
+	)
+
+
+## (M6) A bee cloud: it aims as a tower does (fliers too where it has `air`) and, once
+## cooled down, stings every creep on its hollow, ground or air, within cloud_mm of the one
+## it aims at. cloud_creep says where the cloud hangs: the creep it last stung over while
+## that one lives, 0 once it has none to aim at.
+func _cloud(t: SimRecords.SimTower, strikes: PackedInt32Array) -> void:
+	t.target = SimTargeting.target_for(self, t)
+	if t.target == 0 or (t.cloud_creep != 0 and creep(t.cloud_creep) == null):
+		t.cloud_creep = 0
+	if t.target == 0:
+		return
+	if tick < t.cooldown_until:
+		return
+	var over_creep := creep(t.target)
+	var road := hollows[t.hollow].road
+	var x := road.x_at(over_creep.dist_um)
+	var z := road.z_at(over_creep.dist_um)
+	var r := t.cloud_mm
+	for c in creeps:
+		if c.hollow != t.hollow:
+			continue
+		var dx := road.x_at(c.dist_um) - x
+		var dz := road.z_at(c.dist_um) - z
+		if dx * dx + dz * dz <= r * r:
+			strikes.append(t.id)
+			strikes.append(c.id)
+	t.cloud_creep = over_creep.id
+	t.shots += 1
+	t.cooldown_until = tick + cooldown_of(t)
+
+
+## The strikes stage 5's pulses and clouds dealt, in the order they were struck: each a
+## hit of its tower's damage through the armour rule, with its slow, its stun or its
+## flier slow, on a creep still alive. No shot flies, so none is stored (id 0).
+func _strike_all(strikes: PackedInt32Array) -> void:
+	var t: SimRecords.SimTower = null
+	var strike: SimRecords.SimShot = null
+	var k := 0
+	while k < strikes.size():
+		if t == null or t.id != strikes[k]:
+			t = tower(strikes[k])
+			strike = _strike_of(t)
+		var c := creep(strikes[k + 1])
+		k += 2
+		if c != null and c.alive:
+			_hurt(c, strike, strike.dmg_c, false)
+
+
+## A pulse's or cloud's strike as a shot that has already landed: never stored.
+func _strike_of(t: SimRecords.SimTower) -> SimRecords.SimShot:
+	var strike := SimRecords.SimShot.new()
+	strike.tower = t.id
+	strike.seat = t.owner
+	strike.hollow = t.hollow
+	strike.kind = t.kind
+	strike.fire_tick = tick
+	strike.land_tick = tick
+	strike.dmg_c = t.dmg_c
+	strike.slow_pm = t.slow_pm
+	strike.slow_t = t.slow_t
+	strike.pierce_c = t.pierce_c
+	strike.air_bonus_pm = t.air_bonus_pm
+	if t.pulse:
+		strike.stun_t = t.stun_t
+		strike.stun_immune_t = t.stun_immune_t
+		strike.air_slow_pm = t.air_slow_pm
+		strike.air_slow_t = t.air_slow_t
+	return strike
 
 
 ## Schedules a shot from the tower's cell centre. Its flight time comes from the
@@ -776,6 +1020,7 @@ func _fire(t: SimRecords.SimTower, c: SimRecords.SimCreep) -> void:
 	shot.slow_pm = t.slow_pm
 	shot.slow_t = t.slow_t
 	shot.pierce_c = t.pierce_c
+	shot.air_bonus_pm = t.air_bonus_pm
 	shot.bounces = t.bounces
 	shot.bounce_mm = t.bounce_mm if t.bounces > 0 else 0
 	if t.splash_mm > 0:
@@ -827,6 +1072,7 @@ func _bounce(shot: SimRecords.SimShot, c: SimRecords.SimCreep) -> void:
 	hop.slow_pm = shot.slow_pm
 	hop.slow_t = shot.slow_t
 	hop.pierce_c = shot.pierce_c
+	hop.air_bonus_pm = shot.air_bonus_pm
 	hop.bounce = shot.bounce + 1
 	hop.bounces = shot.bounces - 1
 	hop.bounce_mm = shot.bounce_mm
@@ -907,22 +1153,32 @@ func _burst(shot: SimRecords.SimShot) -> void:
 		_hurt(hit[k], shot, shot.dmg_c * (2 * r - d) / (2 * r), true)
 
 
-## Damage by the armour rule (design 3.2), in hundredths: the mark amplifies the hit,
-## `raw = hit × (1000 + mark) / 1000`; armour less pierce and crack takes off a flat
-## amount, but never more than three quarters, `dealt = max(raw − armour_left, raw / 4)`.
-## Then the shot's effect, Help for the seats whose effects were on the creep, and a
-## death pays.
+## Damage by the armour rule (design 3.2), in hundredths: a flier takes the shot's air
+## bonus (M6, the Apiary's), then the mark amplifies the hit,
+## `raw = hit × (1000 + mark) / 1000`; armour less pierce (Bronze Hand's included) and
+## crack takes off a flat amount, but never more than three quarters,
+## `dealt = max(raw − armour_left, raw / 4)`. Then the shot's effect (a slow; a pulse's
+## stun, or its slow on a flier), Help for the seats whose effects were on the creep or
+## whose hum hastens the tower, and a death pays.
 func _hurt(c: SimRecords.SimCreep, shot: SimRecords.SimShot, raw_c: int, splash: bool) -> void:
 	if not c.alive:
 		return
-	var helped := SimEffects.helpers(self, c, shot.seat)
+	var helped := SimEffects.helpers(self, c, shot.seat, tower(shot.tower))
 	var mark := c.mark_pm if c.mark_until > tick else 0
-	var raw := raw_c * (1000 + mark) / 1000
+	var hit := raw_c
+	if c.winged and shot.air_bonus_pm > 0:
+		hit = hit * (1000 + shot.air_bonus_pm) / 1000
+	var raw := hit * (1000 + mark) / 1000
 	var crack := c.crack_c
 	var armor_left := maxi(0, c.armor_c - shot.pierce_c - crack)
 	var dealt := maxi(raw - armor_left, raw / 4)
 	if shot.slow_pm > 0:
 		apply_slow(c, shot.slow_pm, shot.slow_t, shot.seat, shot.tower)
+	if c.winged:
+		if shot.air_slow_pm > 0:
+			apply_slow(c, shot.air_slow_pm, shot.air_slow_t, shot.seat, shot.tower)
+	elif shot.stun_t > 0:
+		SimEffects.apply_stun(self, c, shot.stun_t, shot.stun_immune_t, shot.seat, shot.tower)
 	c.hp_c -= dealt
 	var s := seat(shot.seat)
 	if s:
@@ -954,6 +1210,8 @@ func _die(c: SimRecords.SimCreep, shot: SimRecords.SimShot) -> void:
 	_creep_by_id.erase(c.id)
 	var h := hollows[c.hollow]
 	teams[h.team].kills += 1
+	if race:
+		teams[h.team].wave_kills += 1
 	var t := tower(shot.tower)
 	if t:
 		t.kills += 1
@@ -975,13 +1233,104 @@ func _die(c: SimRecords.SimCreep, shot: SimRecords.SimShot) -> void:
 		add_gold(payee, c.bounty, "bounty")
 
 
+## Stage 8. A race ends as soon as its outcome is certain (_decide_race); any match ends
+## at the rules' cap (cap_t ticks of match time, 0 for none), and once every hollow is
+## done or fallen.
 func _check_end() -> void:
 	if over:
+		return
+	if race and race_rule == 0:
+		_decide_race()
+		if race_rule != 0 and not play_on:
+			over = true
+			return
+	var cap := int(rules.get("cap_t", 0))
+	if cap > 0 and tick + 1 >= cap:
+		over = true
 		return
 	for h in hollows:
 		if h.phase != SimTypes.PHASE_DONE and h.phase != SimTypes.PHASE_FALLEN:
 			return
 	over = true
+
+
+## The race's win order (design 1.3), at the end of a tick, for two teams:
+##   both cleared: the lower race time wins, equal ticks are a draw; one cleared: it wins
+##     once no time the other could still make beats or equals its own (the other clears
+##     on a later tick, and its lost lives only add);
+##   a Holdfast fell on wave W: the other team wins once it has cleared W; both fell: the
+##     later wave, then more of that wave's creeps killed, then a draw;
+##   at the cap (the tick the match reaches cap_t): more waves cleared, then more lives,
+##     then the lower race time where both have one, else a draw.
+## Decides at most once: race_rule and race_outcomes, and EV_RACE "decided".
+func _decide_race() -> void:
+	if teams.size() != 2:
+		return
+	var a := teams[0]
+	var b := teams[1]
+	var fell_a := hollows[a.hollows[0]].phase == SimTypes.PHASE_FALLEN
+	var fell_b := hollows[b.hollows[0]].phase == SimTypes.PHASE_FALLEN
+	var done_a := hollows[a.hollows[0]].phase == SimTypes.PHASE_DONE
+	var done_b := hollows[b.hollows[0]].phase == SimTypes.PHASE_DONE
+	var winner := -2  # -2 open, -1 a draw, else the winning team
+	var rule := ""
+	if fell_a and fell_b:
+		rule = "fell"
+		winner = _better(a.fell_wave, b.fell_wave)
+		if winner == -1:
+			winner = _better(a.fell_kills, b.fell_kills)
+	elif fell_a or fell_b:
+		var fallen := 0 if fell_a else 1
+		if cleared_waves(1 - fallen) >= teams[fallen].fell_wave:
+			winner = 1 - fallen
+			rule = "fell"
+	elif done_a and done_b:
+		rule = "time"
+		winner = _better(race_time(1), race_time(0))
+	elif done_a or done_b:
+		var first := 0 if done_a else 1
+		if race_time(first) < tick + 1 + race_penalty_t(1 - first):
+			winner = first
+			rule = "time"
+	var cap := int(rules.get("cap_t", 0))
+	if winner == -2 and cap > 0 and tick + 1 >= cap:
+		rule = "cap"
+		winner = _better(cleared_waves(0), cleared_waves(1))
+		if winner == -1:
+			winner = _better(a.lives, b.lives)
+		if winner == -1 and race_time(0) >= 0 and race_time(1) >= 0:
+			winner = _better(race_time(1), race_time(0))
+	if winner == -2:
+		return
+	if winner == -1:
+		rule = "draw"
+	race_rule = SimTypes.RACE_RULES.find(rule)
+	race_outcomes = PackedInt32Array()
+	for t in teams:
+		if winner == -1:
+			race_outcomes.append(SimTypes.OUTCOME_DRAW)
+		else:
+			race_outcomes.append(SimTypes.OUTCOME_WON if t.id == winner else SimTypes.OUTCOME_LOST)
+	var shown := maxi(winner, 0)
+	race_event("decided", winner, cleared_waves(shown), {"outcomes": Array(race_outcomes), "rule": rule})
+
+
+## 0 when team 0's number is the larger, 1 when team 1's is, -1 when they are equal.
+static func _better(n0: int, n1: int) -> int:
+	if n0 == n1:
+		return -1
+	return 0 if n0 > n1 else 1
+
+
+## (M6) An EV_RACE: "cleared", "fell" or "decided" for `team` (-1: a draw), the wave, the
+## team's race time (-1 while it has none) and any `more` fields.
+func race_event(what: String, team: int, wave: int, more := {}) -> void:
+	var event := {
+		"type": SimTypes.EV_RACE, "what": what, "team": team, "wave": wave,
+		"race_t": race_time(team)
+	}
+	event.merge(more)
+	_emit(event)
 
 
 func _new_id() -> int:
@@ -1010,3 +1359,5 @@ func reindex() -> void:
 		h.occupied[t.z * h.road.width + t.x] = t.id
 	for c in creeps:
 		_creep_by_id[c.id] = c
+	_list_posts()
+	_cracks_out = true

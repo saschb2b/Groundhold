@@ -491,14 +491,16 @@ class GoldenTranscriptTests(unittest.TestCase):
             self.assertEqual(names, ["m1_codec.bin", "m1_codec.json", "m1_dev_match.bin", "m1_dev_match.json",
                                      "m1_handshake.bin", "m1_handshake.json", "m3_back.bin", "m3_back.json",
                                      "m3_barrier.bin", "m3_barrier.json", "m3_party.bin", "m3_party.json",
-                                     "m4_resilience.bin", "m4_resilience.json"])
+                                     "m4_resilience.bin", "m4_resilience.json", "m6_caretakers.bin",
+                                     "m6_caretakers.json", "m6_queue.bin", "m6_queue.json", "m6_race.bin",
+                                     "m6_race.json"])
             for name in names:
                 committed = record_transcripts.TRANSCRIPTS / name
                 self.assertEqual(committed.read_bytes(), (fresh / name).read_bytes(), name + " changed: re-record it")
 
     def test_every_record_decodes_to_its_json_and_encodes_back(self):
         seen = set()
-        for path in sorted(record_transcripts.TRANSCRIPTS.glob("m[134]_*.bin")):
+        for path in sorted(record_transcripts.TRANSCRIPTS.glob("m[1346]_*.bin")):
             records = record_transcripts.read(path)
             listed = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["records"]
             self.assertEqual(len(records), len(listed))

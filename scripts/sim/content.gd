@@ -8,11 +8,12 @@
 ## simulation reads (the kit, the perk, the plan and the checks a Builder covers, which
 ## the caretaker's forks follow) is hashed.
 ##
-## Two presets: `classic`, M1's solo game kept as it was (eight waves, the three towers,
-## today's upgrade standing in for fork branch A; no armour, no perks, no Help), and
+## Three presets: `classic`, M1's solo game kept as it was (eight waves, the three towers,
+## today's upgrade standing in for fork branch A; no armour, no perks, no Help),
 ## `high_water`, the co-op mode of design 1.2 on Wickhollow's `hollow12` (a wave list is
 ## named after its map, not its mode) with flat armour, boss control resistance, the
-## Builders' perks and Help. Both take one to four seats on one shared hollow.
+## Builders' perks and Help, both for one to four seats on one shared hollow, and (M6)
+## `tide_race`, High Water for two teams of one or two, each on its own hollow (design 1.3).
 ##
 ## The M2/M3 contract (docs/design/contract-m2m3.md) fixes the id lists, the BUILDERS
 ## fields and the tower and creep keys documented below. M2 tunes the numbers and makes
@@ -23,11 +24,11 @@ extends RefCounted
 
 const SIM_VERSION := 1
 ## How the caretaker plays a seat, outside the tables (caretaker.gd): 2 since M4, which takes
-## a seat over mid-match at its plan cursor, over the towers its player built. The rules hash
-## covers it, so builds whose caretakers decide differently never share a match; SIM_VERSION,
-## which the codec writes, does not move for it, since that would move every recorded state
-## hash.
-const CARETAKER_VERSION := 2
+## a seat over mid-match at its plan cursor, over the towers its player built; 3 since M6,
+## which calls the waves of a race (its plan's `ready` hints). The rules hash covers it, so
+## builds whose caretakers decide differently never share a match; SIM_VERSION, which the
+## codec writes, does not move for it, since that would move every recorded state hash.
+const CARETAKER_VERSION := 3
 
 const RULES := {
 	"classic":
@@ -86,6 +87,39 @@ const RULES := {
 		"cap_t": 0,
 		"signals": [3, 300],
 	},
+	# Design 1.3 and 2.1 (M6): High Water's rules for two teams of one or two, each on a
+	# hollow of its own built from the same map text (SimHollow.id = its team), with the
+	# same waves on the same ticks of its own clock; windows, Ready, the horn and health
+	# scaling go by its own seats. The keys High Water lacks:
+	#   race   {"life_t": ticks a lost life adds to the team's race time}: the clear tick
+	#          of the last wave plus life_t per life lost; SimMatch decides the race by the
+	#          win order of design 1.3 (outcomes(), race_time(), decided_by())
+	#   cap_t  the hard cap, 20 minutes of match time: at the cap the waves cleared decide,
+	#          then the lives, then the race time
+	"tide_race":
+	{
+		"teams": 2,
+		"seats": [2, 4],
+		"map": "hollow",
+		"waves": "hollow12",
+		"clock": "hollow",
+		"start_gold": 120,
+		"lives": 20,
+		"hp_growth_pm": 250,
+		"hp_by_seats_pm": [1000, 2000, 2650, 3400],
+		"window_first_t": [900, 1500, 1500, 1500],
+		"window_t": [600, 900, 900, 900],
+		"sell_pm": 700,
+		"clear_bonus": [8, 2],
+		"ready_pays": true,
+		"armor": true,
+		"control_resist": true,
+		"perks": true,
+		"help": true,
+		"cap_t": 72000,
+		"signals": [3, 300],
+		"race": {"life_t": 600},
+	},
 }
 
 ## Towers by base id. A base is placed from its Builder's kit slot; a fork lays branch
@@ -120,8 +154,8 @@ const RULES := {
 ##   mark_t        (M2) ticks a mark lasts after its creep leaves the tower's reach
 ##   fork_cost     gold to fork it, the same for either branch
 ##   a, b          its branches: {"id": the branch's TOWER_IDS id, then what it changes}
-## Keys marked (M6) are the M6 contract's (docs/design/contract-m6.md); M6's rules track
-## makes the simulation honour them:
+## Keys marked (M6) are the M6 contract's (docs/design/contract-m6.md), honoured since M6
+## (pulses and clouds in SimMatch, the stun, the auras and Help in SimEffects):
 ##   pulse         (M6) bool: no shot; every cd_t it strikes every creep within range_mm
 ##                 at once (fliers too only where `air`): dmg_c and its stun or slow
 ##   stun_t        (M6) ticks a hit stuns (speed 0); on a boss, where the rules turn
@@ -137,7 +171,10 @@ const RULES := {
 ##   haste_pm      (M6) an aura: every tower whose cell centre lies within range_mm of
 ##                 this one, whoever built it, fires this much faster, per mille; the
 ##                 strongest applies; recomputed when any tower is built, forked or sold
-##   air_bonus_pm  (M6) extra damage against winged creeps, per mille (the Apiary)
+##   air_bonus_pm  (M6) extra damage against winged creeps, per mille, on any form that
+##                 has it: the Apiary's (the contract's), and the Sky Toll's pulse since
+##                 the M6 balance pass (80%: its 9 is 16.2 to a flier, the ground keeps 9).
+##                 A view shows it from this key, never from the form's name
 const TOWERS := {
 	"arrow":
 	{
@@ -243,7 +280,13 @@ const TOWERS := {
 		"a": {"id": "owls_glare", "mark_pm": 350},
 		"b": {"id": "twin_gaze", "marks": 2},
 	},
-	# M6: the Bellfounder's kit (design 3.4)
+	# M6: the Bellfounder's kit (design 3.4). Tuned by the M6 balance gates (tests/balance,
+	# bot_wins_solo_bellfounder): the Toll Tower's pulse deals 8, not 6 (at 6 a Bellfounder
+	# alone left the Gourdlings of wave 7 at a quarter of their health and four got
+	# through); the Sky Toll slows a flier for 2 s, not 1, and its 9 grows by 80% against
+	# one (air_bonus_pm; the ground keeps the 9): at the design's numbers a Duskmoth of wave
+	# 5 crossed the two Sky Tolls she can pay for by then with half its health left, and
+	# every one of them got through.
 	"clapper_tower":
 	{
 		"builder": "bellfounder",
@@ -263,7 +306,7 @@ const TOWERS := {
 		"builder": "bellfounder",
 		"slot": 1,
 		"cost": 65,
-		"dmg_c": 600,
+		"dmg_c": 800,
 		"cd_t": 144,
 		"range_mm": 2200,
 		"air": false,
@@ -281,7 +324,8 @@ const TOWERS := {
 			"range_mm": 2400,
 			"air": true,
 			"air_slow_pm": 500,
-			"air_slow_t": 60,
+			"air_slow_t": 120,
+			"air_bonus_pm": 800,
 		},
 	},
 	"chime_post":
@@ -330,7 +374,11 @@ const TOWERS := {
 		"air_bonus_pm": 500,
 		"fork_cost": 80,
 		"a": {"id": "royal_apiary", "dmg_c": 3400},
-		"b": {"id": "queens_guard", "dmg_c": 4000, "cd_t": 72},
+		# (M6 balance: the design's 40 every 1.2 s did less than the Royal Apiary's 34 every
+		# 0.8 s to every armoured creep, so the patch for Armored never patched; 50 that
+		# ignores 3 armour does 40.8 a second to a Thornback against the Royal Apiary's 37.5,
+		# 39.2 to the Bristlesow against 35, and stays behind it on unarmoured creeps)
+		"b": {"id": "queens_guard", "dmg_c": 5000, "cd_t": 72, "pierce_c": 300},
 	},
 	"hive_hum":
 	{
@@ -527,7 +575,7 @@ const BUILDERS := {
 		"glyph": "builder_lookout",
 		"accent": 0xAEB8C2,
 	},
-	# M6: each plan is empty until the rules track writes data/plans/<plan>.json
+	# M6: their plans are data/plans/bellfounder.json and beekeeper.json
 	"bellfounder":
 	{
 		"name": "Ottilie Brass",
@@ -657,6 +705,8 @@ const PERK_IDS := ["thrifty", "keen_sight", "bronze_hand", "hive_tithe"]
 
 const MAP_DIR := "res://data/"
 const PLAN_DIR := "res://data/plans/"
+## plan_steps()'s flags: the step holds the caretaker's Ready in a race ("ready": false).
+const STEP_HOLDS_READY := 1
 
 
 ## A mode's rules with its name, ready for SimMatch.
@@ -720,6 +770,9 @@ static func kit_tower(builder: String, slot: int) -> String:
 ##            takes it only while no Builder of the team covers that check, and the
 ##            other branch (the deepening one) when one does (design 6.7: it forks for
 ##            the checks the team lacks)
+##   "ready"  (M6) false: in a race, the caretaker does not call the wave while this is
+##            the step it waits on (it waits out the window, saving for it); without the
+##            hint it calls each wave once the window's build steps are done
 ## "steps" is the plan for every mode; a mode may have its own under its name,
 ## {"<mode>": {"steps": [...]}}: the Lamplighter keeps M1's under "classic", which
 ## tests/bot.gd, the README's shots and the classic scenarios play.
@@ -737,9 +790,10 @@ static func plan(builder: String, mode := "classic") -> Array:
 
 
 ## The same plan as integers for the caretaker: one PackedInt32Array per step,
-## [op, slot or branch, x, z, patch, then the "alt" cells as x, z pairs]: op 0 builds
-## from a kit slot and 1 forks the seat's tower on the cell, patch is the CHECK_IDS
-## index of the check the fork patches or -1. Unknown steps are dropped.
+## [op, slot or branch, x, z, patch, flags, then the "alt" cells as x, z pairs]: op 0
+## builds from a kit slot and 1 forks the seat's tower on the cell, patch is the
+## CHECK_IDS index of the check the fork patches or -1, flags holds STEP_HOLDS_READY for a
+## step marked "ready": false. Unknown steps are dropped.
 static func plan_steps(builder: String, mode := "classic") -> Array:
 	return plan_steps_of(builder, plan(builder, mode))
 
@@ -765,6 +819,7 @@ static func plan_steps_of(builder: String, entries: Array) -> Array:
 		head.append(int(cell[0]))
 		head.append(int(cell[1]))
 		head.append(CHECK_IDS.find(str(entry.get("patch", ""))))
+		head.append(STEP_HOLDS_READY if entry.get("ready", true) == false else 0)
 		for alt: Variant in entry.get("alt", []):
 			if alt is Array and (alt as Array).size() == 2:
 				head.append(int(alt[0]))
@@ -780,6 +835,14 @@ static func perk_value(builder: String, perk_id: String, key: String, otherwise:
 	if str(perk.get("id", "")) != perk_id:
 		return otherwise
 	return int(perk.get(key, otherwise))
+
+
+## A Builder's passive list `key` (Hive Tithe's "bases") when its perk is `perk_id`, else [].
+static func perk_list(builder: String, perk_id: String, key: String) -> Array:
+	var perk: Dictionary = BUILDERS[builder]["perk"]
+	if str(perk.get("id", "")) != perk_id:
+		return []
+	return perk.get(key, [])
 
 
 ## The first 8 bytes of SHA-256 over every table that changes the rules, every Builder's

@@ -1,0 +1,28 @@
+{
+  "note": "great_toll for its command icon only: the ground left off, the shaft cut short.",
+  "colors": {"brick": "#9a4430", "brick_lit": "#b8563a", "stone": "#8a8580", "stone_pale": "#c9c3b8", "slate_dark": "#3a3c42", "slate_roof": "#3a3c42", "timber": "#4e3423", "bronze": "#b07a3a", "bronze_dark": "#7a5426", "gold": "#e0b040", "bell_inner": "#2a1d14", "iron": "#3a3c42"},
+  "ground_ao": 0.3,
+  "origin": "bottom-center",
+  "parts": [
+    {"shape": "box", "size": [0.58, 0.1, 0.58], "bevel": 0.02, "pattern": "stone", "at": [0.0, 0.0, 0.0], "color": "stone"},
+    {"shape": "box", "size": [0.5, 0.16, 0.5], "bevel": 0.02, "taper": 0.94, "pattern": "bricks", "at": [0.0, 0.08, 0.0], "color": "brick"},
+    {"shape": "box", "size": [0.56, 0.05, 0.56], "bevel": 0.01, "pattern": "stone", "at": [0.0, 0.24, 0.0], "color": "stone_pale"},
+    {"shape": "box", "size": [0.09, 0.44, 0.09], "bevel": 0.01, "pattern": "bricks", "at": [-0.215, 0.29, -0.215], "color": "brick_lit"},
+    {"shape": "box", "size": [0.09, 0.44, 0.09], "bevel": 0.01, "pattern": "bricks", "at": [-0.215, 0.29, 0.215], "color": "brick_lit"},
+    {"shape": "box", "size": [0.09, 0.44, 0.09], "bevel": 0.01, "pattern": "bricks", "at": [0.215, 0.29, -0.215], "color": "brick_lit"},
+    {"shape": "box", "size": [0.09, 0.44, 0.09], "bevel": 0.01, "pattern": "bricks", "at": [0.215, 0.29, 0.215], "color": "brick_lit"},
+    {"shape": "box", "size": [0.56, 0.06, 0.56], "bevel": 0.01, "pattern": "stone", "at": [0.0, 0.73, 0.0], "color": "stone_pale"},
+    {"shape": "box", "size": [0.42, 0.05, 0.08], "pattern": "planks", "at": [0.0, 0.68, 0.0], "color": "timber"},
+    {"parts": [{"shape": "cylinder", "radius": 0.224, "height": 0.0336, "sides": 12, "radius_top": 0.2128, "bevel": 0.0067, "cap_color": "bell_inner", "pattern": "gold", "at": [0.0, -0.3808, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.2128, "height": 0.0784, "sides": 12, "radius_top": 0.1736, "pattern": "gold", "at": [0.0, -0.3472, 0.0], "color": "bronze"}, {"shape": "cylinder", "radius": 0.1736, "height": 0.168, "sides": 12, "radius_top": 0.1434, "pattern": "gold", "at": [0.0, -0.2688, 0.0], "color": "bronze"}, {"shape": "cylinder", "radius": 0.1434, "height": 0.056, "sides": 12, "radius_top": 0.0986, "pattern": "gold", "at": [0.0, -0.1008, 0.0], "color": "bronze"}, {"shape": "sphere", "radius": 0.1008, "segments": [12, 4], "scale": [1.0, 0.42, 1.0], "pattern": "gold", "at": [0.0, -0.0448, 0.0], "color": "bronze"}, {"shape": "box", "size": [0.056, 0.056, 0.0336], "at": [0.0, -0.0224, 0.0], "color": "bronze_dark"}, {"shape": "cylinder", "radius": 0.0146, "height": 0.0672, "sides": 5, "at": [0.0, -0.3808, 0.0], "color": "iron"}, {"shape": "sphere", "radius": 0.0448, "segments": [8, 5], "pattern": "metal", "at": [0.0, -0.3808, 0.0], "color": "iron"}, {"shape": "cylinder", "radius": 0.1702, "height": 0.0246, "sides": 12, "radius_top": 0.1635, "pattern": "gold", "at": [0.0, -0.224, 0.0], "color": "gold"}], "at": [0.0, 0.68, 0.0]},
+    {"shape": "cone", "radius": 0.045, "height": 0.14, "sides": 4, "pattern": "gold", "at": [-0.24, 0.79, -0.24], "color": "gold"},
+    {"shape": "cone", "radius": 0.045, "height": 0.14, "sides": 4, "pattern": "gold", "at": [-0.24, 0.79, 0.24], "color": "gold"},
+    {"shape": "cone", "radius": 0.045, "height": 0.14, "sides": 4, "pattern": "gold", "at": [0.24, 0.79, -0.24], "color": "gold"},
+    {"shape": "cone", "radius": 0.045, "height": 0.14, "sides": 4, "pattern": "gold", "at": [0.24, 0.79, 0.24], "color": "gold"},
+    {"shape": "cylinder", "radius": 0.26, "height": 0.08, "sides": 8, "phase": 22.5, "pattern": "shingles", "at": [0.0, 0.79, 0.0], "color": "slate_dark"},
+    {"shape": "sphere", "radius": 0.23, "segments": [8, 6], "scale": [1.0, 1.0, 1.0], "color_top": "gold", "pattern": "gold", "at": [0.0, 1.06, 0.0], "color": "bronze"},
+    {"shape": "cylinder", "radius": 0.08, "height": 0.04, "sides": 8, "pattern": "gold", "at": [0.0, 1.25, 0.0], "color": "gold"},
+    {"shape": "cylinder", "radius": 0.065, "height": 0.08, "sides": 8, "at": [0.0, 1.29, 0.0], "color": "slate_dark"},
+    {"shape": "cone", "radius": 0.08, "height": 0.16, "sides": 8, "pattern": "shingles", "at": [0.0, 1.37, 0.0], "color": "slate_roof"},
+    {"shape": "sphere", "radius": 0.03, "segments": [6, 4], "pattern": "gold", "at": [0.0, 1.54, 0.0], "color": "gold"}
+  ]
+}

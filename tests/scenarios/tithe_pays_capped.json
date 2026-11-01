@@ -1,0 +1,32 @@
+{
+  "name": "tithe_pays_capped",
+  "description": "The Beekeeper's perk, Hive Tithe (design 3.4 and 4.1): at every wave clear she is paid 2 gold for each Clay Hive and Hive Hum of hers, forked ones too, at most 12 (EV_GOLD why \"tithe\"), on top of the clear bonus every seat gets; her Apiary pays nothing, and the Lamplighter beside her gets no tithe. With two hives and a hum: 6. With seven: 14, capped at 12. Classic has no perks.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 300,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'builders': ['beekeeper', 'lamplighter']})"},
+    {"eval": "[scene.debug(1, 1, 2000), scene.debug(1, 2, 2000)]"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 13, 8), scene.cmd(1, 'BUILD', 0, 5, 12), scene.cmd(1, 'BUILD', 2, 12, 8), scene.cmd(1, 'BUILD', 1, 12, 9), scene.cmd(2, 'BUILD', 0, 8, 11)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.client(1).towers.size() == 5", "msg": "two Clay Hives, a Hive Hum and an Apiary of hers, an Arrow Tower of the Lamplighter's"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"repeat": 200, "steps": [{"eval": "scene.run_ticks(30)"}], "until": "scene.gold_paid('tithe') > 0"},
+    {"assert": "scene.rows('GOLD', ['seat', 'change'], {'why': 'tithe'}) == [[1, 6]] and scene.client(1).hollows[0].wave == 1", "msg": "wave 1 cleared: 2 for each of her three, the Apiary not counted"},
+    {"assert": "scene.rows('GOLD', ['seat', 'change'], {'why': 'clear'}) == [[1, 10], [2, 10]]", "msg": "beside the clear bonus both seats get"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 4, 11), scene.cmd(1, 'BUILD', 0, 11, 11), scene.cmd(1, 'BUILD', 0, 9, 11), scene.cmd(1, 'BUILD', 0, 6, 12), scene.cmd(1, 'FORK', scene.tower_at(13, 8).id, 0)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "scene.forms(1).count('clay_hive') == 5 and scene.forms(1).count('great_clay_hive') == 1 and scene.forms(1).count('hive_hum') == 1", "msg": "now six hives, one of them a Great Clay Hive, and the hum: seven"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"repeat": 200, "steps": [{"eval": "scene.run_ticks(30)"}], "until": "scene.events_where('GOLD', {'why': 'tithe'}).size() >= 2"},
+    {"assert": "scene.rows('GOLD', ['seat', 'change'], {'why': 'tithe'}) == [[1, 6], [1, 12]]", "msg": "seven would pay 14: the tithe stops at 12"},
+    {"assert": "scene.events_where('GOLD', {'why': 'tithe', 'seat': 2}).is_empty()", "msg": "the Lamplighter never gets a tithe"},
+    {"eval": "scene.start({'mode': 'classic', 'seats': 1, 'builders': ['beekeeper']})"},
+    {"eval": "scene.debug(1, 1, 2000)"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 13, 8), scene.cmd(1, 'BUILD', 0, 5, 12), scene.cmd(1, 'BUILD', 1, 12, 9)]"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"repeat": 200, "steps": [{"eval": "scene.run_ticks(30)"}], "until": "scene.gold_paid('clear') > 0"},
+    {"assert": "scene.gold_paid('tithe') == 0", "msg": "classic has no perks: no tithe"}
+  ]
+}

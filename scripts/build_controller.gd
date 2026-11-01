@@ -16,6 +16,11 @@
 ## refused here with the reason ("The match has not started", "No link to the server",
 ## "Not so fast"). Ready goes out one at a time: presses while one is on its way only
 ## change what the next one asks for, so mashing N costs one command per round trip.
+##
+## Cells here are the board's (main.gd): in a race both hollows' side by side. An order
+## sends its cell as my hollow counts it, and one aimed at the rival's hollow is refused
+## here ("That is your rival's hollow"), since the same cell would land on mine; the
+## rival's towers can still be selected and read.
 class_name BuildController
 extends Node3D
 
@@ -117,8 +122,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif mode != "":
 				if build(mode, hover_cell) and not button.shift_pressed:
 					set_mode("")
-			elif main.tower_at(hover_cell) != null:
-				select(main.tower_at(hover_cell))
+			elif main.tower_on(hover_cell) != null:
+				select(main.tower_on(hover_cell))
 			else:
 				select(null)
 				select_creep(_creep_near(button.position))
@@ -189,7 +194,9 @@ func my_tower_selected() -> bool:
 
 
 func set_mode(kind: String) -> void:
-	if kind != "" and Game.state in [Game.State.WON, Game.State.LOST]:
+	if kind != "" and Game.over():
+		# (my hollow done or fallen, or a race decided while it still played: the end
+		# plate is up and no order counts)
 		return
 	if kind != "" and Game.order_refusal() != "":
 		# (the match, the link, or my seat still the caretaker's: before the gold, which the
@@ -221,9 +228,10 @@ func set_mode(kind: String) -> void:
 func can_build(kind: String, cell: Vector2i) -> bool:
 	return (
 		Game.order_refusal() == ""
+		and not on_rival_hollow(cell)
 		and _cell_free(cell)
 		and Game.can_afford(Game.tower_cost(kind))
-		and Game.state not in [Game.State.WON, Game.State.LOST]
+		and not Game.over()
 	)
 
 
@@ -233,13 +241,16 @@ func build(kind: String, cell: Vector2i) -> bool:
 	if not can_build(kind, cell):
 		if Game.order_refusal() != "":
 			_refuse(Game.order_refusal())
+		elif on_rival_hollow(cell):
+			_refuse(Game.RIVAL_HOLLOW)
 		elif not _cell_free(cell):
 			_refuse("Cannot build there")
 		else:
 			_refuse("Not enough gold")
 		return false
 	var cost := Game.tower_cost(kind)
-	var seq := Game.command(SimTypes.CMD_BUILD, Game.slot_of(kind), cell.x, cell.y)
+	var mine := Game.local_cell(Game.my_hollow(), cell)
+	var seq := Game.command(SimTypes.CMD_BUILD, Game.slot_of(kind), mine.x, mine.y)
 	if seq < 0:
 		_refuse(Game.command_refusal())
 		return false
@@ -248,9 +259,15 @@ func build(kind: String, cell: Vector2i) -> bool:
 	return true
 
 
+## A board cell in a hollow that is not mine (a race's rival's): my orders do not reach it.
+func on_rival_hollow(cell: Vector2i) -> bool:
+	var h := Game.hollow_at(cell)
+	return h >= 0 and h != Game.my_hollow()
+
+
 ## A grass cell with no tower on it and none on its way.
 func _cell_free(cell: Vector2i) -> bool:
-	if not map.buildable(cell) or main.tower_at(cell) != null:
+	if not map.buildable(cell) or main.tower_on(cell) != null:
 		return false
 	for seq: int in pending:
 		if pending[seq]["what"] == "build" and pending[seq]["cell"] == cell:
@@ -302,7 +319,7 @@ func fork_selected(branch: int) -> bool:
 	if selected.upgrade_cost() < 0:
 		_refuse(Game.NOTICES[SimTypes.REFUSE_ALREADY_FORKED])
 		return false
-	if _pending_on(selected.cell, "fork"):
+	if _pending_on(selected.board_cell, "fork"):
 		return false
 	var cost := selected.upgrade_cost()
 	if not Game.can_afford(cost):
@@ -312,7 +329,7 @@ func fork_selected(branch: int) -> bool:
 	if seq < 0:
 		_refuse(Game.command_refusal())
 		return false
-	_add_pending(seq, "fork", cost, selected.cell, null)
+	_add_pending(seq, "fork", cost, selected.board_cell, null)
 	return true
 
 
@@ -325,13 +342,13 @@ func sell_selected() -> bool:
 	if selected.owner_seat != Game.seat:
 		_refuse(_not_yours(selected))
 		return false
-	if _pending_on(selected.cell, "sell"):
+	if _pending_on(selected.board_cell, "sell"):
 		return false
 	var seq := Game.command(SimTypes.CMD_SELL, selected.id)
 	if seq < 0:
 		_refuse(Game.command_refusal())
 		return false
-	_add_pending(seq, "sell", 0, selected.cell, null)
+	_add_pending(seq, "sell", 0, selected.board_cell, null)
 	select(null)
 	return true
 
@@ -355,7 +372,8 @@ func arm_signal() -> bool:
 
 ## A signal where `screen` points (design 5.7: "look here"): on a creep or a tower it
 ## names it, otherwise the ground. One command, no gold, no ghost; the simulation keeps
-## the rate (three in five seconds) and every window shows the ring.
+## the rate (three in five seconds) and every window shows the ring. Its point goes as my
+## hollow counts it; on the rival's hollow it is refused like any order.
 func signal_at(screen: Vector2) -> bool:
 	var was := signaling
 	signaling = false
@@ -369,13 +387,17 @@ func signal_at(screen: Vector2) -> bool:
 		return false
 	var target := 0
 	var creep := _creep_near(screen)
-	var tower: Tower = main.tower_at(map.cell_at(at)) if map.inside(map.cell_at(at)) else null
+	var tower: Tower = main.tower_on(map.cell_at(at)) if map.inside(map.cell_at(at)) else null
 	if creep:
 		target = creep.id
 		at = creep.global_position
 	elif tower:
 		target = tower.id
 		at = tower.global_position
+	if on_rival_hollow(map.cell_at(at)):
+		_refuse(Game.RIVAL_HOLLOW)
+		return false
+	at -= Game.hollow_origin(Game.my_hollow())
 	var seq := Game.command(
 		SimTypes.CMD_SIGNAL, roundi(at.x * 1000.0), roundi(at.z * 1000.0), target
 	)

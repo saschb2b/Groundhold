@@ -1,8 +1,12 @@
 ## A shot's model in flight. The simulation scheduled the shot and decides what it
 ## hits; this only flies the model over exactly the shot's flight ticks: arrows, bolts
 ## and frost shards home in on their creep, hawks and kestrels stoop on theirs in a low
-## swoop, cannon and mortar shells fly an arc to where the simulation said they burst.
-## It leaves when the shot has landed.
+## swoop, cannon and mortar shells fly an arc to where the simulation said they burst,
+## the Apiary's bees home in on theirs. It leaves when the shot has landed.
+##
+## A shot whose model is not built yet (M6's bee before the art lands) flies as a small
+## amber bead (stand_in()), never an error. The Clapper Tower's strike is instant
+## (INSTANT): the tower shows a clap on its creep and nothing flies.
 class_name Projectile
 extends Node3D
 
@@ -15,7 +19,12 @@ const MODELS := {
 	"hawk": "res://models/projectiles/hawk.glb",
 	"kestrel": "res://models/projectiles/kestrel.glb",
 	"mortar_shell": "res://models/projectiles/mortar_shell.glb",
+	"bee": "res://models/projectiles/bee.glb",
 }
+## Shots that fly no model: the strike lands as the tower fires (Fx.clap).
+const INSTANT := ["clap"]
+## The bead a shot without its model flies as: honey amber, a few centimetres across.
+const STAND_IN_COLOR := Color(0.95, 0.68, 0.2)
 ## How high a bursting shell's arc rises, and a bird's swoop.
 const ARC_HEIGHT := 1.1
 const SWOOP := {"hawk": 0.45, "kestrel": 0.3}
@@ -46,12 +55,42 @@ func launch(
 	position = muzzle
 	_start = muzzle
 	add_to_group("projectiles")
-	add_child(Models.instance(MODELS[kind]))
+	add_child(model_for(kind))
 	if _arc:
 		target_pos = burst_at + Vector3(0, 0.15, 0)
 	elif aim:
 		target_pos = aim.aim_point()
 	_place(0.0)
+
+
+## The shot's model, or the stand-in while it is not built (or not known).
+static func model_for(shot_kind: String) -> Node3D:
+	var path := str(MODELS.get(shot_kind, ""))
+	if path != "" and ResourceLoader.exists(path):
+		return Models.instance(path)
+	return stand_in()
+
+
+static var _bead: SphereMesh
+
+
+static func stand_in() -> Node3D:
+	if _bead == null:
+		_bead = SphereMesh.new()
+		_bead.radius = 0.05
+		_bead.height = 0.1
+		_bead.radial_segments = 8
+		_bead.rings = 4
+		var material := StandardMaterial3D.new()
+		material.albedo_color = STAND_IN_COLOR
+		material.emission_enabled = true
+		material.emission = STAND_IN_COLOR * 0.4
+		_bead.material = material
+	var bead := MeshInstance3D.new()
+	bead.name = "StandIn"
+	bead.mesh = _bead
+	bead.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return bead
 
 
 func _physics_process(_delta: float) -> void:

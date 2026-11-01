@@ -1,0 +1,31 @@
+{
+  "name": "race_offline_outcome_time_lost",
+  "description": "An offline race lost on time ends lost, though my hollow cleared all its waves (design 1.3: the lower race time wins, and every life lost adds 10 s; review of M6: main.gd called this won because my hollow was done). Racing the caretaker, my hollow clears wave 12 first but with fifteen lives lost, so its race time carries 150 s; nothing is decided while the mirror can still beat it. The mirror clears wave 12 later with a lower race time, SimMatch.outcomes() says lost for my team, and the results say 'Your Rival Outran the Tide' with the rule: fewer lives lost.",
+  "seed": 1,
+  "ticks_per_frame": 8,
+  "timeout_frames": 1800,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 1},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 1},
+    {"set": "Game.lives", "value": 5},
+    {"eval": "Game.debug(3, 0, 12)"},
+    {"set": "Game.countdown", "value": 0.02},
+    {"wait_until": "Game.state == 2", "timeout": 60},
+    {"assert": "Game.sim.race_time(0) == Game.sim.teams[0].clear_tick + 9000 and Game.outcome() == '' and not Game.sim.over", "msg": "my hollow cleared wave 12, but 150 s of lost lives leave the mirror time to beat it"},
+    {"assert": "node('EndPanel').visible == false", "msg": "no end plate while the race goes on"},
+    {"eval": "Game.debug(3, 1, 12)"},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 1200},
+    {"wait": 2},
+    {"assert": "Game.state == 2 and Game.sim.hollows[0].phase == 2", "msg": "my hollow is done"},
+    {"assert": "Game.sim.decided_by() == 'time' and Game.sim.race_time(1) >= 0 and Game.sim.race_time(1) < Game.sim.race_time(0) and Game.sim.outcomes()[0] == 1 and Game.outcome() == 'lost'", "msg": "the mirror's race time is the lower: the simulation decided the race against my team"},
+    {"assert": "node('ResultsPanel').results['outcome'] == 'lost' and node('ResultsTitle').text == 'YOUR RIVAL OUTRAN THE TIDE' and node('ResultsRule').text == \"Fewer lives lost: your rival's race time is the lower\"", "msg": "and the results say lost, with the rule"},
+    {"assert": "node('ResultsPanel').team_lines()[0].begins_with('Your crew %s 5 of 20 lives' % Game.race_clock(Game.sim.teams[0].clear_tick, 9000))", "msg": "my crew's race time with its 150 s"}
+  ]
+}

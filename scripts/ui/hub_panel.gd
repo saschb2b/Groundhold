@@ -4,6 +4,13 @@
 ## shows your Builder with the team's coverage row; the right well holds the modes on its
 ## top row and Builders (B), Join (J) and the one button (Enter) below; the strip says
 ## where the party lives and its code.
+##
+## The queue (M6, design 5.2): on a server the leader turns open seats on in the party's
+## head (High Water), and the empty rows read "+ open seat"; the one button finds players
+## or a rival, then reads "Cancel · 0:42" while queued (Esc cancels too) and, once the
+## caretakers are offered, "Start with caretakers" or "Race the caretaker" with Cancel
+## beside its line. In a race the party's rows stand by team, team A then team B, and the
+## leader clicks a row to move it to the other team.
 class_name HubPanel
 extends Control
 
@@ -16,6 +23,8 @@ const STATE_TEXT := {
 	"in_match": "in a match",
 }
 const SOON := "Comes with a later version"
+## The two teams of a race, as the rows and the loading cards name them (design 5.6).
+const TEAM_NAMES := ["A", "B"]
 
 var shell: Shell
 var _rows: Array = []
@@ -33,6 +42,8 @@ var _line: Label
 var _place: Label
 var _code_box: HBoxContainer
 var _code: Label
+var _open: Button
+var _second: Button
 
 
 func setup(owner: Shell) -> void:
@@ -47,17 +58,22 @@ func setup(owner: Shell) -> void:
 
 
 func _process(_delta: float) -> void:
-	# (the countdown's seconds tick over the button)
-	if visible and Session.state == Session.State.COUNTDOWN:
+	# (the countdown's seconds and the queue's clock tick over the button)
+	if visible and Session.state in [Session.State.COUNTDOWN, Session.State.QUEUED, Session.State.MATCH_FOUND]:
 		_fill_primary()
 
 
 func refresh() -> void:
-	var members := Session.members()
+	var members := shown_members()
 	var size_now := Session.party_size()
 	_count.text = "%d/%d" % [size_now, NetProtocol.number("max_seats")]
 	for i in _rows.size():
 		_fill_row(_rows[i], members[i] if i < members.size() else null, i, members.is_empty())
+	var mode := Session.mode_id()
+	var solo_mode := not Session.is_race(mode)
+	_open.visible = Session.online() and Session.is_leader() and not Session.party.is_empty() and solo_mode
+	_open.text = "open seats: on" if Session.open_seats() else "open seats: off"
+	_open.disabled = not str(Session.party.get("phase", "")) in ["forming", "queued"]
 	var mine := Session.profile.main
 	shell.show_builder(mine, true)
 	(_builders.get_node("Icon") as TextureRect).texture = Game.icon(str(Game.BUILDERS[mine]["emblem"]))
@@ -67,14 +83,14 @@ func refresh() -> void:
 	_stars.count = int(info["difficulty"])
 	_stars.queue_redraw()
 	_coverage.set_builders(Session.party_builders())
-	var played := Profile.played_mode(Session.profile.mode)
+	var played := Profile.played_mode(mode)
 	var waves := (SimContent.WAVES[SimContent.RULES[played]["waves"]] as Array).size()
-	var seats: Array = NetProtocol.spec()["modes"][Session.profile.mode]["seats"]
-	_mode_line.text = "%s · %d–%d players · %d waves" % [Profile.mode_name(Session.profile.mode), seats[0], seats[1], waves]
+	var seats: Array = NetProtocol.spec()["modes"][mode]["seats"]
+	_mode_line.text = "%s · %d–%d players · %d waves" % [Profile.mode_name(mode), seats[0], seats[1], waves]
 	for id: String in _modes:
 		var button: Button = _modes[id]
 		button.disabled = not Profile.offers(id) or not Session.is_leader()
-		Shell.set_lit(button, id == Session.profile.mode)
+		Shell.set_lit(button, id == mode)
 	_fill_primary()
 	_place.text = Session.place_text()
 	_code_box.visible = Session.party_code() != ""
@@ -83,15 +99,30 @@ func refresh() -> void:
 	_code_box.get_node("CopyLink").visible = Session.join_link() != ""
 
 
+## The members in the order their rows show them: by row number; in a race by team, then
+## row number (the order of their seats, design 5.9).
+func shown_members() -> Array:
+	var members := Session.members().duplicate()
+	if Session.is_race(Session.mode_id()):
+		members.sort_custom(
+			func(a: Dictionary, b: Dictionary) -> bool:
+				return [int(a["team"]), int(a["member"])] < [int(b["team"]), int(b["member"])]
+		)
+	return members
+
+
 ## The party rows as one line each, for tests: "diamond Sascha lamplighter leader",
-## "circle Ana lookout ready", "triangle Ben lamplighter needs to reload", "+ invite".
+## "circle Ana lookout ready", "triangle Ben lamplighter needs to reload", "+ invite",
+## "+ open seat"; in a race each filled row begins with its team, "A diamond Sascha ...".
 func lines() -> Array[String]:
 	var out: Array[String] = []
 	for row: Dictionary in _rows:
 		if (row["invite"] as Control).visible:
-			out.append("+ invite")
+			out.append((row["invite"] as Button).text)
 			continue
 		var parts: Array[String] = [str(row["shape"]), (row["name"] as Label).text, str(row["builder_id"])]
+		if (row["team"] as Control).visible:
+			parts.push_front((row["team"] as Label).text)
 		if (row["crown"] as Control).visible:
 			parts.append("leader")
 		if (row["tick"] as Control).visible:
@@ -106,7 +137,13 @@ func primary_text() -> String:
 	return Shell.words_of(_primary)
 
 
-## B opens the Builders, J the Join panel, Enter presses the one button.
+## The words of the button beside the one button's line ("Cancel · 1:02"), "" while none.
+func second_text() -> String:
+	return _second.text if _second.visible else ""
+
+
+## B opens the Builders, J the Join panel, Enter presses the one button, Esc leaves the
+## queue.
 func key(code: int) -> void:
 	match code:
 		KEY_B:
@@ -116,6 +153,16 @@ func key(code: int) -> void:
 		KEY_ENTER, KEY_KP_ENTER:
 			if not _primary.disabled:
 				Session.play()
+		KEY_ESCAPE:
+			if Session.state == Session.State.QUEUED and Session.is_leader():
+				Session.leave_queue()
+
+
+## The leader's click on a row in a race: that member to the other team.
+func move_row(index: int) -> void:
+	var members := shown_members()
+	if index < members.size():
+		Session.move_team(int(members[index]["member"]))
 
 
 # ── Building ──
@@ -136,6 +183,22 @@ func _build_party() -> void:
 	var title := Shell.caps("Party", 11, Shell.GOLD)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
+	_open = Button.new()
+	_open.name = "OpenSeats"
+	_open.text = "open seats: off"
+	_open.flat = true
+	_open.focus_mode = Control.FOCUS_NONE
+	_open.tooltip_text = "Open seats: Find players fills them with players from the queue"
+	_open.add_theme_font_override("font", Shell.BODY_FONT)
+	_open.add_theme_font_size_override("font_size", 10)
+	_open.add_theme_color_override("font_color", Shell.DIM)
+	_open.add_theme_color_override("font_hover_color", Shell.GOLD)
+	_open.add_theme_constant_override("outline_size", 0)
+	for st: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		_open.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	_open.pressed.connect(func() -> void: Session.set_open(not Session.open_seats()))
+	_open.visible = false
+	head.add_child(_open)
 	_count = Shell.caps("1/4", 11)
 	_count.name = "PartyCount"
 	head.add_child(_count)
@@ -150,6 +213,13 @@ func _make_row(parent: Control, index: int) -> Dictionary:
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_theme_constant_override("separation", 4)
 	parent.add_child(row)
+	row.gui_input.connect(_on_row_input.bind(index))
+	var team := Shell.caps("A", 10, Shell.GOLD)
+	team.name = "Team"
+	team.custom_minimum_size.x = 9
+	team.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	team.visible = false
+	row.add_child(team)
 	var glyph := PartyStrip.SeatGlyph.new()
 	glyph.shape = GLYPHS[index]
 	glyph.color = SEAT_COLORS[index]
@@ -202,7 +272,14 @@ func _make_row(parent: Control, index: int) -> Dictionary:
 	return {
 		"row": row, "glyph": glyph, "name": who, "state": state, "builder": builder,
 		"crown": crown, "tick": tick, "invite": invite, "shape": GLYPHS[index], "builder_id": "",
+		"team": team,
 	}
+
+
+func _on_row_input(event: InputEvent, index: int) -> void:
+	var click := event as InputEventMouseButton
+	if click and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+		move_row(index)
 
 
 func _fill_row(row: Dictionary, member: Variant, index: int, solo: bool) -> void:
@@ -210,9 +287,17 @@ func _fill_row(row: Dictionary, member: Variant, index: int, solo: bool) -> void
 	for key: String in ["glyph", "name", "state", "builder", "crown", "tick"]:
 		(row[key] as Control).visible = filled
 	(row["invite"] as Control).visible = not filled
+	# (open seats on: the queue fills the empty rows; otherwise + invite copies the link)
+	(row["invite"] as Button).text = "+ open seat" if Session.open_seats() else "+ invite"
+	var race := Session.is_race(Session.mode_id()) and not Session.party.is_empty()
+	(row["team"] as Control).visible = filled and race and member != null
+	var leads := Session.is_leader() and race and str(Session.party.get("phase", "")) == "forming"
+	(row["row"] as Control).tooltip_text = "Click to move to the other team" if leads and filled else ""
 	if not filled:
 		row["builder_id"] = ""
 		return
+	if member != null and race:
+		(row["team"] as Label).text = TEAM_NAMES[clampi(int((member as Dictionary)["team"]), 0, 1)]
 	var who: String
 	var main: String
 	var mark := ""
@@ -317,6 +402,23 @@ func _build_card() -> void:
 	_line.position = Vector2(-150, -24)
 	_line.size = Vector2(wing.x + 136, 22)
 	right.add_child(_line)
+	# Once the caretakers are offered, Cancel stands beside the line (the one button starts).
+	_second = Button.new()
+	_second.name = "QueueCancel"
+	_second.flat = true
+	_second.focus_mode = Control.FOCUS_NONE
+	_second.add_theme_font_override("font", Shell.BOLD_FONT)
+	_second.add_theme_font_size_override("font_size", 13)
+	_second.add_theme_color_override("font_color", Shell.TEXT)
+	_second.add_theme_color_override("font_hover_color", Shell.GOLD)
+	_second.add_theme_color_override("font_outline_color", Shell.INK)
+	_second.add_theme_constant_override("outline_size", 5)
+	for st: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		_second.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	_second.position = Vector2(-150, -48)
+	_second.visible = false
+	_second.pressed.connect(func() -> void: Session.play(true))
+	right.add_child(_second)
 
 
 func _fill_primary() -> void:
@@ -332,7 +434,14 @@ func _fill_primary() -> void:
 	_primary.tooltip_text = str(p["line"]) if str(p["line"]) != "" else ("An offline match at once" if str(p["act"]) == "play" else "")
 	_line.text = str(p["line"])
 	_line.add_theme_color_override("font_color", Shell.AMBER if str(p["line"]).ends_with("reload") else Shell.TEXT)
-	Shell.set_lit(_primary, bool(p["enabled"]) and str(p["act"]) in ["play", "start"])
+	Shell.set_lit(_primary, bool(p["enabled"]) and str(p["act"]) in ["play", "start", "queue", "caretakers"])
+	var second: Dictionary = p["second"]
+	_second.visible = not second.is_empty()
+	if _second.text != str(second.get("text", "")):
+		_second.text = str(second.get("text", ""))
+		# (right-aligned over the line, as wide as its words)
+		_second.reset_size()
+		_second.position.x = _line.position.x + _line.size.x - _second.size.x
 
 
 func _build_strip() -> void:

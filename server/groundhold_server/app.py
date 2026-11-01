@@ -7,8 +7,8 @@ pending_cap unfinished, each upgraded within handshake_ms and its HELLO
 within hello_ms of the upgrade), HELLO and its checks
 (the version, the shape, the token, the name; maintenance, a ban, the
 allowlist, a kick; room), WELCOME with its public identity (identity.py),
-then the hub: PARTY, QUEUE and ACCEPT go to the lobby (lobby.py, party.py),
-a match's messages to its match. A connection that drops without a
+then the hub: PARTY, QUEUE and ACCEPT go to the lobby (lobby.py, party.py,
+queue.py), a match's messages to its match. A connection that drops without a
 goodbye keeps its party row 40 s (holds.py) and its match seat to the
 match's end. Every timer runs on the server's clock (`clock`), so tests
 move it by hand.
@@ -32,6 +32,7 @@ import dataclasses
 import json
 import logging
 import math
+import random
 import secrets
 import struct
 import time
@@ -123,7 +124,7 @@ class Server:
                  loading_min_ms=SPEC["loading_min_ms"], match_cap_ms=SPEC["match_cap_ms"],
                  output_cap=SPEC["output_cap"], observer=None, turn_ms=SPEC["turn_ms"],
                  state_dir=None, policy=None, allowlist=(), hold_ms=HOLD_MS, wall=time.time, code_rng=None,
-                 lan=False, beacon=None, housekeeping_ms=1000, party_cap=None):
+                 lan=False, beacon=None, housekeeping_ms=1000, party_cap=None, queue_rng=None):
         if not 1 <= player_cap <= 4096:
             raise ValueError("player_cap must be 1..4096")
         # (parties at once, empty ones waiting on their code included: four
@@ -169,6 +170,8 @@ class Server:
                                   turn_ms=turn_ms)
         self.output_cap = output_cap
         self.code_rng, self.lan = code_rng, lan
+        # (the queue's draws: a free Builder for a stranger whose main and backup are taken)
+        self.queue_rng = queue_rng or random.SystemRandom()
         self.timers = Timers(self.clock)
         self.holds = Holds(self, hold_ms)
         self.lobby = Lobby(self)
@@ -436,14 +439,22 @@ class Server:
             del self.waiting[player.rules_hash]
         self.form_match(mode, player.rules_hash, chosen)
 
-    def form_match(self, mode, rules_hash, players, seats=None, party=None):
-        """A match of `players` (a party's, or a dev match's), configured at once."""
-        assert not any(player.match for player in players), "a player already in a match"
+    def reserve_match_id(self):
+        """The next match id (Match Found names it before the match forms)."""
         match_id = self.next_match
         self.next_match = self.next_match % 0xffffffff + 1
+        return match_id
+
+    def form_match(self, mode, rules_hash, players, seats=None, party=None, parties=None, match_id=None):
+        """A match of `players` (a party's, the queue's, or a dev match's),
+        configured at once. A None in `players` is a caretaker's seat (its
+        `seats` entry has the caretaker flag and a name). `parties`: the
+        parties of a match of strangers from the queue."""
+        assert not any(player and player.match for player in players), "a player already in a match"
+        match_id = match_id or self.reserve_match_id()
         seed = self.seed if self.seed is not None else secrets.randbits(32)
         match = Match(self, match_id, mode, seed, rules_hash, players, self.clock, seats=seats, party=party,
-                      **self.match_options)
+                      parties=parties, **self.match_options)
         self.matches[match_id] = match
         match.begin()
         return match
@@ -548,9 +559,9 @@ class Server:
             if name == "PARTY":
                 self.lobby.party_op(player, fields)
             elif name == "QUEUE":
-                self.lobby.queue(player, fields)
+                self.lobby.queue.op(player, fields)
             else:
-                self.lobby.accept(player, fields)
+                self.lobby.queue.accept(player, fields)
         else:
             raise ProtocolError("Unknown or out-of-order message")
 

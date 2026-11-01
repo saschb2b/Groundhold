@@ -1,0 +1,26 @@
+{
+  "note": "clapper_tower for its command icon only: the ground left off, the shaft cut short.",
+  "colors": {"brick": "#9a4430", "stone": "#8a8580", "timber": "#4e3423", "wood": "#7a5534", "bronze": "#b07a3a", "bronze_dark": "#7a5426", "gold": "#e0b040", "bell_inner": "#2a1d14", "iron": "#3a3c42"},
+  "ground_ao": 0.3,
+  "origin": "bottom-center",
+  "parts": [
+    {"shape": "cylinder", "radius": 0.36, "height": 0.14, "sides": 8, "radius_top": 0.34, "phase": 22.5, "bevel": 0.02, "pattern": "bricks", "at": [0.0, 0.0, 0.0], "color": "brick"},
+    {"shape": "cylinder", "radius": 0.375, "height": 0.04, "sides": 8, "phase": 22.5, "bevel": 0.012, "pattern": "stone", "at": [0.0, 0.14, 0.0], "color": "stone"},
+    {"shape": "cylinder", "radius": 0.33, "height": 0.012, "sides": 8, "phase": 22.5, "pattern": "planks", "at": [0.0, 0.175, 0.0], "color": "wood"},
+    {"shape": "box", "size": [0.09, 0.8, 0.11], "bevel": 0.012, "pattern": "planks", "at": [-0.27, 0.185, 0.0], "color": "timber"},
+    {"shape": "box", "size": [0.14, 0.06, 0.17], "bevel": 0.01, "pattern": "stone", "at": [-0.27, 0.185, 0.0], "color": "stone"},
+    {"shape": "box", "size": [0.04, 0.32, 0.04], "rotate": [-28.0, 0.0, 0.0], "pattern": "planks", "at": [-0.27, 0.185, -0.08], "color": "wood"},
+    {"shape": "box", "size": [0.04, 0.32, 0.04], "rotate": [28.0, 0.0, 0.0], "pattern": "planks", "at": [-0.27, 0.185, 0.08], "color": "wood"},
+    {"shape": "box", "size": [0.09, 0.8, 0.11], "bevel": 0.012, "pattern": "planks", "at": [0.27, 0.185, 0.0], "color": "timber"},
+    {"shape": "box", "size": [0.14, 0.06, 0.17], "bevel": 0.01, "pattern": "stone", "at": [0.27, 0.185, 0.0], "color": "stone"},
+    {"shape": "box", "size": [0.04, 0.32, 0.04], "rotate": [-28.0, 0.0, 0.0], "pattern": "planks", "at": [0.27, 0.185, -0.08], "color": "wood"},
+    {"shape": "box", "size": [0.04, 0.32, 0.04], "rotate": [28.0, 0.0, 0.0], "pattern": "planks", "at": [0.27, 0.185, 0.08], "color": "wood"},
+    {"shape": "box", "size": [0.7, 0.1, 0.14], "bevel": 0.014, "pattern": "planks", "at": [0.0, 0.985, 0.0], "color": "timber"},
+    {"shape": "box", "size": [0.05, 0.112, 0.152], "at": [-0.32, 0.979, 0.0], "color": "iron"},
+    {"shape": "box", "size": [0.05, 0.112, 0.152], "at": [0.32, 0.979, 0.0], "color": "iron"},
+    {"shape": "box", "size": [0.24, 0.07, 0.15], "bevel": 0.01, "pattern": "planks", "at": [0.0, 0.915, 0.0], "color": "wood"},
+    {"parts": [{"shape": "cylinder", "radius": 0.2, "height": 0.03, "sides": 12, "radius_top": 0.19, "bevel": 0.006, "cap_color": "bell_inner", "pattern": "gold", "at": [0.0, -0.34, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.19, "height": 0.07, "sides": 12, "radius_top": 0.155, "pattern": "gold", "at": [0.0, -0.31, 0.0], "color": "bronze"}, {"shape": "cylinder", "radius": 0.155, "height": 0.15, "sides": 12, "radius_top": 0.128, "pattern": "gold", "at": [0.0, -0.24, 0.0], "color": "bronze"}, {"shape": "cylinder", "radius": 0.128, "height": 0.05, "sides": 12, "radius_top": 0.088, "pattern": "gold", "at": [0.0, -0.09, 0.0], "color": "bronze"}, {"shape": "sphere", "radius": 0.09, "segments": [12, 4], "scale": [1.0, 0.42, 1.0], "pattern": "gold", "at": [0.0, -0.04, 0.0], "color": "bronze"}, {"shape": "box", "size": [0.05, 0.05, 0.03], "at": [0.0, -0.02, 0.0], "color": "bronze_dark"}, {"shape": "cylinder", "radius": 0.013, "height": 0.16, "sides": 5, "at": [0.0, -0.44, 0.0], "color": "iron"}, {"shape": "sphere", "radius": 0.068, "segments": [8, 5], "pattern": "metal", "at": [0.0, -0.44, 0.0], "color": "iron"}], "at": [0.0, 0.915, 0.0], "rotate": [8.0, 0.0, -14.0]},
+    {"shape": "sphere", "radius": 0.035, "segments": [6, 4], "pattern": "gold", "at": [0.0, 1.105, 0.0], "color": "gold"},
+    {"shape": "cylinder", "radius": 0.012, "height": 0.03, "sides": 4, "at": [0.0, 1.085, 0.0], "color": "iron"}
+  ]
+}

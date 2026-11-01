@@ -131,10 +131,14 @@ class Party:
     # -- the rules
 
     def set_mode(self, mode):
-        """The mode changed: every Ready cleared, the teams laid out again."""
+        """The mode changed: every Ready cleared, the teams laid out again;
+        a two-team mode has no open seats (the queue finds a race a rival
+        team, never strangers for its seats), so they go off."""
         self.mode = mode
         for member in self.members.values():
             member.ready = False
+        if self.teams() > 1:
+            self.open = False
         self.lay_out_teams()
 
     def lay_out_teams(self):
@@ -169,8 +173,9 @@ class Party:
         return sorted(self.members.values(), key=lambda m: (m.team, m.number))
 
     def open_seat(self):
-        """Open seats on and a seat free (the beacon's count)."""
-        return self.open and len(self.members) < MAX_MEMBERS and self.phase in (FORMING, COUNTDOWN, QUEUED)
+        """Open seats on and a seat free, in a one-team mode (the beacon's count)."""
+        return (self.open and self.teams() == 1 and len(self.members) < MAX_MEMBERS
+                and self.phase in (FORMING, COUNTDOWN, QUEUED))
 
     # -- the wire
 

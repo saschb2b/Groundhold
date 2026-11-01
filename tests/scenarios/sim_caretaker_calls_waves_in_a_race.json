@@ -1,0 +1,28 @@
+{
+  "name": "sim_caretaker_calls_waves_in_a_race",
+  "description": "The caretaker races (contract-m6 4): in Tide Race it plays its seat on its own team's hollow and, once its window's build steps are done (the next step waits for gold), says Ready, so a hollow it plays alone calls its wave at once and is paid the early gold, while the rival's window counts on. A plan step marked \"ready\": false holds that: waiting on it, the caretaker waits out the window. Beside a player its seat counts as Ready, and the horn is the player's call. In High Water a hollow every seat of which is caretaken still waits out its windows (sim_all_caretaken_waits_out_windows).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'caretakers': [2]})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "m.seat(2).hollow == 1 and scene.tower_on(1, 8, 11) != null and scene.tower_on(1, 8, 11).owner == 2 and scene.owner_at(8, 11) == 0", "msg": "the caretaker builds its plan on its own hollow"},
+    {"assert": "scene.rows('READY', ['seat', 'tick'], {}) == [[2, 0]] and scene.rows('WAVE', ['hollow', 'tick'], {'start': true}) == [[1, 1]]", "msg": "its builds done, it said Ready at tick 0 and its hollow's horn sounded"},
+    {"assert": "scene.rows('GOLD', ['seat', 'change'], {'why': 'ready'}) == [[2, 14]] and m.hollows[0].phase == 0", "msg": "with the early gold; the player's hollow is still in its window"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'caretakers': [2], 'plans': {'lamplighter': [{'build': 'arrow', 'cell': [8, 11]}, {'build': 'arrow', 'cell': [11, 11]}, {'build': 'cannon', 'cell': [6, 11], 'ready': false}, {'build': 'arrow', 'cell': [9, 11]}]}})"},
+    {"eval": "scene.client(1)", "as": "m2"},
+    {"eval": "scene.run_ticks(60)"},
+    {"assert": "scene.forms(2) == ['arrow', 'arrow'] and m2.seat(2).plan_cursor == 2 and not m2.seat(2).ready and m2.hollows[1].phase == 0", "msg": "waiting on a step that holds Ready, it does not call the wave"},
+    {"eval": "scene.run_to(900)"},
+    {"assert": "scene.rows('WAVE', ['hollow', 'tick'], {'start': true}) == [[0, 899], [1, 899]] and scene.gold_paid('ready') == 0", "msg": "it waits out its window, as the player beside it does"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 4, 'caretakers': [2, 3, 4]})"},
+    {"eval": "scene.client(1)", "as": "m4"},
+    {"eval": "scene.run_ticks(30)"},
+    {"assert": "m4.hollows[1].phase == 1 and m4.hollows[0].phase == 0 and m4.seat(2).ready", "msg": "team B, two caretakers, called its wave; team A's caretaker is Ready, but the horn waits for its player"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "m4.hollows[0].phase == 1", "msg": "the player's Ready calls it"}
+  ]
+}

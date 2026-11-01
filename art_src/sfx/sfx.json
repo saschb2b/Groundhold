@@ -1,0 +1,39 @@
+{
+  "dest": "sfx",
+  "peak_db": -1.5,
+  "sounds": {
+    "toll": {
+      "note": "The Toll Tower's pulse: one deep church bell struck hard (prime D3, its nominal an octave up), a thud under the strike, ringing out over a second and a half.",
+      "duration": 1.55,
+      "notes": [{"freq": 147.0, "spectrum": "church", "decay": 1.0, "detune": 4.0, "strike": 0.35, "strike_cut": 2500, "thump": 0.35}]
+    },
+    "clap": {
+      "note": "The Clapper Tower's strike: a heavy clapper on a bronze bell, a short clang over a low thud, damped quickly.",
+      "duration": 0.75,
+      "notes": [{"freq": 294.0, "spectrum": "handbell", "decay": 0.75, "detune": 7.0, "strike": 0.55, "strike_cut": 4200, "thump": 0.7}]
+    },
+    "chime": {
+      "note": "The Chime Post: two bronze chime tubes touching, D6 then G6, a bright shimmer that fades.",
+      "duration": 1.4,
+      "notes": [
+        {"freq": 1174.7, "spectrum": "chime", "decay": 1.1, "detune": 3.0, "strike": 0.06, "strike_cut": 7000},
+        {"at": 0.09, "freq": 1568.0, "spectrum": "chime", "gain": 0.7, "decay": 1.0, "detune": 3.0, "strike": 0.05, "strike_cut": 7000}
+      ]
+    },
+    "bees": {
+      "note": "The Beekeeper's bees: a swarm of seven buzzing voices round 210 Hz, each with its own wingbeat vibrato and drift, swelling in and away.",
+      "duration": 0.9,
+      "swarm": {"voices": 7, "base": 210.0, "spread": 0.18, "lowpass": 2400, "attack": 0.05, "release": 0.35}
+    },
+    "match_found": {
+      "note": "Match Found: three hand bells rising (C5, E5, G5) over a soft low bell, an inviting peal that rings out.",
+      "duration": 1.5,
+      "notes": [
+        {"freq": 523.25, "spectrum": "handbell", "gain": 0.8, "decay": 1.6, "detune": 4.0, "strike": 0.12, "strike_cut": 5000},
+        {"at": 0.16, "freq": 659.25, "spectrum": "handbell", "gain": 0.8, "decay": 1.6, "detune": 4.0, "strike": 0.12, "strike_cut": 5000},
+        {"at": 0.32, "freq": 783.99, "spectrum": "handbell", "gain": 0.9, "decay": 1.8, "detune": 4.0, "strike": 0.12, "strike_cut": 5000},
+        {"at": 0.32, "freq": 261.63, "spectrum": "church", "gain": 0.35, "decay": 1.0, "detune": 3.0, "strike": 0.0}
+      ]
+    }
+  }
+}

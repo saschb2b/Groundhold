@@ -1,0 +1,33 @@
+{
+  "note": "Ottilie Brass's bronze hand bell, mid-swing, its turned handle up and its clapper showing under the lip, with her small hammer hanging on its chain behind it: a bell-caster's tools, for the Bellfounder's emblem (ui/icons/emblem_bellfounder.png) only.",
+  "colors": {"bronze": "#b07a3a", "bronze_dark": "#7a5426", "gold": "#e0b040", "bell_inner": "#2a1d14", "wood": "#a0784a", "iron": "#3a3c42"},
+  "origin": "bottom-center",
+  "parts": [
+    {"parts": [
+      {"shape": "cylinder", "radius": 0.3, "height": 0.045, "sides": 16, "radius_top": 0.285, "bevel": 0.01, "cap_color": "bell_inner", "pattern": "gold", "at": [0, 0, 0], "color": "gold"},
+      {"shape": "cylinder", "radius": 0.285, "height": 0.1, "sides": 16, "radius_top": 0.235, "pattern": "gold", "at": [0, 0.045, 0], "color": "bronze"},
+      {"shape": "cylinder", "radius": 0.235, "height": 0.21, "sides": 16, "radius_top": 0.195, "pattern": "gold", "at": [0, 0.145, 0], "color": "bronze"},
+      {"shape": "cylinder", "radius": 0.226, "height": 0.03, "sides": 16, "radius_top": 0.222, "pattern": "gold", "at": [0, 0.205, 0], "color": "gold"},
+      {"shape": "cylinder", "radius": 0.195, "height": 0.07, "sides": 16, "radius_top": 0.135, "pattern": "gold", "at": [0, 0.355, 0], "color": "bronze"},
+      {"shape": "sphere", "radius": 0.137, "segments": [16, 5], "scale": [1.0, 0.42, 1.0], "pattern": "gold", "at": [0, 0.425, 0], "color": "bronze"},
+      {"shape": "cylinder", "radius": 0.075, "height": 0.06, "sides": 10, "pattern": "gold", "at": [0, 0.44, 0], "color": "bronze_dark"},
+      {"shape": "cylinder", "radius": 0.055, "height": 0.07, "sides": 10, "radius_top": 0.045, "pattern": "planks", "at": [0, 0.5, 0], "color": "wood"},
+      {"shape": "cylinder", "radius": 0.045, "height": 0.16, "sides": 10, "radius_top": 0.06, "pattern": "planks", "at": [0, 0.57, 0], "color": "wood"},
+      {"shape": "sphere", "radius": 0.075, "segments": [10, 5], "scale": [1.0, 0.8, 1.0], "pattern": "planks", "at": [0, 0.76, 0], "color": "wood"},
+      {"shape": "cylinder", "radius": 0.016, "height": 0.14, "sides": 6, "at": [0, -0.09, 0], "color": "iron"},
+      {"shape": "sphere", "radius": 0.075, "segments": [10, 5], "pattern": "metal", "at": [0, -0.09, 0], "color": "iron"}
+    ], "at": [0.0, 0.12, 0.0], "rotate": [8.0, 0.0, -22.0]},
+    {"parts": [
+      {"shape": "sphere", "radius": 0.022, "segments": [6, 3], "scale": [1.0, 1.3, 0.5], "at": [0, 0.0, 0], "color": "iron"},
+      {"shape": "sphere", "radius": 0.022, "segments": [6, 3], "scale": [1.0, 1.3, 0.5], "at": [0, 0.03, 0], "color": "iron"},
+      {"shape": "sphere", "radius": 0.022, "segments": [6, 3], "scale": [1.0, 1.3, 0.5], "at": [0, 0.06, 0], "color": "iron"},
+      {"shape": "sphere", "radius": 0.022, "segments": [6, 3], "scale": [1.0, 1.3, 0.5], "at": [0, 0.09, 0], "color": "iron"},
+      {"shape": "sphere", "radius": 0.022, "segments": [6, 3], "scale": [1.0, 1.3, 0.5], "at": [0, 0.12, 0], "color": "iron"},
+      {"shape": "sphere", "radius": 0.022, "segments": [6, 3], "scale": [1.0, 1.3, 0.5], "at": [0, 0.15, 0], "color": "iron"},
+      {"parts": [
+        {"shape": "cylinder", "radius": 0.02, "height": 0.26, "sides": 6, "pattern": "planks", "at": [0, 0, 0], "color": "wood"},
+        {"shape": "box", "size": [0.15, 0.065, 0.065], "bevel": 0.01, "pattern": "metal", "at": [0, 0.25, 0], "color": "iron"}
+      ], "at": [0.0, 0.18, 0.0], "rotate": [0.0, 0.0, 180.0]}
+    ], "at": [0.3, 0.2, -0.14], "rotate": [0.0, 30.0, -8.0], "scale": 0.8}
+  ]
+}

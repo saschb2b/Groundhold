@@ -2,6 +2,11 @@
 ## pond tiles sink into a rounded bowl with sloping banks, raised blocks with rock
 ## walls for high ground, the water surface, and the painted terrain material that
 ## blends road, grass, meadow, rock and shore.
+##
+## The tiles are the board's (main.gd): the one map, or in a race both hollows' copies side
+## by side with the cliff band between them, which its high ground fills. Every shader
+## samples the world's own coordinates, so one ground covers the whole board. Each pond gets
+## its own water surface.
 class_name Terrain
 extends Node3D
 
@@ -22,6 +27,7 @@ const CLIFF_JITTER := 0.16
 var map: HollowMap
 var _material: ShaderMaterial
 var _water_material: ShaderMaterial
+var _map_image: Image
 ## R: water depth below the surface (0 shore, 1 deepest); G: how much a point
 ## belongs to the pond. Shared by the water and terrain shaders.
 var _shore: ImageTexture
@@ -59,6 +65,29 @@ func build(source: HollowMap) -> void:
 	cliffs.material_override = _material
 	add_child(cliffs)
 	_add_water()
+
+
+## Takes the ground down, for a board of another size (main.gd's world for a race).
+func clear() -> void:
+	for child in get_children():
+		remove_child(child)
+		child.queue_free()
+	_water_material = null
+
+
+## The build grid shows only on the cells inside `area` (my hollow in a race): the map
+## texture's buildable channel is cleared everywhere else.
+func grid_only(area: Rect2i) -> void:
+	if _map_image == null:
+		return
+	var image := _map_image.duplicate() as Image
+	for z in map.depth:
+		for x in map.width:
+			if not area.has_point(Vector2i(x, z)):
+				var c := image.get_pixel(x, z)
+				c.a = 0.0
+				image.set_pixel(x, z, c)
+	_material.set_shader_parameter("map_tex", ImageTexture.create_from_image(image))
 
 
 ## Ground height on low ground: gentle rolling grass, level road, and a bowl
@@ -144,6 +173,7 @@ func _map_texture() -> ImageTexture:
 					1.0 if map.buildable(cell) else 0.0
 				)
 			)
+	_map_image = image
 	return ImageTexture.create_from_image(image)
 
 
@@ -240,34 +270,59 @@ func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> v
 		st.add_vertex(v)
 
 
-## The pond surface: a flat sheet at water level over the pond and a margin; the
+## The pond surface: a flat sheet at water level over each pond and a margin; the
 ## ground rises through it along the shore, so the waterline follows the banks.
-## A depth map lets the shader colour shallows, deeps and foam.
+## A depth map lets the shader colour shallows, deeps and foam. (One sheet per pond, the
+## first named "Water": a race's two ponds lie a whole hollow apart.)
 func _add_water() -> void:
-	var lo := Vector2(INF, INF)
-	var hi := Vector2(-INF, -INF)
-	for z in map.depth:
-		for x in map.width:
-			if map.tile(Vector2i(x, z)) == HollowMap.WATER:
-				lo = lo.min(Vector2(x, z))
-				hi = hi.max(Vector2(x + 1, z + 1))
-	if lo.x == INF:
+	var ponds := _ponds()
+	if ponds.is_empty():
 		return
-	lo -= Vector2.ONE
-	hi += Vector2.ONE
-	var plane := PlaneMesh.new()
-	plane.size = hi - lo
 	_water_material = ShaderMaterial.new()
 	_water_material.shader = WATER_SHADER
 	_water_material.set_shader_parameter("depth_tex", _shore)
 	_water_material.set_shader_parameter("map_size", Vector2(map.width, map.depth))
-	var water := MeshInstance3D.new()
-	water.name = "Water"
-	water.mesh = plane
-	water.material_override = _water_material
-	water.position = Vector3((lo.x + hi.x) * 0.5, WATER_LEVEL, (lo.y + hi.y) * 0.5)
-	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(water)
+	for i in ponds.size():
+		var bounds: Rect2 = ponds[i]
+		var lo := bounds.position - Vector2.ONE
+		var hi := bounds.end + Vector2.ONE
+		var plane := PlaneMesh.new()
+		plane.size = hi - lo
+		var water := MeshInstance3D.new()
+		water.name = "Water" if i == 0 else "Water%d" % (i + 1)
+		water.mesh = plane
+		water.material_override = _water_material
+		water.position = Vector3((lo.x + hi.x) * 0.5, WATER_LEVEL, (lo.y + hi.y) * 0.5)
+		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(water)
+
+
+## Each pond's water tiles' bounds (tiles touching, diagonals included, are one pond), in
+## the order their first tile comes row by row.
+func _ponds() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var seen := {}
+	for z in map.depth:
+		for x in map.width:
+			var start := Vector2i(x, z)
+			if seen.has(start) or map.tile(start) != HollowMap.WATER:
+				continue
+			var lo := Vector2(x, z)
+			var hi := Vector2(x + 1, z + 1)
+			var open: Array[Vector2i] = [start]
+			seen[start] = true
+			while not open.is_empty():
+				var c: Vector2i = open.pop_back()
+				lo = lo.min(Vector2(c.x, c.y))
+				hi = hi.max(Vector2(c.x + 1, c.y + 1))
+				for dz in [-1, 0, 1]:
+					for dx in [-1, 0, 1]:
+						var n := c + Vector2i(dx, dz)
+						if not seen.has(n) and map.inside(n) and map.tile(n) == HollowMap.WATER:
+							seen[n] = true
+							open.append(n)
+			out.append(Rect2(lo, hi - lo))
+	return out
 
 
 ## Water depth (R) and the pond field (G), 8-bit so every renderer (WebGL 2

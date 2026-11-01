@@ -1,6 +1,109 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 · 2026-11-01
+
+The full roster, Tide Race and the queue (M6). Ottilie Brass, the Bellfounder, and Sefa Amberwell, the Beekeeper,
+join Tamsin and Edda; Tide Race sets two crews racing on Wickhollow and its reflection; and the official server finds
+players and rivals for a party that asks.
+
+- The rules of the Bellfounder and the Beekeeper (M6). The Toll Tower rings every 2.4 s and strikes every
+  ground creep in its reach at once, stunning each for 0.6 s; a stunned creep is then immune for a second, so
+  stuns never chain, and a boss is slowed 50% for the stun's length instead. Its Sky Toll reaches the sky and
+  slows fliers. The Clay Hive's bee cloud stings every creep near the one it aims at, fliers too. The Chime
+  Post takes armour off every creep in its reach for every tower's hits, and the Hive Hum makes every tower
+  beside it fire faster, whoever built it; of two cracks or two hums the stronger counts. A hit on a creep
+  someone else stunned or cracked, or from a tower someone else's hum hastens, is that player's Help. Bronze
+  Hand: the Bellfounder's hits ignore 2 armour. Hive Tithe: each Clay Hive and Hive Hum of the Beekeeper's pays
+  her 2 gold at every wave clear, at most 12.
+- Tide Race in the simulation: two teams of one or two, each on its own copy of the hollow with its own clock,
+  the same waves on both. The race is decided as soon as the outcome is certain: the lower race time (the clear
+  of wave 12 plus 10 s for every life lost), or the rival's fall once you have cleared the wave it fell on, or
+  at the 20-minute cap the waves cleared, then the lives. The caretaker races too: it calls each wave once its
+  builds for the window are done.
+- The caretaker plays the Bellfounder and the Beekeeper from their own plans, and the balance gates now cover
+  every Builder alone, three and four players, the Bellfounder with the Beekeeper, the Lamplighter and the Lookout
+  each beside each of them, and the race (a mirror draws; a bot that calls every wave beats one that waits). Tuned against them: the Toll Tower's pulse deals 8, not 6,
+  and the Sky Toll slows a flier for 2 s, not 1, and deals it 80% more; the Queen's Guard stings for 50, not
+  40, and ignores 3 armour, so the Beekeeper's fork for Armored beats her Royal Apiary against armour.
+- Art for the Bellfounder and the Beekeeper (M6). Ottilie Brass, a stout bell-caster in a Delft-blue smock, a
+  leather apron and a teal oilskin sou'wester, holds up a bronze hand bell, her small hammer on a chain at her
+  belt; Sefa Amberwell, in a terracotta tunic under a veiled straw sun hat, holds a bee smoker with its smoke
+  rising. Each has a figure, a portrait bust, a glyph and an emblem. Their eighteen towers have models and
+  command icons: the Clapper Tower, Toll Tower and Chime Post in Brackwater brick and bronze on a turf dike, and
+  the Clay Hive, Apiary and Hive Hum on the stepped red rock of Thousandwell. Each branch changes its base's
+  crown, roof or head. The Apiary has a bee to fire, and there are six new sounds: the toll, the clapper's clap,
+  the chime, the bees, Match Found and the countdown's tick. The views wire them in later in M6.
+- `art_src/models/towers/m6_kits.py` writes the eighteen tower recipes, their icon-only variants and the two
+  emblems' props from shared pieces, so every branch stays on its base; `--check` says whether the recipes and the
+  models built from them are current. `art_src/sfx/sfx.py` makes the sounds the kit's one-oscillator
+  synthesizer cannot: bells built from inharmonic partials over a strike, and a swarm of bees.
+  `art_m6_painted` checks every M6 model, icon, Builder and sound, and holds each M6 model to its triangle budget,
+  size, materials and palette in `asset_style.json`.
+- The queue (M6): on a server the leader of a party turns open seats on, and **Find players** fills them with
+  players from the queue, up to four; in Tide Race a team of one or two presses **Find a rival**. Parties are
+  matched only with players of the same mode and the same version, earliest first. While queued the hub shows a
+  pill with the time ("Finding players 0:42"), which follows into the Builders screen, and the leader's button
+  cancels. When a match is found, everyone gets 15 s to accept on the Match Found plate; if someone declines or
+  the time runs out, the match is off, the party that did not accept goes back to the hub and everyone else keeps
+  their place at the front of the queue. Strangers on one team never get the same Builder: whoever queued first
+  keeps their main, the next takes their backup, and the server picks a free one for anyone still clashing (Tide
+  Race's rival teams play their own hollows and keep their mains). After a minute queued the leader may **Start
+  with caretakers** (Tide Race: **Race the caretaker**), which fills the free seats with caretakers whose
+  Builders cover what the party lacks, or sets a caretaker team with the same Builders against it. After a match
+  each party is on its own results again, and a player who came alone through the queue to a match of strangers
+  is queued again by Play again (a start with caretakers comes back to the party, as after Start). While the
+  party is queued only the leader can leave the queue, so a member's Try waits until the party is out of it. Open
+  seats belong to High Water: switching the party to Tide Race turns them off.
+- A Tide Race party shows its two teams in the party panel, and the leader clicks a row to move a player to the
+  other team. Offline, a party of one in Tide Race races the caretaker once the build has the race's rules.
+- The server's queue (`server/groundhold_server/queue.py`) is documented in `shared/net/README.md` (The queue)
+  and recorded in the golden transcripts `m6_queue`, `m6_caretakers` and `m6_race`. `tools/net/smoke.py --mode
+  tide_race` plays a dev match of two teams and checks that the teams' outcomes answer each other (on a build
+  without the race's rules it says so first). `tools/net/smoke.py --flow --queue` plays the queue end to end
+  against the real server: four games, each a party of one, find each other, accept Match Found, play a High
+  Water match with the Builders the server unclashed, and are queued again by Play again.
+- The Bellfounder and the Beekeeper stand on the board as themselves (M6's race views, first part). Each of their
+  eighteen tower forms has its view: the Clapper Tower's strike lands as a bronze clap on its creep, the Toll
+  Tower's bell rings a wave out to its reach, a Chime Post's cracked creeps shimmer bronze, a Clay Hive's bees
+  swarm over the creep its cloud stings, the Apiary fires bees, and a tower a Hive Hum hastens glows at its foot.
+  Until their models and sounds are made, the towers stand as grey stand-ins and play silent, and the hub fields
+  both Builders as themselves rather than as a Lamplighter.
+- A Tide Race shows both hollows: Wickhollow and its copy side by side beyond a wooded ridge, every tower and
+  creep on its own hollow. The camera starts over yours, Home frames it and V shows your rival's and back; the
+  minimap shows both with your rival's veiled; a tower placed or a signal given on the rival's hollow is refused
+  with "That is your rival's hollow".
+- A selected tower of the new kits shows its stun, cloud, crack or haste beside its range, and a cracked creep
+  says by how much.
+- Tide Race on screen (M6's race views). Play in Tide Race races the caretaker: both hollows stand from the
+  start, the mirror builds on its own and calls its own waves. Under the resource strip a second line follows
+  the rival: "Rival · Wave 7 · 18 lives · 6:12 +20 s", its wave, its lives and its race clock with 10 s for each
+  life lost; once its Holdfast goes under it says what wins: "Your rival fell on wave 9. Clear wave 9 to win".
+  Banners mark a crew clearing wave 12 (the time to beat) or falling, and the end waits for the race's decision,
+  not for your own hollow. The party strip shows both teams, yours first. The loading screen lays a race out in
+  two rows, team A above team B, a gilt rule between them and each team's coverage under its cards. The results
+  say "You Outran the Tide", "Your Rival Outran the Tide" or "Two Crews, One Time", the rule that decided it in
+  one line ("You cleared wave 12 first", "Your rival fell on wave 9", "Twenty minutes: more waves cleared"), and
+  one block per crew with its race time, its lives along its waves and its players.
+- Fixed: an offline race was judged by your own hollow, so a race won by the rival's fall said lost, a race lost
+  on time with your hollow cleared said won, a draw was never shown and the 20-minute cap was ignored. The
+  results now take the outcome the simulation decided, offline and online. An offline match also stops where it
+  was decided, so its results show the decided race.
+- The Bellfounder's and the Beekeeper's tooltips follow the tuned numbers: the Sky Toll slows fliers by half for
+  2 s and strikes them 80% harder, the Queen's Guard's slower, far heavier stings pierce armour, the Apiary shows
+  its +50% against fliers, and an aura shows no cooldown. A Bellfounder's fork no longer reads as losing her
+  Bronze Hand's pierce. Their towers' sounds now sit level with the others' (they played 3 to 8 dB quieter), and
+  every muzzle is measured on its model: the bee leaves the Apiary from its top ring of holes, and the Sky Toll's
+  ring bursts from its bell high under the arch.
+- Fixed: a race won on the same tick by fewer lives lost said "You cleared wave 12 first"; it now says "Fewer
+  lives lost: your race time is the lower". A drawn race no longer repeats its title as its rule but says which
+  rule tied: "Both cleared wave 12 in the same race time", "Both fell on wave 6 with as many of its creeps
+  killed" or "Twenty minutes: as many waves cleared and lives kept".
+- Fixed: once a race was decided while your own hollow was still in a window or a wave, towers could still be
+  placed and the horn called under the end plate until the server ended the match. The match is over for you
+  as soon as the race is decided: the card greys and an order says "The match is over".
+- The command card's tooltip counts the Bellfounder's Bronze Hand (Pierce 2), as the build description beside
+  it does, and shows a tower's own pierce; an aura, which strikes nothing, shows none. A selected Sky Toll shows
+  its slow of fliers beside its +80% against them.
 
 ## 0.6.1 · 2026-11-01
 

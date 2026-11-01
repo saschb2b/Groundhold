@@ -16,6 +16,15 @@ equal at every tick they share and cover the match to its last minute.
     python3 tools/net/smoke.py --mode classic --clients 2
     python3 tools/net/smoke.py --clients 2 --turn-ms 10      # five times faster, for CI
 
+--mode is any mode of shared/net/protocol.json. A two-team mode (Tide Race, M6) takes an
+even number of clients within its seats, half on each team (a dev match's team is
+seat × teams div seats: a 1v1 is seat 1 against seat 2), and its check is the race's:
+every client's RESULT names the same final tick and hash, the clients of one team end
+with one outcome, and the two teams' outcomes answer each other (won and lost, or both
+draw). It plays only where the build has the mode's rules (content.gd RULES).
+
+    python3 tools/net/smoke.py --mode tide_race --clients 2 --turn-ms 10
+
 With --flow it plays the whole loop around a match instead (design §8 M3): the
 server runs with its hub (no --dev-match, its state in <out>/state), and each
 game boots into the hub with tests/net/flow_bot.gd at the controls:
@@ -39,6 +48,21 @@ end, and every game came back to a party of N, forming.
 
 --linger S keeps every game S seconds on the results before Play again: longer
 than the server's silence_ms (15 s), the plate must keep the connection alive.
+
+With --flow --queue (M6) the four games meet through the server's queue instead:
+each makes a party of one of its own, turns open seats on and presses Find
+players (--queue), the server's queue.py merges the four tickets into one High
+Water match of strangers, Match Found comes to every game and each accepts, the
+match forms with the strangers' Builders unclashed by the server (every main
+--builders names, default all Lamplighters: the first queued keeps the main, the
+next takes the backup, the rest are drawn from Server.queue_rng), it plays and
+ends, and each game's Play again queues it again, as for a player who came alone
+through the queue. The check: every game went party -> queued -> found -> loading
+-> match -> end -> results -> back (queued again), in four parties of its own, one
+found match, one MATCH_CONFIG whose four Builders are four different ones, one seat
+each, the hash streams equal to the end.
+
+    python3 tools/net/smoke.py --flow --queue --no-bot      # four games, about two minutes
 
 With --shaper (design §8 M4) the last client plays through tools/net/shaper.py:
 150 ± 50 ms each way and, --stall-at seconds after it connects, a 3 s stall
@@ -94,6 +118,8 @@ READY = re.compile(r"listening.*port\D*(?P<port>\d+)")
 HASH = re.compile(r"^HASH (\d+) ([0-9a-f]+)$")
 RESULT = re.compile(r"^RESULT (\d+) ([0-9a-f]+) (\w+)$")
 MATCH_END = re.compile(r"^MATCH_END (\w+) (\w+) (\d+)$")
+MATCH = re.compile(r"^MATCH (\d+) seat (\d+) of (\d+) seed (\d+)$")
+PROTOCOL = ROOT / "shared" / "net" / "protocol.json"
 RESYNC = re.compile(r"^RESYNC (\w+) (\d+)$")
 SHAPER_READY = re.compile(r"listening on [\d.]+:(?P<port>\d+)")
 # The protocol's turn: 3 ticks in 50 ms (protocol.json turn_ms, turn_ticks).
@@ -109,6 +135,13 @@ FLOW_MATCH = re.compile(r"^FLOW match (\w+) seat (\d+) of (\d+) builders ([\w,]+
 FLOW_RESULTS = re.compile(r"^FLOW results (\w+) (.*)$")
 FLOW_BACK = re.compile(r"^FLOW back (\w+) members (\d+) phase (\w+)$")
 FLOW_FAILED = re.compile(r"^FLOW failed (.*)$")
+FLOW_QUEUED = re.compile(r"^FLOW queued (\w+)$")
+FLOW_FOUND = re.compile(r"^FLOW found (\d+) seats (\d+)$")
+FLOW_CONFIG = re.compile(r"^FLOW config builders ([\w,]+)$")
+# The steps a game of --flow --queue goes through, in order.
+QUEUE_STEPS = ["party", "queued", "found", "loading", "match", "end", "results", "back"]
+# What a build that lacks a mode's rules says when the server's MATCH_CONFIG names it.
+NO_RULES = "cannot play the server's mode"
 
 
 def rate_floor(stamps, window):
@@ -134,6 +167,51 @@ def rate_floor(stamps, window):
     return worst, at
 
 
+def modes():
+    """protocol.json's modes: name -> {"id", "teams", "seats": [low, high]}."""
+    return json.loads(PROTOCOL.read_text(encoding="utf-8"))["modes"]
+
+
+def mode_problem(mode, clients):
+    """Why --mode MODE --clients N cannot be a dev match ("" where it can): a mode the
+    protocol knows, a seat count it takes, and two even teams in a two-team mode."""
+    known = modes()
+    if mode not in known:
+        return f"--mode is one of {', '.join(known)}"
+    low, high = known[mode]["seats"]
+    if not low <= clients <= high:
+        return f"--mode {mode} takes {low} to {high} clients"
+    if clients % known[mode]["teams"]:
+        return f"--mode {mode} plays {known[mode]['teams']} teams of one size: an even number of clients"
+    return ""
+
+
+def result_key(line, race):
+    """What every client's RESULT line must share: all of it, or in a race the final tick
+    and the hash (each team prints its own outcome)."""
+    return " ".join(line.split()[:3]) if race else line
+
+
+def race_problems(ends, seats, teams=2):
+    """A race's outcomes by team (`ends`: client -> MATCH_END's (outcome, reason, tick);
+    `seats`: client -> (seat, of)): one outcome a team, and the teams' answering each
+    other (won and lost, or a draw for both)."""
+    problems, by_team = [], {}
+    for k, (seat, of) in sorted(seats.items()):
+        if k in ends:
+            by_team.setdefault((seat - 1) * teams // of, set()).add(ends[k][0])
+    for team, outcomes in sorted(by_team.items()):
+        if len(outcomes) > 1:
+            problems.append(f"team {team} ended with {', '.join(sorted(outcomes))}, not one outcome")
+    if len(by_team) == teams and all(len(o) == 1 for o in by_team.values()):
+        pair = sorted(next(iter(o)) for o in by_team.values())
+        if pair not in (["lost", "won"], ["draw", "draw"]):
+            problems.append(f"the teams ended {' and '.join(pair)}: one wins and one loses, or both draw")
+    elif len(by_team) != teams:
+        problems.append(f"the clients sat on {len(by_team)} team(s), not {teams}")
+    return problems
+
+
 def missing_results(ends, results):
     """The clients whose missing RESULT line is a problem: every client sends
     RESULT at the match's end, but once a majority's RESULT ends the match, one
@@ -143,6 +221,100 @@ def missing_results(ends, results):
     finals = {line.split()[1] for line in results.values()}
     return [k for k in sorted(ends) if k not in results
             and not (ends[k][0] in FINISHED and ends[k][1] == "result" and ends[k][2] in finals)]
+
+
+def queue_game(lines):
+    """What one --flow --queue game's log says: its steps (QUEUE_STEPS' names, each once, in
+    the order first seen) and the party code, the match found ((match, seats)), the match as
+    fielded ((mode, seat, of, builders)), MATCH_CONFIG's Builders, MATCH_END, the way back
+    ((code, members, phase)) and any failure."""
+    seen = {"steps": [], "failed": []}
+    for line in (line.strip() for line in lines):
+        step = None
+        if m := FLOW_PARTY.match(line):
+            seen.setdefault("party", m.group(1))
+            step = "party"
+        elif FLOW_QUEUED.match(line):
+            step = "queued"
+        elif m := FLOW_FOUND.match(line):
+            seen.setdefault("found", m.groups())
+            step = "found"
+        elif line == "FLOW state LOADING":
+            step = "loading"
+        elif m := FLOW_MATCH.match(line):
+            seen["match"] = m.groups()
+            step = "match"
+        elif m := FLOW_CONFIG.match(line):
+            seen["config"] = m.group(1).split(",")
+        elif m := MATCH_END.match(line):
+            seen["end"] = m.groups()
+            step = "end"
+        elif FLOW_RESULTS.match(line):
+            step = "results"
+        elif m := FLOW_BACK.match(line):
+            seen["back"] = m.groups()
+            step = "back"
+        elif m := FLOW_FAILED.match(line):
+            seen["failed"].append(m.group(1))
+        if step and step not in seen["steps"]:
+            seen["steps"].append(step)
+    return seen
+
+
+def queue_problems(games, seats=4):
+    """--flow --queue's check on what the games' logs say (`games`: client -> queue_game):
+    every game through every step to queued again, each in a party of its own, one match
+    found of `seats` for all, one MATCH_CONFIG whose Builders are all different (strangers
+    on one team never share one: with every main a Lamplighter, the first queued keeps it,
+    the next takes the backup and the server draws the rest), one seat each, and a finished
+    match."""
+    problems = []
+    for k, seen in sorted(games.items()):
+        problems += [f"client {k}: {why}" for why in seen["failed"]]
+        if seen["steps"] != QUEUE_STEPS:
+            went = " -> ".join(seen["steps"]) or "nowhere"
+            problems.append(f"client {k} went {went}, not {' -> '.join(QUEUE_STEPS)}")
+        end = seen.get("end")
+        if end and (end[0] not in FINISHED or end[1] != "result"):
+            problems.append(f"client {k}: the match ended {end[0]} ({end[1]}) at tick {end[2]}")
+        back = seen.get("back")
+        if back and (back[1] != "1" or back[2] != "queued"):
+            problems.append(f"client {k} came back to {back[1]} members, {back[2]}: Play again did not queue it again")
+    codes = [seen.get("party") for seen in games.values()]
+    if None in codes or len(set(codes)) != len(codes):
+        problems.append("the games were not each in a party of its own: " + ", ".join(map(str, codes)))
+    found = {seen.get("found") for seen in games.values()}
+    if len(found) != 1 or None in found:
+        problems.append("the games did not all find one match: " + ", ".join(map(str, sorted(found, key=str))))
+    elif int(next(iter(found))[1]) != seats:
+        problems.append(f"Match Found named {next(iter(found))[1]} seats, not {seats}")
+    configs = {tuple(seen.get("config", ())) for seen in games.values()}
+    if len(configs) != 1:
+        problems.append("the games were configured with different Builders: "
+                        + "; ".join(",".join(c) for c in sorted(configs)))
+    else:
+        chosen = list(next(iter(configs)))
+        if len(chosen) != seats or len(set(chosen)) != len(chosen):
+            problems.append(f"MATCH_CONFIG's Builders {','.join(chosen) or 'none'}: strangers on one team share one")
+    matched = [seen["match"] for seen in games.values() if "match" in seen]
+    if sorted(int(m[1]) for m in matched) != list(range(1, seats + 1)):
+        problems.append("the seats were not one each: " + ", ".join(m[1] for m in matched))
+    if {m[0] for m in matched} - {"high_water"}:
+        problems.append("the queue's match was not High Water: " + ", ".join(sorted({m[0] for m in matched})))
+    return problems
+
+
+def stream_problems(streams, final):
+    """The hash streams' check (client -> {tick: hash}): equal at every tick they share, and
+    shared to within a hash of the match's last tick `final`."""
+    shared = set.intersection(*(set(s) for s in streams.values())) if streams else set()
+    first_bad = next((t for t in sorted(shared) if len({streams[k][t] for k in streams}) > 1), None)
+    problems = [f"hash streams differ first at tick {first_bad}"] if first_bad is not None else []
+    if not shared:
+        problems.append("no tick was hashed by every client")
+    elif final and max(shared) < final - 60:
+        problems.append(f"the shared hash stream stops at tick {max(shared)}, the match ran to {final}")
+    return problems, shared
 
 
 class Smoke:
@@ -316,9 +488,14 @@ class Smoke:
         """The server's ticks a second (a dev match's --turn-ms, else the protocol's)."""
         return TURN_TICKS * 1000 / (self.args.turn_ms or TURN_MS)
 
+    def race(self):
+        """The dev match's mode has two teams (Tide Race)."""
+        return modes()[self.args.mode]["teams"] > 1
+
     def check(self, clients):
         problems = []
-        streams, results, ends = {}, {}, {}
+        streams, results, ends, seats = {}, {}, {}, {}
+        race = self.race()
         for k, process, hashes in clients:
             log = self.out / f"client{k}.log"
             text = log.read_text(encoding="utf-8", errors="replace")
@@ -329,6 +506,9 @@ class Smoke:
             for line in text.splitlines():
                 if RESULT.match(line):
                     results[k] = line.strip()
+                if MATCH.match(line.strip()):
+                    found = MATCH.match(line.strip())
+                    seats[k] = (int(found.group(2)), int(found.group(3)))
                 if MATCH_END.match(line):
                     ends[k] = MATCH_END.match(line).groups()
             if process.returncode != 0:
@@ -339,8 +519,15 @@ class Smoke:
                 problems.append(f"client {k}: the match ended {ends[k][0]} ({ends[k][1]}) at tick {ends[k][2]}")
         for k in missing_results(ends, results) + [k for k, _, _ in clients if k not in ends and k not in results]:
             problems.append(f"client {k} printed no RESULT")
-        if len(set(results.values())) > 1:
+        if any(NO_RULES in (self.out / f"client{k}.log").read_text(encoding="utf-8", errors="replace")
+               for k, _, _ in clients):
+            # (the cause of everything else: say it first)
+            problems.insert(0, f"this build has no {self.args.mode} rules (scripts/sim/content.gd RULES): its games"
+                               f" cannot play the server's mode, so no check below can pass")
+        if len({result_key(line, race) for line in results.values()}) > 1:
             problems.append("the clients' RESULT lines differ: " + "; ".join(sorted(set(results.values()))))
+        if race:
+            problems += race_problems(ends, seats, modes()[self.args.mode]["teams"])
         shared = set.intersection(*(set(s) for s in streams.values())) if streams else set()
         first_bad = None
         for tick in sorted(shared):
@@ -531,6 +718,63 @@ class Flow(Smoke):
         print(f"smoke: logs in {report['out']}")
 
 
+class QueueFlow(Flow):
+    """--flow --queue: four games, each a party of one, meet through the server's queue."""
+
+    def start_clients(self, port):
+        clients = []
+        for k, builder in enumerate(self.builders(), start=1):
+            hashes = self.out / f"client{k}.hashes"
+            command = [self.godot(), "--headless", "--path", str(ROOT), "--",
+                       f"--server=127.0.0.1:{port}", "--flow-bot", "--queue", f"--name=Queue{k}",
+                       f"--main={builder}", f"--hash-log={hashes}", "--quit-after-flow"]
+            command += ["--ready-calls"] if self.args.no_bot else ["--ready-calls", "--bot"]
+            if self.args.linger:
+                command.append(f"--linger={self.args.linger:g}")
+            clients.append((k, self.spawn(command, self.out / f"client{k}.log", cwd=ROOT), hashes))
+        return clients
+
+    def header(self):
+        played = "idle, calling every wave" if self.args.no_bot else "played by the plan bots, calling every wave"
+        return (f"smoke: the queue, {self.args.clients} games alone ({','.join(self.builders())}, {played})"
+                f" seed {self.args.seed}, logs in {self.out}")
+
+    def check(self, clients):
+        games, streams, problems = {}, {}, []
+        for k, process, hashes in clients:
+            log = self.out / f"client{k}.log"
+            games[k] = queue_game(log.read_text(encoding="utf-8", errors="replace").splitlines())
+            streams[k] = read_hashes(log)
+            if hashes.exists():
+                streams[k].update(read_hashes(hashes))
+            if process.returncode != 0:
+                problems.append(f"client {k} exited with {process.returncode}:\n" + tail(log))
+        problems += queue_problems(games, self.args.clients)
+        final = max((int(g["end"][2]) for g in games.values() if "end" in g), default=0)
+        hashed, shared = stream_problems(streams, final)
+        problems += hashed
+        server_log = (self.out / "server.log").read_text(encoding="utf-8", errors="replace")
+        if '"event": "desync"' in server_log or '"event":"desync"' in server_log:
+            problems.append("the server logged a desync")
+        first = next(iter(games.values()), {})
+        return {"ok": not problems, "problems": problems, "builders": ",".join(first.get("config", ())),
+                "outcome": first.get("end", (None,))[0], "final_tick": final, "hashes_compared": len(shared),
+                "clients": {k: {"party": g.get("party"), "steps": g["steps"], "end": g.get("end"),
+                                "back": g.get("back")} for k, g in games.items()}}
+
+    def summarise(self, report):
+        if report["ok"]:
+            print(f"smoke: PASS · {self.args.clients} parties of one met in the queue · Match Found, all accepted"
+                  f" · High Water with {report['builders']} · ended {report['outcome']} at tick"
+                  f" {report['final_tick']} · {report['hashes_compared']} hash ticks equal · every game queued"
+                  f" again by Play again · {report['seconds']} s")
+        else:
+            print(f"smoke: FAIL after {report['seconds']} s")
+            for problem in report["problems"]:
+                print("  - " + problem)
+        print(f"smoke: logs in {report['out']}")
+
+
 def read_hashes(path):
     stream = {}
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -547,10 +791,14 @@ def tail(path, lines=25):
         return "(no log)"
 
 
-def main(argv=None):
+def parse_args(argv=None):
+    """The command line, its defaults filled and its combinations checked (a refused one exits)."""
     parser = argparse.ArgumentParser(description="Play one networked match: the real server and headless clients")
-    parser.add_argument("--mode", default="classic", help="the dev match's mode (default classic)")
-    parser.add_argument("--clients", type=int, default=2, help="headless clients, one per seat (default 2)")
+    parser.add_argument("--mode", default="classic",
+                        help="the dev match's mode, one of protocol.json's (default classic; tide_race takes 2 or 4"
+                             " clients, two teams)")
+    parser.add_argument("--clients", type=int, default=None,
+                        help="headless clients, one per seat (default 2; with --queue 4)")
     parser.add_argument("--seed", type=int, default=1, help="the match seed (default 1)")
     parser.add_argument("--turn-ms", type=int, default=0,
                         help="the server's turn length in ms (default the protocol's 50; 10 plays five times faster)")
@@ -576,20 +824,41 @@ def main(argv=None):
     parser.add_argument("--server", help="another checkout's server/main.py (default this one's)")
     parser.add_argument("--linger", type=float, default=0,
                         help="with --flow: seconds each game stays on the results before Play again")
-    parser.add_argument("--builders", default="lamplighter,lookout",
-                        help="with --flow: the members' mains in order, repeated as needed (default lamplighter,lookout)")
+    parser.add_argument("--builders", default=None,
+                        help="with --flow: the members' mains in order, repeated as needed (default"
+                             " lamplighter,lookout; with --queue lamplighter for all, so the server unclashes them)")
+    parser.add_argument("--queue", action="store_true",
+                        help="with --flow: four games, each a party of one, meet through the server's queue (Find"
+                             " players, Match Found), play, and are queued again by Play again")
     args = parser.parse_args(argv)
+    if args.clients is None:
+        args.clients = 4 if args.queue else 2
+    if args.builders is None:
+        args.builders = "lamplighter" if args.queue else "lamplighter,lookout"
     if not 1 <= args.clients <= 4:
         parser.error("--clients is 1 to 4")
+    if args.queue and not args.flow:
+        parser.error("--queue is --flow's: the hub's queue, not a dev match")
+    if args.queue and args.clients != 4:
+        parser.error("--queue plays four games: High Water's queue fills four seats with strangers")
     if args.flow and args.turn_ms:
         parser.error("--turn-ms is a dev match's; the hub's matches keep the protocol's turns")
+    if args.flow and args.mode != "classic":
+        parser.error("--mode is a dev match's; --flow plays the hub's mode, the leader's (High Water)")
+    if not args.flow and mode_problem(args.mode, args.clients):
+        parser.error(mode_problem(args.mode, args.clients))
     if args.linger and not args.flow:
         parser.error("--linger is --flow's: a dev match has no results plate to stay on")
     if args.flow and (args.shaper or args.faults):
         parser.error("--shaper and --faults shape a dev match's client, not --flow's")
     if (args.shaper or args.faults) and args.clients < 2:
         parser.error("--shaper and --faults need two clients or more: one shaped, the others measured")
-    smoke = Flow(args) if args.flow else Smoke(args)
+    return args
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    smoke = (QueueFlow(args) if args.queue else Flow(args)) if args.flow else Smoke(args)
     previous = signal.getsignal(signal.SIGTERM)
 
     def stop(signum, frame):

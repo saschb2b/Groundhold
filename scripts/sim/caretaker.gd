@@ -8,6 +8,11 @@
 ## (else the deepening branch), and never sells. Its seat counts as Ready, so it never
 ## holds up a horn (SimMatch.ready_count, SimWaves).
 ##
+## In a race (M6) it plays its seat on its own team's hollow, and it calls the waves: once
+## a window's build steps are done (the next step waits for gold, or the plan is done) it
+## says Ready, unless the step it waits on holds Ready (a plan step's "ready": false,
+## SimContent.STEP_HOLDS_READY), so a hollow it plays alone races as a player would.
+##
 ## Taking a seat mid-match (design 6.7, M4), it starts at the seat's plan cursor (0 for a
 ## player who never left) over towers the player built: a build step is done where the
 ## seat already has a tower on one of the step's cells, so it never builds a step twice
@@ -30,14 +35,24 @@ static func think(m: SimMatch, s: SimRecords.SimSeat) -> void:
 	var steps: Array = m.plans.get(s.builder, [])
 	while s.plan_cursor < steps.size():
 		var d := decide(m, s, steps[s.plan_cursor], s.gold)
-		match d[0]:
-			WAIT:
-				return
-			BUILD:
-				m.execute_as(s.seat, SimTypes.CMD_BUILD, d[1], d[2], d[3])
-			FORK:
-				m.execute_as(s.seat, SimTypes.CMD_FORK, d[1], d[2])
+		if d[0] == WAIT:
+			break
+		if d[0] == BUILD:
+			m.execute_as(s.seat, SimTypes.CMD_BUILD, d[1], d[2], d[3])
+		elif d[0] == FORK:
+			m.execute_as(s.seat, SimTypes.CMD_FORK, d[1], d[2])
 		s.plan_cursor += 1
+	if m.race and not s.ready and m.hollows[s.hollow].phase == SimTypes.PHASE_PREP:
+		if not holds_ready(steps, s.plan_cursor):
+			m.execute_as(s.seat, SimTypes.CMD_READY, 1)
+
+
+## Whether the step at `cursor` (the one the caretaker waits on) holds its Ready in a race.
+static func holds_ready(steps: Array, cursor: int) -> bool:
+	if cursor < 0 or cursor >= steps.size():
+		return false
+	var step: PackedInt32Array = steps[cursor]
+	return step.size() > 5 and (step[5] & SimContent.STEP_HOLDS_READY) != 0
 
 
 ## What plan step `step` (a SimContent.plan_steps entry) asks of seat `s` now, given
@@ -69,11 +84,12 @@ static func decide(
 	return PackedInt32Array([FORK, t.id, branch])
 
 
-## The step's cells in order of preference, as z * width + x: its cell, then its "alt"s.
+## The step's cells in order of preference, as z * width + x: its cell, then its "alt"s
+## (from index 6 of a SimContent.plan_steps entry).
 static func cells(h: SimRecords.SimHollow, step: PackedInt32Array) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	out.append(step[3] * h.road.width + step[2])
-	var i := 5
+	var i := 6
 	while i + 1 < step.size():
 		out.append(step[i + 1] * h.road.width + step[i])
 		i += 2

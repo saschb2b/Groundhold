@@ -3,6 +3,15 @@
 ## The same sound is not restarted more than once per 3 physics frames, so a
 ## volley of arrows reads as a volley instead of a wall of noise. Counting frames
 ## instead of wall-clock time keeps what plays identical between runs.
+##
+## A sound whose file is not recorded yet (M6's, before the art track's land) plays as
+## silence, never an error: only the files that exist are loaded, and a name with none
+## plays nothing (has_sound() says which).
+##
+## Every caller gives its own gain: a tower's is Game.TOWERS' "sound" [name, dB]. As played
+## (the file's loudest tenth of a second plus that gain) the towers sit between about -19
+## and -11 dB, a frequent shot quieter, a heavy one louder; the M6 files (toll, chime, bees,
+## clap) are played at gains that keep them in that band (view_m6_sound_levels).
 extends Node
 
 const SOUNDS := {
@@ -26,6 +35,14 @@ const SOUNDS := {
 	"defeat": ["res://sfx/defeat.wav"],
 	"error": ["res://sfx/error.wav"],
 	"click": ["res://sfx/click.wav"],
+	# M6 (contract-m6.md §7): the Bellfounder's and the Beekeeper's towers, and the queue's
+	# Match Found and its countdown (scripts/ui/match_found.gd)
+	"toll": ["res://sfx/toll.wav"],
+	"chime": ["res://sfx/chime.wav"],
+	"bees": ["res://sfx/bees.wav"],
+	"clap": ["res://sfx/clap.wav"],
+	"match_found": ["res://sfx/match_found.wav"],
+	"countdown_tick": ["res://sfx/countdown_tick.wav"],
 }
 const POOL_SIZE := 12
 const MIN_GAP_FRAMES := 3
@@ -51,6 +68,11 @@ func _ready() -> void:
 		var player := AudioStreamPlayer.new()
 		add_child(player)
 		_players.append(player)
+
+
+## Whether `name` has a recorded take to play.
+func has_sound(name: String) -> bool:
+	return not (_streams.get(name, []) as Array).is_empty()
 
 
 func play(name: String, volume_db := 0.0) -> void:

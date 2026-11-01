@@ -1278,10 +1278,9 @@ func _say_hello() -> void:
 
 func _outcomes() -> Array:
 	var list := []
-	for team in sim.teams:
-		# (a team's hollow DONE is a win, FALLEN a loss)
-		var h := sim.hollows[team.hollows[0]]
-		list.append({"outcome": 0 if h.phase == SimTypes.PHASE_DONE else 1})
+	# (one per team, as the simulation decided it: a race's win order, else DONE won)
+	for outcome: int in sim.outcomes():
+		list.append({"outcome": outcome})
 	return list
 
 

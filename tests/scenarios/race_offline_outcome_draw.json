@@ -1,0 +1,28 @@
+{
+  "name": "race_offline_outcome_draw",
+  "description": "An offline race drawn ends drawn (design 1.3: both teams clear wave 12 with equal race times; review of M6: main.gd never showed a draw, and called this won because my hollow was done). Over the session's offline race, a Tide Race of two seats each waits out its windows; both hollows clear wave 12 on the same tick with every life, SimMatch.outcomes() says draw for both teams, and the results say 'Two Crews, One Time' with the rule that tied: 'Both cleared wave 12 in the same race time' (review of M6's race views: every draw read 'Two crews, one time', the title again).",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 1},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 1},
+    {"eval": "scene.begin('tide_race', [{'team': 0, 'builder': 'lamplighter'}, {'team': 1, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"eval": "Game.debug(3, 0, 12)"},
+    {"eval": "Game.debug(3, 1, 12)"},
+    {"eval": "Game.debug(4, 0, 2)"},
+    {"eval": "Game.debug(4, 1, 2)"},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Game.state == 2 and Game.sim.race_time(0) == Game.sim.race_time(1) and Game.sim.race_time(0) >= 0", "msg": "both hollows cleared wave 12 on the same tick, every life kept"},
+    {"assert": "Game.sim.decided_by() == 'draw' and Game.sim.outcomes() == [2, 2] and Game.outcome() == 'draw'", "msg": "the simulation calls it a draw for both teams"},
+    {"assert": "node('ResultsPanel').results['outcome'] == 'draw' and node('ResultsTitle').text == 'TWO CREWS, ONE TIME' and node('ResultsRule').text == 'Both cleared wave 12 in the same race time'", "msg": "and the results say so"}
+  ]
+}

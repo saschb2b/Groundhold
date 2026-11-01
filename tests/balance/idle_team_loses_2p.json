@@ -10,20 +10,10 @@
   },
   "steps": [
     {
-      "eval": "scene.start({\"builders\": [\"lamplighter\", \"lookout\"], \"events\": false, \"mode\": \"high_water\", \"seats\": 2})"
+      "eval": "scene.start({\"builders\": [\"lamplighter\", \"lookout\"], \"events\": false, \"mode\": \"high_water\", \"plans\": {\"lamplighter\": [{\"alt\": [[7, 11]], \"build\": \"arrow\", \"cell\": [8, 11]}, {\"alt\": [[11, 12]], \"build\": \"arrow\", \"cell\": [11, 11]}], \"lookout\": [{\"alt\": [[12, 7]], \"build\": \"hawk_roost\", \"cell\": [12, 8]}, {\"alt\": [[5, 11]], \"build\": \"hawk_roost\", \"cell\": [6, 12]}]}, \"seats\": 2})"
     },
     {
-      "eval": "[scene.cmd(1, 'BUILD', 0, 8, 11), scene.cmd(1, 'BUILD', 0, 11, 11), scene.cmd(2, 'BUILD', 1, 12, 8), scene.cmd(2, 'BUILD', 1, 6, 12)]"
-    },
-    {
-      "eval": "scene.run_ticks(6)"
-    },
-    {
-      "assert": "scene.client(1).towers.size() == 4",
-      "msg": "each seat's two towers stand"
-    },
-    {
-      "eval": "scene.play_out([])",
+      "eval": "scene.play_out([1, 2])",
       "as": "end"
     },
     {
@@ -33,6 +23,10 @@
     {
       "eval": "scene.leak_table()",
       "as": "leaks"
+    },
+    {
+      "assert": "scene.client(1).towers.size() == 4",
+      "msg": "each seat's two towers stood"
     },
     {
       "assert": "scene.client(1).hollows[0].phase == 3",

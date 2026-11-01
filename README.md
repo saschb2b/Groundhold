@@ -49,12 +49,20 @@ one button. Alone, Play starts a match at once. The first launch asks for the na
 <td align="center" width="50%"><img src="ui/icons/builder_lamplighter.png" width="72" alt="Tamsin Wick"><br><b>Tamsin Wick, the Lamplighter</b><br><sub>Warden. Covers Swarm and Swift. Arrow Tower, Cannon Tower, Frost Spire. Her towers sell for 90%, not 70%.</sub></td>
 <td align="center" width="50%"><img src="ui/icons/builder_lookout.png" width="72" alt="Edda Greyplume"><br><b>Edda Greyplume, the Lookout</b><br><sub>Marksman. Covers Armored and Winged. Perch Ballista, Hawk Roost, Owl's Eye. Her towers reach 0.4 tiles farther.</sub></td>
 </tr>
+<tr>
+<td align="center" width="50%"><img src="ui/icons/builder_bellfounder.png" width="72" alt="Ottilie Brass"><br><b>Ottilie Brass, the Bellfounder</b><br><sub>Breaker. Covers Swift and Armored. Clapper Tower, Toll Tower, Chime Post. Her hits ignore 2 armour.</sub></td>
+<td align="center" width="50%"><img src="ui/icons/builder_beekeeper.png" width="72" alt="Sefa Amberwell"><br><b>Sefa Amberwell, the Beekeeper</b><br><sub>Sweeper. Covers Swarm and Winged. Clay Hive, Apiary, Hive Hum. Each of her hives pays her 2 gold a wave, at most 12.</sub></td>
+</tr>
 </table>
 
 Every tower forks once, for good, into one of two branches: one does more of what the tower does, the other
 covers something its Builder lacks. Tamsin's Skyward Loft and Rime Spire reach the sky and her Iron Mortar
-pierces armour; Edda's Kestrel Flock strikes bounce on to two more creeps and her Pinning Ballista slows. The
-Owl's Eye marks the toughest creep in reach, and every tower hits it 20% harder.
+pierces armour; Edda's Kestrel Flock strikes bounce on to two more creeps and her Pinning Ballista slows;
+Ottilie's Ringing Clapper strikes a whole crowd and her Sky Toll reaches the sky; Sefa's Drowsy Clay Hive slows
+what it stings and her Queen's Guard stings through armour. Each Builder also brings one tower for the whole
+team: the Frost Spire's slow, the Owl's Eye's mark (every tower hits the marked creep 20% harder), the Toll
+Tower's pulse that stuns every creep in reach for a moment, the Chime Post that cracks armour for every tower's
+hits, and the Hive Hum that makes every tower beside it fire faster, whoever built it.
 
 Builders (<kbd>B</kbd>) shows each Builder's kit with both branches. Set your main and your backup there, or Try
 one in a practice match.
@@ -70,6 +78,11 @@ its hyphen; on desktop it also lists the servers it hears on your network, and t
 (`192.168.1.20` is a server on the LAN). The strip at the top right shows the code to pass on. Everyone says
 Ready, the leader starts, and anyone can cancel the 3-2-1. Loading shows a card per player and names whom
 everyone waits for.
+
+Short of players? With open seats on, **Find players** fills them with strangers looking for the same; in Tide
+Race, **Find a rival** finds another crew of your size. Match Found asks everyone to accept within 15 s; whoever
+declines goes back to their party, and the others keep their place at the front of the queue. After a minute
+the leader may start at once, with caretakers in the empty seats or as the rival crew.
 
 ## High Water on Wickhollow
 
@@ -93,8 +106,18 @@ teach one check each:
 </table>
 
 Creeps get tougher with every wave and with every player. The strip shows the next wave's checks; the hub's
-coverage row shows which ones your party answers. Slows and marks never stack (the strongest applies), and a hit
-on a creep a teammate slowed or marked counts as that teammate's Help.
+coverage row shows which ones your party answers. Slows, marks, stuns, cracks and hums never stack (the strongest
+applies), and a hit on a creep a teammate slowed, marked, stunned or cracked, or from a tower a teammate's hum
+hastens, counts as that teammate's Help.
+
+## Tide Race
+
+Two crews of one or two, each on its own copy of Wickhollow, the same waves on both, and nothing crossing
+between them. Each hollow keeps its own clock, so calling a wave early is how you get ahead. Your race time is
+the moment you clear wave 12 plus 10 seconds for every life lost; the lower one wins. If a crew's Holdfast goes
+under, the other wins as soon as it clears that wave. <kbd>V</kbd> looks across at the rival's hollow, and the
+strip's second line follows their wave, lives and clock. Alone, Play races the caretaker, who plays a mirror of
+your crew.
 
 ## Results
 
@@ -246,7 +269,7 @@ how):
 | `data/hollow.txt` | The map, Wickhollow, one character per tile. The road is traced from `S` to `E` |
 | `data/plans/` | Each Builder's plan, which the caretaker and the bots play |
 | `art_src/models/` | Recipes for the low-poly towers, props and projectiles: parts with sizes, bevels, colours and painted patterns |
-| `art_src/blender/` | Blender build scripts for the trees, plants, rocks and the rigged, animated creeps; `builders/` for Tamsin and Edda as chibi toon figures with their busts; `causeway/` for the hub's road, tide poles, cairns and wrack |
+| `art_src/blender/` | Blender build scripts for the trees, plants, rocks and the rigged, animated creeps; `builders/` for Tamsin, Edda, Ottilie and Sefa as chibi toon figures with their busts; `causeway/` for the hub's road, tide poles, cairns and wrack |
 | `materials/painted.gdshader`, `materials/builder_toon` | The painted look of towers and creeps (bricks, stone, planks, shingles, metal, cloth), and the two-tone shading only Builders wear |
 | `textures/`, `shaders/` | Painted terrain textures blended across the tiles, the pond, and the flats under the Causeway |
 | `art_src/ui/console.py`, `icons.py` | The painters of the bronze console (wings, wells, the arched portrait window, panels, cards, fields and bars) and of the command, check and role icons. They need only Pillow and write `ui/console/layout.json`, which the HUD and the hub place themselves by |

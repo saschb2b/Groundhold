@@ -1,0 +1,27 @@
+{
+  "name": "flow_race_without_a_party_cannot_queue",
+  "description": "On a server without a party (out of it, as after a removal) in a race mode, the hub's button does not offer Find a rival, which would queue nothing (QUEUE needs a party): like High Water's Play there, it plays here, offline, so Race the caretaker where this build has the race's rules and a disabled Play that says the mode comes later where it has not.",
+  "seed": 1,
+  "timeout_frames": 1200,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.create_party()"},
+    {"wait_until": "Session.party_code() == 'K7Q4M'", "timeout": 120},
+    {"eval": "Session._party('leave')"},
+    {"wait_until": "Session.party.is_empty()", "timeout": 60},
+    {"set": "Session.profile.mode", "value": "tide_race"},
+    {"eval": "Session.show_screen('hub')"},
+    {"wait": 1},
+    {"assert": "Session.online() and Session.state_name() == 'HUB'", "msg": "on the server, without a party"},
+    {"assert": "Session.primary()['act'] != 'queue' and node('HubPanel').primary_text() != 'Find a rival'", "msg": "no Find a rival without a party to queue"},
+    {"assert": "(Session.profile.offers('tide_race') and node('HubPanel').primary_text() == 'Race the caretaker' and not node('Primary').disabled) or (not Session.profile.offers('tide_race') and node('HubPanel').primary_text() == 'Play' and node('Primary').disabled and node('PrimaryLine').text == 'Tide Race comes with a later version')", "msg": "it races the caretaker here, where this build can"},
+    {"set": "Session.profile.mode", "value": "high_water"},
+    {"eval": "Session.show_screen('hub')"},
+    {"wait": 1},
+    {"assert": "node('HubPanel').primary_text() == 'Play' and not node('Primary').disabled", "msg": "High Water there: Play, as before"}
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "apiary_bonus_to_fliers",
+  "description": "The Beekeeper's Apiary (design 3.4, contract-m6 3): it prefers winged creeps, as the Hawk Roost does, and its bolts deal 50% more to them (air_bonus_pm): 18 to a Gourdling, 27 to a Duskmoth; a Royal Apiary 34 and 51.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1, 'builders': ['beekeeper']})"},
+    {"eval": "scene.debug(1, 1, 2000)"},
+    {"eval": "scene.cmd(1, 'BUILD', 1, 12, 9)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"eval": "scene.tower_at(12, 9)", "as": "apiary"},
+    {"assert": "apiary.air and apiary.aim == 1 and apiary.air_bonus_pm == 500 and apiary.range_mm == 4200", "msg": "an Apiary: air, prefers winged, +50% to fliers"},
+    {"eval": "[scene.spawn('gourdling', 20000000), scene.spawn('duskmoth', 16000000)]", "as": "c"},
+    {"eval": "[scene.hold(c[0]), scene.hold(c[1])]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "apiary.target == c[1]", "msg": "it picks the Duskmoth over the Gourdling further along"},
+    {"eval": "scene.run_ticks(120)"},
+    {"assert": "scene.hit_values('apiary', 'duskmoth') == [[2700, 2700, 0]]", "msg": "27 to the flier"},
+    {"eval": "scene.debug(5, c[1], 45000000)"},
+    {"eval": "scene.run_ticks(120)"},
+    {"assert": "scene.hit_values('apiary', 'gourdling') == [[1800, 1800, 0]]", "msg": "18 to a Gourdling"},
+    {"eval": "scene.cmd(1, 'FORK', apiary.id, 0)"},
+    {"eval": "scene.spawn('duskmoth', 16000000)", "as": "moth2"},
+    {"eval": "scene.hold(moth2)"},
+    {"eval": "scene.run_ticks(150)"},
+    {"assert": "apiary.branch == 0 and scene.hit_values('apiary', 'duskmoth').has([5100, 5100, 0])", "msg": "a Royal Apiary's 34 is 51 to a flier"}
+  ]
+}

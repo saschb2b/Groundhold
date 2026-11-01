@@ -6,26 +6,55 @@
 ## from 15 s names the seat everyone waits for; from 30 s the leader's Start without Ben
 ## (design 6.6); and leave. The session shows it from MATCH_CONFIG until turn 0 runs, over
 ## the match scene building beneath it.
+##
+## A race (Tide Race, design 5.6) lays the cards out in two rows, team A above and team B
+## below, each with its own coverage row under it ("Team A covers") and a gilt rule between
+## the teams, on a taller plate with smaller cards; no "VS" and no tips.
 class_name LoadingScreen
 extends CanvasLayer
 
 ## Seconds after MATCH_CONFIG when a seat still loading reads as slow (Appendix A).
 const SLOW_AFTER := 15
 const CARD := Vector2(180, 176)
+## A race's cards, two rows of them: smaller, the portrait shorter.
+const RACE_CARD := Vector2(172, 146)
+const PICTURE := 70.0
+const RACE_PICTURE := 44.0
 ## A card's width less its frame's content margins, the seat glyph and the gap beside it:
 ## the room its name has.
 const NAME_INSET := 28 + 12 + 6
 ## Maps by their protocol id's name, as titles show them.
 const MAP_NAMES := {"hollow": "Wickhollow"}
+## The plate: its half width, and its top and bottom from the screen's middle, for one row
+## of cards and for a race's two.
+const PLATE_HALF := 500.0
+const PLATE := Vector2(-230, 210)
+const RACE_PLATE := Vector2(-312, 300)
+## The teams as the hub's party well names them (design 5.2).
+const TEAM_LETTERS := ["A", "B"]
 
 var _root: Control
+var _plate: Control
+var _box: VBoxContainer
+var _leave: Button
 var _title: Label
+## Team A's row of cards (every card outside a race) and team B's, with each one's
+## coverage row; the gilt rule between them.
 var _cards: HBoxContainer
+var _cards_b: HBoxContainer
 var _coverage: CoverageRow
+var _coverage_b: CoverageRow
+var _covers_caption: Label
+var _covers_b: HBoxContainer
+var _covers_b_caption: Label
+var _team_rule: Control
 var _line: Label
 var _without: Button
 var _shown := []
 var _bars: Array = []
+## Every card in seat order, whichever row it stands in.
+var _card_list: Array[Control] = []
+var _race := false
 
 
 func _ready() -> void:
@@ -41,35 +70,38 @@ func _ready() -> void:
 	var plate := Shell.WidePlate.new()
 	plate.name = "LoadingPlate"
 	plate.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	plate.offset_left = -500
-	plate.offset_right = 500
-	plate.offset_top = -230
-	plate.offset_bottom = 210
+	plate.offset_left = -PLATE_HALF
+	plate.offset_right = PLATE_HALF
 	_root.add_child(plate)
+	_plate = plate
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	Shell.place(box, Rect2(40, 62, 920, 350))
 	plate.add_child(box)
+	_box = box
 	_title = Shell.label("", Shell.TITLE_FONT, 22, Shell.GOLD)
 	_title.name = "LoadingTitle"
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_title)
 	box.add_child(Shell.gilt_rule(300))
-	_cards = HBoxContainer.new()
-	_cards.name = "Cards"
-	_cards.alignment = BoxContainer.ALIGNMENT_CENTER
-	_cards.add_theme_constant_override("separation", 18)
+	_cards = _card_row("Cards")
 	box.add_child(_cards)
-	var covers := HBoxContainer.new()
-	covers.alignment = BoxContainer.ALIGNMENT_CENTER
-	covers.add_theme_constant_override("separation", 10)
+	var covers := _covers_row()
 	box.add_child(covers)
-	var caption := Shell.caps("Team covers", 10)
-	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	covers.add_child(caption)
-	_coverage = CoverageRow.new()
-	covers.add_child(_coverage)
+	_covers_caption = covers.get_child(0)
+	_coverage = covers.get_child(1)
+	# (a race's second team: the gilt rule between the teams, its cards and its coverage)
+	_team_rule = Shell.gilt_rule(420)
+	_team_rule.name = "TeamRule"
+	box.add_child(_team_rule)
+	_cards_b = _card_row("CardsB")
+	box.add_child(_cards_b)
+	_covers_b = _covers_row()
+	_covers_b.name = "CoversB"
+	box.add_child(_covers_b)
+	_covers_b_caption = _covers_b.get_child(0)
+	_coverage_b = _covers_b.get_child(1)
+	_coverage_b.name = "CoverageB"
 	_line = Shell.label("Walking out", Shell.BOLD_FONT, 15, Shell.TEXT)
 	_line.name = "LoadingLine"
 	_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -92,10 +124,48 @@ func _ready() -> void:
 	leave.add_theme_color_override("font_color", Shell.DIM)
 	for st: String in ["normal", "hover", "pressed", "hover_pressed"]:
 		leave.add_theme_stylebox_override(st, StyleBoxEmpty.new())
-	leave.position = Vector2(880, 400)
 	leave.pressed.connect(func() -> void: Session.to_hub())
 	plate.add_child(leave)
+	_leave = leave
+	_lay_out(false)
 	refresh()
+
+
+## One row of cards, centred.
+static func _card_row(row_name: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = row_name
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 18)
+	return row
+
+
+## A coverage row with its caption ("Team covers").
+static func _covers_row() -> HBoxContainer:
+	var covers := HBoxContainer.new()
+	covers.alignment = BoxContainer.ALIGNMENT_CENTER
+	covers.add_theme_constant_override("separation", 10)
+	var caption := Shell.caps("Team covers", 10)
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	covers.add_child(caption)
+	covers.add_child(CoverageRow.new())
+	return covers
+
+
+## One row of cards and one coverage row, or a race's two rows (`race`) on a taller plate.
+func _lay_out(race: bool) -> void:
+	_race = race
+	var rows: Vector2 = RACE_PLATE if race else PLATE
+	_plate.offset_top = rows.x
+	_plate.offset_bottom = rows.y
+	var height := rows.y - rows.x
+	Shell.place(_box, Rect2(40, 62, PLATE_HALF * 2.0 - 80.0, height - 90.0))
+	_box.add_theme_constant_override("separation", 7 if race else 10)
+	_leave.position = Vector2(PLATE_HALF * 2.0 - 120.0, height - 40.0)
+	for part: Control in [_team_rule, _cards_b, _covers_b]:
+		part.visible = race
+	_covers_caption.text = ("Team %s covers" % TEAM_LETTERS[0] if race else "Team covers").to_upper()
+	_covers_b_caption.text = ("Team %s covers" % TEAM_LETTERS[1]).to_upper()
 
 
 func _process(delta: float) -> void:
@@ -118,17 +188,25 @@ func refresh() -> void:
 	]
 	var seats := []
 	for i in client.seat_list.size():
-		seats.append([client.names[i] if i < client.names.size() else "Seat %d" % (i + 1), client.seat_list[i]["builder"]])
+		seats.append(
+			[
+				client.names[i] if i < client.names.size() else "Seat %d" % (i + 1),
+				client.seat_list[i]["builder"],
+				int(client.seat_list[i].get("team", 0)),
+			]
+		)
 	if seats != _shown:
 		_build_cards(seats)
-	var builders := []
+	# (each team's coverage row counts its own Builders: a race's teams do not share checks)
+	var builders := [[], []]
 	for s: Array in seats:
-		builders.append(s[1])
-	_coverage.set_builders(builders)
+		builders[mini(int(s[2]), 1) if _race else 0].append(s[1])
+	_coverage.set_builders(builders[0])
+	_coverage_b.set_builders(builders[1])
 	var waiting := ""
-	for i in _cards.get_child_count():
+	for i in _card_list.size():
 		var state := card_state(i)
-		var card := _cards.get_child(i)
+		var card := _card_list[i]
 		var text: Label = card.get_node("Box/State")
 		var bar: LoadBar = _bars[i]
 		text.text = state
@@ -181,11 +259,10 @@ func card_state(i: int) -> String:
 	return "Connecting"
 
 
-## The cards as one line each, for tests: "Sascha Lamplighter Checking".
+## The cards as one line each, in seat order, for tests: "Sascha Lamplighter Checking".
 func card_lines() -> Array[String]:
 	var out: Array[String] = []
-	for i in _cards.get_child_count():
-		var card := _cards.get_child(i)
+	for card: Control in _card_list:
 		out.append(
 			"%s %s %s" % [
 				(card.get_node("Box/Who/Name") as Label).text,
@@ -200,20 +277,46 @@ func line_text() -> String:
 	return _line.text
 
 
+## A race's rows as shown, for tests: [team A's names, team B's names]; one row outside a
+## race.
+func rows() -> Array:
+	var out := []
+	for row: HBoxContainer in ([_cards, _cards_b] if _race else [_cards]):
+		var names := []
+		for card in row.get_children():
+			names.append((card.get_node("Box/Who/Name") as Label).text)
+		out.append(names)
+	return out
+
+
+## Whether this is a race's layout: two rows of cards (for tests).
+func is_race() -> bool:
+	return _race
+
+
 func _build_cards(seats: Array) -> void:
 	_shown = seats.duplicate(true)
-	for child in _cards.get_children():
-		child.free()
+	var race := false
+	for s: Array in seats:
+		race = race or int(s[2]) > 0
+	_lay_out(race)
+	for row: HBoxContainer in [_cards, _cards_b]:
+		for child in row.get_children():
+			child.free()
 	_bars.clear()
+	_card_list.clear()
+	var size := RACE_CARD if race else CARD
 	for i in seats.size():
 		var builder := str(seats[i][1])
 		var card := PanelContainer.new()
 		card.name = "Card%d" % (i + 1)
 		var mine := i + 1 == Session.client.seat
 		card.add_theme_stylebox_override("panel", Shell.card_box(mine))
-		card.custom_minimum_size = CARD
+		card.custom_minimum_size = size
 		card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		_cards.add_child(card)
+		# (team A's row above, team B's below; one row outside a race)
+		(_cards_b if race and int(seats[i][2]) > 0 else _cards).add_child(card)
+		_card_list.append(card)
 		var box := VBoxContainer.new()
 		box.name = "Box"
 		box.add_theme_constant_override("separation", 4)
@@ -223,7 +326,7 @@ func _build_cards(seats: Array) -> void:
 		picture.modulate = Game.glyph_tint(builder)
 		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		picture.custom_minimum_size = Vector2(0, 70)
+		picture.custom_minimum_size = Vector2(0, RACE_PICTURE if race else PICTURE)
 		box.add_child(picture)
 		var who := HBoxContainer.new()
 		who.name = "Who"
@@ -239,7 +342,7 @@ func _build_cards(seats: Array) -> void:
 		var name_label := Shell.label(str(seats[i][0]), Shell.BOLD_FONT, 15, PartyStrip.MINE if mine else Shell.TEXT)
 		name_label.name = "Name"
 		# (every card the same width: a long name ends in an ellipsis inside it)
-		var room := CARD.x - NAME_INSET
+		var room := size.x - NAME_INSET
 		var wide := Shell.BOLD_FONT.get_string_size(name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
 		name_label.custom_minimum_size.x = minf(ceilf(wide) + 1.0, room)
 		name_label.clip_text = true

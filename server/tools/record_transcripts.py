@@ -27,6 +27,16 @@ values back into the same bytes.
                  naming its seat (ERROR 12 to the old link, MATCH_CONFIG rejoin, RESYNC rejoin
                  with the parts), BACK at shown, a hidden tab's RESYNC(behind) with LINKS
                  catching_up, desynced_twice, and NOTICE no_held_seat (empty TURNs unlisted)
+  m6_queue       the queue (M6): open parties merged up to four (a party of two between two of
+                 one), MATCH_FOUND and its accepts, a decline (the decliner's party forming, the
+                 others NOTICE match_dissolved and requeued at the front), the next Match Found,
+                 everyone's ACCEPT, and MATCH_CONFIG with the Builders of strangers unclashed
+  m6_caretakers  a refused start_with_caretakers, QUEUE leave and enter again, the offer at 60 s
+                 (NOTICE caretakers_offered), start_with_caretakers: MATCH_CONFIG with caretaker
+                 seats covering what the party lacks, their LOAD_STATE gone
+  m6_race        Find a rival in Tide Race: two teams of one, MATCH_FOUND, the 15 s running out
+                 (the one who accepted requeued at the front), the offer, and Race the caretaker:
+                 a caretaker rival team mirroring the party
 
 The .bin format (all big-endian): "GHTX", u8 format (1), u16 protocol version,
 u8 clients, u32 records; then each record: u8 direction (0 game to server,
@@ -202,6 +212,167 @@ BUILDER = SPEC["builders"]
 def hub_options():
     """A hub server (no dev match), its party codes from a seeded random."""
     return dict(options(), code_rng=random.Random(20261030))
+
+
+def queue_options():
+    """A hub server whose queue draws from a seeded random too (M6)."""
+    return dict(hub_options(), queue_rng=random.Random(20261101))
+
+
+async def alone(port, client, name, token, mode="high_water", main=None, open_seats=True):
+    """A game in a party of one of its own, its Builders and open seats set."""
+    await client.hello(port, name, token=token, build_seq=8, rules_hash=RULES)
+    await client.send_message("PARTY", op="create", mode=MODE[mode])
+    await client.until("PARTY_STATE")
+    if main:
+        await client.send_message("PARTY", op="builders", main=BUILDER[main[0]], backup=BUILDER[main[1]])
+        await client.until("PARTY_STATE")
+    if open_seats:
+        await client.send_message("PARTY", op="open", on=1)
+        await client.until("PARTY_STATE")
+
+
+async def queue_flow(record):
+    clock = ManualClock()
+    game = server(clock=clock, **queue_options())
+    port = await game.start("127.0.0.1", 0)
+    tamsin, edda, ottilie, sefa = Client(record, 0), Client(record, 1), Client(record, 2), Client(record, 3)
+    pair, everyone = (edda, ottilie), (tamsin, edda, ottilie, sefa)
+    enter = SPEC["queue_ops"]["enter"]
+    try:
+        await alone(port, tamsin, "Tamsin", TAMSIN)
+        await tamsin.send_message("QUEUE", op=enter)
+        await tamsin.until("PARTY_STATE")
+        await tamsin.until("QUEUE_STATE")
+        # (a party of two: Edda leads, Ottilie Ready; Edda's main, the Lamplighter, is Tamsin's)
+        await edda.hello(port, "Edda", token=EDDA, build_seq=8, rules_hash=RULES)
+        await edda.send_message("PARTY", op="create", mode=MODE["high_water"])
+        code = (await edda.until("PARTY_STATE"))["code"]
+        await ottilie.hello(port, "Ottilie", token=OTTILIE, build_seq=8, rules_hash=RULES)
+        await ottilie.send_message("PARTY", op="join", code=code)
+        await each("PARTY_STATE", pair)
+        await ottilie.send_message("PARTY", op="builders", main=BUILDER["bellfounder"], backup=BUILDER["lookout"])
+        await each("PARTY_STATE", pair)
+        await edda.send_message("PARTY", op="open", on=1)
+        await each("PARTY_STATE", pair)
+        await ottilie.send_message("PARTY", op="ready", on=1)
+        await each("PARTY_STATE", pair)
+        await edda.send_message("QUEUE", op=enter)
+        await each("PARTY_STATE", pair)
+        await each("QUEUE_STATE", pair)
+        await clock.advance(5000)
+        # (Sefa, a Lookout whose backup is the Lamplighter: the fourth seat)
+        await alone(port, sefa, "Sefa", SEFA, main=("lookout", "lamplighter"))
+        await sefa.send_message("QUEUE", op=enter)
+        await sefa.until("PARTY_STATE")
+        await sefa.until("QUEUE_STATE")
+        first = (await each("MATCH_FOUND", everyone))[0]["match"]
+        await tamsin.send_message("ACCEPT", match=first, yes=1)
+        await each("MATCH_FOUND", everyone)
+        await clock.advance(2000)
+        # (Sefa declines: her party back to forming; the others to the front, NOTICE match_dissolved)
+        await sefa.send_message("ACCEPT", match=first, yes=0)
+        await sefa.until("QUEUE_STATE")
+        await sefa.until("PARTY_STATE")
+        await each("NOTICE", (tamsin, edda, ottilie))
+        await each("QUEUE_STATE", (tamsin, edda, ottilie))
+        # (she queues again: at the back, and the four are found again)
+        await sefa.send_message("QUEUE", op=enter)
+        await sefa.until("PARTY_STATE")
+        await sefa.until("QUEUE_STATE")
+        second = (await each("MATCH_FOUND", everyone))[0]["match"]
+        for index, client in enumerate(everyone):
+            await client.send_message("ACCEPT", match=second, yes=1)
+            if index < len(everyone) - 1:
+                await each("MATCH_FOUND", everyone)
+        # (everyone accepted: each party loading, MATCH_CONFIG with the strangers' Builders
+        # unclashed: Tamsin keeps the Lamplighter, Edda takes her backup, the Lookout, Ottilie
+        # keeps the Bellfounder, and Sefa, both of hers taken, the one left, the Beekeeper)
+        await tamsin.until("PARTY_STATE")
+        await each("PARTY_STATE", pair)
+        await sefa.until("PARTY_STATE")
+        await each("MATCH_CONFIG", everyone)
+        await each("LOAD_STATE", everyone)
+        for client in everyone:
+            await client.bye()
+    finally:
+        await game.close()
+    return 4
+
+
+async def caretakers(record):
+    clock = ManualClock()
+    game = server(clock=clock, **queue_options())
+    port = await game.start("127.0.0.1", 0)
+    tamsin = Client(record, 0)
+    ops = SPEC["queue_ops"]
+    try:
+        await alone(port, tamsin, "Tamsin", TAMSIN)
+        await tamsin.send_message("QUEUE", op=ops["enter"])
+        await tamsin.until("PARTY_STATE")
+        await tamsin.until("QUEUE_STATE")
+        # (too soon for caretakers: the state as it is)
+        await tamsin.send_message("QUEUE", op=ops["start_with_caretakers"])
+        await tamsin.until("QUEUE_STATE")
+        await clock.advance(3000)
+        await tamsin.send_message("QUEUE", op=ops["leave"])
+        await tamsin.until("QUEUE_STATE")
+        await tamsin.until("PARTY_STATE")
+        await tamsin.send_message("QUEUE", op=ops["enter"])
+        await tamsin.until("PARTY_STATE")
+        await tamsin.until("QUEUE_STATE")
+        await clock.advance(SPEC["caretaker_offer_ms"])
+        await tamsin.until("NOTICE")
+        await tamsin.until("QUEUE_STATE")
+        await tamsin.send_message("QUEUE", op=ops["start_with_caretakers"])
+        await tamsin.until("PARTY_STATE")
+        await tamsin.until("MATCH_CONFIG")
+        await tamsin.until("LOAD_STATE")
+        await tamsin.bye()
+    finally:
+        await game.close()
+    return 1
+
+
+async def race(record):
+    clock = ManualClock()
+    game = server(clock=clock, **queue_options())
+    port = await game.start("127.0.0.1", 0)
+    edda, ottilie = Client(record, 0), Client(record, 1)
+    both = (edda, ottilie)
+    ops = SPEC["queue_ops"]
+    try:
+        await alone(port, edda, "Edda", EDDA, mode="tide_race", main=("lookout", "lamplighter"), open_seats=False)
+        await edda.send_message("QUEUE", op=ops["enter"])
+        await edda.until("PARTY_STATE")
+        await edda.until("QUEUE_STATE")
+        await clock.advance(1000)
+        await alone(port, ottilie, "Ottilie", OTTILIE, mode="tide_race", open_seats=False)
+        await ottilie.send_message("QUEUE", op=ops["enter"])
+        await ottilie.until("PARTY_STATE")
+        await ottilie.until("QUEUE_STATE")
+        found = (await each("MATCH_FOUND", both))[0]["match"]
+        await edda.send_message("ACCEPT", match=found, yes=1)
+        await each("MATCH_FOUND", both)
+        # (Ottilie never answers: 15 s later she is back to forming, Edda at the front)
+        await clock.advance(SPEC["accept_ms"])
+        await ottilie.until("QUEUE_STATE")
+        await ottilie.until("PARTY_STATE")
+        await edda.until("NOTICE")
+        await edda.until("QUEUE_STATE")
+        await ottilie.bye()
+        await clock.advance(SPEC["caretaker_offer_ms"])
+        await edda.until("NOTICE")
+        await edda.until("QUEUE_STATE")
+        # (Race the caretaker: a rival team of caretakers with her Builder, a mirror)
+        await edda.send_message("QUEUE", op=ops["start_with_caretakers"])
+        await edda.until("PARTY_STATE")
+        await edda.until("MATCH_CONFIG")
+        await edda.until("LOAD_STATE")
+        await edda.bye()
+    finally:
+        await game.close()
+    return 2
 
 
 async def each(name, clients, skip=()):
@@ -673,7 +844,24 @@ async def record_all(directory):
              "uploaded; Edda's new window resumes her seat (ERROR 12 to the old link, MATCH_CONFIG rejoin, "
              "RESYNC rejoin with the parts, paced) and shown brings her BACK; Ottilie's tab comes back "
              "catching_up (RESYNC behind, LINKS) and shown brings her BACK; apart again at tick 420 she is "
-             "out (MATCH_END desynced_twice, LEFT), and her resume hears no_held_seat.")):
+             "out (MATCH_END desynced_twice, LEFT), and her resume hears no_held_seat."),
+            ("m6_queue", queue_flow,
+             "The queue on a hand-moved clock (its draws from random.Random(20261101)): Tamsin alone, then Edda "
+             "and Ottilie's party, then Sefa queue with open seats on; MATCH_FOUND to the four, Tamsin's accept, "
+             "Sefa's decline (her party forming; the others NOTICE match_dissolved and requeued at the front), "
+             "Sefa queued again, the next MATCH_FOUND, everyone's ACCEPT, each party loading, and MATCH_CONFIG "
+             "with the strangers' Builders unclashed (the Lamplighter, the Lookout as Edda's backup, the "
+             "Bellfounder, and the Beekeeper for Sefa, whose main and backup were both taken)."),
+            ("m6_caretakers", caretakers,
+             "Caretakers from the queue: Tamsin's start_with_caretakers too soon (the state as it is), QUEUE "
+             "leave and enter again, the offer at 60 s (NOTICE caretakers_offered, caretaker_offer 1), and "
+             "start_with_caretakers: MATCH_CONFIG with three caretaker seats covering what a Lamplighter "
+             "lacks (the Lookout, the Bellfounder, the Beekeeper), their LOAD_STATE gone."),
+            ("m6_race", race,
+             "Find a rival in Tide Race: Edda and Ottilie, a team of one each, MATCH_FOUND (two seats), "
+             "Edda's accept, the 15 s running out (Ottilie forming, Edda NOTICE match_dissolved and at the "
+             "front), the offer at 60 s, and Race the caretaker: MATCH_CONFIG with a caretaker Lookout on "
+             "team 1 against hers.")):
         records = Listed() if name == "m4_resilience" else []
         clients = await script(records)
         write(directory, name, records, clients, note)

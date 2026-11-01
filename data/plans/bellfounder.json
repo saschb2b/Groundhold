@@ -1,0 +1,28 @@
+{
+  "builder": "bellfounder",
+  "about": "The Bellfounder on Wickhollow (High Water and Tide Race): Clapper Towers where the road turns back on itself, on the right-hand bend and the lower-left turn, Toll Towers beside them to stun what walks into their reach, then Great Clappers along the band between the two lower stretches; Sky Tolls for the sky and a Ringing Clapper for swarms while the team lacks them (patch), Great Tolls and Great Clappers otherwise; a Chime Post by the lower-left Clappers. Her towers stand clear of the Beekeeper's, her complementary partner. She shares five build cells with the Lamplighter's plan on the lower stretches and two with the Lookout's: beside either, whoever builds a shared cell first keeps it, and the other takes the step's alt cell or skips the step (bot_wins_lamplighter_bellfounder, bot_wins_lookout_bellfounder). Alt cells let a second Bellfounder play the same plan beside the first.",
+  "steps": [
+    {"build": "clapper_tower", "cell": [13, 8], "alt": [[14, 7]]},
+    {"build": "clapper_tower", "cell": [5, 12], "alt": [[5, 11]]},
+    {"build": "toll_tower", "cell": [14, 8], "alt": [[13, 7]]},
+    {"fork": "b", "cell": [14, 8], "alt": [[13, 7]], "patch": "winged"},
+    {"fork": "a", "cell": [13, 8], "alt": [[14, 7]]},
+    {"build": "toll_tower", "cell": [4, 11], "alt": [[13, 9]]},
+    {"fork": "b", "cell": [4, 11], "alt": [[13, 9]], "patch": "winged"},
+    {"fork": "a", "cell": [5, 12], "alt": [[5, 11]]},
+    {"build": "clapper_tower", "cell": [12, 11], "alt": [[12, 12]]},
+    {"fork": "a", "cell": [12, 11], "alt": [[12, 12]]},
+    {"build": "toll_tower", "cell": [13, 12], "alt": [[14, 11]]},
+    {"fork": "b", "cell": [13, 12], "alt": [[14, 11]], "patch": "winged"},
+    {"build": "clapper_tower", "cell": [8, 11], "alt": [[8, 12]]},
+    {"fork": "a", "cell": [8, 11], "alt": [[8, 12]]},
+    {"build": "clapper_tower", "cell": [6, 12], "alt": [[7, 12]]},
+    {"fork": "b", "cell": [6, 12], "alt": [[7, 12]], "patch": "swarm"},
+    {"build": "clapper_tower", "cell": [10, 12], "alt": [[11, 12]]},
+    {"fork": "a", "cell": [10, 12], "alt": [[11, 12]]},
+    {"build": "chime_post", "cell": [6, 11], "alt": [[4, 9]]},
+    {"fork": "a", "cell": [6, 11], "alt": [[4, 9]]},
+    {"build": "toll_tower", "cell": [6, 4], "alt": [[6, 3]]},
+    {"fork": "a", "cell": [6, 4], "alt": [[6, 3]]}
+  ]
+}

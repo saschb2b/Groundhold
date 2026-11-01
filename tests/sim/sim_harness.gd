@@ -7,9 +7,11 @@
 ##   {"assert": "scene.hashes_agree()"}
 extends Node
 
-## SimMatch's working memory for stage 5 (SimMatch.by_distance), rebuilt every tick and
-## never state: record_differences leaves it out.
-const MATCH_CACHES := ["order_idx", "order_dist", "_order_built", "_looking", "walks"]
+## SimMatch's working memory for stage 5 (SimMatch.by_distance, the Chime Posts it lists),
+## rebuilt every tick or with the towers and never state: record_differences leaves it out.
+const MATCH_CACHES := [
+	"order_idx", "order_dist", "_order_built", "_looking", "walks", "crack_posts", "_cracks_out"
+]
 
 var seq: LocalSequencer
 var clients: Array[SimMatch] = []
@@ -19,7 +21,7 @@ var seat_list := []
 var events: Array = []
 ## Per client: tick -> state hash (hex) at every HASH_EVERY tick.
 var hashes: Array = []
-## Client 1's leaks: one [wave, creep kind, toll] per creep that reached the Holdfast.
+## Client 1's leaks: one [wave, creep kind, toll, hollow] per creep that reached a Holdfast.
 var leaks: Array = []
 ## Client 1's bosses by creep id: kind, wave, health, damage taken (whole points) and how
 ## it ended, for a balance pass to read.
@@ -28,23 +30,38 @@ var bosses := {}
 var wave_seconds: Array = []
 ## Per client: lockstep ticks it still sits out (stall()).
 var stalled := PackedInt32Array()
+## Per client number: the tick its race was decided at (EV_RACE "decided").
+var _decided_at := {}
+## Client 1's creeps' health as they spawned, by id (creep_report).
+var spawned_hp := {}
 
 
 ## {"mode": "classic", "seats": 1, "seed": 1, "clients": 1, "caretakers": [seat numbers],
 ##  "builders": [Builder id per seat, "lamplighter" where it runs out],
+##  "teams": [team per seat, 0 where it runs out] (a race: seats of team t on hollow t;
+##  "tide_race" with no "teams" puts the first half of the seats on team 0, the rest on 1),
 ##  "plans": {Builder id: [plan entries as in data/plans]} to hand every client's
 ##  caretaker (and plan_step) other plans, "never_patch": {Builder id: [check ids]} for
 ##  its own plan with the forks that patch those checks turned to the other branch,
-##  "events": false to keep no events (long balance runs; leaks are still counted)}
+##  "events": false to keep no events (long balance runs; leaks are still counted),
+##  "play_on": true to let a decided race play on until both hollows are done or fallen
+##  (SimMatch.play_on)}
 func start(cfg := {}) -> SimMatch:
 	config = cfg
 	var seat_count := int(cfg.get("seats", 1))
 	var caretakers: Array = cfg.get("caretakers", [])
 	var builders: Array = cfg.get("builders", [])
+	var teams: Array = cfg.get("teams", [])
+	var two_teams := int(SimContent.rules(str(cfg.get("mode", "classic")))["teams"]) == 2
 	seat_list = []
 	for i in seat_count:
 		var builder := str(builders[i]) if i < builders.size() else "lamplighter"
-		seat_list.append({"team": 0, "builder": builder, "caretaker": caretakers.has(i + 1)})
+		var team := 0
+		if i < teams.size():
+			team = int(teams[i])
+		elif two_teams:
+			team = 0 if i * 2 < seat_count else 1
+		seat_list.append({"team": team, "builder": builder, "caretaker": caretakers.has(i + 1)})
 	seq = LocalSequencer.new(seat_count)
 	clients.clear()
 	events.clear()
@@ -53,6 +70,8 @@ func start(cfg := {}) -> SimMatch:
 	bosses.clear()
 	wave_seconds.clear()
 	stalled.clear()
+	_decided_at.clear()
+	spawned_hp.clear()
 	for k in int(cfg.get("clients", 1)):
 		_join(_new_match())
 	return clients[0]
@@ -304,6 +323,11 @@ func tower_at(x: int, z: int, k := 1) -> SimRecords.SimTower:
 	return clients[k - 1].tower_at(0, x, z)
 
 
+## The tower on cell (x, z) of hollow `hollow` on client k (a race's second hollow), or null.
+func tower_on(hollow: int, x: int, z: int, k := 1) -> SimRecords.SimTower:
+	return clients[k - 1].tower_at(hollow, x, z)
+
+
 ## A debug write (SimTypes.DBG_*) on every client at once, logged like the game's
 ## scenario setters so a replay of record() reproduces it. Every client must stand at
 ## the same tick (none stalled behind), or the write would land at different ticks.
@@ -317,9 +341,9 @@ func debug(op: int, a: int, b := 0, c := 0) -> void:
 
 
 ## Puts a creep of `kind` (a CREEP_IDS id) on the road of every client, `dist_um` along
-## it, with this wave's health. Returns its id.
-func spawn(kind: String, dist_um := 0) -> int:
-	debug(SimTypes.DBG_SPAWN, 0, SimContent.CREEP_IDS.find(kind))
+## it, with this wave's health, on hollow `hollow` (a race's second: 1). Returns its id.
+func spawn(kind: String, dist_um := 0, hollow := 0) -> int:
+	debug(SimTypes.DBG_SPAWN, hollow, SimContent.CREEP_IDS.find(kind))
 	var id := clients[0].next_id - 1
 	if dist_um > 0:
 		debug(SimTypes.DBG_CREEP_DIST, id, dist_um)
@@ -357,6 +381,42 @@ func hits(tower_kind := "", creep_kind := "", k := 1) -> Array:
 	return out
 
 
+## Those hits as rows [tick, creep, tower kind, dealt, tower], oldest first.
+func hit_rows(tower_kind := "", creep_kind := "", k := 1) -> Array:
+	var out := []
+	for e: Dictionary in hits(tower_kind, creep_kind, k):
+		out.append([int(e["tick"]), int(e["creep"]), str(e["kind"]), int(e["dmg"]), int(e["tower"])])
+	return out
+
+
+## For a balance pass: per creep of `creep_kind` client k spawned, "id: dealt/health by
+## tower kind (hits), died or leaked", from its events.
+func creep_report(creep_kind: String, k := 1) -> Array:
+	var health := {}
+	for e: Dictionary in events_where("SPAWN", {"kind": creep_kind}, k):
+		health[int(e["id"])] = int(spawned_hp.get(int(e["id"]), 0))
+	var by := {}
+	for e: Dictionary in hits("", creep_kind, k):
+		var row: Dictionary = by.get_or_add(int(e["creep"]), {})
+		var key := str(e["kind"])
+		var cell: Array = row.get_or_add(key, [0, 0])
+		cell[0] += int(e["dmg"])
+		cell[1] += 1
+	var ended := {}
+	for e: Dictionary in events_of("DIE", k):
+		ended[int(e["id"])] = "died"
+	for e: Dictionary in events_of("LEAK", k):
+		ended[int(e["id"])] = "leaked"
+	var out := []
+	for id: int in health:
+		var parts := []
+		var row: Dictionary = by.get(id, {})
+		for key: String in row:
+			parts.append("%s %d (%d)" % [key, int(row[key][0]) / 100, int(row[key][1])])
+		out.append("%d: %d hp, %s, %s" % [id, int(health[id]) / 100, ", ".join(parts), ended.get(id, "-")])
+	return out
+
+
 ## The distinct [dealt, raw, armour] of those hits, in the order they first came.
 func hit_values(tower_kind := "", creep_kind := "", k := 1) -> Array:
 	var out := []
@@ -378,6 +438,18 @@ func events_where(type_name: String, fields: Dictionary, k := 1) -> Array:
 				break
 		if ok:
 			out.append(e)
+	return out
+
+
+## Client k's events of `type_name` whose fields include `where`, each as a row of the
+## `fields` listed (a missing one reads as null), oldest first.
+func rows(type_name: String, fields: Array, where := {}, k := 1) -> Array:
+	var out := []
+	for e: Dictionary in events_where(type_name, where, k):
+		var row := []
+		for f: Variant in fields:
+			row.append(e.get(f))
+		out.append(row)
 	return out
 
 
@@ -630,13 +702,19 @@ func _claims_any(sim: SimMatch, step: PackedInt32Array, claimed: PackedInt32Arra
 
 ## Plays client 1's match to its end: the seats in `by_command` work down their plans
 ## through commands every `every` ticks (plan_step), caretaken seats play themselves,
-## the rest stand idle. Returns the final tick. Stops at `limit`, and with an error when
-## a round ran no tick (the sequencer paused): the wait would never end.
-func play_out(by_command := [], every := 30, limit := 120000) -> int:
+## the rest stand idle; the seats in `ready_at_once` (by command too) press Ready in every
+## build window as soon as their orders are out. Returns the final tick. Stops at `limit`,
+## and with an error when a round ran no tick (the sequencer paused): the wait would
+## never end.
+func play_out(by_command := [], every := 30, limit := 120000, ready_at_once := []) -> int:
 	while not clients[0].over and clients[0].tick < limit:
 		var was := clients[0].tick
 		for seat: int in by_command:
 			plan_step(int(seat))
+		for seat: int in ready_at_once:
+			var s := clients[0].seat(int(seat))
+			if clients[0].hollows[s.hollow].phase == SimTypes.PHASE_PREP and not s.ready:
+				cmd(int(seat), "READY", 1)
 		run_ticks(maxi(1, every))
 		if clients[0].tick == was:
 			push_error("play_out: no turn for tick %d (the sequencer is paused)" % was)
@@ -644,21 +722,95 @@ func play_out(by_command := [], every := 30, limit := 120000) -> int:
 	return clients[0].tick
 
 
-## Lives client 1's team lost to leaks during waves `from` to `to`, both included.
-func lives_lost(from := 1, to := 99) -> int:
+## Lives client 1's team on hollow `hollow` lost to leaks during waves `from` to `to`,
+## both included.
+func lives_lost(from := 1, to := 99, hollow := 0) -> int:
 	var total := 0
 	for leak: Array in leaks:
-		if int(leak[0]) >= from and int(leak[0]) <= to:
+		if int(leak[3]) == hollow and int(leak[0]) >= from and int(leak[0]) <= to:
 			total += int(leak[2])
 	return total
 
 
-## The leaks as a table a balance pass reads: "wave N" -> {creep kind: lives}.
+## The leaks as a table a balance pass reads: "wave N" -> {creep kind: lives}, on a race's
+## second hollow "hollow 1 wave N".
 func leak_table() -> Dictionary:
 	var out := {}
 	for leak: Array in leaks:
-		var row: Dictionary = out.get_or_add("wave %d" % int(leak[0]), {})
+		var key := "wave %d" % int(leak[0])
+		if int(leak[3]) != 0:
+			key = "hollow %d %s" % [int(leak[3]), key]
+		var row: Dictionary = out.get_or_add(key, {})
 		row[leak[1]] = int(row.get(leak[1], 0)) + int(leak[2])
+	return out
+
+
+## A race on client k as a balance pass reads it: per team its lives, waves cleared, clear
+## tick and race time; then the outcomes and what decided them (SimMatch.outcomes(),
+## decided_by()).
+func race_summary(k := 1) -> Dictionary:
+	var sim := clients[k - 1]
+	var per_team := []
+	for t: SimRecords.SimTeam in sim.teams:
+		per_team.append(
+			{
+				"lives": t.lives,
+				"cleared": sim.cleared_waves(t.id),
+				"clear_tick": t.clear_tick,
+				"race_t": sim.race_time(t.id),
+				"fell_wave": t.fell_wave,
+			}
+		)
+	return {
+		"teams": per_team,
+		"outcomes": sim.outcomes(),
+		"decided_by": sim.decided_by(),
+		"tick": sim.tick,
+		"decided_tick": int(_decided_at.get(k, -1)),
+	}
+
+
+## The tick client k's race was decided at (its EV_RACE "decided"), -1 while it runs.
+func decided_tick(k := 1) -> int:
+	return int(_decided_at.get(k, -1))
+
+
+## The spawns of wave `wave` on hollow `hollow` of client k as [ticks after that wave's
+## horn, creep kind], in order: what a race's two hollows must share.
+func wave_spawns(hollow: int, wave: int, k := 1) -> Array:
+	var horn := -1
+	var ends := -1
+	for e: Dictionary in events_where("WAVE", {"hollow": hollow, "start": true}, k):
+		if int(e["wave"]) == wave:
+			horn = int(e["tick"])
+		elif int(e["wave"]) == wave + 1:
+			ends = int(e["tick"])
+	var out := []
+	if horn < 0:
+		return out
+	for e: Dictionary in events_where("SPAWN", {"hollow": hollow}, k):
+		var at := int(e["tick"])
+		if at >= horn and (ends < 0 or at < ends):
+			out.append([at - horn, str(e["kind"])])
+	return out
+
+
+## Client k's EV_PULSE events from tower `tower` (0: any).
+func pulses(tower := 0, k := 1) -> Array:
+	if tower == 0:
+		return events_of("PULSE", k)
+	return events_where("PULSE", {"tower": tower}, k)
+
+
+## How far creep `id` walked on client k over each of the next `n` ticks, stepping every
+## client one tick at a time (-1 once it is gone): 0 while it stands stunned.
+func walked_by_tick(id: int, n: int, k := 1) -> Array:
+	var out := []
+	for i in n:
+		var c := creep(id, k)
+		var before := c.dist_um if c and c.alive else -1
+		run_ticks(1)
+		out.append(-1 if before < 0 or not c.alive else c.dist_um - before)
 	return out
 
 
@@ -679,15 +831,18 @@ func summary() -> Dictionary:
 		"help": sim.seats.map(func(s: SimRecords.SimSeat) -> int: return s.help_c),
 		"bosses": boss_lines(),
 		"wave_seconds": wave_seconds.filter(func(s: int) -> bool: return s >= 0),
+		"race": race_summary() if sim.race else {},
 	}
 
 
-## One line per boss: kind, wave, damage taken of its health, and how it ended.
+## One line per boss: kind, wave, damage taken of its health, and how it ended (on a
+## race's second hollow, "h1 " first).
 func boss_lines() -> Array:
 	var out := []
 	for id: int in bosses:
 		var b: Dictionary = bosses[id]
-		out.append("%s w%d %d/%d %s" % [b["kind"], b["wave"], b["dealt"], b["hp"], b["end"]])
+		var line := "%s w%d %d/%d %s" % [b["kind"], b["wave"], b["dealt"], b["hp"], b["end"]]
+		out.append(("h%d " % int(b["hollow"])) + line if int(b["hollow"]) != 0 else line)
 	return out
 
 
@@ -742,6 +897,7 @@ func _new_match() -> SimMatch:
 		seat_list,
 		int(config.get("seed", 1))
 	)
+	sim.play_on = bool(config.get("play_on", false))
 	var plans: Dictionary = config.get("plans", {})
 	var never: Dictionary = config.get("never_patch", {})
 	for builder: String in SimContent.BUILDER_IDS:
@@ -779,17 +935,23 @@ func _step(k: int) -> void:
 	if seq.advance(sim, 1) == 0:
 		return
 	var fresh := sim.drain_events()
+	for e: Dictionary in fresh:
+		if int(e["type"]) == SimTypes.EV_RACE and str(e["what"]) == "decided":
+			_decided_at[k + 1] = int(e["tick"])
 	if k == 0:
 		for e: Dictionary in fresh:
 			match int(e["type"]):
 				SimTypes.EV_LEAK:
-					leaks.append([sim.hollows[0].wave, e["kind"], e["toll"]])
+					var on := int(e["hollow"])
+					leaks.append([sim.hollows[on].wave, e["kind"], e["toll"], on])
 					if bosses.has(e["id"]):
 						bosses[e["id"]]["end"] = "leaked at %d s" % ((sim.tick - int(bosses[e["id"]]["tick"])) / 60)
 				SimTypes.EV_SPAWN:
 					var rec := sim.creep(int(e["id"]))
+					if rec:
+						spawned_hp[rec.id] = rec.max_hp_c
 					if rec and rec.boss:
-						bosses[rec.id] = {"kind": rec.kind, "wave": sim.hollows[0].wave, "hp": rec.max_hp_c / 100, "dealt": 0, "tick": sim.tick, "end": ""}
+						bosses[rec.id] = {"kind": rec.kind, "wave": sim.hollows[rec.hollow].wave, "hp": rec.max_hp_c / 100, "dealt": 0, "tick": sim.tick, "end": "", "hollow": rec.hollow}
 				SimTypes.EV_HIT:
 					if bosses.has(e["creep"]):
 						bosses[e["creep"]]["dealt"] += int(e["dmg"]) / 100
@@ -797,7 +959,9 @@ func _step(k: int) -> void:
 					if bosses.has(e["id"]):
 						bosses[e["id"]]["end"] = "died at %d s" % ((sim.tick - int(bosses[e["id"]]["tick"])) / 60)
 				SimTypes.EV_WAVE:
-					if e.get("start", false):
+					if int(e["hollow"]) != 0:
+						pass  # (hollow 0's waves only)
+					elif e.get("start", false):
 						wave_seconds.append(-sim.tick)
 					elif e.get("cleared", false) and not wave_seconds.is_empty():
 						wave_seconds[-1] = (sim.tick + int(wave_seconds[-1])) / 60

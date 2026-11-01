@@ -204,6 +204,37 @@
     },
     {
       "match": [
+        "ui/icons/clapper_tower.png",
+        "ui/icons/great_clapper.png",
+        "ui/icons/ringing_clapper.png",
+        "ui/icons/toll_tower.png",
+        "ui/icons/great_toll.png",
+        "ui/icons/sky_toll.png",
+        "ui/icons/chime_post.png",
+        "ui/icons/deep_chime.png",
+        "ui/icons/long_chime.png",
+        "ui/icons/clay_hive.png",
+        "ui/icons/great_clay_hive.png",
+        "ui/icons/drowsy_clay_hive.png",
+        "ui/icons/apiary.png",
+        "ui/icons/royal_apiary.png",
+        "ui/icons/queens_guard.png",
+        "ui/icons/hive_hum.png",
+        "ui/icons/great_hum.png",
+        "ui/icons/long_hum.png",
+        "ui/icons/emblem_bellfounder.png",
+        "ui/icons/emblem_beekeeper.png"
+      ],
+      "image": {
+        "size": [
+          108,
+          108
+        ]
+      },
+      "note": "M6: the Bellfounder's and the Beekeeper's command icons and emblems, painted like M2's: twice the 54 px socket, drawn at half size"
+    },
+    {
+      "match": [
         "ui/icons/check_*.png",
         "ui/icons/role_*.png"
       ],

@@ -9,7 +9,11 @@ also keeps the loading barrier, a light hash and result referee, and the
 system commands AWAY, BACK, LEFT and TIMEOUT. docs/design/core-loop.md
 §6.1, §6.3, §6.5 to §6.7. A party's match (M3) takes its seats' teams and
 Builders from the party and tells the lobby as it starts and ends; the
-barrier's timers are lobby.py's.
+barrier's timers are lobby.py's. A match from the queue (M6, queue.py) has
+a party per stranger group, each told alike, and a caretaker's seat has no
+player at all: MATCH_CONFIG's caretaker flag tells every game the
+simulation's caretaker plays it from tick 0, so the server injects nothing
+for it, never waits on it and never counts it as present.
 
 Turns close on **absolute deadlines**: turn k closes at origin + (k + 1) ×
 50 ms, in integer nanoseconds of a monotonic clock. A loop that wakes late
@@ -181,6 +185,7 @@ class Seat:
     cared: bool = False             # the caretaker has played it this match (/stats counts it once)
     identity: bytes = None          # the public identity that holds it: a rejoin must be the same
     member: object = None           # its party row (party.Member) as the match formed; None in a dev match
+    caretaker: bool = False         # a caretaker's seat (queue.py): no player, ever; the simulation plays it
     catchup: object = None          # a CatchUp while RESYNC and the turns behind it go out (catchup.py)
     cursor: int = 0                 # ... and the next turn to queue behind them
     restart: int = None             # the last RESYNC's checkpoint tick: a HASH from there may go back once
@@ -211,7 +216,7 @@ class Match:
     def __init__(self, server, match_id, mode, seed, rules_hash, players, clock,
                  start_delay_ms=SPEC["start_delay_ms"], loading_min_ms=SPEC["loading_min_ms"],
                  match_cap_ms=SPEC["match_cap_ms"], output_cap=SPEC["output_cap"], observer=None,
-                 turn_ms=SPEC["turn_ms"], seats=None, party=None):
+                 turn_ms=SPEC["turn_ms"], seats=None, party=None, parties=None):
         from .lobby import Barrier     # (lobby.py forms matches: imported here, not at the top)
         self.server, self.id, self.mode, self.seed, self.rules_hash = server, match_id, mode, seed, rules_hash
         self.spec = SPEC["modes"][mode]
@@ -226,12 +231,24 @@ class Match:
         # a dev match puts half the seats on each team, every seat a Lamplighter)
         seats = seats or [dict(team=index * teams // count, builder=SPEC["builders"]["lamplighter"], flags=0)
                           for index in range(count)]
-        self.seats = [Seat(index, spec["team"], spec["builder"], spec["flags"], player.name, player,
-                           identity=player.identity, member=player.member)
-                      for index, (spec, player) in enumerate(zip(seats, players))]
+        self.seats = []
+        for index, (spec, player) in enumerate(zip(seats, players)):
+            if player is None:
+                # (a caretaker's seat: nobody plays it, so it is gone from the barrier and never present)
+                self.seats.append(Seat(index, spec["team"], spec["builder"], spec["flags"], spec["name"], None,
+                                       state=LEFT, load_state=protocol.LOAD_STATES["gone"], caretaker=True))
+            else:
+                self.seats.append(Seat(index, spec["team"], spec["builder"], spec["flags"], player.name, player,
+                                       identity=player.identity, member=player.member))
+        # (the party whose match it is; a match from the queue has one per group of strangers)
         self.party = party
+        self.parties = [party] if party else list(parties or ())
+        self.end_reason = None
+        self.queued_since = None        # (from the queue: each party's time queued, should it be requeued)
+        self.queued_told = set()        # (... and the parties already told of the caretakers)
         for seat in self.seats:
-            seat.player.match, seat.player.seat, seat.player.after_match = self, seat.index, False
+            if seat.player:
+                seat.player.match, seat.player.seat, seat.player.after_match = self, seat.index, False
         self.sequencer = Sequencer(count)
         self.phase = LOADING
         self.loop = None
@@ -518,6 +535,9 @@ class Match:
         self.next_feed = origin + CATCHUP_NS
         for seat in self.seats:
             seat.heard, seat.hashed = now, origin
+            if seat.caretaker:
+                self.cared(seat)    # (MATCH_CONFIG's flag says so to every game: nothing to inject)
+                continue
             if seat.state == LEFT:
                 self.sequencer.inject("LEFT", seat.index)
                 self.cared(seat)
@@ -1000,6 +1020,7 @@ class Match:
         if self.phase == ENDED:
             return
         self.phase = ENDED
+        self.end_reason = reason
         self.ready.set()
         self.barrier.poke()
         if self.loop:

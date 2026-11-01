@@ -1,0 +1,13 @@
+{
+  "name": "art_m6_painted",
+  "description": "M6's art has landed (contract-m6.md §5, §7): each of the Bellfounder's and the Beekeeper's eighteen tower forms has its model at models/towers/<form>.glb (standing on the ground, inside its tile, a tower's height), its command icon painted at 108 px (no placeholder ring) and the icon-only model it was rendered from; the Bellfounder and the Beekeeper each have one toon-shaded figure and bust (one mesh in builder_toon, on the ground, centred, a chibi's height), a 128 px glyph and a 108 px emblem; the Apiary's bee loads with a mesh, and the toll, chime, bees, clap, match_found and countdown_tick sounds load, each under 1.6 s. Every M6 model keeps to its asset_style.json rules as godot-agent asset check reads them (triangle budget, size, materials, every vertex colour a paint of its palette), and every model the kit built from a recipe was built from the recipe on disk (the one asset_manifest.json keeps for asset regen).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://tests/sim/art_m6_painted.gd').forms_m6()", "as": "forms"},
+    {"assert": "forms.size() == 18 and forms[0] == 'clapper_tower' and forms[17] == 'long_hum'", "msg": "the contract's eighteen M6 forms, in order"},
+    {"eval": "resource('res://tests/sim/art_m6_painted.gd').problems()", "as": "found"},
+    {"assert": "found == []", "msg": "every M6 model, icon, Builder and sound is in place"}
+  ]
+}

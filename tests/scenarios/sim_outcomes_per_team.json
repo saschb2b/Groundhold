@@ -1,0 +1,33 @@
+{
+  "name": "sim_outcomes_per_team",
+  "description": "SimMatch.outcomes() gives one MATCH_END outcome per team (SimTypes.OUTCOME_*, protocol.json's \"outcomes\"), empty until the match is decided, and MatchClient's RESULT sends exactly those (_outcomes). High Water: a cleared hollow won, a fallen one lost; a match the server's TIMEOUT aborted decided nothing. A race: its win order's decision, one per team.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "[resource('res://scripts/sim/sim_types.gd'), resource('res://scripts/net/protocol.gd')]", "as": "lib"},
+    {"assert": "lib[0].OUTCOME_WON == lib[1].enum_value('outcomes', 'won') and lib[0].OUTCOME_LOST == lib[1].enum_value('outcomes', 'lost') and lib[0].OUTCOME_DRAW == lib[1].enum_value('outcomes', 'draw')", "msg": "the simulation's outcomes are the wire's"},
+    {"eval": "resource('res://scripts/net/match_client.gd').new()", "as": "client"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"assert": "scene.client(1).outcomes() == []", "msg": "nothing decided at the start"},
+    {"eval": "scene.debug(3, 0, 12)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(3)"},
+    {"eval": "client.set('sim', scene.client(1))"},
+    {"assert": "scene.client(1).over and scene.client(1).outcomes() == [0] and client._outcomes() == [{'outcome': 0}] and scene.client(1).decided_by() == ''", "msg": "High Water cleared: won, and RESULT says so"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2})"},
+    {"eval": "scene.debug(2, 0, 0)"},
+    {"eval": "scene.run_ticks(3)"},
+    {"eval": "client.set('sim', scene.client(1))"},
+    {"assert": "scene.client(1).outcomes() == [1] and client._outcomes() == [{'outcome': 1}]", "msg": "fallen: lost"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.system('TIMEOUT')"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.client(1).over and scene.client(1).aborted and scene.client(1).outcomes() == []", "msg": "aborted by the server's cap: nothing decided"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2})"},
+    {"eval": "[scene.debug(3, 1, 12), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"eval": "client.set('sim', scene.client(1))"},
+    {"assert": "scene.client(1).outcomes() == [1, 0] and client._outcomes() == [{'outcome': 1}, {'outcome': 0}] and scene.client(1).decided_by() == 'time'", "msg": "a race: one outcome per team, as the race was decided"}
+  ]
+}

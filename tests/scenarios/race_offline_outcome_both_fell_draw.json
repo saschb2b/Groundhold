@@ -1,0 +1,29 @@
+{
+  "name": "race_offline_outcome_both_fell_draw",
+  "description": "A race drawn because both Holdfasts fell on the same wave with as many of it killed says that rule (design 1.3: both fell, the later wave, then more of that wave's creeps killed, then a draw; review of M6's race views: every draw read 'Two crews, one time', the title again, though neither crew set a time). Over the session's offline race, a Tide Race of two seats: both hollows wait in the window after wave 5 and both lose every life in the same frame. Both fell on wave 6 with no creep of it killed, SimMatch.outcomes() says draw for both, and the results say 'Two Crews, One Time' with the rule 'Both fell on wave 6 with as many of its creeps killed'.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 1},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 1},
+    {"eval": "scene.begin('tide_race', [{'team': 0, 'builder': 'lamplighter'}, {'team': 1, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"eval": "Game.debug(3, 0, 5)"},
+    {"eval": "Game.debug(3, 1, 5)"},
+    {"eval": "Game.debug(2, 0, 0)"},
+    {"eval": "Game.debug(2, 1, 0)"},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Game.sim.teams[0].fell_wave == 6 and Game.sim.teams[1].fell_wave == 6 and Game.sim.teams[0].fell_kills == Game.sim.teams[1].fell_kills", "msg": "both Holdfasts fell on wave 6, with as many of it killed"},
+    {"assert": "Game.sim.race_time(0) < 0 and Game.sim.race_time(1) < 0", "msg": "neither crew set a race time"},
+    {"assert": "Game.sim.decided_by() == 'draw' and Game.sim.outcomes() == [2, 2] and Game.outcome() == 'draw'", "msg": "the simulation calls it a draw for both teams"},
+    {"assert": "node('ResultsTitle').text == 'TWO CREWS, ONE TIME' and node('ResultsRule').text == 'Both fell on wave 6 with as many of its creeps killed'", "msg": "the results name the rule that tied, not the title again"}
+  ]
+}

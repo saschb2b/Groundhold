@@ -6,7 +6,10 @@
 ##
 ## Effects show while the simulation holds them: a slow tints the creep frost blue, a
 ## stun circles stars over its head, a mark floats the Owl's Eye's gold rune over it
-## (Fx.mark_rune) and rings once when it takes hold.
+## (Fx.mark_rune) and rings once when it takes hold, and a Chime Post's crack (M6) rings a
+## bronze shimmer round its middle (Fx.chime_shimmer, made the first time it shows).
+##
+## It walks the points it is given: its own hollow's road where the world holds two.
 ##
 ## It reads its SimCreep record after every step and decides nothing. Between steps it
 ## is drawn between the last two ticks' positions. Keyed by the record's id.
@@ -78,6 +81,10 @@ var mark: float:
 	get:
 		var on := Game.sim != null and rec.mark_until > Game.sim.tick
 		return rec.mark_pm / 1000.0 if on else 0.0
+## The armour a Chime Post's crack takes off it now (M6), in the HUD's units; 0 uncracked.
+var crack: float:
+	get:
+		return rec.crack_c / 100.0
 ## How high it flies over the road (0 on the ground).
 var hover := 0.0
 
@@ -90,6 +97,7 @@ var _bar: MeshInstance3D
 var _bar_material: ShaderMaterial
 var _rune: MeshInstance3D
 var _halo: Node3D
+var _shimmer: Node3D
 var _flash := 0.0
 var _clock := 0.0
 var _height := 0.4
@@ -190,6 +198,20 @@ func _show_effects() -> void:
 	_halo.visible = stunned
 	if _halo.visible:
 		_halo.rotation.y = -_clock * 4.0
+	var cracked := rec.crack_c > 0
+	if cracked and _shimmer == null:
+		_shimmer = Fx.chime_shimmer()
+		_shimmer.position.y = hover + _height * 0.5
+		add_child(_shimmer)
+	if _shimmer:
+		_shimmer.visible = cracked
+		if cracked:
+			Fx.ring_shimmer(_shimmer, _clock, _girth())
+
+
+## How far round its middle the shimmer rings: its body's width, at least a slim creep's.
+func _girth() -> float:
+	return clampf(0.3 * _model_scale, 0.32, 0.8)
 
 
 func _process(_delta: float) -> void:
@@ -203,9 +225,15 @@ func aim_point() -> Vector3:
 	return global_position + Vector3(0, hover + _height * 0.55, 0)
 
 
-## Whether the mark rune and the stun stars show, for tests: {"rune", "stars", "tint"}.
+## Whether the mark rune, the stun stars and the chime shimmer show, for tests:
+## {"rune", "stars", "tint", "shimmer"}.
 func effects_shown() -> Dictionary:
-	return {"rune": _rune.visible, "stars": _halo.visible, "tint": _slowed}
+	return {
+		"rune": _rune.visible,
+		"stars": _halo.visible,
+		"tint": _slowed,
+		"shimmer": _shimmer != null and _shimmer.visible,
+	}
 
 
 ## A hit landed: the model flinches and the bar shows what is left.
@@ -243,6 +271,8 @@ func die() -> void:
 	_bar_root.visible = false
 	_rune.visible = false
 	_halo.visible = false
+	if _shimmer:
+		_shimmer.visible = false
 
 
 func leak() -> void:

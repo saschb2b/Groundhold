@@ -5,6 +5,10 @@
 ## caretaker plays the seat ("in another tab" for an away seat whose browser tab is hidden, LINKS' hidden flag).
 ## My own plate is framed brighter.
 ##
+## In a race (Tide Race, M6) it shows both teams, mine first: my team's plates, then under
+## a small "Rival crew" caption the rival team's, a little dimmer (their Ready marks follow
+## their own hollow's window).
+##
 ## Before a networked match starts, one plate says where the client stands: connecting,
 ## waiting for the others, loading; and why it stopped, when the link fails.
 class_name PartyStrip
@@ -24,6 +28,8 @@ const DIM := Color("#a3957d")
 const COIN := Color("#f6d06a")
 ## My own name: the gold the notices use.
 const MINE := Color("#ffd36a")
+## How bright a rival's plate stands beside my team's.
+const RIVAL_FADE := 0.82
 
 var main: Node
 var _bold: Font
@@ -33,8 +39,11 @@ var _plate_style: StyleBox
 var _mine_style: StyleBox
 var _status: PanelContainer
 var _status_label: Label
+## The plates in the order shown (my team first in a race), each with its seat.
 var _rows: Array = []
-var _shown_seats := -1
+var _shown_order := []
+## Over the rival team's plates in a race.
+var _rival_caption: Label
 
 
 func setup(scene: Node, bold: Font, body: Font, coin: Texture2D, plate: StyleBox, mine: StyleBox) -> void:
@@ -72,13 +81,41 @@ func refresh() -> void:
 	_status_label.text = status
 	var count := sim.seats.size() if sim else 0
 	var shown := count > 1 or (client != null and count > 0)
-	if not shown:
-		count = 0
-	if count != _shown_seats:
-		_rebuild(count)
-	for i in count:
-		_fill(_rows[i], sim, client, i + 1)
-	visible = status != "" or count > 0
+	var order := seat_order(sim) if shown else []
+	# (the order and which plates are a rival's: a match of the same seats in other teams
+	# lays the strip out again)
+	if [order, _rivals(sim, order)] != _shown_order:
+		_rebuild(order)
+	for row: Dictionary in _rows:
+		_fill(row, sim, client, int(row["seat"]))
+	visible = status != "" or not order.is_empty()
+
+
+## The seats as the strip lists them: in seat order, or in a race my team's first, then
+## the rival team's, each in seat order.
+static func seat_order(sim: SimMatch) -> Array:
+	var out := []
+	if sim == null:
+		return out
+	var mine := Game.my_team() if sim.race else -1
+	for s in sim.seats:
+		if mine < 0 or s.team == mine:
+			out.append(s.seat)
+	for s in sim.seats:
+		if mine >= 0 and s.team != mine:
+			out.append(s.seat)
+	return out
+
+
+## Which of `order`'s seats are on the rival team in a race (none outside one).
+static func _rivals(sim: SimMatch, order: Array) -> Array:
+	var mine := Game.my_team() if sim and sim.race else -1
+	return order.map(func(seat: int) -> bool: return mine >= 0 and sim.seat(seat).team != mine)
+
+
+## The seat each plate shows, top to bottom, for tests.
+func seats_shown() -> Array:
+	return _rows.map(func(row: Dictionary) -> int: return int(row["seat"]))
 
 
 ## The link bars each plate shows (-1 where none show), for tests.
@@ -139,13 +176,30 @@ static func name_room(font: Font, size: int) -> float:
 	return ceilf(widest) + 2.0
 
 
-func _rebuild(count: int) -> void:
+func _rebuild(order: Array) -> void:
 	for row: Dictionary in _rows:
 		(row["plate"] as Node).queue_free()
 	_rows.clear()
-	for i in count:
-		_rows.append(_make_row(i + 1))
-	_shown_seats = count
+	if _rival_caption:
+		_rival_caption.queue_free()
+		_rival_caption = null
+	var sim: SimMatch = Game.sim
+	var rivals := _rivals(sim, order)
+	for i in order.size():
+		var seat: int = order[i]
+		var rival: bool = rivals[i]
+		if rival and _rival_caption == null:
+			# (a race: the rival team's plates under their own caption, after my team's)
+			_rival_caption = _text("RIVAL CREW", _bold, 11, DIM)
+			_rival_caption.name = "RivalCaption"
+			_rival_caption.add_theme_constant_override("outline_size", 3)
+			_rival_caption.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02, 0.85))
+			add_child(_rival_caption)
+		var row := _make_row(seat)
+		if rival:
+			(row["plate"] as Control).modulate = Color(RIVAL_FADE, RIVAL_FADE, RIVAL_FADE, 1.0)
+		_rows.append(row)
+	_shown_order = [order.duplicate(), rivals]
 
 
 func _make_row(seat: int) -> Dictionary:
@@ -211,6 +265,7 @@ func _make_row(seat: int) -> Dictionary:
 	room.visible = false
 	row.add_child(room)
 	return {
+		"seat": seat,
 		"plate": plate,
 		"builder": builder,
 		"builder_id": "",
@@ -263,8 +318,11 @@ func _fill(row: Dictionary, sim: SimMatch, client: MatchClient, seat: int) -> vo
 		bars.set_bars(MatchClient.bars_for(client.rtts[seat - 1], client.link_flags[seat - 1]) if linked else 0)
 	var ready: ReadyMark = row["ready"]
 	var window := sim.hollows[s.hollow].phase == SimTypes.PHASE_PREP
-	# (no Ready mark while no order goes out: before START, and once the link is gone)
-	ready.visible = window and sim.hollows[s.hollow].wave < sim.total_waves() and Game.accepts_commands()
+	# (no Ready mark while no order goes out: before START, once the link is gone, and once
+	# the match is decided, a race whose hollow was still in a window too; a rival still
+	# racing after my hollow is done keeps its marks)
+	var calls := Game.accepts_commands() and not sim.over and Game.outcome() == ""
+	ready.visible = window and sim.hollows[s.hollow].wave < sim.total_waves() and calls
 	# (the bead's room is kept while it hides, so the plate does not jump as a wave starts)
 	(row["ready_room"] as Control).visible = not ready.visible
 	var lit := s.ready or s.state != SimTypes.SEAT_PRESENT

@@ -1,8 +1,15 @@
 ## Scatters vegetation and props over the map with MultiMeshes, seeded so the
 ## hollow looks the same every run. Fluff on buildable grass is removed when a
 ## tower takes the cell.
+##
+## In a race the board holds a copy of the map per hollow (main.gd): each copy is dressed
+## from the same seed, so the reflection looks like the hollow, and the cliff band between
+## them is dressed after, from a seed of its own, with the high ground's pines and rocks.
 class_name Decor
 extends Node3D
+
+const SEED := 20261027
+const BAND_SEED := 20261101
 
 const V := "res://models/vegetation/"
 const TREES_GREEN := ["tree_green_1", "tree_green_2", "tree_green_3"]
@@ -39,13 +46,29 @@ var _cleared := {}
 var _tree_shadows: Array[Transform3D] = []
 
 
-func build(source: HollowMap, ground: Terrain) -> void:
+## Dresses `source` (the board). `copies` hollows of `width` tiles stand `stride` tiles
+## apart on it; with one, the whole map is dressed as it always was.
+func build(source: HollowMap, ground: Terrain, copies := 1, stride := 0, width := 0) -> void:
 	map = source
 	terrain = ground
-	_rng.seed = 20261027
-	for z in map.depth:
-		for x in map.width:
-			_dress(Vector2i(x, z))
+	if copies <= 1:
+		_rng.seed = SEED
+		for z in map.depth:
+			for x in map.width:
+				_dress(Vector2i(x, z))
+	else:
+		for h in copies:
+			_rng.seed = SEED
+			for z in map.depth:
+				for x in width:
+					_dress(Vector2i(h * stride + x, z))
+		_rng.seed = BAND_SEED
+		for h in copies - 1:
+			for z in map.depth:
+				for x in range(width, stride):
+					_dress(Vector2i(h * stride + x, z))
+	# (one MultiMesh a model over the whole board: in a race both copies share its draw
+	# call, which measured cheaper in the browser's renderer than a MultiMesh a copy)
 	for name: String in _placements:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -83,6 +106,18 @@ func _add_tree_shadows() -> void:
 	mmi.material_override = material
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
+
+
+## Takes every piece down, for a board of another size (main.gd's world for a race).
+func clear() -> void:
+	for child in get_children():
+		remove_child(child)
+		child.queue_free()
+	_placements.clear()
+	_owners.clear()
+	_multimeshes.clear()
+	_cleared.clear()
+	_tree_shadows.clear()
 
 
 ## Hides the fluff standing on a cell (a tower is being built there).

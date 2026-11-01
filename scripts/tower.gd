@@ -8,6 +8,17 @@
 ##
 ## The Owl's Eye fires nothing: its telescope follows the creep it marks, and a new mark
 ## sounds once (the rune on the creep is the creep's view's).
+##
+## M6's forms (contract-m6.md §5) turn no head. The Clapper Tower's strike is instant: a
+## clap on its creep as it fires. The Toll Tower fires nothing either; its bell rings when
+## the simulation says it pulsed (pulse(), EV_PULSE). A Clay Hive's bees swarm over the
+## creep its cloud stings while it stings (the record's cloud_creep, SimMatch's), and
+## sound when the cloud takes a new creep. A tower a Hive Hum hastens (its haste_pm) glows
+## at its foot. A Chime Post and a Hive Hum sound once when their aura takes hold of
+## something in reach. Each of these reads the records after every step.
+##
+## In a race (two hollows) the record's cell is its hollow's own; `board_cell` is where it
+## stands on the board, which the build controller counts in.
 class_name Tower
 extends Node3D
 
@@ -17,7 +28,10 @@ const SHARD := "res://models/projectiles/frost_shard.glb"
 var rec: SimRecords.SimTower
 var id := 0
 var kind := ""
+## The record's cell on its hollow, the hollow, and the cell as the board counts it.
 var cell := Vector2i.ZERO
+var hollow := 0
+var board_cell := Vector2i.ZERO
 ## The form standing now: the base's id, or its branch's after a fork.
 var form := ""
 ## Display numbers for the HUD (damage, range, cooldown, ...) as this tower stands,
@@ -73,6 +87,18 @@ var _marked := PackedInt32Array()
 ## This tower's shots in flight by the creep each flies at (a bounce starts where the
 ## one before it struck).
 var _flying := {}
+## M6's lasting effects, made the first time they show: the bee cloud (in the effects
+## layer, following its creep), the hum glow at the foot; the creep the cloud is over, and
+## whether the aura held something at the last look.
+var _cloud: Node3D
+var _cloud_on: Creep
+var _cloud_id := 0
+var _hum: Node3D
+var _aura_held := false
+## Whether the standing form clouds (the Clay Hive's), set with the form.
+var _clouds := false
+## How many times the bell rang (pulse()), for tests.
+var pulses := 0
 
 
 ## `creep_views` is the scene's id -> Creep table, read to find the target's model. `rise`:
@@ -83,6 +109,8 @@ func setup(record: SimRecords.SimTower, world_pos: Vector3, creep_views: Diction
 	id = record.id
 	kind = record.kind
 	cell = Vector2i(record.x, record.z)
+	hollow = record.hollow
+	board_cell = Game.board_cell(hollow, cell)
 	_creeps = creep_views
 	position = world_pos
 	add_to_group("towers")
@@ -146,6 +174,118 @@ func sync(ticks: int) -> void:
 		)
 	if rec.team == SimTypes.EFFECT_MARK:
 		_watch_marks(data)
+	_show_m6(data)
+
+
+func _process(_delta: float) -> void:
+	if _cloud and _cloud.visible and is_instance_valid(_cloud_on):
+		var under := _cloud_on.global_position
+		_cloud.global_position = Vector3(under.x, 0.0, under.z)
+
+
+func _exit_tree() -> void:
+	if _cloud and is_instance_valid(_cloud):
+		_cloud.queue_free()
+	_cloud = null
+
+
+## What M6's records show on and around this tower: the hum glow while a Hive Hum hastens
+## it, a Clay Hive's cloud over the creep it stings, an aura's first hold sounding.
+func _show_m6(data: Dictionary) -> void:
+	var hastened := rec.haste_pm > 0
+	if hastened and _hum == null:
+		_hum = Fx.hum_glow()
+		add_child(_hum)
+	if _hum:
+		_hum.visible = hastened
+		if hastened:
+			Fx.hum_breathe(_hum, _clock)
+	if _clouds:
+		_show_cloud(data)
+	if rec.team == SimTypes.EFFECT_CRACK or rec.team == SimTypes.EFFECT_HASTE:
+		_watch_aura(data)
+
+
+## The cloud stands over the creep the record names while that creep's view lives.
+func _show_cloud(data: Dictionary) -> void:
+	var over := rec.cloud_creep
+	var view: Creep = _creeps.get(over) if over != 0 else null
+	var on := view != null and is_instance_valid(view) and not view.dead
+	if on and _cloud == null:
+		_cloud = Fx.bee_cloud(rec.cloud_mm / 1000.0)
+		Fx.layer(get_tree()).add_child(_cloud)
+	if _cloud == null:
+		return
+	if on and over != _cloud_id:
+		var sound: Array = data.get("sound", [])
+		if not sound.is_empty():
+			Sfx.play(str(sound[0]), float(sound[1]))
+	_cloud_id = over if on else 0
+	_cloud_on = view if on else null
+	_cloud.visible = on
+	if on:
+		_cloud.set_meta("reach", rec.cloud_mm / 1000.0)
+		var under := view.global_position
+		_cloud.global_position = Vector3(under.x, 0.0, under.z)
+		Fx.stir_cloud(_cloud, _clock, view.aim_point().y - under.y)
+
+
+## A Chime Post's or a Hive Hum's aura took hold of something in its reach (a creep it
+## cracks, a tower it hastens) after holding nothing: its sound, once.
+func _watch_aura(data: Dictionary) -> void:
+	var reach := range_radius()
+	var held := false
+	if rec.team == SimTypes.EFFECT_CRACK:
+		for view: Creep in _creeps.values():
+			if is_instance_valid(view) and not view.dead and view.rec.crack_c > 0:
+				if _flat(view.global_position).distance_to(_flat(global_position)) <= reach:
+					held = true
+					break
+	else:
+		for node in get_tree().get_nodes_in_group("towers"):
+			var other := node as Tower
+			if other != self and other.rec.haste_pm > 0 and other.hollow == hollow:
+				if _flat(other.global_position).distance_to(_flat(global_position)) <= reach:
+					held = true
+					break
+	if held and not _aura_held:
+		var sound: Array = data.get("sound", [])
+		if not sound.is_empty():
+			Sfx.play(str(sound[0]), float(sound[1]))
+	_aura_held = held
+
+
+static func _flat(p: Vector3) -> Vector2:
+	return Vector2(p.x, p.z)
+
+
+## The simulation says this tower pulsed (EV_PULSE: the Toll Tower's bell): the ring out
+## to `reach` metres from `at` (the event's point, its cell centre), the toll, a sway of
+## the frame.
+func pulse(at: Vector3, reach: float) -> void:
+	pulses += 1
+	var data: Dictionary = Game.TOWERS[form]
+	# (the ring spreads on the ground from the event's point; its sparks fly from the bell,
+	# the muzzle over this tower's own ground)
+	var bell := float((data.get("muzzle", Vector3(0, 1.25, 0)) as Vector3).y)
+	Fx.bell_ring(get_tree(), at, reach, bell + global_position.y - at.y)
+	var sound: Array = data.get("sound", [])
+	if not sound.is_empty():
+		Sfx.play(str(sound[0]), float(sound[1]))
+	if _base:
+		var sway := create_tween()
+		sway.tween_property(_base, "rotation:z", 0.06, 0.08)
+		sway.tween_property(_base, "rotation:z", -0.04, 0.14)
+		sway.tween_property(_base, "rotation:z", 0.0, 0.18)
+
+
+## Which of M6's lasting effects show on this tower now, for tests.
+func effects_shown() -> Dictionary:
+	return {
+		"hum": _hum != null and _hum.visible,
+		"cloud": _cloud != null and _cloud.visible,
+		"cloud_over": _cloud_id,
+	}
 
 
 ## A fork's cost, or -1 once the tower is forked (a fork is final).
@@ -167,6 +307,9 @@ func range_radius() -> float:
 func fire(event: Dictionary, road_point: Vector3) -> void:
 	var data: Dictionary = Game.TOWERS[form]
 	if not data.has("projectile"):
+		return
+	if Projectile.INSTANT.has(str(data["projectile"])):
+		_strike(event, data)
 		return
 	var from := int(event.get("from", 0))
 	var bounce := from != 0
@@ -195,6 +338,24 @@ func fire(event: Dictionary, road_point: Vector3) -> void:
 		Fx.muzzle_flash(get_tree(), muzzle, flash[0], float(flash[1]))
 		if float(flash[1]) >= 1.4:
 			Fx.burst(get_tree(), muzzle, Color(0.8, 0.78, 0.72, 0.8), 8, 0.8, 0.08, 0.5, 0.6)
+
+
+## An instant strike (the Clapper Tower's): the clap lands on its creep as the tower fires.
+func _strike(event: Dictionary, data: Dictionary) -> void:
+	var aim: Creep = _creeps.get(int(event["target"]))
+	last_launch = str(data["projectile"])
+	last_start = muzzle_point()
+	if aim and is_instance_valid(aim) and not aim.dead:
+		var foot := aim.global_position
+		Fx.clap(get_tree(), Vector3(foot.x, 0.0, foot.z), aim.aim_point())
+	var sound: Array = data.get("sound", [])
+	if not sound.is_empty():
+		Sfx.play(str(sound[0]), float(sound[1]))
+	if _base:
+		# (the frame shudders as the clapper strikes)
+		var shudder := create_tween()
+		shudder.tween_property(_base, "scale", Vector3(1.04, 0.97, 1.04), 0.05)
+		shudder.tween_property(_base, "scale", Vector3.ONE, 0.12)
 
 
 ## Where a bounce leaves from: the creep the last strike hit, or, when that strike killed
@@ -261,10 +422,13 @@ func _apply_form() -> void:
 	if now == form:
 		return
 	form = now
+	_clouds = SimContent.tower_stats(kind, rec.branch).has("cloud_mm")
 	stats = Game.numbers(_numbers(), 0)
 	stats.merge(Game.TOWERS[form])
 	for node: Node3D in [_base, _head]:
 		if node:
+			# (out of the tree now, so the branch's model keeps its own name)
+			remove_child(node)
 			node.queue_free()
 	_head = null
 	_pennant = null
@@ -292,7 +456,7 @@ func _apply_form() -> void:
 
 ## The record's resolved numbers under SimContent's keys (its owner's reach included).
 func _numbers() -> Dictionary:
-	return {
+	var own := {
 		"dmg_c": rec.dmg_c,
 		"cd_t": rec.cd_t,
 		"range_mm": rec.range_mm,
@@ -305,4 +469,14 @@ func _numbers() -> Dictionary:
 		"marks": rec.marks,
 		"bounces": rec.bounces,
 		"bounce_mm": rec.bounce_mm,
+		# (M6: a pulse's stun and its slow of fliers, a cloud's reach, the crack and the
+		# haste this tower gives, its extra share against fliers)
+		"stun_t": rec.stun_t,
+		"air_slow_pm": rec.air_slow_pm,
+		"air_slow_t": rec.air_slow_t,
+		"cloud_mm": rec.cloud_mm,
+		"crack_c": rec.crack_c,
+		"haste_pm": rec.hum_pm,
+		"air_bonus_pm": rec.air_bonus_pm,
 	}
+	return own

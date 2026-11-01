@@ -53,6 +53,9 @@ const GLYPH_SIZE := 22.0
 const FACE_SIZE := 24.0
 const ROW_GLYPH := 18.0
 const ROW_FACE := 20.0
+## The rival line's plate (a race): its right edge in from the screen's, and its height.
+const RIVAL_INSET := 14.0
+const RIVAL_HEIGHT := 28.0
 
 var controller: BuildController
 
@@ -97,6 +100,12 @@ var _end_detail: Label
 var _live := true
 ## The session's results plate is up (results_shown): no notice or banner over it.
 var _results_up := false
+var _minimap: Minimap
+## The strip's second line in a race (design 5.7) and what it shows.
+var _rival_plate: PanelContainer
+var _rival_tag: Label
+var _rival_text: Label
+var _rival_shown := ""
 
 
 func setup(main: Node) -> void:
@@ -113,10 +122,17 @@ func setup(main: Node) -> void:
 	Game.team_noticed.connect(func(text: String) -> void: show_notice(text, TEAM_NOTICE_HOLD))
 	Game.ready_changed.connect(_refresh)
 	Game.towers_changed.connect(_refresh)
+	Game.race_changed.connect(_on_race)
 	controller.selection_changed.connect(func(_t: Tower) -> void: _refresh())
 	controller.creep_selected.connect(func(_c: Creep) -> void: _refresh())
 	controller.mode_changed.connect(func(_k2: String) -> void: _refresh())
 	_refresh()
+
+
+## The minimap on the left wing; main.gd sets it up again when the world grows a second
+## hollow (a race's MATCH_CONFIG after the scene stood).
+func minimap() -> Minimap:
+	return _minimap
 
 
 func _process(_delta: float) -> void:
@@ -126,9 +142,10 @@ func _process(_delta: float) -> void:
 		_live = orders
 		_refresh()  # (the match started, its link went, or the caretaker took or gave back my seat)
 	var ready_cost := ""
-	if Game.sim == null or not live:
+	if Game.sim == null or not live or Game.over():
 		# (networked, before START or after the link went: the world stands still, and
-		# the party strip says why)
+		# the party strip says why; once the match is over for me, a decided race too,
+		# the end plate does)
 		_countdown.text = ""
 	elif Game.state == Game.State.PREP:
 		var seconds := ceili(Game.countdown)
@@ -153,6 +170,7 @@ func _process(_delta: float) -> void:
 	else:
 		_countdown.text = ""
 	_set_cost(_ready_button, ready_cost)
+	_show_rival(Game.rival_line() if not _results_up else "")
 	var creep := controller.selected_creep
 	if creep and is_instance_valid(creep) and not creep.dead:
 		# Only when what it shows changes, not every frame.
@@ -232,6 +250,14 @@ func checks_shown() -> Array:
 	return _checks.get_meta("shown", []) if _checks.visible else []
 
 
+## The strip's second line in a race as shown ("Rival · Wave 7 · 18 lives · 6:12 +20 s"),
+## "" while it hides, for tests.
+func rival_line() -> String:
+	if not _rival_plate.visible:
+		return ""
+	return ("Rival · " + _rival_text.text) if _rival_tag.visible else _rival_text.text
+
+
 # ── Layout ──
 
 
@@ -308,8 +334,9 @@ func _build_console(root: Control, main: Node) -> void:
 	minimap.name = "Minimap"
 	minimap.clip_contents = true
 	_place(minimap, _rect("map_well"))
-	minimap.setup(main.map, main.camera)
+	minimap.setup(main.board, main.camera, main.hollows_shown(), main.map.width)
 	left.add_child(minimap)
+	_minimap = minimap
 	var shade := _art("well_shade.png")
 	_place(shade, _rect("map_well"))
 	left.add_child(shade)
@@ -433,6 +460,61 @@ func _build_strip(root: Control) -> void:
 	_checks.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_checks.add_theme_constant_override("separation", 6)
 	area.add_child(_checks)
+	_build_rival_line(root)
+
+
+## The strip's second line in a race (design 5.7): a slim plate hung under the strip's
+## right end, "Rival" in gold, then the rival's wave, lives and race clock; once the rival
+## fell, what I need to win, in the notices' gold. Hidden outside a race. (The strip's art
+## is a band with its gilt edge at the bottom: a second row inside it would stretch the
+## edge, so the line hangs under it on the tooltip plate, as the wave list does.)
+func _build_rival_line(root: Control) -> void:
+	_rival_plate = PanelContainer.new()
+	_rival_plate.name = "RivalLine"
+	var box := HdStyleBox.new(load(ART + "tooltip.tres"), _k)
+	box.content_margin_left = 12
+	box.content_margin_right = 14
+	box.content_margin_top = 4
+	box.content_margin_bottom = 5
+	_rival_plate.add_theme_stylebox_override("panel", box)
+	_rival_plate.anchor_left = 1.0
+	_rival_plate.anchor_right = 1.0
+	_rival_plate.offset_left = -RIVAL_INSET
+	_rival_plate.offset_right = -RIVAL_INSET
+	_rival_plate.offset_top = float(_layout["strip"]["height"]) + 2
+	_rival_plate.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_rival_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rival_plate.visible = false
+	root.add_child(_rival_plate)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 6)
+	_rival_plate.add_child(row)
+	_rival_tag = _label("Rival", BOLD_FONT, 14, GOLD)
+	_rival_tag.name = "RivalTag"
+	row.add_child(_rival_tag)
+	_rival_text = _label("", BODY_FONT, 14, TEXT)
+	_rival_text.name = "RivalText"
+	row.add_child(_rival_text)
+
+
+## Shows `line` (Game.rival_line()) on the rival plate, or hides it for "": "Rival · ..."
+## as the tag and the rest; any other line (the rival fell) whole, in the notices' gold.
+## The wave list moves down under it while it shows.
+func _show_rival(line: String) -> void:
+	if line == _rival_shown:
+		return
+	_rival_shown = line
+	_rival_plate.visible = line != ""
+	var tagged := line.begins_with("Rival · ")
+	_rival_tag.visible = tagged
+	_rival_text.text = line.trim_prefix("Rival · ") if tagged else line
+	_rival_text.add_theme_color_override("font_color", TEXT if tagged else NOTICE)
+	_rival_text.add_theme_font_override("font", BODY_FONT if tagged else BOLD_FONT)
+	var below := float(_layout["strip"]["height"]) + 2
+	if _rival_plate.visible:
+		below += RIVAL_HEIGHT + 4
+	_wave_list.offset_top = below
 
 
 ## The waves still to come, one row each: its number, the glyphs of its checks and the
@@ -681,7 +763,7 @@ func _refresh_card() -> void:
 				_set_glyph(button, SimContent.branch_helps(Game.builder(), form))
 				(button.get_node("Hammer") as Control).visible = true
 				var cost := tower.upgrade_cost()
-				var waiting := controller.fork_pending(tower.cell)
+				var waiting := controller.fork_pending(tower.board_cell)
 				_command(button, not over and live and not waiting, Game.can_afford(cost), str(cost))
 			"forked":
 				var form := SimContent.tower_form(tower.kind, i)
@@ -709,8 +791,10 @@ func _refresh_card() -> void:
 	_set_active(_ready_button, can_call and controller.wants_ready())
 
 
+## The match is over for me (Game.over()): my hollow done or fallen, or a race decided
+## while my hollow still played.
 func _over() -> bool:
-	return Game.state == Game.State.WON or Game.state == Game.State.LOST
+	return Game.over()
 
 
 ## The wave the strip speaks of: the next one in a build window, the current one while
@@ -850,7 +934,7 @@ func _wave_brings(index: int) -> String:
 
 
 func _describe_build(kind: String) -> void:
-	var data := Game.form_stats(kind, -1, Game.my_range_bonus())
+	var data := Game.form_stats(kind, -1, Game.my_range_bonus(), Game.my_pierce_bonus())
 	var cost := int(data["cost"])
 	_show_tower_portrait(kind)
 	var line := "%d gold" % cost
@@ -879,7 +963,7 @@ func _describe_tower(tower: Tower) -> void:
 
 
 ## A creep: its name with the glyph of the check it brings, what holds it (winged,
-## slowed, stunned, marked) and its numbers.
+## slowed, stunned, marked, cracked) and its numbers.
 func _describe_creep(creep: Creep) -> void:
 	_creep_shown = _creep_key(creep)
 	var data: Dictionary = Game.CREEPS[creep.kind]
@@ -893,6 +977,8 @@ func _describe_creep(creep: Creep) -> void:
 		parts.append("slowed")
 	if creep.mark > 0.0:
 		parts.append("marked +%d%%" % roundi(creep.mark * 100.0))
+	if creep.crack > 0.0:
+		parts.append("cracked –%s" % _num(creep.crack))
 	_head(str(data["name"]), " · ".join(parts))
 	_set_glyph_title(str(data.get("check", "")))
 	var fraction := creep.hp / creep.max_hp
@@ -909,7 +995,7 @@ func _describe_creep(creep: Creep) -> void:
 
 
 func _creep_key(creep: Creep) -> Array:
-	return [ceili(creep.hp), creep.slow_factor < 1.0, creep.stunned, creep.mark]
+	return [ceili(creep.hp), creep.slow_factor < 1.0, creep.stunned, creep.mark, creep.crack]
 
 
 func _head(title: String, line: String, tone := DIM) -> void:
@@ -935,25 +1021,42 @@ func _show_tower_portrait(form: String) -> void:
 	)
 
 
-## The numbers a tower shows: damage (or, for a tower that marks, the mark), range,
-## cooldown (or how many it marks), then what it adds: splash, slow, pierce, bounces.
+## The numbers a tower shows: damage (or, for a tower that marks, the mark; for an aura
+## that deals none, M6's crack or haste), range, cooldown (or how many it marks; an aura
+## none), then what it adds: a pulse's stun, its share against fliers and its slow of
+## them, a cloud, splash, slow, pierce, bounces.
 func _tower_stats(s: Dictionary) -> Array:
 	var stats := []
 	var marks := s.has("mark") and float(s["damage"]) <= 0.0
+	var aura := float(s["damage"]) <= 0.0 and (s.has("crack") or s.has("haste"))
 	if marks:
 		stats.append(["Mark", "+%d%%" % roundi(float(s["mark"]) * 100.0)])
+	elif aura and s.has("crack"):
+		stats.append(["Crack", _num(float(s["crack"]))])
+	elif aura:
+		stats.append(["Haste", "+%d%%" % roundi(float(s["haste"]) * 100.0)])
 	else:
 		stats.append(["Damage", str(s["damage"])])
 	stats.append(["Range", str(s["range"])])
 	if marks:
 		stats.append(["Marks", str(s.get("marks", 1))])
-	else:
+	elif not aura:
 		stats.append(["Cooldown", "%ss" % s["cooldown"]])
+	if s.has("stun"):
+		stats.append(["Stun", "%ss" % _num(float(s["stun"]))])
+	if s.has("air_bonus"):
+		stats.append(["Fliers", "+%d%%" % roundi(float(s["air_bonus"]) * 100.0)])
+	if s.has("air_slow"):
+		# (a pulse that reaches fliers slows them for its own time: the Sky Toll's)
+		stats.append(["Air slow", "%d%%" % roundi(float(s["air_slow"]) * 100.0)])
+	if s.has("cloud"):
+		stats.append(["Cloud", _num(float(s["cloud"]))])
 	if s.has("splash"):
 		stats.append(["Splash", str(s["splash"])])
 	if s.has("slow"):
 		stats.append(["Slow", "%d%%" % roundi(float(s["slow"]) * 100.0)])
-	if s.has("pierce"):
+	if s.has("pierce") and not aura:
+		# (Bronze Hand's rides on an aura's record too, but an aura strikes nothing)
 		stats.append(["Pierce", _num(float(s["pierce"]))])
 	if s.has("bounces"):
 		stats.append(["Bounces", str(s["bounces"])])
@@ -1025,8 +1128,9 @@ func _show_tooltip(what: String) -> void:
 			var data: Dictionary = Game.TOWERS[kind]
 			_tooltip_title.text = str(data["name"])
 			cost = Game.tower_cost(kind)
-			# (the Builders screen shows this very body: Game.kit_tip)
-			_tooltip_body.text = Game.kit_tip(Game.builder(), slot, Game.my_range_bonus())
+			# (the Builders screen shows this very body: Game.kit_tip; with my perks, Keen
+			# Sight's reach and Bronze Hand's pierce, as _describe_build counts them)
+			_tooltip_body.text = Game.kit_tip(Game.builder(), slot, Game.my_range_bonus(), Game.my_pierce_bonus())
 		"branch", "forked":
 			var form := SimContent.tower_form(tower.kind, slot)
 			_tooltip_title.text = str(Game.TOWERS[form]["name"])
@@ -1092,10 +1196,13 @@ func _show_tooltip(what: String) -> void:
 ## What a fork to `branch` changes, in numbers: "Damage 8.0 to 16.0 · range 3.2 to 3.6",
 ## and "reaches the sky" when it starts to.
 func _fork_gains(tower: Tower, branch: int) -> String:
-	var after := Game.form_stats(tower.kind, branch, Game.sim.range_bonus(tower.owner_seat))
+	# (with the owner's perks, as its record has them: Keen Sight's reach, Bronze Hand's pierce)
+	var after := Game.form_stats(
+		tower.kind, branch, Game.sim.range_bonus(tower.owner_seat), Game.sim.pierce_bonus(tower.owner_seat)
+	)
 	var was: Dictionary = tower.stats
 	var parts := PackedStringArray()
-	for key: String in ["damage", "range", "cooldown", "splash", "slow", "pierce", "bounces", "mark", "marks"]:
+	for key: String in ["damage", "range", "cooldown", "splash", "slow", "pierce", "bounces", "mark", "marks", "stun", "cloud", "crack", "haste", "air_bonus", "air_slow"]:
 		if not after.has(key) and not was.has(key):
 			continue
 		var before := float(was.get(key, 0.0))
@@ -1103,8 +1210,19 @@ func _fork_gains(tower: Tower, branch: int) -> String:
 		if is_equal_approx(before, now):
 			continue
 		match key:
-			"slow", "mark":
+			"slow", "mark", "haste":
 				parts.append("%s %d%% to %d%%" % [key, roundi(before * 100), roundi(now * 100)])
+			"air_bonus":
+				if before > 0.0:
+					parts.append("fliers +%d%% to +%d%%" % [roundi(before * 100), roundi(now * 100)])
+				else:
+					parts.append("fliers +%d%%" % roundi(now * 100))
+			"air_slow":
+				parts.append("slows fliers %d%% for %ss" % [roundi(now * 100), _num(float(after.get("air_slow_time", 0.0)))])
+			"stun":
+				parts.append("stun %ss to %ss" % [_num(before), _num(now)])
+			"cloud", "crack":
+				parts.append("%s %s to %s" % [key, _num(before), _num(now)])
 			"cooldown":
 				parts.append("cooldown %ss to %ss" % [was[key], after[key]])
 			"pierce", "bounces", "marks":
@@ -1128,19 +1246,37 @@ func _on_state(state: int) -> void:
 	_refresh()
 	if state == Game.State.WON or state == Game.State.LOST:
 		controller.set_mode("")
-		_hovered = ""
-		_tooltip.visible = false
-		_wave_list.visible = false
-		_end_panel.visible = true
-		_banner.hide_title()
-		_notice.visible = false
+		if Game.is_race():
+			# (my hollow is done or fallen, but a race is decided by its win order: the end
+			# plate waits for that, _on_race; the rival line says how it stands meanwhile)
+			_on_race()
+			return
 		var won := state == Game.State.WON
-		_end_label.text = "Victory!" if won else "The Holdfast has gone under"
-		_end_detail.text = "Fell in wave %d of %d" % [Game.wave, Game.total_waves()]
+		var detail := "Fell in wave %d of %d" % [Game.wave, Game.total_waves()]
 		if won:
-			_end_detail.text = "All %d waves held back" % Game.total_waves()
+			detail = "All %d waves held back" % Game.total_waves()
 		elif Game.wave == 0:
-			_end_detail.text = "Fell before the first wave"
+			detail = "Fell before the first wave"
+		_show_end("Victory!" if won else "The Holdfast has gone under", detail)
+
+
+## A race moved on (EV_RACE): once it is decided, the end plate in the race's words, the
+## title from my team's outcome and the rule that decided it (design 5.8).
+func _on_race() -> void:
+	if Game.outcome() == "" or _end_panel.visible:
+		return
+	_show_end(Game.race_title(), Game.race_rule_line())
+
+
+func _show_end(title: String, detail: String) -> void:
+	_hovered = ""
+	_tooltip.visible = false
+	_wave_list.visible = false
+	_end_panel.visible = true
+	_banner.hide_title()
+	_notice.visible = false
+	_end_label.text = title
+	_end_detail.text = detail
 
 
 # ── Widgets ──

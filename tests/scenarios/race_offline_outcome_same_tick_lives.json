@@ -1,0 +1,30 @@
+{
+  "name": "race_offline_outcome_same_tick_lives",
+  "description": "A race whose crews clear wave 12 on the same tick is decided by the lives they lost (design 1.3: the race time is the clear tick plus 10 s a life lost, the lower wins), and its rule says so (review of M6's race views: Game.race_rule_line() took a same-tick finish for 'You cleared wave 12 first'). Over the session's offline race, a Tide Race of two seats each waits out its windows; both hollows clear wave 12 on the same tick, the rival with two lives lost, so my race time is 20 s the lower. SimMatch decides it on time for my team, and the results say 'You Outran the Tide' with the rule 'Fewer lives lost: your race time is the lower', not that my crew cleared first.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 1},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 1},
+    {"eval": "scene.begin('tide_race', [{'team': 0, 'builder': 'lamplighter'}, {'team': 1, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"eval": "Game.debug(3, 0, 12)"},
+    {"eval": "Game.debug(3, 1, 12)"},
+    {"eval": "Game.debug(2, 1, 18)"},
+    {"eval": "Game.debug(4, 0, 2)"},
+    {"eval": "Game.debug(4, 1, 2)"},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Game.sim.teams[0].clear_tick >= 0 and Game.sim.teams[0].clear_tick == Game.sim.teams[1].clear_tick", "msg": "both hollows cleared wave 12 on the same tick"},
+    {"assert": "Game.sim.race_time(1) == Game.sim.race_time(0) + 1200 and Game.sim.teams[1].lives == 18", "msg": "the rival's two lost lives add 20 s to its race time"},
+    {"assert": "Game.sim.decided_by() == 'time' and Game.outcome() == 'won'", "msg": "the simulation decides it on time, for my team"},
+    {"assert": "node('ResultsTitle').text == 'YOU OUTRAN THE TIDE' and node('ResultsRule').text == 'Fewer lives lost: your race time is the lower'", "msg": "the rule that decided it is the lives, not who cleared first"}
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "note": "long_chime for its command icon only: the ground left off, the shaft cut short.",
+  "colors": {"brick": "#9a4430", "stone": "#8a8580", "slate_roof": "#3a3c42", "slate_roof_lit": "#5e6270", "timber": "#4e3423", "bronze": "#b07a3a", "bronze_dark": "#7a5426", "gold": "#e0b040", "iron": "#3a3c42"},
+  "ground_ao": 0.3,
+  "origin": "bottom-center",
+  "parts": [
+    {"shape": "cylinder", "radius": 0.21, "height": 0.16, "sides": 8, "radius_top": 0.19, "phase": 22.5, "bevel": 0.015, "pattern": "bricks", "at": [0.0, 0.0, 0.0], "color": "brick"},
+    {"shape": "cylinder", "radius": 0.23, "height": 0.035, "sides": 8, "phase": 22.5, "bevel": 0.01, "pattern": "stone", "at": [0.0, 0.16, 0.0], "color": "stone"},
+    {"shape": "box", "size": [0.11, 0.62, 0.11], "bevel": 0.012, "pattern": "planks", "at": [0.0, 0.195, 0.0], "color": "timber"},
+    {"shape": "box", "size": [0.125, 0.03, 0.125], "at": [0.0, 0.2694, 0.0], "color": "iron"},
+    {"shape": "box", "size": [0.125, 0.03, 0.125], "at": [0.0, 0.536, 0.0], "color": "iron"},
+    {"shape": "box", "size": [0.9, 0.05, 0.06], "pattern": "planks", "bevel": 0.008, "at": [0.0, 0.715, 0.0], "color": "timber"},
+    {"shape": "box", "size": [0.06, 0.05, 0.9], "pattern": "planks", "bevel": 0.008, "at": [0.0, 0.715, 0.0], "color": "timber"},
+    {"parts": [{"shape": "cylinder", "radius": 0.022, "height": 0.36, "sides": 6, "rotate": [180.0, 0.0, 0.0], "color_top": "bronze", "pattern": "gold", "at": [0.0, 0.0, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.0275, "height": 0.02, "sides": 6, "pattern": "gold", "at": [0.0, -0.025, 0.0], "color": "bronze_dark"}], "at": [0.42, 0.715, -0.0]},
+    {"parts": [{"shape": "cylinder", "radius": 0.022, "height": 0.26, "sides": 6, "rotate": [180.0, 0.0, 0.0], "color_top": "bronze", "pattern": "gold", "at": [0.0, 0.0, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.0275, "height": 0.02, "sides": 6, "pattern": "gold", "at": [0.0, -0.025, 0.0], "color": "bronze_dark"}], "at": [0.23, 0.715, -0.0]},
+    {"shape": "sphere", "radius": 0.03, "segments": [6, 3], "pattern": "gold", "at": [0.44, 0.74, -0.0], "color": "gold"},
+    {"parts": [{"shape": "cylinder", "radius": 0.022, "height": 0.36, "sides": 6, "rotate": [180.0, 0.0, 0.0], "color_top": "bronze", "pattern": "gold", "at": [0.0, 0.0, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.0275, "height": 0.02, "sides": 6, "pattern": "gold", "at": [0.0, -0.025, 0.0], "color": "bronze_dark"}], "at": [0.0, 0.715, -0.42]},
+    {"parts": [{"shape": "cylinder", "radius": 0.022, "height": 0.26, "sides": 6, "rotate": [180.0, 0.0, 0.0], "color_top": "bronze", "pattern": "gold", "at": [0.0, 0.0, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.0275, "height": 0.02, "sides": 6, "pattern": "gold", "at": [0.0, -0.025, 0.0], "color": "bronze_dark"}], "at": [0.0, 0.715, -0.23]},
+    {"shape": "sphere", "radius": 0.03, "segments": [6, 3], "pattern": "gold", "at": [0.0, 0.74, -0.44], "color": "gold"},
+    {"parts": [{"shape": "cylinder", "radius": 0.022, "height": 0.36, "sides": 6, "rotate": [180.0, 0.0, 0.0], "color_top": "bronze", "pattern": "gold", "at": [0.0, 0.0, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.0275, "height": 0.02, "sides": 6, "pattern": "gold", "at": [0.0, -0.025, 0.0], "color": "bronze_dark"}], "at": [-0.42, 0.715, -0.0]},
+    {"parts": [{"shape": "cylinder", "radius": 0.022, "height": 0.26, "sides": 6, "rotate": [180.0, 0.0, 0.0], "color_top": "bronze", "pattern": "gold", "at": [0.0, 0.0, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.0275, "height": 0.02, "sides": 6, "pattern": "gold", "at": [0.0, -0.025, 0.0], "color": "bronze_dark"}], "at": [-0.23, 0.715, -0.0]},
+    {"shape": "sphere", "radius": 0.03, "segments": [6, 3], "pattern": "gold", "at": [-0.44, 0.74, -0.0], "color": "gold"},
+    {"parts": [{"shape": "cylinder", "radius": 0.022, "height": 0.36, "sides": 6, "rotate": [180.0, 0.0, 0.0], "color_top": "bronze", "pattern": "gold", "at": [0.0, 0.0, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.0275, "height": 0.02, "sides": 6, "pattern": "gold", "at": [0.0, -0.025, 0.0], "color": "bronze_dark"}], "at": [-0.0, 0.715, 0.42]},
+    {"parts": [{"shape": "cylinder", "radius": 0.022, "height": 0.26, "sides": 6, "rotate": [180.0, 0.0, 0.0], "color_top": "bronze", "pattern": "gold", "at": [0.0, 0.0, 0.0], "color": "gold"}, {"shape": "cylinder", "radius": 0.0275, "height": 0.02, "sides": 6, "pattern": "gold", "at": [0.0, -0.025, 0.0], "color": "bronze_dark"}], "at": [-0.0, 0.715, 0.23]},
+    {"shape": "sphere", "radius": 0.03, "segments": [6, 3], "pattern": "gold", "at": [-0.0, 0.74, 0.44], "color": "gold"},
+    {"shape": "cone", "radius": 0.15, "height": 0.2, "sides": 8, "phase": 22.5, "color_top": "slate_roof_lit", "pattern": "shingles", "at": [0.0, 0.755, 0.0], "color": "slate_roof"},
+    {"shape": "sphere", "radius": 0.032, "segments": [6, 4], "pattern": "gold", "at": [0.0, 0.975, 0.0], "color": "gold"}
+  ]
+}

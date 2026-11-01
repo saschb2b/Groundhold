@@ -111,7 +111,10 @@ static func encode(m: SimMatch) -> PackedByteArray:
 		b.put_32(s.slow_pm)
 		b.put_32(s.slow_t)
 		b.put_32(s.pierce_c)
-	_encode_m2(b, m)
+	var m6 := _m6_parts(m)
+	_encode_m2(b, m, not m6.is_empty())
+	if not m6.is_empty():
+		_encode_m6(b, m, m6)
 	return b.data_array
 
 
@@ -121,7 +124,7 @@ static func encode(m: SimMatch) -> PackedByteArray:
 ## them, keeps the bytes and the state hashes it had in M1
 ## (contract_ids_keep_state_hashes). Records are named by their index in their list,
 ## which is in id order.
-static func _encode_m2(b: StreamPeerBuffer, m: SimMatch) -> void:
+static func _encode_m2(b: StreamPeerBuffer, m: SimMatch, before_m6 := false) -> void:
 	var eyes := PackedInt32Array()
 	for i in m.towers.size():
 		if not m.towers[i].marked.is_empty():
@@ -135,7 +138,7 @@ static func _encode_m2(b: StreamPeerBuffer, m: SimMatch) -> void:
 	for i in m.creeps.size():
 		if not m.creeps[i].slow_next.is_empty():
 			slowed.append(i)
-	if eyes.is_empty() and hops.is_empty() and slowed.is_empty():
+	if eyes.is_empty() and hops.is_empty() and slowed.is_empty() and not before_m6:
 		return
 	b.put_u16(eyes.size())
 	for i in eyes:
@@ -167,6 +170,74 @@ static func _encode_m2(b: StreamPeerBuffer, m: SimMatch) -> void:
 			b.put_u32(c.slow_next[k + 1])
 			b.put_u8(c.slow_next[k + 2])
 			k += 3
+
+
+## M6's fields come after M2's block, which is then written even when it holds nothing
+## (three empty counts), and only when one of them is set: a bee cloud's creep
+## (SimTower.cloud_creep), an Apiary bolt's air bonus in flight (SimShot.air_bonus_pm), or
+## a race (the teams' fall and the kills of their wave, the decision). A High Water match
+## of the first two Builders, and every classic match, keeps its M2 bytes. Returns the
+## parts as [clouds (tower indexes), bolts (shot indexes)], or [] when nothing is set.
+static func _m6_parts(m: SimMatch) -> Array:
+	var clouds := PackedInt32Array()
+	for i in m.towers.size():
+		if m.towers[i].cloud_creep != 0:
+			clouds.append(i)
+	var bolts := PackedInt32Array()
+	for i in m.shots.size():
+		if m.shots[i].air_bonus_pm != 0:
+			bolts.append(i)
+	if clouds.is_empty() and bolts.is_empty() and not m.race:
+		return []
+	return [clouds, bolts]
+
+
+static func _encode_m6(b: StreamPeerBuffer, m: SimMatch, parts: Array) -> void:
+	var clouds: PackedInt32Array = parts[0]
+	var bolts: PackedInt32Array = parts[1]
+	b.put_u16(clouds.size())
+	for i in clouds:
+		b.put_u16(i)
+		b.put_u32(m.towers[i].cloud_creep)
+	b.put_u16(bolts.size())
+	for i in bolts:
+		b.put_u16(i)
+		b.put_32(m.shots[i].air_bonus_pm)
+	b.put_u8(1 if m.race else 0)
+	if not m.race:
+		return
+	for t in m.teams:
+		b.put_u16(t.fell_wave)
+		b.put_u32(t.fell_kills)
+		b.put_u32(t.wave_kills)
+	b.put_u8(m.race_rule)
+	b.put_u8(m.race_outcomes.size())
+	for v in m.race_outcomes:
+		b.put_u8(v)
+
+
+static func _decode_m6(b: StreamPeerBuffer, m: SimMatch) -> void:
+	if b.get_position() >= b.get_size():
+		return
+	var cloud_count := b.get_u16()
+	for k in cloud_count:
+		var t := m.towers[b.get_u16()]
+		t.cloud_creep = b.get_u32()
+	var bolt_count := b.get_u16()
+	for k in bolt_count:
+		var s := m.shots[b.get_u16()]
+		s.air_bonus_pm = b.get_32()
+	if b.get_u8() == 0:
+		return
+	for t in m.teams:
+		t.fell_wave = b.get_u16()
+		t.fell_kills = b.get_u32()
+		t.wave_kills = b.get_u32()
+	m.race_rule = b.get_u8()
+	var outcome_count := b.get_u8()
+	m.race_outcomes = PackedInt32Array()
+	for k in outcome_count:
+		m.race_outcomes.append(b.get_u8())
 
 
 static func _decode_m2(b: StreamPeerBuffer, m: SimMatch) -> void:
@@ -323,5 +394,6 @@ static func decode(bytes: PackedByteArray, rules: Dictionary, text := "") -> Sim
 		s.pierce_c = b.get_32()
 		m.shots.append(s)
 	_decode_m2(b, m)
+	_decode_m6(b, m)
 	m.reindex()
 	return m

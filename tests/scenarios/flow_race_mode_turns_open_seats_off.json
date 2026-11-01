@@ -1,0 +1,33 @@
+{
+  "name": "flow_race_mode_turns_open_seats_off",
+  "description": "Open seats are a one-team mode's (design 5.2): the queue fills a High Water party's open seats with strangers but finds a race a rival team. The leader turns them on in High Water and the empty rows read '+ open seat'; a switch to Tide Race turns them off (PARTY_STATE's flag, as the server's mode change does), so the race's empty rows read '+ invite' and the hidden toggle leaves nothing on; back in High Water they stay off until the leader turns them on again.",
+  "seed": 1,
+  "timeout_frames": 1500,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.add_child(resource('res://tests/net/loopback_hub.gd').new())"},
+    {"eval": "Session.get_node('LoopbackHub').start({})"},
+    {"eval": "Session.create_party()"},
+    {"wait_until": "Session.party_code() == 'K7Q4M'", "timeout": 120},
+    {"eval": "Session.set_open(true)"},
+    {"wait_until": "Session.open_seats()", "timeout": 60},
+    {"wait": 1},
+    {"assert": "node('HubPanel').lines() == ['diamond Sascha lamplighter leader', '+ open seat', '+ open seat', '+ open seat'] and node('OpenSeats').text == 'open seats: on'", "msg": "High Water: the empty rows are open seats"},
+    {"eval": "Session.get_node('LoopbackHub').party_mode('tide_race')"},
+    {"wait_until": "Session.mode_id() == 'tide_race'", "timeout": 60},
+    {"wait": 1},
+    {"assert": "(int(Session.party['flags']) & 1) == 0 and not Session.open_seats()", "msg": "the switch to a race turned them off"},
+    {"assert": "node('HubPanel').lines() == ['A diamond Sascha lamplighter leader', '+ invite', '+ invite', '+ invite'] and not node('OpenSeats').visible", "msg": "a race's empty rows invite; no toggle"},
+    {"assert": "node('HubPanel').primary_text() == 'Find a rival'", "msg": "a race finds a rival team"},
+    {"eval": "Session.set_open(true)"},
+    {"wait": 10},
+    {"assert": "(int(Session.party['flags']) & 1) == 0", "msg": "open seats cannot be turned on in a race"},
+    {"eval": "Session.get_node('LoopbackHub').party_mode('high_water')"},
+    {"wait_until": "Session.mode_id() == 'high_water'", "timeout": 60},
+    {"wait": 1},
+    {"assert": "not Session.open_seats() and node('OpenSeats').visible and node('OpenSeats').text == 'open seats: off' and node('HubPanel').lines()[1] == '+ invite'", "msg": "back in High Water, off until the leader turns them on"},
+    {"assert": "node('HubPanel').primary_text() == 'Play'", "msg": "a party of one without open seats plays at once"}
+  ]
+}

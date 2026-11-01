@@ -46,3 +46,48 @@ Columns: 8
  44  40  48	edda_boot_tar
  75  58  51	edda_grip_leather
 201 211 234	edda_lens_glint
+# Ottilie Brass, the Bellfounder
+ 70 101 140	ottilie_smock_delft
+ 43 100  96	ottilie_souwester_teal
+176 126  80	ottilie_apron_leather
+126  84  52	ottilie_strap
+168  68  58	ottilie_kerchief_brick
+222 174  88	ottilie_hair_honey
+154 106  42	ottilie_brow
+242 196 160	ottilie_skin
+240 144 128	ottilie_blush
+241 170 144	ottilie_blush_flat
+242 183 152	ottilie_nose
+ 58  88 120	ottilie_iris
+ 78  52  40	ottilie_glove_scorched
+226 192 136	ottilie_clog
+176 136  80	ottilie_clog_sole
+196 136  58	ottilie_bronze
+238 188 100	ottilie_bronze_light
+124  82  38	ottilie_bronze_dark
+168 112  60	ottilie_handle_wood
+ 92  92 102	ottilie_iron
+ 62  60  68	ottilie_chain
+# Sefa Amberwell, the Beekeeper
+180  85  47	sefa_tunic_terracotta
+ 51  65 122	sefa_indigo
+216 176  98	sefa_straw
+232 223 200	sefa_veil
+198 188 164	sefa_veil_inside
+ 42  26  22	sefa_hair
+156 100  64	sefa_skin
+192  96  76	sefa_blush
+174  98  70	sefa_blush_flat
+165  99  67	sefa_nose
+168 108  24	sefa_iris_amber
+230 220 194	sefa_glove_canvas
+106  68  48	sefa_boot
+ 62  42  32	sefa_boot_sole
+196 192 180	sefa_smoker_tin
+132 130 122	sefa_smoker_tin_dark
+138  90  54	sefa_bellows_wood
+ 90  58  42	sefa_bellows_leather
+220 216 208	sefa_smoke
+240 184  48	sefa_bee_honey
+ 42  32  24	sefa_bee_dark
+246 242 232	sefa_bee_wing

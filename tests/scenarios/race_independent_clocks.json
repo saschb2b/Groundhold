@@ -1,0 +1,29 @@
+{
+  "name": "race_independent_clocks",
+  "description": "Each hollow of a race keeps its own clock (design 1.3 and 2.1): in a 2v2, when both of team A press Ready its horn sounds at once and pays them, and only them, a gold for every second left, while team B's window keeps counting down; one of team B Ready does not call it. Team B's horn comes when its own window runs out. A tower takes a cell of its own hollow, so both teams build on the same cells. Team A clears wave 1 and opens its next window while team B is still in its wave, and waits that window out on its own.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 4})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 1000), scene.debug(1, 3, 1000), scene.debug(1, 4, 1000)]"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 8, 11), scene.cmd(2, 'BUILD', 0, 11, 11), scene.cmd(3, 'BUILD', 0, 8, 11), scene.cmd(4, 'BUILD', 0, 11, 11)]"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1), scene.cmd(3, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(30)"},
+    {"assert": "scene.owner_at(8, 11) == 1 and scene.tower_on(1, 8, 11).owner == 3 and scene.tower_on(1, 11, 11).owner == 4", "msg": "both teams built on the same cells, each on its own hollow"},
+    {"assert": "m.hollows[0].phase == 1 and m.hollows[0].wave == 1 and scene.rows('WAVE', ['hollow', 'tick'], {'start': true}) == [[0, 0]]", "msg": "team A's horn sounded at once"},
+    {"assert": "m.hollows[1].phase == 0 and m.hollows[1].wave == 0 and m.hollows[1].countdown_t == 1500 - 30 and m.seat(3).ready", "msg": "team B's window counts on: one of two Ready does not call it"},
+    {"assert": "scene.rows('GOLD', ['seat', 'change'], {'why': 'ready'}) == [[1, 25], [2, 25]]", "msg": "the early gold went to team A's two seats, one a second left"},
+    {"eval": "scene.run_to(1499)"},
+    {"assert": "m.hollows[1].phase == 0", "msg": "team B still in its window at 1499 ticks"},
+    {"eval": "scene.run_ticks(1)"},
+    {"assert": "m.hollows[1].phase == 1 and scene.rows('WAVE', ['hollow', 'tick'], {'start': true}) == [[0, 0], [1, 1499]] and scene.gold_paid('ready') == 50", "msg": "its horn sounded when its own countdown ran out, with no early gold"},
+    {"repeat": 200, "steps": [{"eval": "scene.run_ticks(30)"}], "until": "scene.client(1).hollows[0].phase == 0"},
+    {"assert": "m.hollows[0].wave == 1 and m.hollows[1].phase == 1 and m.hollows[1].wave == 1", "msg": "team A cleared wave 1 and opened its next window while team B is still in wave 1"},
+    {"eval": "scene.events_where('WAVE', {'hollow': 0, 'cleared': true})[0]['tick']", "as": "cleared"},
+    {"assert": "m.hollows[0].window_tick == cleared + 1 and m.hollows[0].countdown_t > 0", "msg": "its window began the tick after its clear"},
+    {"eval": "scene.run_to(cleared + 1 + 900 + 1)"},
+    {"assert": "scene.rows('WAVE', ['hollow', 'wave'], {'start': true}).has([0, 2]) and scene.events_where('WAVE', {'hollow': 0, 'start': true, 'wave': 2})[0]['tick'] == cleared + 900", "msg": "and its wave 2 came when that window ran out, on its own clock"}
+  ]
+}

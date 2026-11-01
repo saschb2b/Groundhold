@@ -39,10 +39,21 @@
 ## visibility to the client and flashes the page title while the tab is hidden; a desynced
 ## match's results name the dump.
 ##
+## Two hollows (Tide Race, design 2.2 and 5.7, contract-m6.md §5): when the simulation
+## plays two, the world is the board, the map's copy for each hollow side by side
+## (hollow h at Game.hollow_origin(h), 26 tiles along x) with the two-tile cliff band
+## between them filled with high ground; terrain, decor, the minimap and the build
+## controller count cells on it. Every view stands in its record's hollow: creeps walk
+## their own hollow's road, and the positions the events give (EV_BUILT, EV_EFFECT,
+## EV_SIGNAL, EV_PULSE, the road) are local to theirs. The camera starts over mine, Home
+## frames it and V shows the rival's; an order on the rival's hollow is refused here. One
+## hollow (High Water, classic) builds and shows exactly the one map as before.
+##
 ## Helpers for tests and tools: cell_center(cell), build(kind, cell), fork(cell, branch),
-## sell(cell), tower_at(cell), spawn(kind), settled(), state_hash_hex(), hash_at(tick),
-## record(), replay_matches(), schedule(tick, name, a, b, c), tab_hidden(hidden),
-## overlay().
+## sell(cell), tower_at(cell) (cells of my hollow, as the plan bot and the caretaker count
+## them), tower_on(board_cell), board_center(board_cell), spawn(kind, hollow), settled(),
+## state_hash_hex(), hash_at(tick), record(), replay_matches(), schedule(tick, name, a, b,
+## c), tab_hidden(hidden), overlay().
 extends Node3D
 
 const MAP_FILE := "res://data/hollow.txt"
@@ -58,7 +69,10 @@ const OVERLAY_LAYER := 5
 ## What the page title flashes while the tab is hidden in a match (web build).
 const FLASH_TEXT := "Groundhold · the caretaker keeps your seat"
 
+## One hollow's map (every hollow plays the same text), and the world's: the map itself
+## with one hollow, every hollow's copy side by side with two (_board_of).
 var map: HollowMap
+var board: HollowMap
 var sim: SimMatch
 var source: TurnSource
 var seat := 1
@@ -75,7 +89,15 @@ var options := {}
 var tower_views := {}
 var creep_views := {}
 
+## The road's corners on one hollow (local), and on each hollow of the world.
 var _road_points := PackedVector3Array()
+var _roads: Array[PackedVector3Array] = []
+## How many hollows the world stands for (0 before it is built), and which one the camera
+## was framed on (-1 before it was).
+var _hollows_built := 0
+var _framed_hollow := -1
+## Shots that burst as a ring, not a blast (a Ringing Clapper's), by shot id until they do.
+var _ring_shots := {}
 var _scheduled: Array = []
 var _hash_file: FileAccess
 var _bot: RefCounted
@@ -96,8 +118,9 @@ var _bridge := WebBridge.new()
 ## Whether "LINK LOST" was printed for the reconnect going on.
 var _said_reconnecting := false
 ## What the results count from the match's events: kills by seat and creep kind and by
-## seat and wave, towers sold by seat, and the team's lives after each wave.
-var _tally := {"kind_kills": {}, "wave_kills": {}, "sold": {}, "lives": []}
+## seat and wave, towers sold by seat, my team's lives after each wave, and in a race each
+## team's after each of its own hollow's waves (team -> Array).
+var _tally := _new_tally()
 
 @onready var terrain: Terrain = $Terrain
 @onready var decor: Decor = $Decor
@@ -115,9 +138,6 @@ func _ready() -> void:
 		_shots.append(t.to_int())
 	map = HollowMap.load_file(MAP_FILE)
 	_road_points = map.path_points()
-	terrain.build(map)
-	decor.build(map, terrain)
-	_place_landmarks()
 	_spec = Session.enter_match(self)
 	if _spec.has("networked") and Session.client:
 		_session_client = true
@@ -132,7 +152,10 @@ func _ready() -> void:
 	else:
 		var match_seed := int(options.get("seed", "1"))
 		begin(MODE, SimMatch.default_seats(1), match_seed, LocalSequencer.new(1, 1), 1)
-	controller.setup(map, terrain, decor, self, towers)
+	# (begin built the world for its match; networked, the one hollow stands until the
+	# server's MATCH_CONFIG says how many the match plays)
+	_build_world(sim.hollows.size() if sim else 1)
+	controller.setup(board, terrain, decor, self, towers)
 	hud.setup(self)
 	_menu = MatchMenu.new()
 	add_child(_menu)
@@ -168,7 +191,8 @@ func _exit_tree() -> void:
 
 ## Starts a match: `mode`'s rules, one entry per seat ({"team", "builder", "caretaker"}),
 ## the seed, where the turns come from, and which seat this client plays. `existing` is a
-## simulation already built from those (the MatchClient's, whose tick-0 hash it sent).
+## simulation already built from those (the MatchClient's, whose tick-0 hash it sent). The
+## world follows the simulation: as many hollows as it plays, the camera over mine.
 func begin(
 	mode: String,
 	seats: Array,
@@ -187,8 +211,16 @@ func begin(
 	source = turns
 	source.seat = my_seat
 	hashes.clear()
+	_ring_shots.clear()
+	_tally = _new_tally()  # (the results count this match's events only)
 	Fx.reset()
 	Game.attach(sim, source, seat)
+	var rebuilt := _build_world(sim.hollows.size())
+	if _hollows_built > 1:
+		# (the build grid shows on my hollow only: the rival's takes no orders of mine)
+		terrain.grid_only(Rect2i(Game.board_cell(Game.my_hollow(), Vector2i.ZERO), Vector2i(map.width, map.depth)))
+	if _framed_hollow >= 0 and (rebuilt or _framed_hollow != Game.my_hollow()):
+		_frame_camera()  # (a match after the scene stood: a race's, or the other hollow)
 	if options.has("hash-log") and options["hash-log"] != "true":
 		_hash_file = FileAccess.open(str(options["hash-log"]), FileAccess.WRITE)
 	_record_hash()
@@ -212,6 +244,10 @@ func _physics_process(_delta: float) -> void:
 	var began := Time.get_ticks_usec()
 	var limit_usec := client.playout.budget_usec() if client and client.timed else 0
 	while ran < budget:
+		if sim.over and client == null:
+			# (offline the match stops where it was decided: a race's last tick is its
+			# decision, and nothing after it may change what the results show)
+			break
 		_submit_scheduled()
 		if not source.prepare(sim):
 			break
@@ -245,7 +281,18 @@ func _physics_process(_delta: float) -> void:
 		_finished = true
 		_on_match_over()
 		if _spec.has("offline"):
-			_show_results("aborted" if sim.aborted else ("won" if Game.state == Game.State.WON else "lost"))
+			_show_results("aborted" if sim.aborted else outcome())
+
+
+## My team's outcome as the simulation decided it (SimMatch.outcomes(), Game.outcome()):
+## "won", "lost" or "draw". A race is decided by its win order, not by my hollow: won by
+## the rival's fall while mine still stands, lost on time with mine cleared, drawn, or
+## decided at the cap. Before anything is decided, my hollow's phase.
+func outcome() -> String:
+	var decided := Game.outcome()
+	if decided != "":
+		return decided
+	return "won" if Game.state == Game.State.WON else "lost"
 
 
 # ── The Esc menu ──
@@ -307,8 +354,7 @@ func _record_hash() -> void:
 func _on_match_over() -> void:
 	if not options.has("quit-after-match"):
 		return
-	var won := Game.state == Game.State.WON
-	print("RESULT %d %s %s" % [sim.tick, sim.state_hash_hex(), "won" if won else "lost"])
+	print("RESULT %d %s %s" % [sim.tick, sim.state_hash_hex(), outcome()])
 	if _hash_file:
 		_hash_file.flush()
 	if client == null:
@@ -514,7 +560,8 @@ func _show_results(outcome: String, said := "") -> void:
 	Session.match_over(shown)
 
 
-## Counts what the results need from this frame's events.
+## Counts what the results need from this frame's events: a kill counts on its creep's
+## hollow's wave, and the lives after each wave are my team's, on my hollow's waves.
 func _count(events: Array) -> void:
 	for e: Dictionary in events:
 		match int(e["type"]):
@@ -525,15 +572,24 @@ func _count(events: Array) -> void:
 				var kinds: Dictionary = _tally["kind_kills"].get_or_add(by, {})
 				kinds[str(e["kind"])] = int(kinds.get(str(e["kind"]), 0)) + 1
 				var waves: Dictionary = _tally["wave_kills"].get_or_add(by, {})
-				var wave := sim.hollows[0].wave
+				var wave := sim.hollows[int(e.get("hollow", 0))].wave
 				waves[wave] = int(waves.get(wave, 0)) + 1
 			SimTypes.EV_SOLD:
 				var sold: Dictionary = _tally["sold"]
 				sold[int(e["seat"])] = int(sold.get(int(e["seat"]), 0)) + 1
 			SimTypes.EV_WAVE:
 				var done := int(e.get("phase", -1)) in [SimTypes.PHASE_DONE, SimTypes.PHASE_FALLEN]
-				if e.get("cleared", false) or done:
-					(_tally["lives"] as Array).append(sim.teams[0].lives)
+				if not e.get("cleared", false) and not done:
+					continue
+				var h := sim.hollows[int(e.get("hollow", 0))]
+				var by_team: Dictionary = _tally["team_lives"]
+				(by_team.get_or_add(h.team, []) as Array).append(sim.teams[h.team].lives)
+				if h.id == Game.my_hollow():
+					(_tally["lives"] as Array).append(sim.teams[Game.my_team()].lives)
+
+
+static func _new_tally() -> Dictionary:
+	return {"kind_kills": {}, "wave_kills": {}, "sold": {}, "lives": [], "team_lives": {}}
 
 
 # ── Events to views ──
@@ -573,33 +629,55 @@ func _show(events: Array) -> void:
 			SimTypes.EV_FIRE:
 				var view: Tower = tower_views.get(int(e["tower"]))
 				if view:
-					view.fire(e, _road_point(int(e["land"])))
+					if str(Game.TOWERS[view.form].get("burst", "")) == "ring":
+						_ring_shots[int(e["shot"])] = true
+					view.fire(e, _road_point(view.hollow, int(e["land"])))
 			SimTypes.EV_HIT:
 				_hit(e)
 			SimTypes.EV_EFFECT:
 				if e["what"] == "splash":
-					var at := Vector3(int(e["x"]) / 1000.0, 0.0, int(e["z"]) / 1000.0)
-					Fx.explosion(get_tree(), at, int(e["r"]) / 1000.0)
-					Sfx.play("explosion", -4.0)
+					var at := Game.world_at(int(e.get("hollow", 0)), int(e["x"]), int(e["z"]))
+					if _ring_shots.erase(int(e.get("shot", 0))):
+						Fx.ring_burst(get_tree(), at, int(e["r"]) / 1000.0)
+					else:
+						Fx.explosion(get_tree(), at, int(e["r"]) / 1000.0)
+						Sfx.play("explosion", -4.0)
 			SimTypes.EV_SIGNAL:
-				var at := Vector3(int(e["x"]) / 1000.0, 0.0, int(e["z"]) / 1000.0)
-				Fx.ring(get_tree(), at, 0.9, Color(1.0, 0.85, 0.4, 0.9), 0.6)
+				var from := sim.seat(int(e["seat"]))
+				var at := Game.world_at(from.hollow if from else 0, int(e["x"]), int(e["z"]))
+				var ring := Fx.ring(get_tree(), at, 0.9, Color(1.0, 0.85, 0.4, 0.9), 0.6)
+				ring.add_to_group("signal_rings")  # (while it shows, for tests)
+			SimTypes.EV_PULSE:
+				_pulsed(e)
+
+
+## A pulse tower rang (EV_PULSE, M6: the Toll Tower): the bell ring where the event says,
+## its reach `r`; the tower's view tolls and sways (without one, the ring alone).
+func _pulsed(e: Dictionary) -> void:
+	var at := Game.world_at(int(e.get("hollow", 0)), int(e.get("x", 0)), int(e.get("z", 0)))
+	var reach := int(e.get("r", 0)) / 1000.0
+	var view: Tower = tower_views.get(int(e.get("tower", 0)))
+	if view:
+		view.pulse(at, reach)
+	else:
+		Fx.bell_ring(get_tree(), at, reach)
 
 
 func _spawned(id: int, quiet := false) -> void:
 	var rec := sim.creep(id)
 	if rec == null:
 		return  # spawned and gone within one frame
+	var road := _roads[rec.hollow] if rec.hollow < _roads.size() else _roads[0]
 	var view := Creep.new()
 	view.name = "%s_%d" % [rec.kind, id]
-	view.setup(rec, _road_points)
+	view.setup(rec, road)
 	creeps.add_child(view)
 	creep_views[id] = view
 	if quiet:
 		return  # (built again from a checkpoint: it was already on the road)
 	Fx.burst(
 		get_tree(),
-		_road_points[0] + Vector3(0, 0.4, 0),
+		road[0] + Vector3(0, 0.4, 0),
 		Color(0.75, 0.5, 1.0),
 		10,
 		1.5,
@@ -613,7 +691,8 @@ func _built(e: Dictionary, quiet := false) -> void:
 	var rec := sim.tower(int(e["id"]))
 	if rec == null:
 		return
-	var cell := Vector2i(rec.x, rec.z)
+	# (where it stands on the board: its hollow's cell, shifted to that hollow)
+	var cell := Game.board_cell(rec.hollow, Vector2i(rec.x, rec.z))
 	var view := Tower.new()
 	view.name = "%s_%d_%d" % [rec.kind, cell.x, cell.y]
 	towers.add_child(view)
@@ -652,24 +731,32 @@ func _hit(e: Dictionary) -> void:
 	Sfx.play("hit", -10.0)
 
 
-## A road distance (micrometres) as a point on the ground; the origin for -1.
-func _road_point(dist_um: int) -> Vector3:
+## A road distance (micrometres) on `hollow`'s road as a point on the ground; the origin
+## for -1.
+func _road_point(hollow: int, dist_um: int) -> Vector3:
 	if dist_um < 0:
 		return Vector3.ZERO
-	var road := sim.hollows[0].road
-	return Vector3(road.x_at(dist_um) / 1000.0, 0.0, road.z_at(dist_um) / 1000.0)
+	var road := sim.hollows[hollow].road
+	return Game.world_at(hollow, road.x_at(dist_um), road.z_at(dist_um))
 
 
 # ── Helpers for tests and tools ──
+# (cell, as the plan bot and the caretaker count them: a cell of my hollow; board_cell:
+# a cell of the board, any hollow, as the build controller counts them)
 
 
 func cell_center(cell: Vector2i) -> Vector3:
-	return terrain.surface(cell)
+	return terrain.surface(Game.board_cell(Game.my_hollow(), cell))
 
 
-## Orders a tower built, as a click would; false when refused before sending.
+func board_center(board_cell: Vector2i) -> Vector3:
+	return terrain.surface(board_cell)
+
+
+## Orders a tower built on a cell of my hollow, as a click would; false when refused
+## before sending.
 func build(kind: String, cell: Vector2i) -> bool:
-	return controller.build(kind, cell)
+	return controller.build(kind, Game.board_cell(Game.my_hollow(), cell))
 
 
 ## Orders the tower on `cell` forked to `branch` (0 for A, 1 for B), as Q or W on my
@@ -688,16 +775,27 @@ func sell(cell: Vector2i) -> bool:
 	return controller.sell_selected()
 
 
+## The tower view on a cell of my hollow, or null.
 func tower_at(cell: Vector2i) -> Tower:
+	return tower_on(Game.board_cell(Game.my_hollow(), cell))
+
+
+## The tower view on a cell of the board, whichever hollow it lies in, or null.
+func tower_on(board_cell: Vector2i) -> Tower:
 	if sim == null:
 		return null
-	var rec := sim.tower_at(0, cell.x, cell.y)
+	var h := Game.hollow_at(board_cell)
+	if h < 0:
+		return null
+	var cell := Game.local_cell(h, board_cell)
+	var rec := sim.tower_at(h, cell.x, cell.y)
 	return tower_views.get(rec.id) if rec else null
 
 
-## A creep of `kind` at the Welling now (a scenario setter, logged for replays).
-func spawn(kind: String) -> void:
-	Game.debug(SimTypes.DBG_SPAWN, 0, SimContent.CREEP_IDS.find(kind))
+## A creep of `kind` at the Welling of `hollow` (default mine) now (a scenario setter,
+## logged for replays).
+func spawn(kind: String, hollow := -1) -> void:
+	Game.debug(SimTypes.DBG_SPAWN, Game.my_hollow() if hollow < 0 else hollow, SimContent.CREEP_IDS.find(kind))
 
 
 ## None of my commands is still waiting for its turn.
@@ -758,12 +856,75 @@ static func _parse_flags(args: PackedStringArray) -> Dictionary:
 # ── The world ──
 
 
-## The road's two ends: the Welling, where the Tide wells up and the creeps start, and the
-## Holdfast they walk to. Wickhollow's are the sunken field gate and the mill-house hearth.
-func _place_landmarks() -> void:
+## Builds the world for `count` hollows: the map alone for one; for two (a race) the board
+## of both copies and the cliff band between them, terrain and decor over all of it, and
+## each hollow's Welling and Holdfast. A world standing for another count is taken down
+## first (a race's MATCH_CONFIG after the one hollow stood). False when it already stood so.
+func _build_world(count: int) -> bool:
+	count = maxi(1, count)
+	if count == _hollows_built:
+		return false
+	var again := _hollows_built > 0
+	_hollows_built = count
+	board = map if count == 1 else _board_of(count)
+	_roads.clear()
+	for h in count:
+		var road := PackedVector3Array()
+		for p in _road_points:
+			road.append(p + Game.hollow_origin(h))
+		_roads.append(road)
+	if again:
+		terrain.clear()
+		decor.clear()
+		for node in get_tree().get_nodes_in_group("landmarks"):
+			node.remove_from_group("landmarks")
+			remove_child(node)
+			node.queue_free()
+	terrain.build(board)
+	decor.build(board, terrain, count, Game.HOLLOW_STRIDE, map.width)
+	for h in count:
+		_place_landmarks(h)
+	if again:
+		controller.map = board
+		if hud.minimap():
+			hud.minimap().setup(board, camera, count, map.width)
+	return true
+
+
+## The board of `count` hollows: each row of the map once per hollow, the band of high
+## ground between the copies (Game.HOLLOW_STRIDE less the map's width: two tiles).
+func _board_of(count: int) -> HollowMap:
+	var band := "^".repeat(Game.HOLLOW_STRIDE - map.width)
+	var lines := PackedStringArray()
+	for row in map.rows:
+		var copy := row.rpad(map.width, "^")
+		var line := copy
+		for h in range(1, count):
+			line += band + copy
+		lines.append(line)
+	var out := HollowMap.new()
+	out.parse("\n".join(lines))
+	return out
+
+
+## How many hollows the world stands for now.
+func hollows_shown() -> int:
+	return _hollows_built
+
+
+## The road's two ends on hollow `h`: the Welling, where the Tide wells up and the creeps
+## start, and the Holdfast they walk to. Wickhollow's are the sunken field gate and the
+## mill-house hearth. The first hollow's are "Welling" and "Holdfast", the second's
+## "Welling_1" and "Holdfast_1"; each knows its hollow (meta "hollow") and what it is
+## (meta "landmark"), for the minimap.
+func _place_landmarks(h := 0) -> void:
+	var origin := Game.hollow_origin(h)
+	var suffix := "" if h == 0 else "_%d" % h
 	var welling := Models.instance("res://models/props/rift_gate.glb")
-	welling.name = "Welling"
-	welling.position = map.center(map.spawn)
+	welling.name = "Welling" + suffix
+	welling.position = map.center(map.spawn) + origin
+	welling.set_meta("hollow", h)
+	welling.set_meta("landmark", "welling")
 	welling.add_to_group("landmarks")
 	add_child(welling)
 	BlobShadow.under(welling, 0.75)
@@ -775,8 +936,10 @@ func _place_landmarks() -> void:
 	welling.add_child(glow)
 
 	var holdfast := Models.instance("res://models/props/hearth.glb")
-	holdfast.name = "Holdfast"
-	holdfast.position = map.center(map.holdfast)
+	holdfast.name = "Holdfast" + suffix
+	holdfast.position = map.center(map.holdfast) + origin
+	holdfast.set_meta("hollow", h)
+	holdfast.set_meta("landmark", "holdfast")
 	holdfast.add_to_group("landmarks")
 	add_child(holdfast)
 	BlobShadow.under(holdfast, 0.8)
@@ -810,8 +973,21 @@ func _set_the_scene() -> void:
 
 ## Starts on what the players defend and where they build: the Welling, the Holdfast and
 ## the band between the road's two lower stretches, where both Builders' plans stand, all
-## above the console and clear of the strips at the top (view_match_frames_the_band).
-## Home shows the whole map; the wheel brings the units closer.
+## above the console and clear of the strips at the top (view_match_frames_the_band), on
+## my hollow. Home shows my whole hollow (with one, the map); V the rival's and back; the
+## wheel brings the units closer.
 func _frame_camera() -> void:
 	var rig := camera as CameraRig
-	rig.setup(Rect2(0, 0, map.width, map.depth), Vector3(11.5, 0, 10.5), 20.5, 21.0)
+	var mine := Game.my_hollow()
+	var hollows: Array[Rect2] = []
+	for h in _hollows_built:
+		hollows.append(Rect2(Game.hollow_origin(h).x, 0, map.width, map.depth))
+	rig.setup(
+		Rect2(0, 0, board.width, board.depth),
+		Vector3(11.5, 0, 10.5) + Game.hollow_origin(mine),
+		20.5,
+		21.0,
+		hollows,
+		mine
+	)
+	_framed_hollow = mine

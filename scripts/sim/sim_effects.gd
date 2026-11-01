@@ -17,26 +17,49 @@
 ##         the Help, so a sold or re-picked eye stops earning the tick its mark would
 ##         lapse first (a mark it leaves still lasts mark_t, so one eye can briefly hold
 ##         more creeps than it marks: a lingering mark, not a stacked one)
+##   stun  (M6) a pulse (the Toll Tower) stands a ground creep still for stun_t ticks,
+##         then leaves it immune for stun_immune_t, so stuns never chain: a pulse that
+##         finds the creep stunned or immune stuns nothing. On a boss, where the rules
+##         turn control resistance on, the stun is a 50% slow of the same length, not
+##         shrunk again by the boss's resistance, and the immunity follows it as well
+##   crack (M6) an aura: a creep inside a Chime Post's reach has crack_c less armour for
+##         every hit, the strongest post's (of two as strong, the lower id's), refreshed
+##         each tick before the towers act (refresh_cracks); fliers carry no armour and
+##         are never cracked
+##   haste (M6) an aura on towers: every tower whose cell centre lies within a Hive Hum's
+##         reach, whoever built it, fires haste_pm faster (cooldown / (1 + haste)); the
+##         strongest hum applies (of two as strong, the lower id), a hum hastens no hum,
+##         and it is worked out again whenever a tower is built, forked or sold
+##         (recompute_haste)
 ## A marked creep takes mark_pm per mille more from every hit (SimMatch._hurt).
 ##
-## Help: a hit on a creep another seat's tower has slowed or marked adds the damage dealt
-## to that seat's help_c, in full, once per distinct helper (EV_HELP), where the rules'
-## "help" key is on. EV_STATUS tells views when an effect takes hold, is replaced by a
-## stronger one or (a slow) is refreshed; a mark's per-tick refresh only moves its end.
+## Help: a hit on a creep another seat's tower has slowed, stunned, marked or cracked, or
+## from a tower another seat's hum hastens, adds the damage dealt to that seat's help_c,
+## in full, once per distinct helper (EV_HELP), where the rules' "help" key is on.
+## EV_STATUS tells views when an effect takes hold, is replaced by a stronger one or (a
+## slow) is refreshed; a mark's per-tick refresh only moves its end, a stun is never
+## refreshed (stuns never chain), and an aura that lapses (a crack, a haste) leaves the
+## record at 0 without an event.
 @warning_ignore_start("integer_division")
 class_name SimEffects
 extends RefCounted
 
 ## When one seat helped through several effects, EV_HELP names the one that helped the
 ## hit most directly, first in this list.
+## Haste, the firing tower's own, comes after them: a seat that helped through an effect
+## on the creep is named for that.
 const HELP_ORDER := [SimTypes.EFFECT_MARK, SimTypes.EFFECT_CRACK, SimTypes.EFFECT_STUN, SimTypes.EFFECT_SLOW]
+## A stun on a boss that resists control is this slow instead, for the stun's length.
+const BOSS_STUN_SLOW_PM := 500
 
 
-## A slow of `pm` per mille for `ticks` from `seat`'s tower `tower` (0: a debug write).
+## A slow of `pm` per mille for `ticks` from `seat`'s tower `tower` (0: a debug write),
+## shrunk by a boss's control resistance unless `resist` is false (a stun turned slow).
 static func apply_slow(
-	m: SimMatch, c: SimRecords.SimCreep, pm: int, ticks: int, seat: int, tower := 0
+	m: SimMatch, c: SimRecords.SimCreep, pm: int, ticks: int, seat: int, tower := 0,
+	resist := true
 ) -> void:
-	var strength := resisted(m, c, pm)
+	var strength := resisted(m, c, pm) if resist else pm
 	var until := m.tick + ticks
 	lapse_slow(m, c)
 	var current := c.slow_pm if c.slow_until > m.tick else 0
@@ -102,9 +125,81 @@ static func _wait_under(c: SimRecords.SimCreep, pm: int, until: int, seat: int) 
 ## A control effect's strength on `c`: a boss's control resistance shrinks it when the
 ## rules turn resistance on.
 static func resisted(m: SimMatch, c: SimRecords.SimCreep, pm: int) -> int:
-	if c.boss and bool(m.rules.get("control_resist", true)):
+	if resists(m, c):
 		return pm * (1000 - c.control_resist_pm) / 1000
 	return pm
+
+
+## Whether the rules let `c` resist control: a boss, where control_resist is on.
+static func resists(m: SimMatch, c: SimRecords.SimCreep) -> bool:
+	return c.boss and bool(m.rules.get("control_resist", true))
+
+
+## (M6) A stun of `ticks` from `seat`'s tower `tower`, followed by `immune_t` ticks in which
+## no stun takes. A creep stunned or immune now is left as it is; a boss that resists
+## control is slowed 50% for the stun's length instead (not shrunk again).
+static func apply_stun(
+	m: SimMatch, c: SimRecords.SimCreep, ticks: int, immune_t: int, seat: int, tower: int
+) -> void:
+	if ticks <= 0 or m.tick < c.stun_immune_until:
+		return
+	var until := m.tick + ticks
+	c.stun_immune_until = until + maxi(0, immune_t)
+	if resists(m, c):
+		apply_slow(m, c, BOSS_STUN_SLOW_PM, ticks, seat, tower, false)
+		return
+	c.stun_until = until
+	c.stun_seat = seat
+	_status(m, SimTypes.EFFECT_STUN, c.id, tower, seat, 1000, until)
+
+
+## (M6) Stage 5, before the towers act: every creep's crack, the strongest Chime Post's
+## that reaches it (of two as strong, the lower id's; fliers never), from the posts the
+## match lists (SimMatch.crack_posts). EV_STATUS when a crack takes hold or changes hands.
+static func refresh_cracks(m: SimMatch, posts: Array[SimRecords.SimTower]) -> void:
+	for c in m.creeps:
+		var best := 0
+		var seat := 0
+		var from := 0
+		if not c.winged:
+			for t in posts:
+				if t.hollow == c.hollow and t.crack_c > best and SimRoad.covers(t.intervals, c.dist_um):
+					best = t.crack_c
+					seat = t.owner
+					from = t.id
+		if best == c.crack_c and seat == c.crack_seat:
+			continue
+		c.crack_c = best
+		c.crack_seat = seat
+		if best > 0:
+			_status(m, SimTypes.EFFECT_CRACK, c.id, from, seat, best, 0)
+
+
+## (M6) Every tower's haste on hollow `hollow`: the strongest Hive Hum whose reach holds the
+## tower's cell centre (of two as strong, the lower id), whoever built either; a hum
+## hastens no hum. EV_STATUS (creep 0, tower: the hastened one) when a haste takes hold or
+## changes; a tower out of every hum's reach goes back to 0.
+static func recompute_haste(m: SimMatch, hollow: int) -> void:
+	for t in m.towers:
+		if t.hollow != hollow:
+			continue
+		var best := 0
+		var seat := 0
+		if t.hum_pm == 0:
+			for hum in m.towers:
+				if hum.hollow != hollow or hum.hum_pm <= best:
+					continue
+				var dx := SimRoad.centre_mm(hum.x) - SimRoad.centre_mm(t.x)
+				var dz := SimRoad.centre_mm(hum.z) - SimRoad.centre_mm(t.z)
+				if dx * dx + dz * dz <= hum.range_mm * hum.range_mm:
+					best = hum.hum_pm
+					seat = hum.owner
+		if best == t.haste_pm and seat == t.haste_seat:
+			continue
+		t.haste_pm = best
+		t.haste_seat = seat
+		if best > 0:
+			_status(m, SimTypes.EFFECT_HASTE, 0, t.id, seat, best, 0)
 
 
 ## A mark of `pm` per mille on `c` from `seat`'s tower, lasting `ticks` from now.
@@ -132,13 +227,14 @@ static func apply_mark(
 
 
 ## Stage 5 for a tower that fires no shot: the Owl's Eye re-picks its creeps every cd_t
-## ticks and marks the ones it holds that are still in reach.
+## ticks (sooner where a hum hastens it) and marks the ones it holds that are still in
+## reach.
 static func team_tower(m: SimMatch, t: SimRecords.SimTower) -> void:
 	if t.team != SimTypes.EFFECT_MARK or t.marks <= 0:
 		return
 	if m.tick >= t.cooldown_until:
 		t.marked = SimTargeting.strongest(m, t, t.marks, PackedInt32Array())
-		t.cooldown_until = m.tick + t.cd_t
+		t.cooldown_until = m.tick + m.cooldown_of(t)
 	var i := 0
 	while i < t.marked.size():
 		var c := m.creep(t.marked[i])
@@ -157,9 +253,12 @@ static func expire(m: SimMatch, c: SimRecords.SimCreep) -> void:
 
 
 ## The seats whose effects on `c` helped a hit by `by` (in seat order, each once) and,
-## for each, the effect named in its EV_HELP, as pairs [seat, effect, ...]. Read before
-## the hit's own effects land.
-static func helpers(m: SimMatch, c: SimRecords.SimCreep, by: int) -> PackedInt32Array:
+## for each, the effect named in its EV_HELP, as pairs [seat, effect, ...]: the effects on
+## the creep in HELP_ORDER, then the haste on `from`, the tower that dealt the hit (null
+## when it is gone). Read before the hit's own effects land.
+static func helpers(
+	m: SimMatch, c: SimRecords.SimCreep, by: int, from: SimRecords.SimTower = null
+) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	if not bool(m.rules.get("help", true)):
 		return out
@@ -169,14 +268,20 @@ static func helpers(m: SimMatch, c: SimRecords.SimCreep, by: int) -> PackedInt32
 	given.append(c.crack_seat if c.crack_c > 0 else 0)
 	given.append(c.stun_seat if c.stun_until > m.tick else 0)
 	given.append(c.slow_seat if c.slow_until > m.tick and c.slow_pm > 0 else 0)
+	var hasted := from.haste_seat if from != null and from.haste_pm > 0 else 0
 	for s in m.seats:
 		if s.seat == by:
 			continue
+		var named := 0
 		for k in HELP_ORDER.size():
 			if given[k] == s.seat:
-				out.append(s.seat)
-				out.append(HELP_ORDER[k])
+				named = HELP_ORDER[k]
 				break
+		if named == 0 and hasted == s.seat:
+			named = SimTypes.EFFECT_HASTE
+		if named != 0:
+			out.append(s.seat)
+			out.append(named)
 	return out
 
 

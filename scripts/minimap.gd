@@ -3,6 +3,10 @@
 ## camera's view as an outline. Click or drag on it to move the camera there. The picture is the real terrain and woods, rendered once by an
 ## orthographic camera when the hollow is built (towers come later, so they are marks);
 ## a flat colour map of the tiles lies under it for runs that render nothing (headless).
+##
+## In a race (design 2.2 and 5.7) the map is the board: both hollows side by side, each
+## with its Welling and Holdfast, mine as bright as ever and the rival's under a veil
+## (dimmed()); a click on either moves the camera there.
 class_name Minimap
 extends Control
 
@@ -20,17 +24,30 @@ const COLORS := {
 ## Pixels per tile in the photograph: twice what the well shows, for a clean downscale.
 const PIXELS_PER_TILE := 14
 const INK := Color(0.04, 0.03, 0.03, 0.85)
+## The veil over a hollow that is not mine.
+const VEIL := Color(0.05, 0.04, 0.06, 0.5)
 
 var map: HollowMap
 var camera: CameraRig
+## How many hollows the board holds, and how wide each one is.
+var hollows := 1
+var hollow_width := 0
 var _tiles: ImageTexture
 var _photo: SubViewport
 var _dragging := false
 
 
-func setup(source: HollowMap, rig: CameraRig) -> void:
+## Shows `source` (the board), which holds `count` hollows each `width` tiles wide (one:
+## the whole board); again when the world grows a second hollow.
+func setup(source: HollowMap, rig: CameraRig, count := 1, width := 0) -> void:
 	map = source
 	camera = rig
+	hollows = maxi(1, count)
+	hollow_width = width if width > 0 else source.width
+	if _photo:
+		remove_child(_photo)
+		_photo.queue_free()
+		_photo = null
 	var image := Image.create(map.width, map.depth, false, Image.FORMAT_RGBA8)
 	for z in map.depth:
 		for x in map.width:
@@ -78,8 +95,13 @@ func _draw() -> void:
 	draw_texture_rect(_tiles, area, false)
 	draw_texture_rect(_photo.get_texture(), area, false)
 	var cell := area.size.x / map.width
-	_mark(_to_mini(map.center(map.spawn)), cell * 0.5, Color("#c58cff"))
-	_mark(_to_mini(map.center(map.holdfast)), cell * 0.5, Color("#ffbf4a"))
+	for h: int in dimmed():
+		var rect := Rect2(Game.hollow_origin(h).x, 0.0, hollow_width, map.depth)
+		draw_rect(Rect2(_to_mini(Vector3(rect.position.x, 0, 0)), rect.size * cell), VEIL)
+	for node in get_tree().get_nodes_in_group("landmarks"):
+		var mark := node as Node3D
+		var welling := str(mark.get_meta("landmark", "")) == "welling"
+		_mark(_to_mini(mark.global_position), cell * 0.5, Color("#c58cff") if welling else Color("#ffbf4a"))
 	var seats := Game.seat_count()
 	for node in get_tree().get_nodes_in_group("towers"):
 		var tower := node as Tower
@@ -87,6 +109,17 @@ func _draw() -> void:
 	for creep in get_tree().get_nodes_in_group("creeps"):
 		_mark(_to_mini((creep as Node3D).global_position), maxf(1.6, cell * 0.24), Color("#ff5a40"))
 	_draw_view(area)
+
+
+## The hollows under the veil: every one but mine (none with one hollow).
+func dimmed() -> Array:
+	var out := []
+	if hollows < 2:
+		return out
+	for h in hollows:
+		if h != Game.my_hollow():
+			out.append(h)
+	return out
 
 
 ## A tower's mark: its owner's seat colour while several seats play (design 5.7: owner

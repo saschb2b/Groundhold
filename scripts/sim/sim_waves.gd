@@ -1,6 +1,7 @@
 ## A hollow's rhythm (design 1.1): the build window counting down in ticks, the horn
 ## (when the window runs out or every seat is Ready), the spawns of a wave, and the clear
-## that pays the bonus and opens the next window.
+## that pays the bonus (and Hive Tithe, M6) and opens the next window. Every hollow keeps
+## its own clock: in a race (M6) each team's windows, Ready and horn are its own.
 @warning_ignore_start("integer_division")
 class_name SimWaves
 extends RefCounted
@@ -29,15 +30,21 @@ static func run_clock(m: SimMatch, h: SimRecords.SimHollow) -> void:
 ## horn is the players' call: a hollow with no player present (every seat caretaken) waits
 ## out its windows, so its caretakers build in them as they would beside a player
 ## (review M1 determinism 2: it sounded on each window's first tick, before they could).
+## In a race (M6) the caretaker races too: a hollow it plays alone sounds the horn once
+## every caretaken seat has said Ready, which it does when its window's build steps are
+## done (Caretaker.think).
 static func _all_ready(m: SimMatch, h: SimRecords.SimHollow) -> bool:
 	var present := 0
+	var called := true
 	for n in h.seats:
 		var s := m.seat(n)
 		if s.state == SimTypes.SEAT_PRESENT:
 			if not s.ready:
 				return false
 			present += 1
-	return present > 0
+		elif not s.ready:
+			called = false
+	return present > 0 or (m.race and called and h.seats.size() > 0)
 
 
 static func start_wave(m: SimMatch, h: SimRecords.SimHollow, early: int) -> void:
@@ -48,9 +55,11 @@ static func start_wave(m: SimMatch, h: SimRecords.SimHollow, early: int) -> void
 	h.spawn_wait_t = 0
 	for n in h.seats:
 		m.seat(n).ready = false
+	if m.race:
+		m.teams[h.team].wave_kills = 0
 	if h.wave > m.waves.size():
 		h.wave = m.waves.size()
-		h.phase = SimTypes.PHASE_DONE
+		finish(m, h)
 		m.push_event(
 			{"type": SimTypes.EV_WAVE, "hollow": h.id, "wave": h.wave, "phase": h.phase}
 		)
@@ -123,9 +132,9 @@ static func check_clear(m: SimMatch, h: SimRecords.SimHollow) -> void:
 	var bonus := int(bonus_rule[0]) + int(bonus_rule[1]) * h.wave
 	for n in h.seats:
 		m.add_gold(m.seat(n), bonus, "clear")
+	_tithe(m, h)
 	if h.wave >= m.waves.size():
-		h.phase = SimTypes.PHASE_DONE
-		m.teams[h.team].clear_tick = m.tick
+		finish(m, h)
 	else:
 		open_window(m, h, false)
 	m.push_event(
@@ -138,6 +147,38 @@ static func check_clear(m: SimMatch, h: SimRecords.SimHollow) -> void:
 			"bonus": bonus
 		}
 	)
+
+
+## A hollow that cleared its last wave is done: its team's clear tick is now (the race
+## time counts from it, M6), and a race says so (EV_RACE "cleared").
+static func finish(m: SimMatch, h: SimRecords.SimHollow) -> void:
+	h.phase = SimTypes.PHASE_DONE
+	var team := m.teams[h.team]
+	if team.clear_tick < 0:
+		team.clear_tick = m.tick
+		if m.race:
+			m.race_event("cleared", team.id, h.wave)
+
+
+## Hive Tithe (M6, design 3.4), where perks are on: at every wave clear each seat of the
+## hollow whose perk it is gets its `gold` for each of its towers on one of the perk's
+## `bases`, at most `cap` (EV_GOLD why "tithe").
+static func _tithe(m: SimMatch, h: SimRecords.SimHollow) -> void:
+	if not bool(m.rules.get("perks", true)):
+		return
+	for n in h.seats:
+		var s := m.seat(n)
+		var each := SimContent.perk_value(s.builder, "hive_tithe", "gold", 0)
+		if each <= 0:
+			continue
+		var bases := SimContent.perk_list(s.builder, "hive_tithe", "bases")
+		var count := 0
+		for t in m.towers:
+			if t.owner == s.seat and bases.has(t.kind):
+				count += 1
+		var pay := mini(count * each, SimContent.perk_value(s.builder, "hive_tithe", "cap", 0))
+		if pay > 0:
+			m.add_gold(s, pay, "tithe")
 
 
 ## A build window: first windows are longer, and longer again with company. A seat

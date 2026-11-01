@@ -1,0 +1,29 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "race_decided_takes_no_orders",
+  "description": "A race decided while my hollow is still in a build window takes no more orders (review of M6's race views: the controller refused orders only once my hollow was won or lost, so between the decision and MATCH_END a tower could be placed and the horn called under the end plate). A Tide Race of two seats: the rival's hollow clears wave 12 two ticks in, before mine has seen a wave, so the race is decided against my team at once while my hollow stays in its first window. The end plate says so; Game.over() is true and every order is refused before it goes out with 'The match is over': no build (no ghost, no gold held), no Ready, no signal; the card greys and the party strip hides its Ready marks.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.begin('tide_race', [{'team': 0, 'builder': 'lamplighter'}, {'team': 1, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"set": "Game.gold", "value": 300},
+    {"wait": 1},
+    {"assert": "node('BuildController').can_build(Game.kit_tower(0), Vector2i(6, 11)) and Game.order_refusal() == '' and node('PartyStrip').ready_marks_shown() > 0", "msg": "before the decision, my window takes orders"},
+    {"eval": "Game.debug(3, 1, 12)"},
+    {"eval": "Game.debug(4, 1, 2)"},
+    {"wait_until": "Game.outcome() != ''", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Game.outcome() == 'lost' and Game.sim.decided_by() == 'time' and Game.state == 0 and Game.wave == 0", "msg": "the rival cleared first: decided against my team, my hollow still in its first window"},
+    {"assert": "node('EndPanel').visible", "msg": "the end plate is up"},
+    {"assert": "Game.order_refusal() == 'The match is over' and not node('BuildController').can_build(Game.kit_tower(0), Vector2i(6, 11))", "msg": "no order goes out"},
+    {"assert": "not node('BuildController').build(Game.kit_tower(0), Vector2i(6, 11)) and node('BuildController').pending.is_empty() and Game.pending_gold == 0", "msg": "a build is refused: no ghost, no gold held"},
+    {"eval": "node('BuildController').set_mode(Game.kit_tower(0))"},
+    {"assert": "node('BuildController').mode == ''", "msg": "Q places no ghost"},
+    {"assert": "not node('BuildController').toggle_ready() and not node('BuildController').arm_signal()", "msg": "no Ready, no signal"},
+    {"assert": "node('Hud').card()[0]['state'] == 'idle' and node('Hud').card()[3]['state'] == 'idle' and node('Hud').card()[5]['state'] == 'idle'", "msg": "the card greys: Q, Signal and Ready"},
+    {"assert": "node('PartyStrip').ready_marks_shown() == 0", "msg": "and the party strip shows no Ready marks"},
+    {"assert": "Game.over()", "msg": "the match is over for me"}
+  ]
+}

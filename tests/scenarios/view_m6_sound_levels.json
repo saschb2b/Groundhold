@@ -1,0 +1,14 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "view_m6_sound_levels",
+  "description": "The Bellfounder's and the Beekeeper's towers sound level with the others (contract-m6.md §5 and §7): each tower form's sound as played is its file's loudest tenth of a second (RMS) plus the gain Game.TOWERS plays it at, and every M6 form's (the toll, the clap, the chime, the bees) sits within 3 dB of the M2 towers' median. The M6 files peak at -1.5 dB, so no gain is above 0.",
+  "seed": 1,
+  "timeout_frames": 300,
+  "steps": [
+    {"wait": 2},
+    {"eval": "resource('res://tests/views/m6_views.gd').sound_levels()", "as": "levels"},
+    {"eval": "resource('res://tests/views/m6_views.gd').sound_level_problems()", "as": "off"},
+    {"assert": "off == []", "msg": "every M6 tower plays within 3 dB of the M2 towers"},
+    {"assert": "Game.TOWERS['toll_tower']['sound'][1] <= 0.0 and Game.TOWERS['great_clapper']['sound'][1] <= 0.0 and Game.TOWERS['deep_chime']['sound'][1] <= 0.0 and Game.TOWERS['great_clay_hive']['sound'][1] <= 0.0", "msg": "and none is pushed above its file's own level"}
+  ]
+}

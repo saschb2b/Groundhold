@@ -99,11 +99,11 @@ gets the **no-party state**: a code of five zero bytes, leader and `you` 255, no
 | `join(code)` | anyone | the party with that code: see Codes below |
 | `leave` | a member | out; the member who joined earliest leads if the leader left |
 | `remove(member)` | the leader | that member out with `NOTICE removed`; its identity cannot rejoin that code |
-| `mode(mode)` | the leader | every Ready cleared; a two-team mode lays the teams out alternately by joining order |
+| `mode(mode)` | the leader | every Ready cleared; a two-team mode lays the teams out alternately by joining order and turns open seats off |
 | `builders(main, backup)` | a member, its own | its own Ready cleared; allowed in a match too (for the next one) |
 | `ready(on)` | a member, its own | the leader's Ready is its Start, so the leader needs none |
 | `team(member, team)` | the leader, two-team modes | that member's Ready cleared |
-| `open(on)` | the leader | the flag (`PARTY_STATE` flags, the beacon's count); the public queue comes in M6 |
+| `open(on)` | the leader | the flag (`PARTY_STATE` flags, the beacon's count): open seats the queue fills; off takes a queued High Water party out of the queue; on is refused in a two-team mode, whose queue finds a rival team instead |
 | `start` | the leader | forming: the countdown, if every other member is Ready, everyone has one rules hash, the party is a size the mode takes (`seats` in `modes`) and, in a two-team mode, two equal teams. Loading: start without the slow seats (the barrier, below) |
 | `cancel` | any member | the countdown stops; Ready stays |
 
@@ -127,7 +127,7 @@ needs_reload` with its number when it starts to need one); `in_match` (in the pa
 its results plate). A joiner in a two-team mode goes to the smaller team.
 
 **Phases**: `forming`; `countdown` (`countdown_ms` is what is left when the state is sent: 3,000 at
-the start); `loading`; `in_match`; `results`; `queued` is not used before the queue (M6). Anything
+the start); `queued` (in the queue, Match Found included); `loading`; `in_match`; `results`. Anything
 that breaks the start's rule stops the countdown: a cancel, an un-Ready, a Builder, team or mode
 change, a join, a leave, a drop. At its end the party's match forms: `PARTY_STATE` (`loading`, each
 member `in_match`), then `MATCH_CONFIG` to each member, one seat each in seat order (by team, then by
@@ -141,9 +141,66 @@ and so does a `join` of the same code by that identity; the others see it `here`
 goodbye or a moderator's removal frees the row at once. A row whose member's match still runs is
 kept until 40 s after the match ends.
 
-**No public queue yet.** `QUEUE` is answered with `QUEUE_STATE` idle (state 0, no caretaker offer)
-whatever its op, `ACCEPT` is let pass, and the server never sends `MATCH_FOUND`: the queue, Match
-Found and strangers' matches are M6.
+**The queue** (M6, `queue.py`; design §5.1, §5.2, §5.5, §3.6). Only strangers are found: the queue
+fills a party's open seats and finds a rival team; there is no list of parties.
+
+| Op | Who | What |
+|---|---|---|
+| `enter` | the leader | the party queues: phase `queued`, `QUEUE_STATE queued` (elapsed 0) to every member |
+| `leave` | the leader | out of the queue: `QUEUE_STATE idle`, phase `forming`, Ready kept; in Match Found it is a decline |
+| `start_with_caretakers` | the leader, once offered | the party's own match at once, its free seats caretakers |
+
+A party may queue when it is `forming`, every other member is Ready, and nobody is away, in a
+match or on another rules hash; in a one-team mode (High Water: **Find players**) with open seats on
+and a seat free, and in a two-team mode (Tide Race: **Find a rival**) as one team (every member on
+one `team`) of at most half the mode's seats, 1 or 2. Any other `QUEUE` (a member's, a party that may
+not queue, `start_with_caretakers` before the offer) is answered to the asker alone with the party's
+`QUEUE_STATE` as it is: `idle`, or `queued` with its time. The server's states are `idle` and `queued`;
+`entering` and `leaving` are what a game shows while its own request is on its way.
+
+Parties merge only with the same mode and the same rules hash (the newest build's, as at a start).
+Tickets wait in the order they came; one requeued after a match dissolved goes to the **front** and
+keeps its time. Each time one comes, the queue looks from the front: High Water takes each ticket in
+turn as the first and fills the mode's seats (four) with the tickets after it that came earliest
+(of every way to fill them, the one whose places in the queue come first); a Race pairs the first
+ticket with the next team of its size. So the front ticket goes first whenever its match can be
+made, and one that cannot be completed yet lets those behind it match.
+
+**Match Found** comes for every match the queue finds (it always holds strangers): `MATCH_FOUND`
+(the match id `MATCH_CONFIG` will carry, the mode, the seats, how many accepted, the ms left of
+`accept_ms`, 15,000, on the server's clock) to every player, and again after every accept. `ACCEPT
+(match, yes 1)` from everyone forms the match: each party `loading` (its members `in_match`, Ready
+cleared), then `MATCH_CONFIG`, a match of strangers at the barrier (45 s, then it starts with the seats
+loaded). `ACCEPT` with `yes` 0, `QUEUE leave`, a leave, a drop or a join, or 15 s without every accept
+dissolves it: each party with a player who did not accept goes back to `forming` (their Ready
+cleared; `QUEUE_STATE idle`), the others go back to the front of the queue (`NOTICE match_dissolved`,
+then `QUEUE_STATE queued` with their time) and may be found again at once. An `ACCEPT` of a match
+that is gone or not the player's is let pass; `yes` past 1 is `ERROR` 6.
+
+**Builders between strangers**: duplicates are allowed inside a party and avoided between strangers
+who share a team. In the order they queued, each player keeps their main where no earlier party
+plays it, else takes their backup, else a free Builder drawn from the server's random number
+generator; `MATCH_CONFIG` carries the result. In a Race each team is one party on its own hollow, so
+every seat plays its main.
+
+**Caretakers**: `caretaker_offer_ms` (60,000) after a party queued, every member hears `NOTICE
+caretakers_offered` and `QUEUE_STATE` with `caretaker_offer` 1 (a party in Match Found then hears it
+when it is requeued). The leader's `start_with_caretakers` then forms the party's own match (the
+leader's start without at 30 s, as any party's): in High Water the free seats are caretakers whose
+Builders cover the checks the party lacks (each in turn the one covering most of what is still
+lacking, then one not yet on the team, ties in `builders` order); in a Race a rival team of
+caretakers with the party's Builders, a mirror, on team 1. A caretaker's seat has the `caretaker`
+seat flag, a name "Caretaker 1" to "Caretaker 3" and no player: its `LOAD_STATE` is `gone`, nothing is
+injected for it, and the simulation's caretaker plays it from tick 0.
+
+**While queued** a Builders change is for the match the queue finds (the Ready and the queue stay); a
+member's `ready` and the leader's `mode`, `team`, `start` and `cancel` are refused; a join, a leave, a
+removal, a drop or open seats off take the party out (`QUEUE_STATE idle`, `forming`). After the match
+each party is its own again, on its own results plate; a player who came alone through the queue
+queues again with Play again (`LEAVE_MATCH`, then `QUEUE enter`). A match from the queue that nobody
+loaded within the 120 s ceiling is dissolved (`NOTICE match_dissolved`, `MATCH_END` aborted), and
+each party whose members are all still connected goes back to the front with its time (a party
+already told of the caretakers is not told again).
 
 ## A match
 
@@ -173,8 +230,10 @@ next turn; with another, `NOTICE tick0_mismatch` (its seat) and `MATCH_END` (abo
 `tick0_mismatch` or `rules_mismatch`) to it, and `LEFT` in the turns.
 
 **Seats** are 0-based on the wire (0 to 3; the game shows 1 to 4). A party's seats are its members in
-order of team, then member number; a dev match's team is `seat × teams div seats`. Either way a Race
-of four is seats 0 and 1 against 2 and 3. Seat 255 is the server.
+order of team, then member number; a dev match's team is `seat × teams div seats`; a match from the
+queue lists each party's seats so, the earliest queued first (in a Race, team 0, its rival team 1),
+and caretakers' seats after the party's. Either way a Race of four is seats 0 and 1 against 2 and 3.
+Seat 255 is the server.
 
 **Turns.** Turn *k* covers ticks 3*k* to 3*k* + 2 and closes at `origin + (k + 1) × 50 ms`, an
 absolute deadline on the server's monotonic clock; a late server closes every missed turn at once,
@@ -256,8 +315,7 @@ repair of 100 turns every 300 ms).
 with `ERROR` 8, and a seat is held. A connection whose unsent output passes 64 KiB is dropped, and
 its seat is held.
 
-**Not served yet** (its layout is fixed here): the server never sends `MATCH_FOUND` (the queue, M6).
-A `--dev-match` server has no hub: `PARTY`, `QUEUE` and `ACCEPT` are `ERROR` 1 there, and a resume
+**A dev match** server has no hub: `PARTY`, `QUEUE` and `ACCEPT` are `ERROR` 1 there, and a resume
 `HELLO` there takes back a match seat only. One profile may connect twice, because two windows on one
 computer share their `user://` key; that is why a resume names its seat.
 
@@ -373,7 +431,7 @@ turned off) broadcasts one UDP datagram a second of its clock to `255.255.255.25
 | 4 | `GHB1` |
 | 2 | protocol version |
 | 2 | the WebSocket port |
-| 1 | open parties: parties with open seats on, a seat free and no match under way (at most 255) |
+| 1 | open parties: parties of a one-team mode with open seats on, a seat free and no match under way (at most 255) |
 | 1 + n | the server's name (u8 length, UTF-8, at most 64 bytes) |
 
 The datagram is exactly that long. A game keys servers by the datagram's source address and the port,
@@ -485,19 +543,22 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 `transcripts/*.bin` are byte streams recorded from the real server on a hand-moved clock
 (`python3 server/tools/record_transcripts.py`; a server test fails when re-recording would change a
 byte). Each `.json` beside one lists the same records decoded, which is what the GDScript codec must
-produce (`protocol_golden_m1`, `protocol_golden_m3`, `protocol_golden_m4`), and encoding those values
-must give the same bytes back. The `m3_*` and `m4_*` ones are also the server's conversations in
-order, for testing the game's session against the real server's answers.
+produce (`protocol_golden_m1`, `protocol_golden_m3`, `protocol_golden_m4`, `protocol_golden_m6`), and
+encoding those values must give the same bytes back. The `m3_*`, `m4_*` and `m6_*` ones are also the
+server's conversations in order, for testing the game's session against the real server's answers.
 
 | File | What it holds |
 |---|---|
 | `m1_handshake` | `HELLO`, `WELCOME`, `PING`, `PONG`, `VISIBILITY`, `BYE`; refused `HELLO`s: an older game (`ERROR` 2), a newer one (17), a bad name (5), a zero token (9) |
 | `m1_dev_match` | a whole `--dev-match classic:2`: `MATCH_CONFIG`, every `LOAD_STATE` of the barrier, `START`, turns with every command type and both rotations, `PONG`, `TURN_REQUEST`, `HASH`, `LINKS`, `AWAY`, `BACK`, `LEFT`, `TIMEOUT`, `RESULT`, `MATCH_END`, `BYE` |
 | `m1_codec` | every message of `protocol.json` once with canonical values: each `PARTY` op, each command type, every system command in one `TURN`, a 1,024-byte `CHECKPOINT_PART`, UTF-8 beyond ASCII in a `motd`; M4's fields: a resume `HELLO` naming its seat, a `rejoin` `MATCH_CONFIG`, a whole `RESYNC`, `VISIBILITY catching_up` |
-| `m3_party` | the hub (party codes from `random.Random(20261030)`): `create`, a wrong code (`NOTICE no_such_party`), a `join` in lower case, `builders`, an older build (`NOTICE needs_reload`), `ready`, a refused `start`, `remove` (`NOTICE removed`, the no-party state, a refused rejoin), `mode` and `team` in a Race, `open`, `QUEUE` answered idle, the countdown, its `cancel`, and the countdown's end: `PARTY_STATE` loading, `MATCH_CONFIG` with each member's main |
+| `m3_party` | the hub (party codes from `random.Random(20261030)`): `create`, a wrong code (`NOTICE no_such_party`), a `join` in lower case, `builders`, an older build (`NOTICE needs_reload`), `ready`, a refused `start`, `remove` (`NOTICE removed`, the no-party state, a refused rejoin), `mode` and `team` in a Race, `open`, a `QUEUE` the party cannot make (a member not Ready) answered idle, the countdown, its `cancel`, and the countdown's end: `PARTY_STATE` loading, `MATCH_CONFIG` with each member's main |
 | `m3_barrier` | a party's barrier: `LOADING`, `LOADED`, `slow` at 15 s, `seconds` 30, the leader's start without the slow seat, `START`, `PARTY_STATE` in_match, `AWAY` in turn 0 and `BACK` after her `LOADED` |
 | `m3_back` | a party's match to its end and back: a member joining during the match, `RESULT` and `MATCH_END`, the results plate, `LEAVE_MATCH` and a `ready` back to forming; a dropped member held (`away`) and taken back by a resume `HELLO`; another's row freed 40 s after its drop |
 | `m4_resilience` | a `--dev-match classic:3`'s resilience (empty `TURN`s read but not listed): a flagged `HASH` agreed, `CHECKPOINT_ASK` and the upload's `CHECKPOINT_PART`s; a minority's `RESYNC(desync)` from tick 0; a hidden tab and a frozen game `AWAY`; a resume `HELLO` naming its seat, `ERROR` 12 to the old link, `MATCH_CONFIG` with `rejoin`, `RESYNC(rejoin)` and the parts; `BACK` at `shown`; a tab back `catching_up`, `RESYNC(behind)`, `LINKS` with `catching_up`; `MATCH_END(desynced, desynced_twice)` and `LEFT`; `NOTICE no_held_seat` |
+| `m6_queue` | the queue (its draws from `random.Random(20261101)`): two parties of one and a party of two with open seats on, `QUEUE enter`, `PARTY_STATE` queued, `QUEUE_STATE`, `MATCH_FOUND` to four and again at an accept, a decline (`QUEUE_STATE` idle and forming for her; `NOTICE match_dissolved` and `QUEUE_STATE` queued with their time for the others), her party queued again at the back, the next `MATCH_FOUND`, everyone's `ACCEPT`, each party loading, and `MATCH_CONFIG` with the strangers' Builders unclashed (a backup, and a free one drawn) |
+| `m6_caretakers` | `start_with_caretakers` before the offer (the state as it is), `QUEUE leave` and `enter` again, `NOTICE caretakers_offered` and `caretaker_offer` at 60 s, and `start_with_caretakers`: `MATCH_CONFIG` with three caretaker seats covering what a Lamplighter lacks, their `LOAD_STATE` `gone` |
+| `m6_race` | Find a rival in Tide Race: two teams of one, `MATCH_FOUND` with two seats, one accept, the 15 s out (forming for the one who did not; `match_dissolved` and the front for the other), the offer, and Race the caretaker: `MATCH_CONFIG` with a caretaker of her Builder on team 1 |
 
 The `.bin` layout, big-endian: `"GHTX"`, u8 format (1), u16 protocol version, u8 clients, u32
 records; then per record u8 direction (0 game to server, 1 server to game), u8 client, u16 length and
@@ -533,3 +594,10 @@ lists are arrays of objects and `PARTY`'s `op` is its name.
   member state `away` is a held row ("reconnecting"); `in_match` covers the results plate.
 - `PARTY_STATE`'s `rtt_ms` is each member's last reported round trip; a change of it alone is sent
   at most every 2 s (`links_ms`), outside a match.
+- The queue (M6): `QUEUE_STATE`'s `elapsed_ms` is the time since the party queued (kept through a
+  requeue), which a game counts on from by itself; the server says only `idle` and `queued`, and a
+  game shows `entering` or `leaving` while its own `QUEUE` is on its way. `MATCH_FOUND`'s `match` is
+  the id the match's `MATCH_CONFIG` carries when everyone accepts (a dissolved one's id is never used
+  again); `seats` counts the players, `accepted` those who accepted. A party in Match Found keeps the
+  phase `queued`. A caretaker's seat is a `MATCH_CONFIG` seat with the `caretaker` flag and no
+  connection; `LOAD_STATE` says `gone` for it.

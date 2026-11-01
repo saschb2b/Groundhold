@@ -1,0 +1,16 @@
+{
+  "name": "flow_builders_tip_counts_bronze_hand",
+  "description": "The Builders screen's tooltip for a Bellfounder tower is the in-game card's own, Bronze Hand included (M6): where perks are on (High Water, the hub's mode) her Clapper Tower ignores 2 armour, as the card in a match says; the Lamplighter's arrow pierces nothing.",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"eval": "resource('res://scripts/ui/builders_screen.gd').tower_tip('bellfounder', 0)['body']", "as": "bell"},
+    {"eval": "resource('res://scripts/ui/builders_screen.gd').tower_tip('lamplighter', 0)['body']", "as": "arrow"},
+    {"assert": "bell == Game.kit_tip('bellfounder', 0, 0, 200) and bell.contains('Pierce 2')", "msg": "the roster's Clapper Tower tooltip is the card's, with Bronze Hand's Pierce 2"},
+    {"assert": "not arrow.contains('Pierce')", "msg": "the Lamplighter's arrow pierces nothing"}
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "race_offline_outcome_cap",
+  "description": "An offline race decided at the 20-minute cap ends by the cap's rule (design 1.3: more waves cleared, then more lives, then the lower race time; review of M6: main.gd ignored the cap and called any race whose hollow was not done lost). Over the session's offline race, a Tide Race of two seats waits out long windows: my hollow has cleared five waves, the rival's three. At the cap the simulation decides for my team, SimMatch.outcomes() says won, and the results say 'You Outran the Tide' with the rule 'Twenty minutes: more waves cleared'.",
+  "seed": 1,
+  "timeout_frames": 900,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 1},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 1},
+    {"eval": "scene.begin('tide_race', [{'team': 0, 'builder': 'lamplighter'}, {'team': 1, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"eval": "Game.debug(3, 0, 5)"},
+    {"eval": "Game.debug(3, 1, 3)"},
+    {"eval": "Game.debug(4, 0, 100000)"},
+    {"eval": "Game.debug(4, 1, 100000)"},
+    {"set_ticks_per_frame": 2000},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 120},
+    {"set_ticks_per_frame": 1},
+    {"wait": 2},
+    {"assert": "Game.state == 0 and Game.sim.tick == int(Game.sim.rules['cap_t']) and Game.sim.cleared_waves(0) == 5 and Game.sim.cleared_waves(1) == 3", "msg": "twenty minutes of match time, my hollow in a window with five waves cleared, the rival's three"},
+    {"assert": "Game.sim.decided_by() == 'cap' and Game.sim.outcomes()[0] == 0 and Game.outcome() == 'won'", "msg": "the cap's rule decides the race for my team"},
+    {"assert": "node('ResultsPanel').results['outcome'] == 'won' and node('ResultsTitle').text == 'YOU OUTRAN THE TIDE' and node('ResultsRule').text == 'Twenty minutes: more waves cleared'", "msg": "and the results say won, with the rule"}
+  ]
+}

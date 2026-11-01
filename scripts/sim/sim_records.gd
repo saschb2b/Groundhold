@@ -14,6 +14,12 @@ class SimTeam:
 	var hollows := PackedInt32Array()
 	## Tide Race (M6): the tick the team cleared its last wave, -1 until then.
 	var clear_tick := -1
+	## Tide Race (M6), counted only in a race (SimMatch.race): the wave its Holdfast went
+	## under on (0 while it stands), how many of that wave's creeps it had killed by then,
+	## and the kills of the wave it is on (from its horn).
+	var fell_wave := 0
+	var fell_kills := 0
+	var wave_kills := 0
 
 
 class SimHollow:
@@ -82,6 +88,9 @@ class SimTower:
 	## A marking tower's (the Owl's Eye's) creeps, by id, as it last picked them; it keeps
 	## their marks fresh while they stay in its reach (SimEffects.mark_stage).
 	var marked := PackedInt32Array()
+	## A bee cloud's (M6, the Clay Hive's) creep it last stung over, 0 for none: where the
+	## view hangs the cloud.
+	var cloud_creep := 0
 	# Resolved from the content tables at build and fork; not part of the checkpoint.
 	var dmg_c := 0
 	var cd_t := 1
@@ -103,6 +112,23 @@ class SimTower:
 	var mark_pm := 0
 	var marks := 0
 	var mark_t := 0
+	## (M6) A pulse (the Toll Tower's): it strikes every creep in reach every cd_t, and
+	## stuns a ground creep stun_t ticks, then leaves it immune stun_immune_t; a flier it
+	## slows air_slow_pm for air_slow_t instead.
+	var pulse := false
+	var stun_t := 0
+	var stun_immune_t := 0
+	var air_slow_pm := 0
+	var air_slow_t := 0
+	## (M6) A bee cloud's radius around the creep it aims at (the Clay Hive), 0 for none.
+	var cloud_mm := 0
+	## (M6) A crack aura's armour off, hundredths (the Chime Post), and a haste aura's
+	## share, per mille (the Hive Hum): what this tower gives, not what it receives
+	## (haste_pm above).
+	var crack_c := 0
+	var hum_pm := 0
+	## (M6) Extra damage against winged creeps, per mille (the Apiary).
+	var air_bonus_pm := 0
 	## Road stretches in range: pairs of micrometre distances (SimRoad.intervals).
 	var intervals := PackedInt64Array()
 
@@ -168,3 +194,11 @@ class SimShot:
 	var bounce_mm := 0
 	var from_creep := 0
 	var struck := PackedInt32Array()
+	## (M6) Extra damage against a winged creep, per mille (an Apiary's bolt).
+	var air_bonus_pm := 0
+	## (M6) A pulse's stun and its flier slow. Set only on the strikes pulses and clouds
+	## deal in stage 5 (id 0), which land in the same tick and are never stored.
+	var stun_t := 0
+	var stun_immune_t := 0
+	var air_slow_pm := 0
+	var air_slow_t := 0

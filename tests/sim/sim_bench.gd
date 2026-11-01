@@ -4,6 +4,9 @@
 ## 11's horn of a match four caretakers play from tick 0 (two Lamplighters, two
 ## Lookouts), then loaded and stepped through the wave's first 1,800 ticks (the most a
 ## catch-up runs, design 6.8) with events on and drained every tick, as a client does.
+## M6's kits get a board of their own (M6_BUILDERS: two Bellfounders and two Beekeepers,
+## the Toll Towers' pulses, the Clay Hives' clouds and the hums), stepped the same way and
+## held to the same floor and to M6_FLOOR_PC of the first board's rate.
 ##
 ##   {"eval": "resource('res://tests/sim/sim_bench.gd')", "as": "Bench"}
 ##   {"eval": "Bench.wave_load()", "as": "load"}
@@ -39,7 +42,18 @@ const LOOK_FLOOR_PC := 300
 ## for the order, which on this load is nearly every tick.
 const WALK_FLOOR_PM := 900
 
+## The M6 board's rate, at the least, as hundredths of the first board's, both best of
+## three in one process, so it holds on any machine: about 100 measured (12,468 against
+## 12,022 ticks a second), and about 72 while a Toll Tower that had cooled down scanned
+## every creep on every tick it waited (SimMatch._pulse now asks the walk first). A board
+## of the M6 kits that steps a fifth slower than the M2 one has lost something on a busy
+## tick; a plan that comes to stand many more towers by wave 11 moves it too.
+const M6_FLOOR_PC := 80
+
 const BUILDERS := ["lamplighter", "lookout", "lamplighter", "lookout"]
+## (M6) The board of M6's kits: a party may field the same Builder twice, and two of each
+## stand the most pulses and clouds (six Toll Towers and four Clay Hives at wave 11).
+const M6_BUILDERS := ["bellfounder", "beekeeper", "bellfounder", "beekeeper"]
 
 
 ## Plays the four-seat match to the horn of wave `wave` (or its end, or `limit` ticks)

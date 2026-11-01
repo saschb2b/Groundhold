@@ -41,7 +41,6 @@
 ##   the match still loads, MATCH_CONFIG as at the start, and it loads like any seat); a
 ##   seat not held gets NOTICE no_held_seat. A dropped link holds its seat (AWAY after its
 ##   silence), as the server does; a goodbye is LEFT.
-## Not here: the queue.
 ##
 ## Lobby mode (`lobby = true`, M3: the hub and loading scripting, design 5.2 and 6.6):
 ## HELLO only welcomes; PARTY makes the one party (code `party_code`) or joins it, sets the
@@ -57,7 +56,30 @@
 ## frees its party row (the server holds it 40 s first; nothing here comes back for it).
 ## From 30 s of loading the leader's PARTY start starts the seats loaded without the rest
 ## (start_without_frames): those begin AWAY in turn 0, and only their LOADED brings them
-## BACK.
+## BACK. The party keeps open seats (PARTY open, PARTY_STATE's flag; a one-team mode's, so
+## a switch to a race turns them off) and, in a two-team mode, teams (a joiner on the
+## smaller team, the leader's PARTY team, a mode change laying them out alternately), as
+## party.py does; a member's Ready is refused while queued or in a match, as lobby.py's.
+##
+## The queue in lobby mode (M6, as queue.py, shared/net/README.md The queue): the leader's
+## QUEUE enter queues the party where it may (High Water: open seats on and free; a race:
+## one team of 1 or 2; every other member Ready), PARTY_STATE queued and QUEUE_STATE to
+## every member; anything else answers the asker with the state as it is. Strangers are
+## scripted (add_stranger: each a party of one in the queue, in the order they came) and
+## fill the open seats, or a race's rival team, in that order: MATCH_FOUND (accept_frames,
+## the server's 15 s) to the party, again at every accept; strangers made with `accepts`
+## accept at once, the others when a test says (stranger_answer). Everyone's ACCEPT forms a
+## match of strangers (MATCH_CONFIG with the found match's id; each stranger's Builder
+## unclashed: the main where the party and the strangers before do not play it, else the
+## backup, else the first free one, where queue.py draws from Server.queue_rng: past the
+## backups the Builders a scenario reads are this fake's, and smoke.py --flow --queue checks
+## the server's own with real games; the party is always the earliest ticket here, so its
+## seats come first); a decline, a leave, or the time running out dissolves it: the party
+## back to forming if one of its members refused, else NOTICE match_dissolved
+## and QUEUE_STATE queued, at the front; a refusing stranger leaves the queue. After
+## offer_frames (60 s) queued: NOTICE caretakers_offered and the offer in QUEUE_STATE; then
+## start_with_caretakers forms the party's match with caretaker seats (High Water: covering
+## what the party lacks; a race: a mirror on team 1), each listed "gone" in LOAD_STATE.
 @warning_ignore_start("integer_division")
 extends RefCounted
 
@@ -189,6 +211,25 @@ var reload_notices: Array = []
 ## Every PARTY op received, as [member, op name], for assertions.
 var party_log: Array = []
 var _next_load_state := 0
+## The queue (lobby mode, M6): the party's ticket {"since" (frame), "offered", "told"} while
+## it is queued, {} otherwise; the strangers queued beside it (scripted conns) in the order
+## they came; the match found waiting for its accepts {"id", "players" (conns, the party's
+## first), "accepted" (conns), "deadline" (frame)}, {} while none; every QUEUE op received
+## by name; the MATCH_FOUNDs sent; the id of the last match the queue found.
+var ticket := {}
+var strangers: Array = []
+var found := {}
+var queue_log: Array = []
+var founds_sent := 0
+var found_ids := 0
+var accept_frames := NetProtocol.number("accept_ms") * FRAMES_PER_SECOND / 1000
+var offer_frames := NetProtocol.number("caretaker_offer_ms") * FRAMES_PER_SECOND / 1000
+## The match id MATCH_CONFIG carries (1, or the queue's found match's).
+var match_number := 1
+## The match now loading or playing came from the queue (its strangers' barrier: 45 s).
+var queue_match := false
+## Caretaker seats of the match ({"seat", "team", "builder", "flags", "name"}), no conn.
+var caretaker_seats: Array = []
 
 ## Ticks a HASH flagged as checkpoint ticks.
 var flagged := {}
@@ -248,6 +289,13 @@ func accept(link: Variant) -> void:
 		"back": true,
 		"virtual": false,
 		"reload": false,
+		# (lobby mode: its team in a two-team mode; a stranger of the queue (M6): queued,
+		# whether it accepts at once, its seat's team and Builder in the match formed)
+		"team": 0,
+		"stranger": false,
+		"accepts": true,
+		"match_team": 0,
+		"match_builder": -1,
 		# (the HELLO's build; whether it was told NOTICE needs_reload since it last did not need one)
 		"build_seq": 0,
 		"told_reload": false,
@@ -291,6 +339,8 @@ func step() -> void:
 		_close_silent()
 	if lobby and not party.is_empty() and party["phase"] == "countdown" and world.frame >= int(party["countdown_at"]):
 		_begin_party()
+	if lobby:
+		_tend_queue()
 	if phase == "loading":
 		if lobby and world.frame >= _next_load_state:
 			_next_load_state = world.frame + load_every
@@ -362,6 +412,14 @@ func _receive(conn: Dictionary, bytes: PackedByteArray) -> void:
 				_party_op(conn, fields)
 			else:
 				_refuse(conn, 1, "Unknown or out-of-order message")
+		"QUEUE":
+			if lobby:
+				_queue_op(conn, fields)
+			else:
+				_refuse(conn, 1, "Unknown or out-of-order message")
+		"ACCEPT":
+			if lobby:
+				_accept(conn, int(fields["match"]), int(fields["yes"]) == 1)
 		"CMD":
 			_command(conn, fields)
 		"HASH":
@@ -445,7 +503,9 @@ func _welcome(conn: Dictionary, fields: Dictionary) -> void:
 	)
 
 
-func _begin(players: Array) -> void:
+## MATCH_CONFIG to `players` (conns, in seat order), then `extra` caretaker seats, which
+## no conn plays ({"team", "builder", "flags", "name"}: the queue's caretakers).
+func _begin(players: Array, extra := []) -> void:
 	phase = "loading"
 	configured_at = world.frame
 	started_without = false
@@ -455,14 +515,25 @@ func _begin(players: Array) -> void:
 		conn["seat"] = i
 		conn["heard"] = world.frame
 		var builder: int = conn["main"] if lobby else 0
+		if lobby and int(conn["match_builder"]) >= 0:
+			builder = int(conn["match_builder"])
 		if not lobby and i < seat_builders.size():
 			builder = NetProtocol.enum_value("builders", str(seat_builders[i]))
-		var entry := {"seat": i, "team": 0, "builder": builder, "flags": 0, "name": conn["name"]}
+		if not lobby:
+			# (a dev match's seats split over the mode's teams in order, as the server's
+			# Match does: a 1v1 race is seat 0 on team 0 and seat 1 on team 1)
+			conn["match_team"] = i * _match_teams() / players.size()
+		var entry := {"seat": i, "team": int(conn["match_team"]), "builder": builder, "flags": 0, "name": conn["name"]}
 		entry.merge(seat_override, true)
+		listed.append(entry)
+	caretaker_seats = []
+	for spec: Dictionary in extra:
+		var entry := {"seat": listed.size(), "team": int(spec["team"]), "builder": int(spec["builder"]), "flags": 1, "name": spec["name"]}
+		caretaker_seats.append(entry)
 		listed.append(entry)
 	for conn: Dictionary in players:
 		var config := {
-			"match": 1,
+			"match": match_number,
 			"mode": int(party["mode"]) if lobby else int(NetProtocol.spec()["modes"][mode]["id"]),
 			"map": 0,
 			"seed": match_seed,
@@ -479,7 +550,8 @@ func _begin(players: Array) -> void:
 func _check_start() -> void:
 	var players := _seated()
 	var ready := players.filter(func(c: Dictionary) -> bool: return not _loaded_of(c).is_empty())
-	if not lobby and strangers_start_frames >= 0 and world.frame - configured_at >= strangers_start_frames:
+	var strangers_wait := (not lobby or queue_match) and strangers_start_frames >= 0
+	if strangers_wait and world.frame - configured_at >= strangers_start_frames:
 		started_without = true  # (45 s: a strangers' match starts with the seats loaded)
 	if ready.is_empty() or (ready.size() < players.size() and not started_without):
 		return
@@ -678,7 +750,7 @@ func _result(conn: Dictionary, fields: Dictionary) -> void:
 	if (
 		tick > 3 * turn
 		or tick < int(conn["hash_tick"])
-		or outcomes.size() != 1
+		or outcomes.size() != _match_teams()
 		or outcomes.any(func(o: int) -> bool: return o > 2)
 	):
 		_refuse(conn, 6, "RESULT outside its limits")
@@ -725,7 +797,7 @@ func _judge() -> void:
 		earliest = tick if earliest < 0 else mini(earliest, tick)
 		if int(claim[1]) >= need:
 			var outcomes: Array = result[2]
-			_end(NetProtocol.enum_name("outcomes", int(outcomes[0])), "result", tick)
+			_end(NetProtocol.enum_name("outcomes", int(outcomes[0])), "result", tick, outcomes)
 			return
 		var on_the_way := playing.filter(func(c: Dictionary) -> bool: return int(c["hash_tick"]) <= tick)
 		possible = possible or int(claim[1]) + on_the_way.size() >= need
@@ -837,21 +909,31 @@ func _leave(conn: Dictionary) -> void:
 		_end("aborted", "everyone_left", turn * 3)
 
 
-func _end(result: String, reason: String, tick: int) -> void:
+## The match ends: MATCH_END to every seat, each with its own team's outcome where a RESULT
+## gave one per team (a race: `per_team`, as the server's Match.end), else `result`.
+func _end(result: String, reason: String, tick: int, per_team := []) -> void:
 	if phase == "ended":
 		return
 	phase = "ended"
 	outcome = result
 	end_reason = reason
 	final_tick = tick
-	_broadcast(
-		"MATCH_END",
-		{
-			"outcome": NetProtocol.enum_value("outcomes", result),
-			"reason": NetProtocol.enum_value("end_reasons", reason),
-			"final_tick": tick,
-		}
-	)
+	for conn: Dictionary in _seated():
+		if conn["out"]:
+			continue
+		var mine := result
+		var team := _team_of(int(conn["seat"]))
+		if team < per_team.size():
+			mine = NetProtocol.enum_name("outcomes", int(per_team[team]))
+		_send(
+			conn,
+			"MATCH_END",
+			{
+				"outcome": NetProtocol.enum_value("outcomes", mine),
+				"reason": NetProtocol.enum_value("end_reasons", reason),
+				"final_tick": tick,
+			}
+		)
 	if lobby and not party.is_empty():
 		# (the results, as the server keeps them: each member's game stays on its results
 		# plate, in_match, until its LEAVE_MATCH (or a PARTY ready or builders) brings it
@@ -1036,7 +1118,7 @@ func _rejoin(conn: Dictionary, match_id: int, seat_no: int) -> void:
 	for c: Dictionary in conns:
 		if c != conn and int(c["seat"]) == seat_no and c["token"] == conn["token"]:
 			held = c
-	if match_id != 1 or held.is_empty() or held["state"] == "left" or held["out"] or phase not in ["loading", "playing"]:
+	if match_id != match_number or held.is_empty() or held["state"] == "left" or held["out"] or phase not in ["loading", "playing"]:
 		no_held_seat += 1
 		_send(conn, "NOTICE", {"code": NetProtocol.enum_value("notices", "no_held_seat"), "argument": 0})
 		return
@@ -1098,6 +1180,7 @@ func add_member(who: String, main := "lamplighter", build_offset := 0, other_rul
 	if party.is_empty():
 		_create_party(conn, int(NetProtocol.spec()["modes"][mode]["id"]))
 	else:
+		conn["team"] = _smaller_team()
 		conn["member"] = _free_row()
 		(party["members"] as Array).append(conn)
 	_broadcast_party()
@@ -1133,6 +1216,7 @@ func remove_member(who: String) -> void:
 	if conn.is_empty():
 		return
 	_drop_member(conn)
+	_interrupt_queue()
 	conns.erase(conn)
 	_broadcast_party()
 
@@ -1195,29 +1279,51 @@ func _party_op(conn: Dictionary, fields: Dictionary) -> void:
 				_notice(conn, "party_full")
 				return
 			_drop_member(conn)
+			_interrupt_queue()
 			conn["member"] = _free_row()
+			conn["team"] = _smaller_team()
 			members.append(conn)
 			conn["ready"] = false
 		"leave":
 			_drop_member(conn)
+			_interrupt_queue()
 			_send_no_party(conn)
 		"mode":
 			if not leads or party["phase"] != "forming":
 				return
-			party["mode"] = int(fields["mode"])
+			set_party_mode(NetProtocol.enum_name("modes", int(fields["mode"])))
+			return
+		"team":
+			if not leads or party["phase"] != "forming" or _teams() < 2:
+				return
 			for m: Dictionary in members:
-				m["ready"] = false
+				if int(m["member"]) == int(fields["member"]):
+					m["team"] = int(fields["team"])
+					m["ready"] = false
+		"open":
+			if not leads or (int(fields["on"]) == 1 and _teams() > 1):
+				return  # (open seats are a one-team mode's: a race's queue finds a rival team)
+			if int(fields["on"]) == 0 and _teams() == 1:
+				_interrupt_queue()
+			party["open"] = int(fields["on"]) == 1
 		"builders":
 			conn["main"] = int(fields["main"])
 			conn["backup"] = int(fields["backup"])
-			conn["ready"] = false
+			if party.get("phase", "") != "queued":
+				conn["ready"] = false  # (queued, a change is for the match found: it keeps the queue)
 			_back(conn)
 		"ready":
 			_back(conn)
+			if str(party.get("phase", "")) in ["queued", "loading"]:
+				return  # (refused while queued or in the match, as on the server: the queue stays)
 			conn["ready"] = int(fields["on"]) == 1
 		"start":
 			if phase == "loading":
 				var waited: bool = world.frame - configured_at >= start_without_frames
+				# (strangers never start without a seat: their barrier's timers decide, as the
+				# server's Barrier.start_without refuses for them)
+				if queue_match:
+					return
 				if leads and waited and _seated().any(func(c: Dictionary) -> bool: return not _loaded_of(c).is_empty()):
 					started_without = true
 				return
@@ -1253,13 +1359,413 @@ func _close_silent() -> void:
 		if conn["seat"] >= 0 and phase == "playing":
 			_leave(conn)
 		_drop_member(conn)
+		_interrupt_queue()
 		_broadcast_party()
+
+
+# ── The queue (lobby mode, M6) ──
+
+
+## A stranger in the queue, named `who`: a scripted party of one of its own with `main` and
+## `backup`, queued now, after the strangers before it. `accepts`: it accepts a match found
+## at once (else it waits for stranger_answer). Returns its record.
+func add_stranger(who: String, main := "lamplighter", backup := "lookout", accepts := true) -> Dictionary:
+	var link := QuietLink.new()
+	accept(link)
+	var conn: Dictionary = link.conn
+	conn["virtual"] = true
+	conn["stranger"] = true
+	conn["hello"] = true
+	conn["name"] = who
+	conn["main"] = NetProtocol.enum_value("builders", main)
+	conn["backup"] = NetProtocol.enum_value("builders", backup)
+	conn["accepts"] = accepts
+	conn["build_seq"] = build_base
+	conn["rules_hash"] = rules_hash_of(0)
+	strangers.append(conn)
+	_look()
+	return conn
+
+
+## Open seats on or off as the leader's PARTY open would (a scripted leader's).
+func set_party_open(on: bool) -> void:
+	if party.is_empty() or (on and _teams() > 1):
+		return
+	if not on and _teams() == 1:
+		_interrupt_queue()
+	party["open"] = on
+	_broadcast_party()
+
+
+## The party queues as its leader's QUEUE enter would (a scripted leader's, which sends
+## nothing itself); false where the party may not queue.
+func queue_party() -> bool:
+	if not ticket.is_empty() or _queue_refusal() != "":
+		return false
+	ticket = {"since": world.frame, "offered": false, "told": false}
+	party["phase"] = "queued"
+	_broadcast_party()
+	_tell_queue()
+	_look()
+	return true
+
+
+## A scripted party member's answer to the match found.
+func member_answer(who: String, yes := true) -> void:
+	var conn := member_conn(who)
+	if not conn.is_empty() and not found.is_empty():
+		_accept(conn, int(found["id"]), yes)
+
+
+## A stranger's answer to the match found (`yes`: accept; else decline).
+func stranger_answer(who: String, yes := true) -> void:
+	for conn: Dictionary in strangers:
+		if conn["name"] == who and not found.is_empty():
+			_accept(conn, int(found["id"]), yes)
+			return
+
+
+func _queue_op(conn: Dictionary, fields: Dictionary) -> void:
+	var op := NetProtocol.enum_name("queue_ops", int(fields["op"]))
+	if op == "":
+		_refuse(conn, 6, "QUEUE outside its limits")
+		return
+	queue_log.append(op)
+	var members: Array = party.get("members", [])
+	var leads := members.has(conn) and int(party["leader"]) == int(conn["member"])
+	match op:
+		"enter":
+			if leads and ticket.is_empty() and _queue_refusal() == "":
+				ticket = {"since": world.frame, "offered": false, "told": false}
+				party["phase"] = "queued"
+				_broadcast_party()
+				_tell_queue()
+				_look()
+				return
+		"leave":
+			if leads and not ticket.is_empty():
+				if not found.is_empty():
+					_dissolve([conn])  # (a leave in Match Found is a decline)
+				else:
+					_unqueue()
+				return
+		"start_with_caretakers":
+			if leads and not ticket.is_empty() and found.is_empty() and bool(ticket["offered"]):
+				_start_with_caretakers()
+				return
+	_send(conn, "QUEUE_STATE", _queue_fields())
+
+
+## Why the party may not queue ("" where it may), as queue.py's refusal.
+func _queue_refusal() -> String:
+	if party.is_empty() or party["phase"] != "forming":
+		return "phase"
+	var members: Array = party["members"]
+	for m: Dictionary in members:
+		if _needs_reload(m):
+			return "needs to reload"
+		if int(m["member"]) != int(party["leader"]) and not m["ready"]:
+			return "not ready"
+	var most := int(NetProtocol.spec()["modes"][NetProtocol.enum_name("modes", int(party["mode"]))]["seats"][1])
+	if _teams() == 1:
+		if not bool(party.get("open", false)):
+			return "open seats off"
+		if members.size() >= most:
+			return "no seat free"
+		return ""
+	var teams := {}
+	for m: Dictionary in members:
+		teams[int(m["team"])] = true
+	if teams.size() != 1 or members.size() * 2 > most:
+		return "team size"
+	return ""
+
+
+func _queue_fields() -> Dictionary:
+	if ticket.is_empty():
+		return {"state": NetProtocol.enum_value("queue_states", "idle"), "elapsed_ms": 0, "caretaker_offer": 0}
+	return {
+		"state": NetProtocol.enum_value("queue_states", "queued"),
+		"elapsed_ms": (world.frame - int(ticket["since"])) * 1000 / FRAMES_PER_SECOND,
+		"caretaker_offer": 1 if bool(ticket["offered"]) else 0,
+	}
+
+
+func _tell_queue() -> void:
+	for m: Dictionary in party.get("members", []):
+		_send(m, "QUEUE_STATE", _queue_fields())
+
+
+func _notice_party(key: String) -> void:
+	for m: Dictionary in party.get("members", []):
+		_notice(m, key)
+
+
+## Out of the queue, back to forming: QUEUE_STATE idle, then PARTY_STATE.
+func _unqueue() -> void:
+	ticket = {}
+	if not party.is_empty() and party["phase"] == "queued":
+		party["phase"] = "forming"
+	_tell_queue()
+	_broadcast_party()
+
+
+## A join, a leave or open seats off: out of the queue (in Match Found, the party declines).
+func _interrupt_queue() -> void:
+	if ticket.is_empty():
+		return
+	if not found.is_empty():
+		_dissolve([], true)
+	else:
+		ticket = {}
+		if party["phase"] == "queued":
+			party["phase"] = "forming"
+		_tell_queue()
+
+
+## Once a frame: the caretakers offered at offer_frames, Match Found's time running out.
+func _tend_queue() -> void:
+	if not ticket.is_empty() and not bool(ticket["offered"]) and world.frame - int(ticket["since"]) >= offer_frames:
+		ticket["offered"] = true
+		if found.is_empty():
+			_say_offer()
+	if not found.is_empty() and world.frame >= int(found["deadline"]):
+		var late := (found["players"] as Array).filter(func(c: Dictionary) -> bool: return not (found["accepted"] as Array).has(c))
+		_dissolve(late)
+
+
+func _say_offer() -> void:
+	if bool(ticket["offered"]) and not bool(ticket["told"]):
+		ticket["told"] = true
+		_notice_party("caretakers_offered")
+	_tell_queue()
+
+
+## The waiting strangers fill the party's open seats, or its race's rival team: Match Found.
+func _look() -> void:
+	if ticket.is_empty() or not found.is_empty():
+		return
+	var members: Array = party["members"]
+	var most := int(NetProtocol.spec()["modes"][NetProtocol.enum_name("modes", int(party["mode"]))]["seats"][1])
+	var need := members.size() if _teams() > 1 else most - members.size()
+	if strangers.size() < need:
+		return
+	found_ids += 1
+	found = {
+		"id": found_ids, "players": members + strangers.slice(0, need), "accepted": [],
+		"deadline": world.frame + accept_frames,
+	}
+	_tell_found()
+	for c: Dictionary in strangers.slice(0, need):
+		if c["accepts"]:
+			_accept(c, found_ids, true)
+
+
+func _tell_found() -> void:
+	var fields := {
+		"match": int(found["id"]), "mode": int(party["mode"]), "seats": (found["players"] as Array).size(),
+		"accepted": (found["accepted"] as Array).size(),
+		"ms_left": maxi(0, int(found["deadline"]) - world.frame) * 1000 / FRAMES_PER_SECOND,
+	}
+	founds_sent += 1
+	for m: Dictionary in party.get("members", []):
+		_send(m, "MATCH_FOUND", fields)
+
+
+func _accept(conn: Dictionary, match_id: int, yes: bool) -> void:
+	if found.is_empty() or int(found["id"]) != match_id or not (found["players"] as Array).has(conn):
+		return  # (an answer to a match gone, or not this player's: let pass)
+	if not yes:
+		_dissolve([conn])
+		return
+	var accepted: Array = found["accepted"]
+	if accepted.has(conn):
+		return
+	accepted.append(conn)
+	if accepted.size() == (found["players"] as Array).size():
+		_launch()
+	else:
+		_tell_found()
+
+
+## The match found is off: `refusers` (and with `party_refused` the party itself) did not
+## accept. The party back to forming if it refused, else to the front with NOTICE
+## match_dissolved; a refusing stranger leaves the queue.
+func _dissolve(refusers: Array, party_refused := false) -> void:
+	var members: Array = party.get("members", [])
+	for c: Dictionary in refusers:
+		if members.has(c):
+			party_refused = true
+			c["ready"] = false
+		else:
+			strangers.erase(c)
+	found = {}
+	if party_refused:
+		_unqueue()
+		return
+	_notice_party("match_dissolved")
+	_say_offer()
+	_look()
+
+
+## Everyone accepted: a match of strangers, the party's seats first.
+func _launch() -> void:
+	var players: Array = (found["players"] as Array).duplicate()
+	match_number = int(found["id"])
+	found = {}
+	ticket = {}
+	var race := _teams() > 1
+	var taken := []
+	for c: Dictionary in players:
+		strangers.erase(c)
+		c["match_team"] = 1 if race and c["stranger"] else 0
+		c["match_builder"] = int(c["main"])
+		if not c["stranger"]:
+			taken.append(int(c["main"]))  # (inside the party duplicates stay)
+	# (strangers on one team never share a Builder: each in turn sees the party's and the
+	# earlier strangers' taken, and plays its main, else its backup, else the first free one)
+	for c: Dictionary in players:
+		if not c["stranger"] or race:
+			continue
+		var builder := int(c["main"])
+		if taken.has(builder):
+			builder = int(c["backup"])
+		if taken.has(builder):
+			for id: String in SimContent.BUILDER_IDS:
+				if not taken.has(NetProtocol.enum_value("builders", id)):
+					builder = NetProtocol.enum_value("builders", id)
+					break
+		c["match_builder"] = builder
+		taken.append(builder)
+	_start_queue_match(players, [])
+
+
+func _start_with_caretakers() -> void:
+	ticket = {}
+	match_number = found_ids + 1
+	found_ids += 1
+	var members := _party_seats()
+	var race := _teams() > 1
+	var extra := []
+	var mains := []
+	for c: Dictionary in members:
+		c["match_team"] = 0
+		c["match_builder"] = int(c["main"])
+		mains.append(int(c["main"]))
+	if race:
+		for i in mains.size():
+			extra.append({"team": 1, "builder": mains[i], "name": "Caretaker %d" % (i + 1)})
+	else:
+		var builders := caretaker_builders(mains, NetProtocol.number("max_seats") - members.size())
+		for i in builders.size():
+			extra.append({"team": 0, "builder": builders[i], "name": "Caretaker %d" % (i + 1)})
+	_start_queue_match(members, extra)
+
+
+func _start_queue_match(players: Array, extra: Array) -> void:
+	party["phase"] = "loading"
+	turns = []
+	turn = 0
+	origin = -1
+	hashes = {}
+	agreed = {}
+	flagged = {}
+	checkpoint_ticks = []
+	checkpoints = {}
+	asking = {}
+	configs = {}
+	disagreements = []
+	compared = 0
+	outcome = ""
+	end_reason = ""
+	final_tick = 0
+	system_log = []
+	_pending = []
+	_system = []
+	queue_match = extra.is_empty()
+	for conn: Dictionary in conns:
+		conn["seat"] = -1
+	for conn: Dictionary in players:
+		_reset_seat(conn)
+	for conn: Dictionary in party["members"]:
+		conn["ready"] = false
+	seats = players.size() + extra.size()
+	_next_load_state = world.frame + load_every
+	_broadcast_party()
+	_begin(players, extra)
+
+
+## Caretakers' Builders (wire ids) for a team of `mains`, as queue.py's: each in turn the
+## one covering most of the checks the team lacks, then one not on the team, ties in
+## BUILDER_IDS order.
+static func caretaker_builders(mains: Array, count: int) -> Array:
+	var team := []
+	for b: Variant in mains:
+		team.append(SimContent.BUILDER_IDS[int(b)])
+	var out := []
+	for k in count:
+		var lacking := []
+		for check: String in SimContent.CHECK_IDS:
+			var covered := false
+			for name: String in team:
+				if (SimContent.BUILDERS[name]["covers"] as Array).has(check):
+					covered = true
+			if not covered:
+				lacking.append(check)
+		var best := ""
+		var best_key := []
+		for i in SimContent.BUILDER_IDS.size():
+			var name: String = SimContent.BUILDER_IDS[i]
+			var covers := 0
+			for check: String in lacking:
+				if (SimContent.BUILDERS[name]["covers"] as Array).has(check):
+					covers += 1
+			var key := [-covers, 1 if team.has(name) else 0, i]
+			if best == "" or key < best_key:
+				best = name
+				best_key = key
+		team.append(best)
+		out.append(NetProtocol.enum_value("builders", best))
+	return out
 
 
 func _create_party(conn: Dictionary, wire_mode: int) -> void:
 	conn["member"] = 0
-	party = {"mode": wire_mode, "leader": conn["member"], "phase": "forming", "countdown_at": 0, "members": [conn]}
+	conn["team"] = 0
+	party = {
+		"mode": wire_mode, "leader": conn["member"], "phase": "forming", "countdown_at": 0, "members": [conn],
+		"open": false,
+	}
 	conn["ready"] = false
+
+
+## The party's mode by name (a test's way to a race party the hub cannot pick yet): every
+## Ready cleared, a two-team mode's teams laid out alternately by joining order.
+func set_party_mode(mode_name: String) -> void:
+	if party.is_empty():
+		return
+	party["mode"] = int(NetProtocol.spec()["modes"][mode_name]["id"])
+	if _teams() > 1:
+		party["open"] = false  # (a two-team mode has no open seats, as party.py's set_mode)
+	var members: Array = party["members"]
+	for i in members.size():
+		members[i]["ready"] = false
+		members[i]["team"] = i % 2 if _teams() > 1 else 0
+	_broadcast_party()
+
+
+func _teams() -> int:
+	return int(NetProtocol.spec()["modes"][NetProtocol.enum_name("modes", int(party.get("mode", 0)))]["teams"])
+
+
+## The team a newcomer joins: the smaller (team 0 on a tie, and in a one-team mode).
+func _smaller_team() -> int:
+	if party.is_empty() or _teams() < 2:
+		return 0
+	var sizes := [0, 0]
+	for m: Dictionary in party["members"]:
+		sizes[clampi(int(m["team"]), 0, 1)] += 1
+	return 0 if sizes[0] <= sizes[1] else 1
 
 
 ## The lowest row (0 to 3) no member of the party holds: a newcomer's, as on the server.
@@ -1304,28 +1810,50 @@ func _begin_party() -> void:
 	system_log = []
 	_pending = []
 	_system = []
+	match_number = 1
+	queue_match = false
 	for conn: Dictionary in conns:
 		conn["seat"] = -1
-	for conn: Dictionary in party["members"]:
-		conn["loaded"] = []
-		conn["virtual_loaded"] = false
-		if not conn["virtual"]:
-			conn["per_mille"] = 0
-		conn["hash_tick"] = -1
-		conn["hashed"] = 0
-		conn["result"] = []
-		conn["last_seq"] = -1
-		conn["state"] = "present"
-		conn["resent"] = -1
-		conn["catchup"] = []
-		conn["resyncs"] = 0
-		conn["restart_at"] = -1
-		conn["behind_from"] = 0
-		conn["asked"] = []
-		conn["out"] = false
+	var players := _party_seats()
+	for conn: Dictionary in players:
+		_reset_seat(conn)
+		conn["match_team"] = int(conn["team"]) if _teams() > 1 else 0
+		conn["match_builder"] = -1
 	_next_load_state = world.frame + load_every
 	_broadcast_party()
-	_begin(party["members"])
+	_begin(players)
+
+
+## The party's members in seat order: by team, then by row in a two-team mode (party.py's
+## seats()), in joining order otherwise (as the fake has always seated them).
+func _party_seats() -> Array:
+	var players: Array = (party["members"] as Array).duplicate()
+	if _teams() > 1:
+		players.sort_custom(
+			func(a: Dictionary, b: Dictionary) -> bool:
+				return [int(a["team"]), int(a["member"])] < [int(b["team"]), int(b["member"])]
+		)
+	return players
+
+
+## A seat's state from before cleared, as a new match begins.
+func _reset_seat(conn: Dictionary) -> void:
+	conn["loaded"] = []
+	conn["virtual_loaded"] = bool(conn["stranger"])  # (a stranger loads at once)
+	if not conn["virtual"]:
+		conn["per_mille"] = 0
+	conn["hash_tick"] = -1
+	conn["hashed"] = 0
+	conn["result"] = []
+	conn["last_seq"] = -1
+	conn["state"] = "present"
+	conn["resent"] = -1
+	conn["catchup"] = []
+	conn["resyncs"] = 0
+	conn["restart_at"] = -1
+	conn["behind_from"] = 0
+	conn["asked"] = []
+	conn["out"] = false
 
 
 func _broadcast_party() -> void:
@@ -1346,7 +1874,7 @@ func _broadcast_party() -> void:
 		listed.append(
 			{
 				"member": conn["member"],
-				"team": 0,
+				"team": int(conn["team"]),
 				"main": conn["main"],
 				"backup": conn["backup"],
 				"state": NetProtocol.enum_value("member_states", state),
@@ -1360,7 +1888,7 @@ func _broadcast_party() -> void:
 	var fields := {
 		"code": party_code.to_ascii_buffer(),
 		"mode": party["mode"],
-		"flags": 0,
+		"flags": NetProtocol.enum_value("party_flags", "open") if bool(party.get("open", false)) else 0,
 		"leader": party["leader"],
 		"phase": NetProtocol.enum_value("party_phases", party["phase"]),
 		"countdown_ms": left if party["phase"] == "countdown" else 0,
@@ -1422,6 +1950,20 @@ func _refuse(conn: Dictionary, code: int, text: String) -> void:
 # ── Writing ──
 
 
+## Seat `seat`'s team in the match, from its MATCH_CONFIG's seat list.
+func _team_of(seat: int) -> int:
+	var seats: Array = configs.get(seat, {}).get("seats", [])
+	return int(seats[seat]["team"]) if seat < seats.size() else 0
+
+
+## The match's teams, as its mode on the wire says (a race has two): the party's mode in
+## lobby mode, the dev match's otherwise.
+func _match_teams() -> int:
+	if lobby and not party.is_empty():
+		return _teams()
+	return int(NetProtocol.spec()["modes"].get(mode, {}).get("teams", 1))
+
+
 func _seated() -> Array:
 	return conns.filter(func(c: Dictionary) -> bool: return c["seat"] >= 0)
 
@@ -1452,6 +1994,10 @@ func _broadcast_load_state() -> void:
 		elif per_mille > 0:
 			state = "loading"
 		listed.append({"seat": conn["seat"], "per_mille": per_mille, "state": NetProtocol.enum_value("load_states", state)})
+	for entry: Dictionary in caretaker_seats:
+		# (a caretaker's seat: nobody loads it, gone from the barrier)
+		listed.append({"seat": entry["seat"], "per_mille": 0, "state": NetProtocol.enum_value("load_states", "gone")})
+	listed.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["seat"]) < int(b["seat"]))
 	_broadcast("LOAD_STATE", {"seats": listed, "seconds": (world.frame - configured_at) / FRAMES_PER_SECOND})
 
 

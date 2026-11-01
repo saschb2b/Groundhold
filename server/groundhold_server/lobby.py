@@ -47,8 +47,12 @@ the player keeps the party it has. Each PARTY create leaves the party
 before it, so without these one connection could pile up parties, each
 kept 15 minutes (review round 2).
 
-**No public queue yet** (the queue, Match Found and its accept are M6):
-every `QUEUE` is answered with `QUEUE_STATE` idle, and `ACCEPT` is let pass.
+**The queue** (queue.py, M6): a forming party's leader queues for
+strangers (`QUEUE`), Match Found asks everyone (`ACCEPT`), and a match of
+strangers forms with each party's members as its seats; anything that
+would stop a countdown takes a queued party out of the queue (in Match
+Found, as that party's decline). After the match each party is its own
+again, on its own results plate.
 
 New in Groundhold: nothing in Cyberworld has parties with codes, a
 countdown or a loading barrier.
@@ -60,8 +64,9 @@ import math
 
 from . import codes, protocol
 from .party import (BUILDERS, COUNTDOWN, COUNTDOWN_MS, EXPIRY_MS, FORMING, IN_MATCH, LOADING, MAX_MEMBERS,
-                    MODES, NOBODY, RESULTS, Party, no_party)
+                    MODES, NOBODY, QUEUED, RESULTS, Party, no_party)
 from .protocol import ProtocolError, SPEC
+from .queue import Queue
 
 MS = 1_000_000
 SECOND = 1000 * MS
@@ -224,6 +229,7 @@ class Lobby:
         self.parties = {}           # code -> Party
         self.empty = {}             # code -> Party: the empty parties, longest waiting first
         self.left_empty = {}        # identity -> the empty party it left last
+        self.queue = Queue(self)    # the public queue (queue.py)
 
     @property
     def clock(self):
@@ -323,6 +329,8 @@ class Lobby:
             return
         if member:
             self.leave(member, tell=False)
+        # (a join breaks the start's rule: no countdown and no queue for the party it joins)
+        self.interrupt(found)
         if held:
             self.take_back(held, player)
         else:
@@ -332,7 +340,6 @@ class Lobby:
             found.timer.cancel()        # (it was empty: its code's expiry is off)
             found.timer = None
             self.filled(found)
-        self.stop_countdown(found)
         self.tell_reload(found, before)
         self.broadcast(found)
 
@@ -372,7 +379,11 @@ class Lobby:
             self.refuse(player, party)
             return
         self.back_from_results(member)
-        member.main, member.backup, member.ready = main, backup, False
+        member.main, member.backup = main, backup
+        if party.phase != QUEUED:
+            # (queued, the change is for the match the queue finds: it keeps
+            # the queue and the Ready, design 5.4)
+            member.ready = False
         self.stop_countdown(party)
         self.broadcast(party)
 
@@ -404,9 +415,12 @@ class Lobby:
 
     def op_open(self, player, member, party, fields):
         on = self.bounded(fields["on"], 2)
-        if not party or party.leader is not member:
+        if not party or party.leader is not member or (on and party.teams() > 1):
+            # (open seats are a one-team mode's: a race's queue finds a rival team)
             self.refuse(player, party)
             return
+        if not on and party.teams() == 1:
+            self.queue.interrupted(party)       # (no open seats, nothing to find)
         party.open = bool(on)
         self.broadcast(party)
 
@@ -452,6 +466,13 @@ class Lobby:
                 party.timer.cancel()
             party.timer, party.countdown_end, party.phase = None, None, FORMING
 
+    def interrupt(self, party, member=None):
+        """What breaks the start's rule (a join, a leave, a drop): the
+        countdown stops, and a queued party leaves the queue (queue.py); the
+        caller sends the party's state."""
+        self.stop_countdown(party)
+        self.queue.interrupted(party, member)
+
     def leave(self, member, tell=True):
         """`member` out of its party: its row freed, the lead passed on, an
         empty party's code kept EXPIRY_MS."""
@@ -467,7 +488,7 @@ class Lobby:
             if tell:
                 self.send(player, no_party())
         self.server.event("party_leave", party=party.code.decode(), member=member.number)
-        self.stop_countdown(party)
+        self.interrupt(party, member)
         if party.phase == RESULTS and not any(m.in_match for m in party.members.values()):
             party.phase = FORMING
         if not party.members:
@@ -531,13 +552,18 @@ class Lobby:
             self.broadcast(party)
             return
         members = party.seats()
-        party.phase = LOADING
-        for member in members:
-            member.in_match, member.ready = True, False
-        self.broadcast(party)
+        self.to_loading([party])
         party.match = self.server.form_match(
             MODES[party.mode][0], party.reference(), [member.player for member in members],
             seats=[dict(team=member.team, builder=member.main, flags=0) for member in members], party=party)
+
+    def to_loading(self, parties):
+        """Their match forms: each party `loading`, its members in it, Ready cleared."""
+        for party in parties:
+            party.phase = LOADING
+            for member in party.members.values():
+                member.in_match, member.ready = True, False
+            self.broadcast(party)
 
     # -- connections
 
@@ -545,7 +571,7 @@ class Lobby:
         """`member`'s connection dropped without a goodbye: the row held."""
         party = member.party
         self.holds.hold(member)
-        self.stop_countdown(party)
+        self.interrupt(party, member)
         self.broadcast(party)
 
     def take_back(self, member, player):
@@ -578,7 +604,7 @@ class Lobby:
         if held:
             match, seat = held
             row = seat.member
-            if (row is not None and row.party is not None and row.party is match.party
+            if (row is not None and row.party is not None and row.party in match.parties
                     and (row.player is None or row.player is seat.player)):
                 member = row
                 if row.player is not None:
@@ -614,35 +640,40 @@ class Lobby:
     # -- the match and back
 
     def started(self, match):
-        party = match.party
-        if party and party.match is match:
-            party.phase = IN_MATCH
-            self.broadcast(party)
+        for party in match.parties:
+            if party.match is match:
+                party.phase = IN_MATCH
+                self.broadcast(party)
 
     def left_match(self, match, player):
         """A player out of its match before the end (LEAVE_MATCH, or out at
         the ceiling): back in the party's hub at once."""
         member = player.member
-        party = match.party
-        if not member or member.party is not party or not member.in_match:
+        if not member or member.party not in match.parties or not member.in_match:
             return
         member.in_match = member.ready = False
-        self.broadcast(party)
+        self.broadcast(member.party)
 
     def ended(self, match):
-        party = match.party
-        if not party or party.match is not match:
-            return
-        party.match = None
+        """Each of the match's parties on its own results plate (a match of
+        strangers from the queue has one per party), or back at once where
+        the match never played."""
         played = match.loop is not None
         finishers = set(match.finishers)
-        for member in party.ordered():
-            if member.in_match and member.player is None and self.holds.ms:
-                self.holds.arm(member)      # (held through the match: HOLD_MS from its end)
-            if member.in_match and not (played and member.player in finishers):
-                member.in_match = member.ready = False
-        party.phase = RESULTS if any(m.in_match for m in party.members.values()) else FORMING
-        self.broadcast(party)
+        for party in match.parties:
+            if party.match is not match:
+                continue
+            party.match = None
+            for member in party.ordered():
+                if member.in_match and member.player is None and self.holds.ms:
+                    self.holds.arm(member)      # (held through the match: HOLD_MS from its end)
+                if member.in_match and not (played and member.player in finishers):
+                    member.in_match = member.ready = False
+            party.phase = RESULTS if any(m.in_match for m in party.members.values()) else FORMING
+            self.broadcast(party)
+        if not played and match.end_reason == "timeout":
+            # (a strangers' match nobody loaded: dissolved, the parties requeued at the front)
+            self.queue.dissolved_unplayed(match)
 
     def back_from_results(self, member):
         """A member on the results plate of a match that ended is back."""
@@ -659,18 +690,6 @@ class Lobby:
         member = player.member
         if member and self.back_from_results(member):
             self.broadcast(member.party)
-
-    # -- the queue (M6)
-
-    def queue(self, player, fields):
-        if fields["op"] not in SPEC["queue_ops"].values():
-            raise ProtocolError("QUEUE outside its limits", protocol.ERRORS["out_of_limits"])
-        self.send(player, protocol.encode("QUEUE_STATE", state=SPEC["queue_states"]["idle"], elapsed_ms=0,
-                                          caretaker_offer=0))
-
-    def accept(self, player, fields):
-        if fields["yes"] > 1:
-            raise ProtocolError("ACCEPT outside its limits", protocol.ERRORS["out_of_limits"])
 
     async def close(self):
         for party in self.parties.values():

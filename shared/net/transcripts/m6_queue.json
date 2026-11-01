@@ -1,0 +1,1812 @@
+{
+ "transcript": "m6_queue",
+ "format": 1,
+ "protocol": 1,
+ "clients": 4,
+ "note": "The queue on a hand-moved clock (its draws from random.Random(20261101)): Tamsin alone, then Edda and Ottilie's party, then Sefa queue with open seats on; MATCH_FOUND to the four, Tamsin's accept, Sefa's decline (her party forming; the others NOTICE match_dissolved and requeued at the front), Sefa queued again, the next MATCH_FOUND, everyone's ACCEPT, each party loading, and MATCH_CONFIG with the strangers' Builders unclashed (the Lamplighter, the Lookout as Edda's backup, the Bellfounder, and the Beekeeper for Sefa, whose main and backup were both taken).",
+ "records": [
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "0102030405060708090a0b0c0d0e0f10",
+    "flags": 0,
+    "name": "Tamsin",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "WELCOME",
+   "fields": {
+    "session": 1,
+    "identity": "9452a3fceb7783a14b25458ff0c7b1ed",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PARTY",
+   "fields": {
+    "op": "create",
+    "mode": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PARTY",
+   "fields": {
+    "op": "open",
+    "on": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "QUEUE",
+   "fields": {
+    "op": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 2,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "1112131415161718191a1b1c1d1e1f20",
+    "flags": 0,
+    "name": "Edda",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "WELCOME",
+   "fields": {
+    "session": 2,
+    "identity": "466b12b8bc6e4cd5789c68a7819e22fa",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "PARTY",
+   "fields": {
+    "op": "create",
+    "mode": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "2122232425262728292a2b2c2d2e2f30",
+    "flags": 0,
+    "name": "Ottilie",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "WELCOME",
+   "fields": {
+    "session": 3,
+    "identity": "2aa8b6582816a3b75152f34785aea56a",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "PARTY",
+   "fields": {
+    "op": "join",
+    "code": "483356584d"
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 1,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "PARTY",
+   "fields": {
+    "op": "builders",
+    "main": 2,
+    "backup": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 1,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "PARTY",
+   "fields": {
+    "op": "open",
+    "on": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 1,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "PARTY",
+   "fields": {
+    "op": "ready",
+    "on": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 1,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 1,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 1,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "QUEUE",
+   "fields": {
+    "op": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 2,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 1,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 1,
+    "phase": 2,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 1,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "3132333435363738393a3b3c3d3e3f40",
+    "flags": 0,
+    "name": "Sefa",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "WELCOME",
+   "fields": {
+    "session": 4,
+    "identity": "7f76ee2fe77a7a087aa8146c2ec63bb3",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "PARTY",
+   "fields": {
+    "op": "create",
+    "mode": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "505a425242",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Sefa"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "PARTY",
+   "fields": {
+    "op": "builders",
+    "main": 1,
+    "backup": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "505a425242",
+    "mode": 1,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Sefa"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "PARTY",
+   "fields": {
+    "op": "open",
+    "on": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "505a425242",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Sefa"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "QUEUE",
+   "fields": {
+    "op": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "505a425242",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 2,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Sefa"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "ACCEPT",
+   "fields": {
+    "match": 1,
+    "yes": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "ACCEPT",
+   "fields": {
+    "match": 1,
+    "yes": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 0,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "505a425242",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Sefa"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "NOTICE",
+   "fields": {
+    "code": 4,
+    "argument": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "NOTICE",
+   "fields": {
+    "code": 4,
+    "argument": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "NOTICE",
+   "fields": {
+    "code": 4,
+    "argument": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 7000,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 7000,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 7000,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "QUEUE",
+   "fields": {
+    "op": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "505a425242",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 2,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Sefa"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "ACCEPT",
+   "fields": {
+    "match": 2,
+    "yes": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "ACCEPT",
+   "fields": {
+    "match": 2,
+    "yes": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 2,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 2,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 2,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 2,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "ACCEPT",
+   "fields": {
+    "match": 2,
+    "yes": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 3,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 3,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 3,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "seats": 4,
+    "accepted": 3,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "ACCEPT",
+   "fields": {
+    "match": 2,
+    "yes": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 3,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Tamsin"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 3,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 1,
+    "phase": 3,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     },
+     {
+      "member": 1,
+      "team": 0,
+      "main": 2,
+      "backup": 1,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "505a425242",
+    "mode": 1,
+    "flags": 1,
+    "leader": 0,
+    "you": 0,
+    "phase": 3,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Sefa"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 0,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 1,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 2,
+      "team": 0,
+      "builder": 2,
+      "flags": 0,
+      "name": "Ottilie"
+     },
+     {
+      "seat": 3,
+      "team": 0,
+      "builder": 3,
+      "flags": 0,
+      "name": "Sefa"
+     }
+    ],
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 1,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 1,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 2,
+      "team": 0,
+      "builder": 2,
+      "flags": 0,
+      "name": "Ottilie"
+     },
+     {
+      "seat": 3,
+      "team": 0,
+      "builder": 3,
+      "flags": 0,
+      "name": "Sefa"
+     }
+    ],
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 2,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 1,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 2,
+      "team": 0,
+      "builder": 2,
+      "flags": 0,
+      "name": "Ottilie"
+     },
+     {
+      "seat": 3,
+      "team": 0,
+      "builder": 3,
+      "flags": 0,
+      "name": "Sefa"
+     }
+    ],
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 2,
+    "mode": 1,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 3,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 0,
+      "flags": 0,
+      "name": "Tamsin"
+     },
+     {
+      "seat": 1,
+      "team": 0,
+      "builder": 1,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 2,
+      "team": 0,
+      "builder": 2,
+      "flags": 0,
+      "name": "Ottilie"
+     },
+     {
+      "seat": 3,
+      "team": 0,
+      "builder": 3,
+      "flags": 0,
+      "name": "Sefa"
+     }
+    ],
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 3,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 3,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 2,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 3,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 3,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 2,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 3,
+      "per_mille": 0,
+      "state": 0
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "c2s",
+   "client": 2,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "c2s",
+   "client": 3,
+   "type": "BYE",
+   "fields": {}
+  }
+ ]
+}

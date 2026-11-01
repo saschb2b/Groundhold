@@ -1,0 +1,497 @@
+{
+ "transcript": "m6_race",
+ "format": 1,
+ "protocol": 1,
+ "clients": 2,
+ "note": "Find a rival in Tide Race: Edda and Ottilie, a team of one each, MATCH_FOUND (two seats), Edda's accept, the 15 s running out (Ottilie forming, Edda NOTICE match_dissolved and at the front), the offer at 60 s, and Race the caretaker: MATCH_CONFIG with a caretaker Lookout on team 1 against hers.",
+ "records": [
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "1112131415161718191a1b1c1d1e1f20",
+    "flags": 0,
+    "name": "Edda",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "WELCOME",
+   "fields": {
+    "session": 1,
+    "identity": "466b12b8bc6e4cd5789c68a7819e22fa",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PARTY",
+   "fields": {
+    "op": "create",
+    "mode": 2
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 2,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PARTY",
+   "fields": {
+    "op": "builders",
+    "main": 1,
+    "backup": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 2,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "QUEUE",
+   "fields": {
+    "op": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 2,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 2,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "HELLO",
+   "fields": {
+    "version": 1,
+    "build_seq": 8,
+    "rules_hash": "47726f756e646831",
+    "token": "2122232425262728292a2b2c2d2e2f30",
+    "flags": 0,
+    "name": "Ottilie",
+    "match": 0,
+    "seat": 255
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "WELCOME",
+   "fields": {
+    "session": 2,
+    "identity": "2aa8b6582816a3b75152f34785aea56a",
+    "turn_ms": 50,
+    "turn_ticks": 3,
+    "hash_every": 60,
+    "flags": 0,
+    "server_name": "Groundhold",
+    "motd": "Hold the road together"
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "PARTY",
+   "fields": {
+    "op": "create",
+    "mode": 2
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 2,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "QUEUE",
+   "fields": {
+    "op": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 2,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 2,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 2,
+    "seats": 2,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 2,
+    "seats": 2,
+    "accepted": 0,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "ACCEPT",
+   "fields": {
+    "match": 1,
+    "yes": 1
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 2,
+    "seats": 2,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "MATCH_FOUND",
+   "fields": {
+    "match": 1,
+    "mode": 2,
+    "seats": 2,
+    "accepted": 1,
+    "ms_left": 15000
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 0,
+    "elapsed_ms": 0,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 1,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "483356584d",
+    "mode": 2,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 0,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 0,
+      "backup": 1,
+      "state": 0,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Ottilie"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "NOTICE",
+   "fields": {
+    "code": 4,
+    "argument": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 16000,
+    "caretaker_offer": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 1,
+   "type": "BYE",
+   "fields": {}
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "NOTICE",
+   "fields": {
+    "code": 6,
+    "argument": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "QUEUE_STATE",
+   "fields": {
+    "state": 2,
+    "elapsed_ms": 76000,
+    "caretaker_offer": 1
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "QUEUE",
+   "fields": {
+    "op": 3
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "PARTY_STATE",
+   "fields": {
+    "code": "4e394e445a",
+    "mode": 2,
+    "flags": 0,
+    "leader": 0,
+    "you": 0,
+    "phase": 3,
+    "countdown_ms": 0,
+    "members": [
+     {
+      "member": 0,
+      "team": 0,
+      "main": 1,
+      "backup": 0,
+      "state": 4,
+      "rtt_ms": 0,
+      "build_seq": 8,
+      "rules_hash": "47726f756e646831",
+      "name": "Edda"
+     }
+    ]
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "MATCH_CONFIG",
+   "fields": {
+    "match": 2,
+    "mode": 2,
+    "map": 0,
+    "seed": 20261029,
+    "rules_hash": "47726f756e646831",
+    "your_seat": 0,
+    "seats": [
+     {
+      "seat": 0,
+      "team": 0,
+      "builder": 1,
+      "flags": 0,
+      "name": "Edda"
+     },
+     {
+      "seat": 1,
+      "team": 1,
+      "builder": 1,
+      "flags": 1,
+      "name": "Caretaker 1"
+     }
+    ],
+    "flags": 0
+   }
+  },
+  {
+   "dir": "s2c",
+   "client": 0,
+   "type": "LOAD_STATE",
+   "fields": {
+    "seats": [
+     {
+      "seat": 0,
+      "per_mille": 0,
+      "state": 0
+     },
+     {
+      "seat": 1,
+      "per_mille": 0,
+      "state": 5
+     }
+    ],
+    "seconds": 0
+   }
+  },
+  {
+   "dir": "c2s",
+   "client": 0,
+   "type": "BYE",
+   "fields": {}
+  }
+ ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "race_offline_against_the_caretaker",
+  "description": "Play in Tide Race offline races the caretaker (design 1.3, 5.2): the hub's Race the caretaker opens the match scene with both hollows built from its start, my seat on the first and the mirror on the second, a caretaker with my Builder, which builds there from its plan and calls its own waves. The strip's second line follows the rival and the party strip shows both teams, mine first. Left alone my Holdfast goes under; the race is decided by its win order once the mirror has cleared the wave I fell on (it calls its waves early, so it often has), and the match ends on the race's results: 'Your Rival Outran the Tide', the rule in one line, one block per team.",
+  "seed": 1,
+  "timeout_frames": 3000,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 1},
+    {"assert": "node('HubPanel').primary_text() == 'Race the caretaker'", "msg": "Tide Race alone offline: Race the caretaker"},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait": 2},
+    {"assert": "Game.is_race() and scene.hollows_shown() == 2 and Game.sim.hollows.size() == 2 and node('Minimap').hollows == 2", "msg": "two hollows, built from the start"},
+    {"assert": "Game.sim.seats.size() == 2 and Game.sim.seat(1).team == 0 and Game.sim.seat(1).state == 0 and Game.sim.seat(2).team == 1 and Game.sim.seat(2).builder == Game.sim.seat(1).builder and Game.sim.seat(2).state == 3", "msg": "my seat, and the mirror: a caretaker with my Builder on the rival team"},
+    {"assert": "node('PartyStrip').seats_shown() == [1, 2] and node('RivalCaption') != null", "msg": "the party strip shows both teams, mine first, the rival under its caption"},
+    {"wait_until": "Game.sim.towers.size() > 0 and Game.sim.hollows[1].wave >= 1", "timeout": 600},
+    {"assert": "Game.sim.towers[0].hollow == 1 and Game.sim.towers[0].owner == 2 and scene.tower_on(Vector2i(26 + Game.sim.towers[0].x, Game.sim.towers[0].z)) != null and count('towers') == Game.sim.towers.size()", "msg": "the mirror builds on the rival's hollow, and its towers stand there"},
+    {"assert": "node('Hud').rival_line().begins_with('Rival · Wave ') and node('Hud').rival_line().contains(' · 20 lives · ')", "msg": "the strip's second line follows the rival"},
+    {"set_ticks_per_frame": 40},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 2400},
+    {"set_ticks_per_frame": 1},
+    {"wait": 2},
+    {"assert": "Game.sim.decided_by() == 'fell' and Game.outcome() == 'lost' and Game.sim.teams[0].fell_wave > 0 and Game.sim.teams[1].fell_wave == 0 and Game.sim.cleared_waves(1) >= Game.sim.teams[0].fell_wave", "msg": "decided by the fall: my Holdfast went under and the mirror cleared the wave I fell on"},
+    {"assert": "node('ResultsTitle').text == 'YOUR RIVAL OUTRAN THE TIDE' and node('ResultsRule').text == 'You fell on wave %d' % Game.sim.teams[0].fell_wave", "msg": "the race's title and the rule that decided it"},
+    {"assert": "node('ResultsPanel').team_lines().size() == 2 and node('ResultsPanel').team_lines()[0].begins_with('Your crew fell on wave ') and node('ResultsPanel').team_lines()[0].ends_with(': Sascha') and node('ResultsPanel').team_lines()[1].begins_with('Rival crew ') and node('ResultsPanel').team_lines()[1].ends_with(': Caretaker 1')", "msg": "one block per team, mine first"},
+    {"capture": "race_offline_results"}
+  ]
+}
