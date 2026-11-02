@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- The desktop game installs the way each system installs a game. Windows: `groundhold-windows-x64-setup.exe`
+  installs it for your account alone, no administrator needed, in `%LOCALAPPDATA%\Programs\Groundhold`, with a Start
+  menu entry, a desktop shortcut if you tick it and an entry in Settings > Apps whose uninstaller leaves your name,
+  Builders and settings; `groundhold-windows-x64.zip` is the same game to unpack anywhere, in one folder. macOS:
+  `groundhold-macos.dmg`, the app signed ad hoc (for itself alone; it is still not notarised) beside an Applications
+  link and a Read me with the first start's steps. Linux: `groundhold-x86_64.AppImage`, which needs no libfuse2 and
+  updates itself with AppImageUpdate or Gear Lever from its `.zsync`; `groundhold_amd64.deb`; and
+  `groundhold-linux-x64.tar.gz`, whose `install.sh` adds a menu entry for you. Each carries the game's, Godot's and
+  the fonts' licences, and the game wears the brand's holdfast knot as its icon. `groundhold-macos.zip` and
+  `groundhold-linux-x64.zip` are no longer made, so links to them stop working. The macOS app's id is now
+  `io.github.saschb2b.Groundhold`: your saves stay, but macOS asks once more before the game looks for servers on
+  your network.
 - Every release gets a page for players, `docs/releases/vX.Y.Z.md`, which the GitHub release opens with: a picture
   first, a tagline and a paragraph, a section for each change with pictures from the game (before and after where
   the screen changed, GIFs where it moves), then everything else; 0.9.0's is the first. The downloads follow it by

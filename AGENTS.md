@@ -877,58 +877,76 @@ two thirds of a second. The loop (pin, patch notes, launch, watch, triage, fix, 
 veteran, the base), `ysr` (a send-duel player), `teo` (a co-op regular) and `noa` (a fresh tester, who rotates and
 gets no game guide); each report is rated blind (`ledger.md` read only after) and audited (`auditor.md`).
 
-Releases (design §7.6 and M5; `server/README.md`, At a release, is the checklist). A tag `vX.Y.Z` runs
+Releases (design §7.6 and M5; `server/README.md`, At a release, is the checklist, and the release skill,
+`.claude/skills/release/SKILL.md`, says how a release's page and its pictures are made). A tag `vX.Y.Z` runs
 `.github/workflows/release.yml`: `gate` (`tools/release/gate.py plan`, then `check`: the tag, `project.godot`'s
 `config/version` and a dated `## X.Y.Z · YYYY-MM-DD` section of `CHANGELOG.md` agree, and `on-main`: the tag is on
 `main`, or nothing builds; a heading still `· TBD` is a release being prepared), `desktop` (Godot and its templates
 checked against Godot's `SHA512-SUMS.txt`, the `Linux`, `Windows` and `macOS` presets exported with `data/build.json`
 stamped, `Groundhold.exe` read by `pe_resources.py` for the icon and version the export writes into it, the Linux
-build booted headless by `desktop_smoke.py`, then `package.py` run in the packaging image, `packaging/Dockerfile`:
-`groundhold-windows-x64-setup.exe` (NSIS, per user) and `groundhold-windows-x64.zip` (one folder, `Groundhold/`),
-`groundhold-x86_64.AppImage` with its `.zsync`, `groundhold_amd64.deb` and `groundhold-linux-x64.tar.gz` from one install
-tree, each started or opened as its system would), `macos` (on `macos-15`: Godot's app signed ad hoc and packed as
-`groundhold-macos.dmg`, `lipo`, `codesign --verify` and `hdiutil verify`), `server-native` and `server-image` (called with the gate's commit, version and `push`;
+build booted headless by `desktop_smoke.py`; then `package.py` in the packaging image, `packaging/Dockerfile`, packs
+the Windows and Linux files below, each started or opened as its system would: the setup known as a Nullsoft
+installer with the icon and version, the zip listed, the AppImage's update information read and the AppImage's, the
+`.deb`'s and the `tar.gz`'s game booted to the hub), `macos` (on `macos-15`: Godot's app signed ad hoc and packed as
+`groundhold-macos.dmg`, then `lipo`, `codesign --verify`, the Info.plist, a headless boot, `hdiutil verify` and the
+mounted image's contents), `server-native` and `server-image` (called with the gate's commit, version and `push`;
 each server archive holds one folder, `groundhold-server-<version>-<target>/`; the image's `X.Y` and `latest` move
 only for the newest release, `deploy.py newest`), `publish` (`assemble.py`: exactly `assemble.FILES` plus
-`SHA256SUMS.txt`; the text is `release_notes.py`'s, below, and the title `Groundhold vX.Y.Z`) and, last, `deploy` (`deploy.py push` force-moves the `release`
-branch the Coolify app tracks, on a tag push only to the newest release tag, `--newest-only`, while a run by hand may
-roll back; `deploy.py coolify` calls Coolify's deploy API after a move when the `COOLIFY_*` secrets are set). Run by
-hand it is a dry run unless told otherwise: nothing published, the files kept as the `release-dry-run` artifact. Only
-GitHub and the user's session push tags, change secrets or make the ghcr package public; an agent never does.
+`SHA256SUMS.txt`; the text is `release_notes.py vX.Y.Z --dist dist`'s and the title its `--title`, below) and, last,
+`deploy` (`deploy.py push` force-moves the `release` branch the Coolify app tracks, on a tag push only to the newest
+release tag, `--newest-only`, while a run by hand may roll back; `deploy.py coolify` calls Coolify's deploy API after
+a move when the `COOLIFY_*` secrets are set). Run by hand it is a dry run unless told otherwise: nothing published,
+the files and `NOTES.md` kept as the `release-dry-run` artifact. Only GitHub and the user's session push tags, change
+secrets, make the ghcr package public or edit a published release; an agent never does.
 
+- The game's seven files (`package.py`, which `pack_windows.py`, `pack_linux.py` and `pack_macos.py` do the work
+  of): `groundhold-windows-x64-setup.exe`, an NSIS installer for the user alone (`%LOCALAPPDATA%\Programs\Groundhold`,
+  no administrator, a Start menu entry, a desktop shortcut and Start Groundhold on its Finish page, an entry in
+  Settings > Apps whose uninstaller removes only what it installed: the player's name, Builders and settings stay);
+  `groundhold-windows-x64.zip`, the same files portable under one folder, `Groundhold/`; `groundhold-macos.dmg`,
+  Godot's universal app signed ad hoc beside an Applications link and `Read me.txt`; and from one Linux install tree
+  (the `.desktop`, hicolor icons from 16 to 512 px, AppStream data with the release's line)
+  `groundhold-x86_64.AppImage` on the static runtime (no libfuse2) with its `.zsync`, its update information asking
+  this repository's newest release, `groundhold_amd64.deb` (`/usr/lib/groundhold`, a `/usr/bin/groundhold` link, a
+  DEP-5 copyright file) and `groundhold-linux-x64.tar.gz` (one folder, `Groundhold/`, whose `install.sh` adds a menu
+  entry and icons for the user and `install.sh --remove` takes them out). Each carries a `README-first.txt` for its
+  system from `tools/release/readme/` (the disk image's `Read me.txt`) and the game's, Godot's and the fonts'
+  licences. The old `groundhold-macos.zip` and `groundhold-linux-x64.zip` are gone, links to them with them.
 - `assemble.TABLE` is the one table of a release's files, each with its system and what it is (versionless names,
   so `releases/latest/download/<file>` links last): `assemble.py` checks the built files against its names
-  (`assemble.FILES`), the release's downloads list its rows, README.md, `server/README.md`, the site and the
-  `README-first.txt` templates may name only those, and the READMEs must name all of them
-  (`tools/release/test_workflows.py`). The self-host Compose pulls the image
-  `server-image.yml` pushes. Change a file's name in `assemble.py` (the game's, which `pack_*.py` take from there)
-  or `server/release.py` together; never the AppImage's or its `.zsync`'s, which installed AppImages ask the newest
-  release for.
-- The desktop packages (`package.py` and `pack_windows.py`, `pack_linux.py`, `pack_macos.py`; their sources in
-  `packaging/`, which Godot neither imports nor exports): the game's id is `io.github.saschb2b.Groundhold` (the
-  macOS bundle, the Linux `.desktop`, icons and AppStream file, the installer's registry key); the window class
-  Godot gives an exported game is the project's name, the `.desktop`'s `StartupWMClass=Groundhold`. The icons in
-  `packaging/icons/` (16 to 512 px PNGs, `groundhold.ico`, `groundhold.icns` from a 1024 px canvas) are written by
-  `python3 tools/release/app_icon.py`, which paints the brand's emblem with `art_src/ui/wordmark.py` (its favicon's
-  cut at 32 px and below; `--check` says whether they are current); the export presets embed the `.ico` in the exe
-  and the `.icns` in the app, and `project.godot`'s `config/icon` is the brand's `ui/brand/icon.png`. The Windows
-  exe's icon and version come from Godot's own export (`application/modify_resources`; the version from
-  `config/version`), never rcedit or Wine. AppImage tooling is pinned by version and SHA-256 in
-  `packaging/appimage.sh` (appimagetool 1.9.1, the static type-2 runtime: no libfuse2, `APPIMAGE_EXTRACT_AND_RUN=1`
-  without FUSE). The macOS app is signed ad hoc on the Mac, never notarised; the Gatekeeper steps stay in the
-  READMEs, the site and the disk image's `Read me.txt`.
-- A release's text (the release skill, `.claude/skills/release/SKILL.md`): its own page for players,
-  `docs/releases/vX.Y.Z.md` (listed in `docs/releases/index.md`), in Cyberworld Endless's shape: a hero picture, a
-  centred tagline and paragraph, a section a change with an emoji heading, pictures from the real game and a
-  paragraph, then "Everything else"; a player's words, no internal names. `tools/release/release_notes.py vX.Y.Z`
-  prints what GitHub shows: the page without its frontmatter and with every relative path pinned at the tag
-  (pictures raw, links to the blob view; `--ref` for a page written after its tag), else the CHANGELOG's section,
-  else it fails; then the downloads, every row of `assemble.TABLE` under its system in its own words (the one to
-  pick first marked), the browser game, the server's archives and
-  image apart, the unsigned-build help folded, the checksums (`--dist`: sizes and the sums themselves). `--title`
-  is `Groundhold vX.Y.Z`, and a page's frontmatter `stage:` adds it in brackets (none set). `--check` holds every
-  page to the rules (a tagline, alt text and a width on each picture, its pictures in `media/vX.Y.Z/` and under
-  `LIMITS`, every path there, the index); `test_release_notes.py` runs it.
+  (`assemble.FILES`), the release's downloads list its rows and nothing else, README.md, `server/README.md`, the site
+  and the `README-first.txt` templates may name only those, and the READMEs must name all of them
+  (`tools/release/test_workflows.py`). The self-host Compose pulls the image `server-image.yml` pushes. Change a
+  file's name in `assemble.py` (the game's, which `pack_*.py` take from there) or `server/release.py` together; never
+  the AppImage's or its `.zsync`'s, which installed AppImages ask the newest release for.
+- The desktop packages' sources are in `packaging/`, which Godot neither imports nor exports: the game's id is
+  `io.github.saschb2b.Groundhold` (the macOS bundle, the Linux `.desktop`, icons and AppStream file, the installer's
+  registry key); the window class Godot gives an exported game is the project's name, the `.desktop`'s
+  `StartupWMClass=Groundhold`. The icons in `packaging/icons/` (16 to 512 px PNGs, `groundhold.ico`,
+  `groundhold.icns` from a 1024 px canvas) are written by `python3 tools/release/app_icon.py`, which paints the
+  brand's emblem with `art_src/ui/wordmark.py` (its favicon's cut at 32 px and below; `--check` says whether they are
+  current); the export presets embed the `.ico` in the exe and the `.icns` in the app, and `project.godot`'s
+  `config/icon` is the brand's `ui/brand/icon.png`. The Windows exe's icon and version come from Godot's own export
+  (`application/modify_resources`; the version from `config/version`), never rcedit or Wine. AppImage tooling is
+  pinned by version and SHA-256 in `packaging/appimage.sh` (appimagetool 1.9.1, the static type-2 runtime:
+  `APPIMAGE_EXTRACT_AND_RUN=1` without FUSE). The macOS app is signed ad hoc on the Mac, never notarised, and its
+  Info.plist says why it looks on the local network; the Gatekeeper steps stay in the READMEs, the site, the disk
+  image's `Read me.txt` and the release's downloads.
+- A release's page for players, `docs/releases/vX.Y.Z.md` (listed with its tagline in `docs/releases/index.md`; for
+  a minor release, committed before the tag so its pictures are at it), in Cyberworld Endless's shape: a hero
+  picture, the tagline centred as an `<h2>`, a centred "New in X.Y.Z" paragraph, then a section a change under an
+  emoji heading, each with pictures from the real game (a before/after compare where the screen changed, a GIF where
+  it moves) and a paragraph or two, then "Everything else", which ends on the CHANGELOG; a player's words, no
+  internal names, and nothing the build does not show. 0.9.0's, the first, is "Call the next wave."; the CHANGELOG
+  keeps every detail. `tools/release/release_notes.py vX.Y.Z` prints what GitHub shows: the page without its
+  frontmatter and with every relative path pinned at the tag (pictures raw, links to the blob view; `--ref` for a
+  page written after its tag, as 0.9.0's was), else the CHANGELOG's section, else it fails; then `---` and the
+  downloads, every row of `assemble.TABLE` under its system in its own words (Windows, macOS, Linux, the one to pick
+  first marked recommended where there is a choice, the `.zsync` in small type), the browser game, the server's
+  archives and image apart, the first start of an unsigned build folded, the checksums (`--dist`: sizes and the
+  sums themselves). `--title` is `Groundhold vX.Y.Z`, and a page's frontmatter `stage:` adds it in brackets (none set).
+  `--check` holds every page to the rules (a tagline, alt text and a width on each picture, its pictures in
+  `media/vX.Y.Z/` and under `LIMITS`, every path there, the index); `test_release_notes.py` runs it.
 - A page's pictures: `tools/release/shots/vX.Y.Z/*.json`, godot-agent scenarios with a `pictures` list (a still, a
   GIF from a clip of captures, a labelled pair, or a before/after `compare`), rendered by `python3
   tools/release/pictures.py vX.Y.Z [NAMES] [--again]` with `--renderer gl_compatibility -j 1` into
@@ -940,8 +958,9 @@ GitHub and the user's session push tags, change secrets or make the ghcr package
   name rules and `data/net.json`. Change the settings and both pages together.
 - Test the release's steps: `python3 -m unittest discover -s tools/release -t tools/release` (the gate and plan, the
   packages with fake makensis, appimagetool, codesign and hdiutil and a real dpkg-deb where there is one, the icons,
-  the exe's resources, the files, the release's text and pages, the deploy against a bare repository and a fake Coolify, and the workflows' shape
-  with PyYAML). Locally, as far as GitHub's runners go: `python3 server/release.py` (the zipapp's archive,
+  the exe's resources, the files and their table, the release's text and pages, the pictures' cuts, the deploy
+  against a bare repository and a fake Coolify, and the workflows' shape with PyYAML; in the packaging image it runs
+  the real makensis too). Locally, as far as GitHub's runners go: `python3 server/release.py` (the zipapp's archive,
   smoke-tested outside the checkout); in a venv with `server/requirements-build.txt`, `server/release.py --native
   --target linux-x64`; `bash deploy/check.sh` (Docker: the image and both stacks, removed afterwards; never beside
   another Docker or Godot job); and the desktop build: `python3 tools/release/stamp.py build-json --build-seq 0`,
@@ -954,9 +973,11 @@ GitHub and the user's session push tags, change secrets or make the ghcr package
   "$PWD:/src" -w /src groundhold-packaging python3 tools/release/package.py ...`), `package.py windows
   build/desktop/windows --version 0.9.0 --out dist` and `package.py linux build/desktop/linux --version 0.9.0 --out
   dist`; `APPIMAGE_EXTRACT_AND_RUN=1 python3 tools/release/desktop_smoke.py dist/groundhold-x86_64.AppImage` boots
-  the AppImage. The disk image needs a Mac (`package.py macos`, release.yml's `macos` job). Delete `data/build.json`
-  afterwards (it is ignored by git, but a local run reads it as its build number). The export templates are Godot
-  4.7.1's (`~/.local/share/godot/export_templates/4.7.1.stable`).
+  the AppImage. The disk image needs a Mac (`package.py macos`, release.yml's `macos` job) and the server's native
+  archives their own runners (`server-native.yml`; linux-x64 the venv above): `assemble.py dist` names each one
+  missing, and `release_notes.py vX.Y.Z --dist dist` writes the text with the sizes of the files built here.
+  Delete `data/build.json` afterwards (it is ignored by git, but a local run reads it as its build number). The
+  export templates are Godot 4.7.1's (`~/.local/share/godot/export_templates/4.7.1.stable`).
 
 Assets are generated, never hand-edited: change the recipe in `art_src/models/` and rebuild with
 `godot-agent asset mesh`, or the Blender build script in `art_src/blender/` (plants, rocks, creeps) and rebuild
