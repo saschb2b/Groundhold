@@ -32,7 +32,16 @@ class CommittedIconsTest(unittest.TestCase):
         for n in app_icon.PNG_SIZES:
             self.assertEqual(png_size((app_icon.OUT / f"{n}.png").read_bytes()), (n, n), n)
         self.assertEqual(sorted(p.name for p in app_icon.OUT.iterdir()),
-                         sorted([f"{n}.png" for n in app_icon.PNG_SIZES] + [app_icon.ICO, app_icon.ICNS_NAME]))
+                         sorted([f"{n}.png" for n in app_icon.PNG_SIZES] + [app_icon.ICO, app_icon.ICNS_NAME,
+                                                                             app_icon.SIDE]))
+
+    def test_the_installers_side_picture_is_what_nsis_draws(self):
+        # (NSIS's Modern UI: a 164 x 314 BMP; BITMAPFILEHEADER, then BITMAPINFOHEADER's width, height, bits)
+        data = (app_icon.OUT / app_icon.SIDE).read_bytes()
+        self.assertEqual(data[:2], b"BM")
+        width, height = struct.unpack("<ii", data[18:26])
+        self.assertEqual((width, abs(height)), app_icon.SIDE_SIZE)
+        self.assertEqual(struct.unpack("<H", data[28:30])[0], 24, "24 bits a pixel")
 
     def test_the_ico_holds_16_to_256_px_as_png(self):
         data = (app_icon.OUT / app_icon.ICO).read_bytes()

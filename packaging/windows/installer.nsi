@@ -1,10 +1,12 @@
 ; The Windows installer, groundhold-windows-x64-setup.exe (tools/release/pack_windows.py; NSIS 3, makensis
 ; in the packaging image on Linux): for the user who runs it, no administrator, into
-; %LOCALAPPDATA%\Programs\Groundhold, with a Start menu entry, a desktop shortcut if wanted, and an
+; %LOCALAPPDATA%\Programs\Groundhold, with a Start menu entry, a desktop shortcut only if the player ticks
+; it on the Finish page (unticked at first, as the README-first and the release's downloads say), and an
 ; uninstaller in Settings > Apps. Installing again over it updates it in place. The player's name,
 ; Builders and settings live in %APPDATA%\Godot\app_userdata\Groundhold, which it never touches.
 ; pack_windows.py passes VERSION (X.Y.Z), FILEVERSION (four numbers), STAGE (the folder the portable zip
-; holds), ICON (packaging/icons/groundhold.ico) and OUT.
+; holds), ICON (packaging/icons/groundhold.ico), SIDE (packaging/icons/installer.bmp, the welcome and
+; finish pages' picture in place of NSIS's stock wizard) and OUT.
 Unicode true
 !include "MUI2.nsh"
 
@@ -33,12 +35,15 @@ VIAddVersionKey "LegalCopyright" "Copyright (c) 2026 Sascha Becker, MIT License"
 
 !define MUI_ICON "${ICON}"
 !define MUI_UNICON "${ICON}"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "${SIDE}"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "${SIDE}"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TEXT "A co-op tower defense for one to four players.$\r$\n$\r$\nGroundhold installs for your account alone: no administrator is needed. Your name, Builders and settings are kept apart from the game and stay when you uninstall it.$\r$\n$\r$\nClick Next to continue."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "Start ${NAME}"
 !define MUI_FINISHPAGE_SHOWREADME ""
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "Add a shortcut to the desktop"
+!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
 !define MUI_FINISHPAGE_SHOWREADME_FUNCTION DesktopShortcut
 
 !insertmacro MUI_PAGE_WELCOME

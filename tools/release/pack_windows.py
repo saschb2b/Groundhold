@@ -2,7 +2,7 @@
 
     groundhold-windows-x64-setup.exe   an NSIS installer (packaging/windows/installer.nsi) for the
                                        user who runs it, no administrator: %LOCALAPPDATA%\\Programs\\Groundhold,
-                                       a Start menu entry, a desktop shortcut if wanted, an entry in
+                                       a Start menu entry, a desktop shortcut if ticked, an entry in
                                        Settings > Apps whose uninstaller leaves the player's files
     groundhold-windows-x64.zip         the same files in one folder, Groundhold/, to unpack anywhere
 
@@ -26,6 +26,7 @@ EXE = "Groundhold.exe"
 FOLDER = "Groundhold"  # the zip's one folder
 NSI = common.PACKAGING / "windows" / "installer.nsi"
 ICO = common.ICONS / "groundhold.ico"
+SIDE = common.ICONS / "installer.bmp"  # the welcome and finish pages' picture (app_icon.py)
 PARTS = ("zip", "setup")
 
 
@@ -70,7 +71,8 @@ def setup_command(folder: Path, version: str, out: Path, makensis: str = "makens
     size_kb = sum(p.stat().st_size for p in folder.rglob("*") if p.is_file()) // 1024
     return [makensis, "-V2", "-INPUTCHARSET", "UTF8", f"-DVERSION={version}",
             f"-DFILEVERSION={common.file_version(version)}", f"-DSTAGE={folder.resolve()}",
-            f"-DICON={ICO.resolve()}", f"-DOUT={(out / assemble.WINDOWS_SETUP).resolve()}",
+            f"-DICON={ICO.resolve()}", f"-DSIDE={SIDE.resolve()}",
+            f"-DOUT={(out / assemble.WINDOWS_SETUP).resolve()}",
             f"-DSIZE_KB={size_kb}", str(NSI)]
 
 

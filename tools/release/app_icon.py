@@ -14,6 +14,9 @@ drawn anew.
                                   application/icon), and the installer's
     packaging/icons/groundhold.icns  16 to 1024 px: the macOS app's (Contents/Resources), the
                                   export's application/icon too
+    packaging/icons/installer.bmp    164 x 314 px: the Windows installer's welcome and finish
+                                  pages' picture (NSIS's MUI_WELCOMEFINISHPAGE_BITMAP), the
+                                  emblem at 128 px on the favicon's dark stone under a gilt rule
 
 At 32 px and below a system is given the brand's small cut, the favicon's (2, 3) knot with a
 band near twice as thick, which the brand made because the emblem's (3, 4) knot blurs to a ring
@@ -44,6 +47,13 @@ ICNS = (("icp4", 16), ("icp5", 32), ("ic11", 32), ("ic12", 64), ("ic07", 128), (
 SMALL = 32  # at this size and below, the favicon's cut
 ICO = "groundhold.ico"
 ICNS_NAME = "groundhold.icns"
+# the installer's side picture: NSIS's Modern UI draws it at 164 x 314, a 24-bit BMP, left of the
+# welcome and finish pages' words (its own stock picture, a blue wizard, where there is none)
+SIDE = "installer.bmp"
+SIDE_SIZE = (164, 314)
+SIDE_EMBLEM = 128
+SIDE_STONE = ("#2b251f", "#110d0a")  # the favicon's stone, top to bottom, darker below the emblem
+SIDE_GILT = "#b98a3e"  # the favicon's rim
 
 
 def sizes() -> list[int]:
@@ -94,12 +104,36 @@ def icns(pngs: dict[int, bytes]) -> bytes:
     return b"icns" + struct.pack(">I", 8 + len(body)) + body
 
 
+def side(emblem) -> bytes:
+    """The installer's side picture: the stone's gradient, the emblem in its upper part and a short
+    gilt rule under it, as a 24-bit BMP."""
+    from PIL import Image, ImageDraw
+
+    width, height = SIDE_SIZE
+    top, bottom = (tuple(int(c[i:i + 2], 16) for i in (1, 3, 5)) for c in SIDE_STONE)
+    picture = Image.new("RGB", SIDE_SIZE)
+    draw = ImageDraw.Draw(picture)
+    for y in range(height):
+        t = y / (height - 1)
+        draw.line([(0, y), (width - 1, y)], fill=tuple(round(a + (b - a) * t) for a, b in zip(top, bottom)))
+    if emblem.size != (SIDE_EMBLEM, SIDE_EMBLEM):
+        raise ValueError(f"the emblem is {emblem.size}, not {SIDE_EMBLEM} px")
+    x, y = (width - SIDE_EMBLEM) // 2, 58
+    picture.paste(emblem, (x, y), emblem)
+    rule = y + SIDE_EMBLEM + 16
+    draw.line([(width // 2 - 36, rule), (width // 2 + 36, rule)], fill=SIDE_GILT, width=1)
+    data = io.BytesIO()
+    picture.save(data, format="BMP")
+    return data.getvalue()
+
+
 def files(images: dict) -> dict[str, bytes]:
     """packaging/icons/'s files by name."""
     pngs = {n: png(img) for n, img in images.items()}
     out = {f"{n}.png": pngs[n] for n in PNG_SIZES}
     out[ICO] = ico(pngs)
     out[ICNS_NAME] = icns(pngs)
+    out[SIDE] = side(images[SIDE_EMBLEM])
     return out
 
 
@@ -147,7 +181,7 @@ def differences(out: Path, made: dict[str, bytes]) -> list[str]:
             wrong.append(f"{name} is missing")
             continue
         have = path.read_bytes()
-        if name.endswith(".png"):
+        if name.endswith((".png", ".bmp")):
             if not same_pixels(have, data):
                 wrong.append(f"{name} differs")
             continue

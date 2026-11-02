@@ -901,7 +901,8 @@ secrets, make the ghcr package public or edit a published release; an agent neve
 
 - The game's seven files (`package.py`, which `pack_windows.py`, `pack_linux.py` and `pack_macos.py` do the work
   of): `groundhold-windows-x64-setup.exe`, an NSIS installer for the user alone (`%LOCALAPPDATA%\Programs\Groundhold`,
-  no administrator, a Start menu entry, a desktop shortcut and Start Groundhold on its Finish page, an entry in
+  no administrator, a Start menu entry, on its Finish page a desktop shortcut left unticked and Start Groundhold, the
+  brand's emblem beside its welcome and finish pages (`packaging/icons/installer.bmp`, `app_icon.py`'s), an entry in
   Settings > Apps whose uninstaller removes only what it installed: the player's name, Builders and settings stay);
   `groundhold-windows-x64.zip`, the same files portable under one folder, `Groundhold/`; `groundhold-macos.dmg`,
   Godot's universal app signed ad hoc beside an Applications link and `Read me.txt`; and from one Linux install tree
@@ -923,7 +924,7 @@ secrets, make the ghcr package public or edit a published release; an agent neve
   `io.github.saschb2b.Groundhold` (the macOS bundle, the Linux `.desktop`, icons and AppStream file, the installer's
   registry key); the window class Godot gives an exported game is the project's name, the `.desktop`'s
   `StartupWMClass=Groundhold`. The icons in `packaging/icons/` (16 to 512 px PNGs, `groundhold.ico`,
-  `groundhold.icns` from a 1024 px canvas) are written by `python3 tools/release/app_icon.py`, which paints the
+  `groundhold.icns` from a 1024 px canvas, the installer's 164 x 314 `installer.bmp`) are written by `python3 tools/release/app_icon.py`, which paints the
   brand's emblem with `art_src/ui/wordmark.py` (its favicon's cut at 32 px and below; `--check` says whether they are
   current); the export presets embed the `.ico` in the exe and the `.icns` in the app, and `project.godot`'s
   `config/icon` is the brand's `ui/brand/icon.png`. The Windows exe's icon and version come from Godot's own export

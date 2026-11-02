@@ -69,6 +69,7 @@ class PackWindowsTest(unittest.TestCase):
         self.assertEqual(defines["FILEVERSION"], "1.2.3.0")
         self.assertEqual(Path(defines["STAGE"]), (self.root / "work" / "Groundhold").resolve())
         self.assertEqual(Path(defines["ICON"]), (package.ICONS / "groundhold.ico").resolve())
+        self.assertEqual(Path(defines["SIDE"]), (package.ICONS / "installer.bmp").resolve())
         self.assertEqual(Path(defines["OUT"]), (self.root / "dist" / assemble.WINDOWS_SETUP).resolve())
         self.assertGreater(int(defines["SIZE_KB"]), 0)
         self.assertEqual(args[-1], str(pack_windows.NSI))
@@ -117,6 +118,17 @@ class InstallerScriptTest(unittest.TestCase):
         self.assertIn('!define MUI_FINISHPAGE_RUN "$INSTDIR\\${EXE}"', self.code)
         self.assertIn("!define MUI_FINISHPAGE_SHOWREADME_FUNCTION DesktopShortcut", self.code)
         self.assertIn('CreateShortcut "$DESKTOP\\${NAME}.lnk"', self.code)
+
+    def test_the_desktop_shortcut_waits_for_a_tick(self):
+        # (README-first and the release's downloads say "if you tick it": NSIS ticks the Finish page's
+        # second box unless told not to; the packages' review found it ticked under Wine)
+        self.assertIn("!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED", self.code)
+        self.assertNotIn("MUI_FINISHPAGE_RUN_NOTCHECKED", self.code, "Start Groundhold stays ticked")
+
+    def test_the_welcome_and_finish_pages_wear_the_brand(self):
+        # (without these NSIS draws its stock blue wizard there)
+        self.assertIn('!define MUI_WELCOMEFINISHPAGE_BITMAP "${SIDE}"', self.code)
+        self.assertIn('!define MUI_UNWELCOMEFINISHPAGE_BITMAP "${SIDE}"', self.code)
 
     def test_it_lists_itself_in_settings_apps(self):
         install = self.section("install")
