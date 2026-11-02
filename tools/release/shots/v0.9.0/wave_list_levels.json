@@ -1,12 +1,12 @@
 {
   "name": "wave_list_levels",
   "scene": "res://scenes/main.tscn",
-  "description": "0.9.0's levels in the match (release page, Hard and Very Hard): High Water, the Lamplighter alone, in the first build window; the waves to come hovered, at Normal and then at Very Hard, each creep's health and armour at the level played (Very Hard: creeps 15% more health, the Bristlesow and the Crest 55% more and 1 more armour, 10 lives).",
+  "description": "0.9.0's levels in the match (release page, Hard and Very Hard): High Water, the Lamplighter alone, in the first build window; the waves to come hovered, at Normal and then at Very Hard, each creep's health and armour at the level played (Very Hard: creeps 15% more health, the Bristlesow and the Crest 55% more and 1 more armour, 10 lives). The picture is the rows of waves 6 and 12, the two bosses', Normal's over Very Hard's.",
   "seed": 1,
   "draw_only_captures": true,
   "timeout_frames": 900,
   "pictures": [
-    {"out": "wave-list-levels.webp", "pair": ["list_normal", "list_very_hard"], "labels": ["Normal", "Very Hard"], "crop": [716, 0, 1270, 368], "layout": "stack"}
+    {"out": "wave-list-levels.webp", "pair": ["list_normal", "list_very_hard"], "labels": ["Normal", "Very Hard"], "crops": [[716, 196, 1270, 218], [716, 335, 1270, 357]], "layout": "stack"}
   ],
   "steps": [
     {"wait": 2},

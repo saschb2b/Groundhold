@@ -1,12 +1,12 @@
 {
   "name": "duel_breach",
   "scene": "res://scenes/main.tscn",
-  "description": "0.9.0's sends that bite (release page, Undertow): a duel on Undertow's own rules, me a Lamplighter defending with her plan, a caretaker Lamplighter the rival. In window 2 I cork the Moth Cloud (fliers, which the Lamplighter is weak to) with a click on the Drift tray, say Ready, and uncork it with Space once I may; nothing else is staged. My four Duskmoths fly the rival's road among its own wave 2; the camera on the rival's hollow (V), the moment the first of them reaches its Holdfast: 'Breach · +N gold', the duel bar counting my breach.",
+  "description": "0.9.0's sends that bite (release page, Undertow): a duel on Undertow's own rules, me a Lamplighter defending with her plan, a caretaker Lamplighter the rival. In window 2 I cork the Moth Cloud (fliers, which the Lamplighter is weak to) with a click on the Drift tray, say Ready, and uncork it with Space once I may; nothing else is staged. My four Duskmoths fly the rival's road among its own wave 2; the camera on the rival's hollow (V), then framed on its Holdfast (left of it and nearer, 9 units out), the moment the first of them has reached it: the other three, each carrying its bottle, at the Holdfast, and the duel bar counting my breach. The picture is the Holdfast with the duel bar above it.",
   "seed": 1,
   "draw_only_captures": true,
   "timeout_frames": 9000,
   "pictures": [
-    {"out": "duel-breach.webp", "capture": "breach", "crop": [520, 0, 1280, 612]}
+    {"out": "duel-breach.webp", "capture": "breach", "crop": [500, 36, 1272, 436]}
   ],
   "steps": [
     {"wait": 2},
@@ -31,6 +31,9 @@
     {"repeat": 4000, "steps": [{"wait": 1}], "until": "Game.sim.breach_dealt(0) > 0 or resource('res://tests/ui/duel_stage.gd').sent_creeps(1).is_empty()"},
     {"assert": "Game.sim.breach_dealt(0) > 0 and scene.camera.viewing() == 1", "msg": "my Moth Cloud broke through, seen on the rival's hollow"},
     {"wait": 8},
+    {"eval": "scene.camera.look_from(scene._holdfast_at(1) + Vector3(-2.0, 0, 1.0), 9.0)"},
+    {"wait": 1},
+    {"assert": "scene.camera.viewing() == 1 and resource('res://tests/ui/duel_stage.gd').sent_creeps(1).size() == 3", "msg": "the rival's Holdfast framed, my other three Duskmoths at it"},
     {"capture": "breach"}
   ]
 }

@@ -935,27 +935,34 @@ secrets, make the ghcr package public or edit a published release; an agent neve
   `APPIMAGE_EXTRACT_AND_RUN=1` without FUSE). The macOS app is signed ad hoc on the Mac, never notarised, and its
   Info.plist says why it looks on the local network; the Gatekeeper steps stay in the READMEs, the site, the disk
   image's `Read me.txt` and the release's downloads.
-- A release's page for players, `docs/releases/vX.Y.Z.md` (listed with its tagline in `docs/releases/index.md`; for
-  a minor release, committed before the tag so its pictures are at it), in Cyberworld Endless's shape: a hero
-  picture, the tagline centred as an `<h2>`, a centred "New in X.Y.Z" paragraph, then a section a change under an
-  emoji heading, each with pictures from the real game (a before/after compare where the screen changed, a GIF where
-  it moves) and a paragraph or two, then "Everything else", which ends on the CHANGELOG; a player's words, no
-  internal names, and nothing the build does not show. 0.9.0's, the first, is "Call the next wave."; the CHANGELOG
-  keeps every detail. `tools/release/release_notes.py vX.Y.Z` prints what GitHub shows: the page without its
-  frontmatter and with every relative path pinned at the tag (pictures raw, links to the blob view; `--ref` for a
-  page written after its tag, as 0.9.0's was), else the CHANGELOG's section, else it fails; then `---` and the
-  downloads, every row of `assemble.TABLE` under its system in its own words (Windows, macOS, Linux, the one to pick
-  first marked recommended where there is a choice, the `.zsync` in small type), the browser game, the server's
-  archives and image apart, the first start of an unsigned build folded, the checksums (`--dist`: sizes and the
-  sums themselves). `--title` is `Groundhold vX.Y.Z`, and a page's frontmatter `stage:` adds it in brackets (none set).
-  `--check` holds every page to the rules (a tagline, alt text and a width on each picture, its pictures in
-  `media/vX.Y.Z/` and under `LIMITS`, every path there, the index); `test_release_notes.py` runs it.
+- A release's page for players, `docs/releases/vX.Y.Z.md` (listed with its tagline in `docs/releases/index.md`; for a
+  minor release, committed before the tag so its pictures are at it), in Cyberworld Endless's shape: a hero picture,
+  the tagline centred as an `<h2>`, a centred two-sentence "New in X.Y.Z", the `<!-- downloads -->` line, then a
+  section a change under an emoji heading, each with pictures from the real game (a before/after compare cropped to
+  the change, a GIF where it moves) and a paragraph or two, then "Everything else", which ends on the CHANGELOG; a
+  player's words (no internal names, nor the team's shorthand: "call early", not "stack"; the creep types, not
+  "checks"), short, and nothing the build does not show. 0.9.0's, the first, is "Three waves on the road."; the
+  CHANGELOG keeps every detail. `tools/release/release_notes.py vX.Y.Z` prints what GitHub shows: the page without its
+  frontmatter and with every relative path pinned at the tag (pictures raw, links to the blob view; `--ref` for a page
+  written after its tag, as 0.9.0's was), its `<!-- downloads -->` a centred line of direct links (each system's file
+  to pick first, the browser game), else the CHANGELOG's section, else it fails; then `---` and the downloads of the
+  files the release attaches, `assemble.table_for(version)` (`TABLE`, or `ZIPS` for 0.6.0 to 0.9.0, whose one zip a
+  system v0.9.0's GitHub release still holds): by system the one to pick first in bold with its size and words, the
+  others on an "Also:" line, the `.zsync` linked in the AppImage's words; then folded the help for an unsigned build
+  (the steps without Terminal first), the server's archives and image (with the page's frontmatter `hosts:` line) and
+  the checksums. `--dist` adds sizes and the sums; `--assets` (`gh release view vX.Y.Z --json assets`) does it for a
+  release already published and fails unless it attaches exactly its table's files. `--title` is `Groundhold vX.Y.Z`,
+  and a page's frontmatter `stage:` adds it in brackets (none set). `--check` holds every page to the rules (a
+  tagline, the downloads line, alt text and a width on each picture, its pictures in `media/vX.Y.Z/` and under
+  `LIMITS`, every path there, the index); `test_release_notes.py` runs it.
 - A page's pictures: `tools/release/shots/vX.Y.Z/*.json`, godot-agent scenarios with a `pictures` list (a still, a
-  GIF from a clip of captures, a labelled pair, or a before/after `compare`), rendered by `python3
-  tools/release/pictures.py vX.Y.Z [NAMES] [--again]` with `--renderer gl_compatibility -j 1` into
+  GIF from a clip of captures with its last frame held, a labelled pair, a before/after `compare`, or a compare of
+  several captures a version, each its own crop, one row a version; `crops` stacks regions of one capture), rendered
+  by `python3 tools/release/pictures.py vX.Y.Z [NAMES] [--again]` with `--renderer gl_compatibility -j 1` into
   `docs/releases/media/vX.Y.Z/`; a compare runs the same scenario (its `before` keys laid over it) on a worktree of
   the previous tag in `.build/before/<tag>/`, imported once, and pastes old beside new under their versions in the
-  game's font. Staged only through the logged setters, and only to reach a moment the game reaches itself.
+  game's font. Staged only through the logged setters, only to reach a moment the game reaches itself (0.9.0's race
+  is played by the plan bot to 3:00 before its lives are set), and the people in them are personas (Edda, Ana).
 - The official server's policy is `server/README.md`'s The official server and `web/policy.html` (published beside
   the site's `index.html`); `server/tests/test_policy.py` holds both to `deploy/coolify/server.ini`, the kick and
   name rules and `data/net.json`. Change the settings and both pages together.

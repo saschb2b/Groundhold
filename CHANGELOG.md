@@ -15,13 +15,15 @@
   `io.github.saschb2b.Groundhold`: your saves stay, but macOS asks once more before the game looks for servers on
   your network.
 - Every release gets a page for players, `docs/releases/vX.Y.Z.md`, which the GitHub release opens with: a picture
-  first, a tagline and a paragraph, a section for each change with pictures from the game (before and after where
-  the screen changed, GIFs where it moves), then everything else; 0.9.0's is the first. The downloads follow it by
-  system, the one to pick first marked, the browser game, the server's archives and image apart, the help for an
-  unsigned build folded, and the checksums. `tools/release/release_notes.py` builds the release's text and title
-  (the page pinned at the tag, else the CHANGELOG's section) and checks every page; `tools/release/pictures.py`
-  renders the pictures from scenarios in `tools/release/shots/vX.Y.Z/`, comparing against a worktree of the release
-  before; the release skill (`.claude/skills/release/`) says how a page is written.
+  first, a tagline and two sentences with a line of direct downloads under them, a section for each change with
+  pictures from the game (before and after where the screen changed, GIFs where it moves), then everything else;
+  0.9.0's is the first. The downloads follow it by system, the file to pick first in bold with its size and the
+  others under it, the help for a build no system knows the publisher of right after them, and folded the server's
+  archives and image and the checksums; a release lists the files it really attaches, so 0.9.0's page downloads its
+  zips. `tools/release/release_notes.py` builds the release's text and title (the page pinned at the tag, else the
+  CHANGELOG's section) and checks every page; `tools/release/pictures.py` renders the pictures from scenarios in
+  `tools/release/shots/vX.Y.Z/`, comparing against a worktree of the release before; the release skill
+  (`.claude/skills/release/`) says how a page is written.
 
 ## 0.9.0 · 2026-11-02
 

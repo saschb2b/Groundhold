@@ -1,13 +1,12 @@
 {
   "name": "fork_pass",
   "scene": "res://scenes/main.tscn",
-  "description": "0.9.0's fork pass (release page, Every fork a choice): High Water, the Beekeeper alone, an Apiary of hers on (7, 11) in the first window, selected; the card's fork branches hovered, Q the Royal Apiary and W the Queen's Guard, in 0.8.0 (left) and this build. The same steps run on both builds.",
+  "description": "0.9.0's fork pass (release page, Every fork a choice): High Water, the Beekeeper alone, an Apiary of hers on (7, 11) in the first window, selected; the card's fork branches hovered, Q the Royal Apiary and W the Queen's Guard, each tooltip cut to itself, 0.8.0's pair above this build's. The same steps run on both builds.",
   "seed": 1,
   "draw_only_captures": true,
   "timeout_frames": 900,
   "pictures": [
-    {"out": "compare-royal-apiary.webp", "compare": "royal_tip", "crop": [972, 392, 1272, 716]},
-    {"out": "compare-queens-guard.webp", "compare": "guard_tip", "crop": [972, 392, 1272, 716]}
+    {"out": "compare-apiary-forks.webp", "compare": [{"capture": "royal_tip", "crop": [976, 496, 1270, 574]}, {"capture": "guard_tip", "crop": [976, 392, 1270, 574]}]}
   ],
   "steps": [
     {"wait": 2},

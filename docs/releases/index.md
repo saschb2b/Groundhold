@@ -5,4 +5,4 @@ release opens with its page and adds the downloads (`tools/release/release_notes
 its [CHANGELOG](../../CHANGELOG.md) section instead, which keeps every detail. How a page and its pictures are made is
 [the release skill](../../.claude/skills/release/SKILL.md).
 
-- [Groundhold 0.9.0](v0.9.0.md): Call the next wave.
+- [Groundhold 0.9.0](v0.9.0.md): Three waves on the road.

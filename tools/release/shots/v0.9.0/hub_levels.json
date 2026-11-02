@@ -1,17 +1,16 @@
 {
   "name": "hub_levels",
-  "description": "0.9.0's levels in the hub (release page, Hard and Very Hard): offline, a party of one, High Water. Beside the mode line Normal · Hard · Very Hard; a click on Hard lights it and the mode line names it, as 0.8.0's line (left) never could. Then Very Hard hovered: its tooltip says what it changes. The old build has no words to click, so its steps only open the hub.",
+  "description": "0.9.0's levels in the hub (release page, Hard and Very Hard): offline, a party of one, High Water. Beside the mode line Normal · Hard · Very Hard; a click on Hard lights it and the mode line names it, as 0.8.0's line (above) never could; the picture is the mode line alone, at its own size. Then Very Hard hovered: its tooltip says what it changes, as the page's table does. The old build has no words to click, so its steps only open the hub.",
   "seed": 1,
   "draw_only_captures": true,
   "timeout_frames": 900,
   "user_files": {"net.cfg": "[identity]\ntoken=\"00200000000000000000000000000000\"\n"},
   "pictures": [
-    {"out": "compare-hub-levels.webp", "compare": "hub_mode", "crop": [548, 616, 1088, 716], "layout": "stack"},
-    {"out": "hub-very-hard-tip.webp", "capture": "very_hard_tip", "crop": [380, 616, 1088, 716]}
+    {"out": "compare-hub-levels.webp", "compare": "hub_mode", "crop": [548, 690, 1016, 714], "layout": "stack"}
   ],
   "steps": [
     {"wait": 3},
-    {"set": "node('NameField').text", "value": "Sascha"},
+    {"set": "node('NameField').text", "value": "Edda"},
     {"key": "Enter"},
     {"wait": 2},
     {"set": "node('Causeway').drift", "value": 40.0},
@@ -23,13 +22,12 @@
     {"capture": "hub_mode"},
     {"hover": "node('Level_very_hard')"},
     {"wait": 40},
-    {"assert": "node('Level_very_hard').tooltip_text == 'Very Hard: creeps have 15% more health, the bosses 55% more and 1 more armour; 10 lives'", "msg": "Very Hard's tooltip"},
-    {"capture": "very_hard_tip"}
+    {"assert": "node('Level_very_hard').tooltip_text == 'Very Hard: creeps have 15% more health, the bosses 55% more and 1 more armour; 10 lives'", "msg": "Very Hard's tooltip"}
   ],
   "before": {
     "steps": [
       {"wait": 3},
-      {"set": "node('NameField').text", "value": "Sascha"},
+      {"set": "node('NameField').text", "value": "Edda"},
       {"key": "Enter"},
       {"wait": 2},
       {"set": "node('Causeway').drift", "value": 40.0},
