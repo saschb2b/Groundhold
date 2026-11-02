@@ -152,3 +152,11 @@ smaller blocks' rounding); B, D and E differ where their notes had been lost (E 
 Waiting for the owner: the theme by ear (`.build/music/causeway_theme.mp3`, and with the bed under it,
 `causeway_theme_with_ambience.mp3` and `_twice.mp3` for the seam); then F4 places it (SKILL.md, Placing the hub's
 music).
+
+The owner's ear (2 November 2026), asked whether the theme is good enough to grow the next pieces from: "Yes, make
+the next".
+
+What it teaches: the hub's theme is approved (gate 5 met for it), and its score (`pieces/causeway.py`'s call, tune
+and flats, and `causeway_theme.py`'s close) is now the source every other front-end piece grows from, as the
+theme's middle grew from C. The loop the owner approved is the one rendered whole (after the lost-note fix); he has
+not said whether he wants Warcraft III's gap between loops, so the file stays gapless.

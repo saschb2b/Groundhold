@@ -132,8 +132,9 @@ could not check (the music by ear).
 ## Placing the hub's music (F4)
 
 The front end's F4 (front-end.md §4.6 and §7) wires the hub's sound in, after the switch-over; nothing here does it
-before then. The theme is `pieces/causeway_theme.py` (grown from sketch E, the owner's pick of 2 November 2026), the
-bed `ambience.py`'s. What F4 does with them, once the owner has heard the theme and said it ships (gate 5):
+before then. The theme is `pieces/causeway_theme.py` (grown from sketch E, the owner's pick of 2 November 2026),
+**approved by the owner on 2 November 2026** ("Yes, make the next": gate 5 met for the theme; lessons.md), the bed
+`ambience.py`'s (not yet heard on its own by him). What F4 does with them:
 
 - **Files.** Render the theme and a bed of its length into the project as `music/causeway_theme.ogg` and
   `music/causeway_ambience.ogg` (48 kHz stereo Ogg Vorbis, quality 6: the renders' own OGGs), each recorded in
