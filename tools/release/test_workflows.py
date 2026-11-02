@@ -1,6 +1,7 @@
 """What a release depends on, read from the files themselves: the export presets (three desktop
-presets beside Web, the data and contract files in, the server, deploy files and tests out, macOS
-universal and unsigned), and release.yml and pages.yml as GitHub would run them (the gate before any
+presets beside Web, the data and contract files in, the server, deploy files, tests and packaging out,
+the brand's icon and the game's id in the Windows exe and the macOS app, macOS universal and left for
+the Mac to sign), and release.yml and pages.yml as GitHub would run them (the gate before any
 build, every job on the gate's commit, every preset it exports and template it needs, the server's
 workflows by path with the inputs they declare, the artifacts the release downloads, the deploy last,
 Pages numbering its build and publishing the policy page); and across the repository, that the pages
@@ -28,6 +29,7 @@ import deploy as deploy_tool
 import package
 
 ROOT = Path(__file__).resolve().parents[2]
+GAME_ID = "io.github.saschb2b.Groundhold"  # the macOS bundle, the Linux packages, the installer (package.APP_ID)
 try:
     import yaml
 except ImportError:  # (the release's own runner has it; the tests below say so when skipped)
@@ -73,7 +75,7 @@ class PresetsTest(unittest.TestCase):
         for name, preset in presets().items():
             include, exclude = filters(preset["include_filter"]), filters(preset["exclude_filter"])
             self.assertTrue({"data/*.json", "shared/net/*.json", "data/*.txt"} <= include, name)
-            self.assertTrue({"server/*", "deploy/*", "tests/*", "tools/*", "docs/*", "art_src/*",
+            self.assertTrue({"server/*", "deploy/*", "tests/*", "tools/*", "docs/*", "art_src/*", "packaging/*",
                              "shared/net/transcripts/*"} <= exclude, name)
 
     def test_desktop_builds_are_single_files_where_they_can_be(self):
@@ -83,18 +85,36 @@ class PresetsTest(unittest.TestCase):
         for name in ("Linux", "Windows"):
             self.assertEqual(found[name]["options"]["binary_format/embed_pck"], "true", name)
 
-    def test_macos_is_universal_and_unsigned(self):
+    def test_macos_is_universal_with_the_games_id_and_left_for_the_mac_to_sign(self):
         mac = presets()["macOS"]["options"]
         self.assertEqual(mac["binary_format/architecture"], "universal")
-        self.assertEqual(mac["codesign/codesign"], "0", "code signing off: an unsigned app (README-first.txt)")
+        # (Godot signs nothing: the macOS job signs the app ad hoc with Apple's codesign, pack_macos.py)
+        self.assertEqual(mac["codesign/codesign"], "0")
         self.assertEqual(mac["notarization/notarization"], "0", "notarisation off")
-        self.assertEqual(mac["application/bundle_identifier"], "com.saschb2b.groundhold")
+        self.assertEqual(mac["application/bundle_identifier"], GAME_ID)
+        self.assertEqual(mac["application/icon"], "res://packaging/icons/groundhold.icns")
+        self.assertTrue((ROOT / "packaging/icons/groundhold.icns").is_file())
+        plist = mac["application/additional_plist_content"]
+        self.assertIn("<key>LSMinimumSystemVersion</key><string>10.13</string>", plist)
+        self.assertEqual(mac["application/min_macos_version_x86_64"], "10.13", "the lowest of the two")
+        self.assertIn("<key>NSLocalNetworkUsageDescription</key>", plist, "macOS 15 asks before Nearby looks")
+        self.assertEqual(mac["display/high_res"], "true", "NSHighResolutionCapable")
+        self.assertEqual(mac["application/app_category"], "Games")
         project = (ROOT / "project.godot").read_text(encoding="utf-8")
         self.assertIn("textures/vram_compression/import_etc2_astc=true", project,
                       "Godot exports universal (arm64) macOS only with ETC2/ASTC imported")
 
-    def test_windows_is_unsigned(self):
-        self.assertEqual(presets()["Windows"]["options"]["codesign/enable"], "false")
+    def test_windows_carries_the_icon_and_version_and_is_unsigned(self):
+        win = presets()["Windows"]["options"]
+        self.assertEqual(win["codesign/enable"], "false")
+        # (Godot 4.7 rewrites the exe's resources itself, on any system: no rcedit, no Wine)
+        self.assertEqual(win["application/modify_resources"], "true")
+        self.assertEqual(win["application/icon"], "res://packaging/icons/groundhold.ico")
+        self.assertTrue((ROOT / "packaging/icons/groundhold.ico").is_file())
+        for key in ("application/file_version", "application/product_version"):
+            self.assertEqual(win[key], "", f"{key}: empty, so project.godot's config/version (pe_resources.py)")
+        self.assertEqual(win["application/product_name"], "Groundhold")
+        self.assertEqual(win["application/company_name"], "Sascha Becker")
 
 
 @unittest.skipIf(yaml is None, "needs PyYAML")
