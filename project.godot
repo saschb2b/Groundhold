@@ -15,7 +15,7 @@ config/description="A tower defense: Builders from every shore hold one another'
 config/version="0.9.0"
 run/main_scene="res://scenes/hub.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
-config/icon="res://ui/icons/arrow_tower.png"
+config/icon="res://ui/brand/icon.png"
 
 [autoload]
 

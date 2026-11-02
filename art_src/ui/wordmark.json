@@ -1,0 +1,7 @@
+{
+  "seed": 5,
+  "wordmark": {"text": "GROUNDHOLD", "font": "fonts/NotoSerifDisplay-Bold.ttf", "cap": 56, "tracking": 0.11,
+               "out_height": 96},
+  "knot": {"p": 3, "q": 4, "R": 1.0, "r": 0.46, "band": 0.15, "gap": 0.05, "samples": 2400, "fill": 0.74},
+  "emblem": {"size": 512}
+}
