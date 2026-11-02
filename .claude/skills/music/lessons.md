@@ -186,4 +186,7 @@ eighth early and the A releases half a beat before the loop returns, a breath; a
 it is asked to come back; a queue whose call is only ever far off reads its distant statements as the tune; the
 sting's harp run sat over the violins' call until brought down.
 
-Waiting for the owner: the three by ear, alone and handed over.
+The owner's verdict on 2 November 2026, after hearing the three handed over from the hub: "Yes, keep them". The
+queue, Match Found and Loading are approved as they are; with the hub's theme they are the front end's music set
+for F4. What it teaches: growing every state from one approved score, and letting the owner hear the handover as
+the game will play it, made the set land in one round.
