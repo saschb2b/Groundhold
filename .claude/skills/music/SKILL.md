@@ -48,6 +48,7 @@ refused there.
 | The pieces and the sketches; what the Causeway's share (the call) | `art_src/music/pieces/` |
 | The Causeway's ambience bed, a seamless loop | `art_src/music/ambience.py` |
 | The UI cues from the palette (beside `art_src/sfx/sfx.py`'s synthesized bells) | `art_src/music/cues.py`, `cues.json` |
+| A sketch round in one go: render and check the sketches (and the bed, the cues), draft the gate report | `scripts/sketch_round.py SKETCH ... [--ambience] [--cues]` |
 | The rules, with their sources | `music_rules.md` |
 | What each round taught | `lessons.md` |
 
