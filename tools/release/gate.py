@@ -10,16 +10,15 @@ it is, and only with its notes written and dated.
                                                     # and CHANGELOG.md has a "## X.Y.Z · YYYY-MM-DD"
                                                     # section with text in it (--dry-run: a heading
                                                     # without its date only warns)
-    python3 tools/release/gate.py notes v1.0.0      # the release's notes: that section, then what
-                                                    # each file is and how to start it
-    python3 tools/release/gate.py version           # project.godot's config/version
+    python3 tools/release/gate.py version          # project.godot's config/version
     python3 tools/release/gate.py on-main <commit> origin/main
                                                     # exit 1 unless the commit is on main (a
                                                     # release is a tag on main; --dry-run warns)
 
-release.yml runs `plan` and `check` before it builds anything and `notes` for the GitHub release.
-A pushed tag is published. A run by hand is a dry run unless dry_run is false, which needs an
-existing tag; a dry run without a tag releases nothing at project.godot's version. The CHANGELOG's
+release.yml runs `plan` and `check` before it builds anything; the GitHub release's text is
+tools/release/release_notes.py's (the release's page, else this section). A pushed tag is
+published. A run by hand is a dry run unless dry_run is false, which needs an existing tag; a dry
+run without a tag releases nothing at project.godot's version. The CHANGELOG's
 headings read "## 1.0.0 · 2026-11-02": the version, then anything after a space, which must hold
 the release's date; "## 0.6.0 · TBD" is a release being prepared. `--root` points it at another
 tree (its tests do). Python 3.11 or newer, standard library only.
@@ -32,13 +31,9 @@ import re
 import subprocess
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import assemble  # noqa: E402
-
 ROOT = Path(__file__).resolve().parents[2]
 TAG = re.compile(r"v(\d+\.\d+\.\d+)")
 DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
-REPOSITORY = "https://github.com/saschb2b/Groundhold"
 
 
 class GateError(Exception):
@@ -130,39 +125,6 @@ def plan(environ, root: Path) -> dict:
     return {"tag": tag, "version": version, "publish": "false" if dry else "true"}
 
 
-def files_table() -> str:
-    rows = "".join(f"| `{name}` | {assemble.WHAT[name]} |\n" for name in assemble.FILES + [assemble.SUMS])
-    return "| File | What it is |\n| --- | --- |\n" + rows
-
-
-def notes(root: Path, tag: str) -> str:
-    """The release's notes: CHANGELOG.md's section for the tag's version, then the files and how to
-    start them (README.md's Play together says the same at more length)."""
-    version = TAG.fullmatch(tag).group(1)
-    return f"""{changelog_section(root, version)}
-
-## Files
-
-{files_table()}
-The browser game is at https://saschb2b.github.io/Groundhold/play/ and plays online on the official
-server, `wss://groundhold.saschb2b.com/causeway`, whose policy is
-https://saschb2b.github.io/Groundhold/policy.html. The desktop game plays there too, and on your own
-network with one of the server's archives above. The server's image is
-`ghcr.io/saschb2b/groundhold-server:{version}`; [server/README.md]({REPOSITORY}/blob/main/server/README.md)
-says how to host one.
-
-**macOS:** the game and the server are not signed or notarised by Apple, so macOS refuses to open
-them the first time ("cannot be opened" or "is damaged"). Once, in Terminal:
-`xattr -dr com.apple.quarantine /Applications/Groundhold.app` (the server:
-`xattr -d com.apple.quarantine groundhold-server` in its folder). Without Terminal, for "cannot be
-opened": Control-click `Groundhold.app`, choose Open, then Open; or, after the refusal,
-**System Settings > Privacy & Security > Open Anyway**. Each zip's README-first.txt says more.
-
-**Windows:** the builds are not signed either: if SmartScreen says it protected your PC, choose
-**More info**, then **Run anyway**.
-"""
-
-
 def on_main(commit: str, main_ref: str, repo: Path) -> str | None:
     """None when `commit` is `main_ref` or one of its ancestors, else what is wrong."""
     done = subprocess.run(["git", "merge-base", "--is-ancestor", commit, main_ref], cwd=repo, check=False,
@@ -183,7 +145,6 @@ def main(argv=None, environ=None) -> int:
     check = sub.add_parser("check", help="exit 1 unless the tag may be released")
     check.add_argument("tag")
     check.add_argument("--dry-run", action="store_true", help="a heading without its date only warns")
-    sub.add_parser("notes", help="print the release's notes").add_argument("tag")
     sub.add_parser("version", help="print project.godot's config/version")
     branch = sub.add_parser("on-main", help="exit 1 unless the commit is on main")
     branch.add_argument("commit")
@@ -222,10 +183,7 @@ def main(argv=None, environ=None) -> int:
         for problem in found:
             print(f"::error title=Release gate::{problem}", file=sys.stderr)
         return 1
-    if args.command == "notes":
-        print(notes(args.root, args.tag), end="")
-    else:
-        print(f"{args.tag}: project.godot and CHANGELOG.md agree")
+    print(f"{args.tag}: project.godot and CHANGELOG.md agree")
     return 0
 
 

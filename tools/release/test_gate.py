@@ -1,6 +1,6 @@
 """The release gate refuses a tag the tree does not say it is, or one without dated notes; it plans
 what a run of release.yml releases (a tag published, a run by hand a dry run, of a tag or of the
-branch); and the release's notes are the version's section with the files' table.
+branch). The release's text is tools/release/release_notes.py's (test_release_notes.py).
 
     python3 -m unittest discover -s tools/release -t tools/release
 """
@@ -14,7 +14,6 @@ import subprocess
 import tempfile
 import unittest
 
-import assemble
 import gate
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -142,30 +141,6 @@ class GateTest(unittest.TestCase):
         self.assertIn("config/version is 1.1.0", err)
         self.assertEqual(self.run_gate("--root", str(self.tree(version="1.3.0")), "check", "v1.3.0", "--dry-run")[0], 1)
 
-    def test_notes_are_the_section_then_the_files(self):
-        code, out, _ = self.run_gate("--root", str(self.tree()), "notes", "v1.2.0")
-        self.assertEqual(code, 0)
-        self.assertTrue(out.startswith("The release's notes.\n\n- A line of them.\n\n## Files\n"), out)
-        self.assertNotIn("Older notes", out)
-        self.assertNotIn("Things on main", out)
-        for name in assemble.FILES + [assemble.SUMS]:
-            self.assertIn(f"| `{name}` |", out)
-        for words in ("ghcr.io/saschb2b/groundhold-server:1.2.0", "xattr -dr com.apple.quarantine", "Open Anyway",
-                      "SmartScreen", "wss://groundhold.saschb2b.com/causeway",
-                      "https://saschb2b.github.io/Groundhold/policy.html"):
-            self.assertIn(words, out)
-        self.assertLess(out.index("xattr -dr com.apple.quarantine"), out.index("Control-click"), "Terminal first")
-
-    def test_notes_of_a_section_still_without_its_date(self):
-        root = self.tree(changelog=CHANGELOG.replace("## 1.2.0 · 2026-11-02", "## 1.2.0 · TBD"))
-        code, out, _ = self.run_gate("--root", str(root), "notes", "v1.2.0")
-        self.assertEqual(code, 0, "a dry run's notes: the gate job checked the date already")
-        self.assertTrue(out.startswith("The release's notes."))
-
-    def test_notes_refuse_what_check_refuses(self):
-        code, out, _ = self.run_gate("--root", str(self.tree(version="1.1.0")), "notes", "v1.2.0")
-        self.assertEqual((code, out), (1, ""))
-
     def test_this_tree_is_releasable_as_its_own_version(self):
         # (its date may still be TBD while the release is prepared: a tag then needs it)
         version = gate.project_version(gate.ROOT)
@@ -251,7 +226,7 @@ class OnMainTest(unittest.TestCase):
         git("clone", "--quiet", "--depth", "1", "--branch", tag, self.remote.as_uri(), str(checkout), cwd=self.root)
         tools = checkout / "tools" / "release"
         tools.mkdir(parents=True)
-        for name in ("gate.py", "assemble.py"):
+        for name in ("gate.py",):
             (tools / name).write_text((ROOT / "tools/release" / name).read_text(encoding="utf-8"), encoding="utf-8")
         environment = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "GITHUB_"))}
         environment["PUBLISH"] = publish
