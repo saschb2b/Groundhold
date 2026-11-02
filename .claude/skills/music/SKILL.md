@@ -106,6 +106,14 @@ could not check (the music by ear).
 - The piece is its own module (`causeway_theme.py`), the sketch kept beside it. Bush's three parts at the
   `music_rules.md` lengths; the call handed between instruments; the ambient middle; the summation; the end left
   open into the ambience for the hub.
+- A piece the hub loops is `kind='loop'`: `render.py` renders it a bar late and folds it round (the last notes'
+  release and the hall's tail onto its start, the lead-in onto its end), so the file is exactly its bars long and
+  plays as it would from the second time round; the check then reads its seam (the level either side, the step
+  across it) and holds it to whole bars. Its first and last bars should be the same texture, so the fold is a
+  breath, not a join. `ambience.py --under PIECE` lays the bed under it at the front end's levels.
+- The tune handed on at a distance in a middle is role `distant` (the tune for every rule, placed 2 to 10 dB under
+  the theme's statements); a whole piece's bars may share a rhythm up to 85% (A's tune is call, answer, call,
+  answer by design, and a piece states it more than once).
 - For `AudioStreamInteractive`: write the piece's clips as separate renders that share its tempo and key (the
   hub, the queue's loop, Match Found's sting, Loading's loop), each cut on a bar so a transition can wait for the
   bar; `--stems` keeps each part for a later mix.
@@ -120,6 +128,37 @@ could not check (the music by ear).
 - UI cues: `python3 art_src/music/cues.py --dest sfx NAME` writes `sfx/NAME.wav` and its manifest entry; then
   `godot-agent asset check .`.
 - Run `python3 tools/names_check.py` on everything written.
+
+## Placing the hub's music (F4)
+
+The front end's F4 (front-end.md §4.6 and §7) wires the hub's sound in, after the switch-over; nothing here does it
+before then. The theme is `pieces/causeway_theme.py` (grown from sketch E, the owner's pick of 2 November 2026), the
+bed `ambience.py`'s. What F4 does with them, once the owner has heard the theme and said it ships (gate 5):
+
+- **Files.** Render the theme and a bed of its length into the project as `music/causeway_theme.ogg` and
+  `music/causeway_ambience.ogg` (48 kHz stereo Ogg Vorbis, quality 6: the renders' own OGGs), each recorded in
+  `asset_manifest.json` with the command that makes it again (a `--dest music` for `render.py` and
+  `ambience.py --under` is F4's to add, as `cues.py --dest sfx` records its cues), and a rule for `music/*.ogg` in
+  `asset_style.json` (48 kHz, two channels, -20 LUFS for music and -28 for a bed within 1 LU, true peak at most -1
+  dBTP). Never hand-edited, never re-encoded by hand: a change is a change to the piece and a render.
+- **Import.** `AudioStreamOggVorbis` with `loop = true` and `loop_offset = 0.0` (the file is one whole loop, its
+  seam folded), `bpm = 80`, `bar_beats = 4`, `beat_count = 176` (44 bars), so `AudioStreamInteractive` knows its
+  bars. The bed: `loop = true`, no tempo.
+- **Buses** (front-end.md §4.6: Music, UI and Effects under Master): the theme on Music; the bed on Effects, as the
+  world's own sound; the cues on UI. Every bus at 0 dB by default: the renders carry the levels (music -20 LUFS,
+  bed -28 LUFS, cues by their peaks), and `causeway_theme_with_ambience.mp3` is how the two should sound together.
+- **The music's states.** An `AudioStreamInteractive` with the theme as its first clip, "hub", started at bar 1
+  (the flats). The queue, Match Found and Loading are clips of their own, rendered from the same score when they
+  are made (the queue from the middle, bars 15 to 34, as its own loop; a sting for Match Found; Loading from the
+  echo and the flats), each moving on at `TRANSITION_FROM_TIME_NEXT_BAR` with a beat's fade, so a change of state
+  lands on the theme's bar. Leaving for a match, the music fades over a bar and the match's horn (A) sounds into
+  the D the hub left.
+- **The first sound.** On the web the first gesture (front-end.md §4.6) fades the bed up over about a second, then
+  starts the theme; on desktop both start at once. The bed never stops while the hub stands (Brower: ambience is
+  heard more than music).
+- **The gap.** The file loops without one, as the owner asked. Warcraft III's breath of 20 to 40 s of ambience
+  between pieces (`music_rules.md`) is the player's to add if the owner wants it (a silent clip in the
+  interactive stream after the theme, or an `AudioStreamPlaylist`), never cut into the file.
 
 ## The trailer, from 0.9.0
 
@@ -151,6 +190,14 @@ as its own skill then, beside this one. What carries over and what changes:
 
 - sfizz's renderer writes 16-bit and clips at full scale: the image patches it to write 32-bit float (its
   Dockerfile checks the patch took). A part alone must keep its headroom for the mix.
+- sfizz 1.2.3 rendering faster than real time loses notes at random: a held note plays its first fraction of a
+  second and stops, differently from one render to the next (most likely its sample's body, streamed behind the
+  first 8192 frames, is not there in time; pinned to one core it loses more, and building it to hold whole samples
+  in memory changed nothing). It took notes out of renders the owner heard: sketch B's first bassoon bar, D's
+  flute in the flats, E's tune in its first bars and some of its close. `render.py` now renders in blocks of 32
+  (far fewer losses), throws away any render `dropped()` finds a lost note in, and keeps a part's fullest render
+  once it has come out twice; three clean renders of all five sketches came out byte for byte the same. When a
+  render looks thin, compare it against a second one before trusting it.
 - The libraries' levels differ by up to 24 dB as recorded, and an instrument's registers by up to 15: render with
   `levels.json`, and read the stem lines, before trusting any balance (the first render of sketch C had the horn
   14 dB over the flute and the contrabass inaudible).

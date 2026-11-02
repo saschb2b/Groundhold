@@ -50,19 +50,25 @@ LEAD_BIG_LEAPS_MAX = 0.12         # share of leaps wider than a fifth
 LEAD_NOTES_A_BAR = (1.5, 9.0)
 LEAD_LONGEST_MIN = 1.5            # beats: a line breathes on at least one held note
 RHYTHM_RETURN = (0.25, 0.75)      # share of the lead's bars whose rhythm comes back within 8 bars
+# a whole piece (a loop, a theme) states sketch A's tune more than once, and that tune is call, answer, call,
+# answer (every bar's rhythm returns inside it, by design: the owner chose it), so more of a piece's bars return
+RHYTHM_RETURN_PIECE = (0.25, 0.85)
 VOICES_AT_ONCE_MAX = 7            # parts sounding together (a sketch); the rules' "few voices, each doing a lot"
 LOW_LIMIT = 48                    # below C3 two notes of one chord sit a fifth or more apart
 CHANGES_A_BAR = (0.5, 2.0)        # chords a bar: a theme moves slower than a battle (BN's 1.3-1.9)
 BORROWED_MAX = 0.20               # share of the notes' time on notes borrowed from outside the mode, named
 # each role's loudness while it plays against the tune's (dB): the tune on top, every other part under it
-ROLE_BALANCE = {'counter': (-9, -1), 'harmony': (-16, -4), 'bass': (-12, -1), 'drone': (-18, -5),
+# 'distant': the tune handed on at a distance in an ambient middle (a statement of the call placed far, under the
+# theme's level by design); it is the tune for every other rule
+ROLE_BALANCE = {'distant': (-10, -2), 'counter': (-9, -1), 'harmony': (-16, -4), 'bass': (-12, -1), 'drone': (-18, -5),
                 'ostinato': (-14, -3), 'perc': (-16, -3), 'colour': (-20, -5)}
 LEADS_APART = 4.0                 # dB: the tune handed from one instrument to the next keeps its level
 
 # the spectrogram: log frequency to 16 kHz, 1024 rows (its FFT follows the rows: fewer smear the bass)
 SPECTRUM = 'showspectrumpic=s=1200x1024:mode=combined:color=intensity:scale=log:fscale=log:legend=1:stop=16000'
 
-ROLE_COLOURS = {'lead': (255, 214, 102), 'counter': (130, 200, 255), 'harmony': (150, 130, 210),
+ROLE_COLOURS = {'lead': (255, 214, 102), 'distant': (200, 170, 90), 'counter': (130, 200, 255),
+                'harmony': (150, 130, 210),
                 'bass': (110, 220, 140), 'drone': (90, 110, 150), 'ostinato': (240, 140, 200),
                 'perc': (230, 230, 230), 'colour': (120, 230, 230)}
 
@@ -232,7 +238,7 @@ def sound_lines(x, sr, bpm, beats_per_bar, target=None, music_s=None):
 def melody(score):
     """The tune: every lead part's notes as one line (a tune handed from one instrument to the next), leaving out
     a part that doubles another."""
-    parts = [p for p in score.parts if p.role == 'lead' and p.notes and not p.doubles]
+    parts = [p for p in score.parts if p.role in ('lead', 'distant') and p.notes and not p.doubles]
     notes = sorted(((n, p.name) for p in parts for n in p.notes), key=lambda e: (e[0].start, -e[0].key))
     line, owner = [], []
     for n, name in notes:   # where two leads overlap, the higher one carries the tune
@@ -298,10 +304,11 @@ def score_lines(score):
         rhythms = {b: bar_rhythm(ns, score, b) for b in bars_played}
         back = sum(1 for b in bars_played if any(rhythms.get(o) == rhythms[b] for o in range(b - 8, b + 9) if o != b))
         share_back = back / (len(bars_played) or 1)
+        returns = RHYTHM_RETURN_PIECE if score.kind in ('loop', 'theme') else RHYTHM_RETURN
         same_next = sum(1 for b in bars_played if rhythms.get(b + 1) == rhythms[b] and rhythms[b])
         lines.append(f'  a bar\'s rhythm back within 8 bars: {100 * share_back:.0f}% '
-                     f'(rules {100 * RHYTHM_RETURN[0]:.0f}-{100 * RHYTHM_RETURN[1]:.0f}); the same rhythm in the next '
-                     f'bar {same_next} times' + mark(RHYTHM_RETURN[0] <= share_back <= RHYTHM_RETURN[1]))
+                     f'(rules {100 * returns[0]:.0f}-{100 * returns[1]:.0f}); the same rhythm in the next '
+                     f'bar {same_next} times' + mark(returns[0] <= share_back <= returns[1]))
         # the call: the tune's first three notes (their intervals and lengths), found again later in any key
         def shape(i):
             seg = ns[i:i + 3]
@@ -379,10 +386,26 @@ def score_lines(score):
     last_bar = score.bars - 1
     rings = [p.name for p in pitched for n in p.notes
              if n.start >= last_bar * score.beats_per_bar - 1e-6 and n.length >= 2]
-    lines.append('the ending rings (a note held two beats or more in the last bar)'
-                 + ('' if rings else ': nothing held')
-                 + mark(bool(rings)))
+    if score.kind != 'loop':   # (a loop's end runs into its start: the seam is checked instead)
+        lines.append('the ending rings (a note held two beats or more in the last bar)'
+                     + ('' if rings else ': nothing held')
+                     + mark(bool(rings)))
     return lines
+
+
+def seam_lines(x, sr):
+    """A loop's seam: the level of its last and first 100 ms (within 3 dB), and the step from its last sample to its
+    first against the 99th percentile of every step in it (at most twice), so a player looping it clicks nowhere."""
+    import numpy as np
+    import mix
+    w = int(0.1 * sr)
+    head = mix.db(float(np.sqrt(np.mean(x[:w] ** 2))))
+    tail = mix.db(float(np.sqrt(np.mean(x[-w:] ** 2))))
+    step = float(np.max(np.abs(x[0] - x[-1])))
+    typical = float(np.percentile(np.abs(np.diff(x, axis=0)), 99))
+    ok = abs(head - tail) <= 3.0 and step <= 2 * typical
+    return [f'the seam: last 100 ms {tail:.1f} dBFS, first 100 ms {head:.1f}; the step across it {step:.5f} '
+            f'against a 99th-percentile step of {typical:.5f}' + mark(ok)]
 
 
 def stem_lines(stems_dir: str, score) -> list[str]:
@@ -428,6 +451,12 @@ def report(wav: str, score, mod=None) -> str:
     x, sr = decode(wav)
     out = [f'== {score.title}', '-- the sound']
     out += sound_lines(x, sr, score.bpm, score.beats_per_bar, score.loudness, score.length_s)
+    if score.kind == 'loop':
+        import mix
+        whole = abs(len(x) / sr - score.length_s) < 0.002
+        out.append(f'a loop of {score.bars} bars, {len(x) / sr:.3f} s' + ('' if whole else
+                   f', not its {score.length_s:.3f} s') + mark(whole))
+        out += seam_lines(mix.read_wav(wav)[0], sr)
     stems_dir = wav[:-4] + '.stems'
     if os.path.isdir(stems_dir):
         out += stem_lines(stems_dir, score)
@@ -474,7 +503,7 @@ def roll(score, path: str) -> None:
                 d.text((x + 4 + i * score.beats_per_bar * px / len(names), 4), name, fill=(220, 220, 230), font=font)
     for b, name in score.sections:
         d.text((left + int(b * score.beats_per_bar * px) + 4, 20), name, fill=(255, 200, 120), font=font)
-    order = ['drone', 'harmony', 'bass', 'perc', 'colour', 'ostinato', 'counter', 'lead']
+    order = ['drone', 'harmony', 'bass', 'perc', 'colour', 'ostinato', 'counter', 'distant', 'lead']
     for p in sorted(score.parts, key=lambda p: order.index(p.role) if p.role in order else 0):
         colour = ROLE_COLOURS.get(p.role, (200, 200, 200))
         for n in p.notes:

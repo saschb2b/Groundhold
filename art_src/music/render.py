@@ -35,7 +35,7 @@ IMAGE = 'groundhold-music'
 RATE = 48000
 DEFAULT_OUT = os.path.join(ROOT, '.build', 'music')
 CACHE = os.path.join(ROOT, '.build', 'music-cache')
-RENDERERS = 'sfizz 1.2.3 (float) / fluidsynth 2.4.4'   # part of a stem's cache key
+RENDERERS = 'sfizz 1.2.3 (float, blocks of 32, its fullest render twice) / fluidsynth 2.4.4'   # a stem's cache key
 
 sys.path.insert(0, HERE)
 
@@ -73,8 +73,35 @@ def load_piece(name: str):
     return mod, mod.score()
 
 
+def dropped(path: str, score, part) -> list[float]:
+    """The notes a rendered stem lost: a note whose first quarter second (from 30 ms in), or a held note whose body,
+    is silent or 35 dB or more under the median of every note's (stem() says why a note gets lost)."""
+    import numpy as np
+    import mix
+    x, sr = mix.read_wav(path)
+    mono = np.abs(x).mean(axis=1)
+    spb = 60.0 / score.bpm
+
+    def rms(t0, t1):
+        seg = mono[int(t0 * sr):int(t1 * sr)]
+        return float(np.sqrt(np.mean(seg ** 2))) if len(seg) else 0.0
+    heads, bodies = [], []
+    for n in part.played(score.bpm):
+        t, d = n.start * spb, n.length * spb
+        heads.append((n.start, rms(t + 0.03, t + min(0.28, max(0.06, d)))))
+        if d > 0.6:   # a held note's body too: the lost ones played their first fraction of a second
+            bodies.append((n.start, rms(t + 0.4 * d, t + min(0.8 * d, 0.4 * d + 2.0))))
+    lost = set()
+    for levels in (heads, bodies):
+        if levels:
+            med = sorted(v for _, v in levels)[len(levels) // 2]
+            lost |= {t for t, v in levels if v < 1e-7 or (med > 0 and v < med * 10 ** (-35 / 20))}
+    return sorted(lost)
+
+
 def stem(score, part, work: str) -> str:
-    """Renders one part dry to a float WAV (cached), and returns its path."""
+    """Renders one part dry to a float WAV (cached), and returns its path. An SFZ part is rendered until its fullest
+    render without a lost note (dropped()) has come out twice; one that cannot be, in ten, stops the render."""
     import palette
     import score as sc
     kind = palette.kind_of(part.inst)
@@ -92,15 +119,55 @@ def stem(score, part, work: str) -> str:
         f.write(midi)
     tmp = out + '.tmp.wav'
     if kind == 'sfz':
+        # blocks of 32 frames: sfizz waits for a streamed sample's body only at a block's start, so a small block gives
+        # a note's body many chances to arrive before its first 8192 frames run out (at 512 it lost notes often,
+        # at 32 seldom: three renders of all five sketches came out alike; the guard below still decides)
         cmd = ['sfizz_render', '--sfz', path, '--midi', mid, '--wav', tmp, '-s', str(RATE), '-q', '3', '-p', '256',
-               '-b', '512']
+               '-b', '32']
     else:
         cmd = ['fluidsynth', '-ni', '-q', '-F', tmp, '-r', str(RATE), '-O', 'float', '-T', 'wav',
                '-o', 'synth.reverb.active=0', '-o', 'synth.chorus.active=0', '-g', '1.0', path, mid]
-    # (sfizz says on every block that a container may not raise its threads' priority: kept quiet unless it fails)
-    run = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-    if run.returncode:
-        raise SystemExit(f'{part.name}: {" ".join(cmd[:1])} failed:\n{run.stderr[-2000:]}')
+    # An SFZ part is rendered until its fullest render comes out twice. sfizz 1.2.3 rendering faster than real time
+    # sometimes stops a note after its first fraction of a second, at random and differently from one render to the
+    # next (most likely its sample's body, streamed from disk behind its first frames, is not there in time: pinned to
+    # one core it loses more, and building it to hold whole samples in memory changed nothing). Rounds 1 and 2's
+    # sketches B, D and E lost notes so; the hub's theme its first glass and contrabass notes. A loss only ever takes
+    # sound away, so of the renders that lose no note to dropped(), the one with the most energy is the part, and its
+    # second coming confirms it: three clean renders of all five sketches came out byte for byte the same.
+    if kind == 'sfz':
+        import numpy as np
+        import mix
+        seen = {}
+        for attempt in range(10):
+            run = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+            if run.returncode:
+                raise SystemExit(f'{part.name}: sfizz_render failed:\n{run.stderr[-2000:]}')
+            lost = dropped(tmp, score, part)
+            if lost:
+                print(f'{part.name}: a render lost the notes at beats {", ".join(f"{t:g}" for t in lost[:6])}; again',
+                      file=sys.stderr)
+                continue
+            digest = hashlib.sha256(open(tmp, 'rb').read()).hexdigest()
+            if digest not in seen:
+                x, _ = mix.read_wav(tmp)
+                keep = f'{tmp}.{digest[:12]}.wav'
+                os.replace(tmp, keep)
+                seen[digest] = [float(np.sum(x ** 2)), 0, keep]
+            seen[digest][1] += 1
+            best = max(seen.values(), key=lambda v: v[0])
+            if best[1] >= 2:
+                os.replace(best[2], tmp)
+                break
+        else:
+            raise SystemExit(f'{part.name}: ten renders and its fullest never twice; nothing written')
+        for energy, count, keep in seen.values():
+            if os.path.exists(keep):
+                os.remove(keep)
+    else:
+        # (FluidSynth renders from memory: one render is the part)
+        run = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if run.returncode:
+            raise SystemExit(f'{part.name}: fluidsynth failed:\n{run.stderr[-2000:]}')
     os.replace(tmp, out)
     return out
 
@@ -189,7 +256,47 @@ def calibrate() -> int:
     return 0
 
 
-def mixdown(score, work: str, stems_dir: str | None = None, trim: bool = True, hall: bool = True):
+def shifted(score, beats: float):
+    """The score `beats` later (its notes, dynamics and controllers), its bars grown to hold them: a loop's
+    lead-in, so a note played early (`early_ms`) at the loop's start is not cut at beat 0."""
+    import copy
+    import math
+    s = copy.deepcopy(score)
+    for p in s.parts:
+        for n in p.notes:
+            n.start += beats
+        p.dyn = [(b + beats, d) for b, d in p.dyn]
+        p.cc = [(b + beats, c, v) for b, c, v in p.cc]
+    s.bars = score.bars + int(math.ceil(beats / score.beats_per_bar))
+    return s
+
+
+def folded(x, lead_in: int, length: int):
+    """A render made round: the loop's `length` samples after its lead-in, the lead-in added to the loop's end and
+    everything after the end (the last notes' release, the hall's tail) added to its start, wrapping as often as it
+    must. What a player looping the file plays, from the second time round on, is what this file is."""
+    out = x[lead_in:lead_in + length].copy()
+    tail = x[lead_in + length:]
+    i = 0
+    while i < len(tail):
+        take = min(length, len(tail) - i)
+        out[:take] += tail[i:i + take]
+        i += take
+    out[length - lead_in:] += x[:lead_in]
+    return out
+
+
+def loop_mixdown(score, work: str, stems_dir: str | None = None):
+    """A loop's mix (a score of kind 'loop'): rendered a bar late, then folded round, stems and all."""
+    bar = score.beats_per_bar
+    lead_in = int(round(bar * score.seconds_per_beat * RATE))
+    length = int(round(score.length_s * RATE))
+    return mixdown(shifted(score, bar), work, stems_dir, shape=lambda x: folded(x, lead_in, length))
+
+
+def mixdown(score, work: str, stems_dir: str | None = None, trim: bool = True, hall: bool = True, shape=None):
+    """Every part rendered, placed and summed with its hall; `shape` (a loop's fold) is applied to each stem written
+    and to the mix, which then keeps its end as it is (no fade)."""
     import numpy as np
     import mix
     n = int(round((score.length_s + score.tail) * RATE))
@@ -212,13 +319,15 @@ def mixdown(score, work: str, stems_dir: str | None = None, trim: bool = True, h
         dry += x
         send += x * part.hall
         if stems_dir:
-            mix.write_wav(os.path.join(stems_dir, f'{part.name}.wav'), x, RATE)
+            mix.write_wav(os.path.join(stems_dir, f'{part.name}.wav'), shape(x) if shape else x, RATE)
     if not hall:
         return dry
     ir = mix.hall_ir(RATE, score.hall_seconds, air=score.hall_air, early=score.early)
     wet = mix.filtered(mix.convolve(send, ir), RATE, hp=140.0)
     # a gentle high-pass on the whole: nothing under 25 Hz is music (a drum skin's or a room's rumble)
     out = mix.filtered(dry + wet, RATE, hp=25.0)
+    if shape:
+        return shape(out)
     fade = int(0.6 * RATE)
     out[-fade:] *= np.linspace(1, 0, fade)[:, None] ** 2
     return out
@@ -239,7 +348,7 @@ def render_piece(name: str, out_dir: str, stems: bool, check: bool) -> None:
     stems_dir = os.path.join(out_dir, f'{name}.stems') if stems else None
     if stems_dir:
         os.makedirs(stems_dir, exist_ok=True)
-    x = mixdown(s, work, stems_dir)
+    x = loop_mixdown(s, work, stems_dir) if s.kind == 'loop' else mixdown(s, work, stems_dir)
     y, gain = mix.mastered(x, RATE, s.loudness)
     wav = os.path.join(out_dir, f'{name}.wav')
     mix.write_wav(wav, y, RATE, 24)
@@ -253,7 +362,9 @@ def render_piece(name: str, out_dir: str, stems: bool, check: bool) -> None:
     for ext, codec in (('ogg', ['-c:a', 'libvorbis', '-q:a', '6']), ('mp3', ['-c:a', 'libmp3lame', '-q:a', '2'])):
         subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav] + codec
                        + [os.path.join(out_dir, f'{name}.{ext}')], check=True)
-    print(f'{name}: {s.length_s + s.tail:.1f} s, master gain {gain:+.1f} dB -> {os.path.relpath(wav, ROOT)}')
+    seconds = s.length_s + (0 if s.kind == 'loop' else s.tail)
+    print(f'{name}: {seconds:.1f} s{" (a loop)" if s.kind == "loop" else ""}, master gain {gain:+.1f} dB -> '
+          f'{os.path.relpath(wav, ROOT)}')
     if check:
         import check as ck
         report = ck.report(wav, s, mod)
