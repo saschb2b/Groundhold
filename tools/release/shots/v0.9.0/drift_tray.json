@@ -1,0 +1,34 @@
+{
+  "name": "drift_tray",
+  "scene": "res://scenes/main.tscn",
+  "description": "0.9.0's Undertow sends and a rival's bottle (release page): a duel on Undertow's own rules, me a Lamplighter defending with her plan, a caretaker Lamplighter the rival, its seat given 300 gold in window 2 (the logged gold setter) so it corks there in both builds. Window 2 open for both: the Drift tray over the minimap; the rival's corked bottle hovered (0.8.0: its tier; this build: the packs it may hold under it and in its tooltip), a pack hovered (its count and strength at the tier), and the duel bar's rival row. The same steps run on both builds.",
+  "seed": 1,
+  "draw_only_captures": true,
+  "timeout_frames": 3000,
+  "pictures": [
+    {"out": "compare-rival-bottle.webp", "compare": "rival_bottle", "crop": [8, 318, 392, 576]},
+    {"out": "compare-drift-pack.webp", "compare": "pack_tip", "crop": [8, 318, 392, 576]},
+    {"out": "compare-duel-bar.webp", "compare": "duel_bar", "crop": [830, 44, 1272, 118], "layout": "stack"}
+  ],
+  "steps": [
+    {"wait": 2},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').start(scene)", "msg": "a duel on the real preset: me on the first hollow, a caretaker rival on the second"},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').defend(scene)", "msg": "my seat plays its plan"},
+    {"set_ticks_per_frame": 10},
+    {"wait_until": "resource('res://tests/ui/duel_stage.gd').in_window(2)", "timeout": 800},
+    {"set_ticks_per_frame": 1},
+    {"eval": "Game.debug(1, 2, 300)"},
+    {"wait_until": "Game.bottles_of(2).size() == 1", "timeout": 120},
+    {"eval": "scene.set('_bot', null)"},
+    {"wait": 4},
+    {"hover": "node('Rival1')"},
+    {"wait": 4},
+    {"capture": "rival_bottle"},
+    {"hover": "node('Pack1')"},
+    {"wait": 4},
+    {"capture": "pack_tip"},
+    {"hover": [640, 300]},
+    {"wait": 4},
+    {"capture": "duel_bar"}
+  ]
+}

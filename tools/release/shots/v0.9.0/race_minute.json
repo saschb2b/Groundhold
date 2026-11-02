@@ -1,0 +1,32 @@
+{
+  "name": "race_minute",
+  "description": "0.9.0's minute a life in Tide Race (release page): offline, Tide Race chosen in the hub, Race the caretaker; five seconds in, the match held, my crew two lives down and the rival crew one (the logged lives setters), the race line under the resource strip: my clock and the rival's with the lives' part, +20 s and +10 s in 0.8.0 (left), +120 s and +60 s in this build. The same steps run on both builds.",
+  "seed": 1,
+  "draw_only_captures": true,
+  "timeout_frames": 1500,
+  "user_files": {"net.cfg": "[identity]\ntoken=\"00200000000000000000000000000000\"\n"},
+  "pictures": [
+    {"out": "compare-race-strip.webp", "compare": "race_strip", "crop": [840, 0, 1272, 84], "layout": "stack"}
+  ],
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 2},
+    {"set": "node('Causeway').drift", "value": 40.0},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 20},
+    {"click": "node('Primary')"},
+    {"wait_until": "(scene_path() == 'res://scenes/main.tscn') and (Game.sim != null)", "timeout": 300},
+    {"wait_until": "Game.sim.tick > 300", "timeout": 600},
+    {"set": "scene.source.paused", "value": true},
+    {"wait": 2},
+    {"set": "Game.lives", "value": 18},
+    {"eval": "Game.debug(2, 1, 19)"},
+    {"wait": 4},
+    {"assert": "node('RivalLine').visible and node('Hud').race_clock_line().ends_with(' s')", "msg": "my clock with the lives' part"},
+    {"hover": [640, 360]},
+    {"wait": 2},
+    {"capture": "race_strip"}
+  ]
+}
