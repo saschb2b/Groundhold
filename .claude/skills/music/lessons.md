@@ -160,3 +160,30 @@ What it teaches: the hub's theme is approved (gate 5 met for it), and its score 
 and flats, and `causeway_theme.py`'s close) is now the source every other front-end piece grows from, as the
 theme's middle grew from C. The loop the owner approved is the one rendered whole (after the lost-note fix); he has
 not said whether he wants Warcraft III's gap between loops, so the file stays gapless.
+
+## Round 4: the queue, Match Found and Loading, from the approved theme (2 November 2026)
+
+The brief (the coordinator, from the owner's "Yes, make the next"): sketches of 30 to 40 s for the front end's other
+music states, grown from the theme's score, each handing over from the hub on the next bar; orchestral, A's colours,
+C's calm, no folk jig.
+
+What was made, all in D at 80 so any of them lands on the hub's bar line:
+- **The queue, "Waiting on the tide"** (`causeway_queue.py`): a 12-bar loop at -23 LUFS, a patient pulse of
+  plucked celli (D, A) under the contrabass's D, a soft tick of plucked violins on every beat, the flats slowed, and
+  the call far off every four bars (flute, then the horn on the match horn's A, then the violins), left open.
+- **Match Found, "The tide turns"** (`causeway_found.py`): a two-bar sting, a harp running up Bb and C over a
+  swelling tremolo and timpani roll, then the call on the violins and horns over D major with the far bell.
+- **Loading, "Walking out"** (`causeway_loading.py`): the call turned into a march on a rope field drum, timpani and
+  low strings in eighths: setting out, the horns' march call, A's tune over the march, and four bars that loop
+  (`loop_from`) ending on the horns' A, so the match's horn lands as the arrival.
+- `handover.py` renders each as the front end will switch to it: the hub's last three bars, then the clip on the
+  next bar line, the hub fading over a beat; and the queue into the sting, the way Match Found really comes.
+
+What the numbers caught: a seam read against a bed's rule (3 dB) failed every loop with a downbeat (a bar's attacks
+follow a bar's decay), so a piece's seam is now read against its own bar lines' rises; Loading's loop then still
+rose less across its seam than its bars do, because its roll and held A ran into the bar line, so the roll ends an
+eighth early and the A releases half a beat before the loop returns, a breath; a sting is one gesture, so no bar of
+it is asked to come back; a queue whose call is only ever far off reads its distant statements as the tune; the
+sting's harp run sat over the violins' call until brought down.
+
+Waiting for the owner: the three by ear, alone and handed over.
