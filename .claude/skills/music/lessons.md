@@ -67,3 +67,28 @@ What the numbers caught before anyone listened:
 
 Waiting for the owner: which sketch to grow, or none; whether the cues and the ambience are the right direction;
 whether to keep generating or to commission a theme (front-end.md §8, decision 3).
+
+The owner's ear (2 November 2026): "A sounds the best. also really like C for its relaxing atmosphere. B is not my
+jam. feels off."
+
+What it teaches:
+- **The orchestra is the hub's voice.** A's sampled orchestra in Bush's shape (a horn's call alone, the violins'
+  tune with the horn under it, a strong close over Bb C to D with timpani) is the sound he hears as the game's.
+  The hub's theme grows from it.
+- **C's calm is the middle.** A harp turning high, the held low D, a rubbed glass, a far bell, and the call handed
+  from flute to horn to violins, left open: what he liked "for its relaxing atmosphere" is the long ambient middle
+  of Bush's three parts, and the queue's loop.
+- **A band of its own, in a jig, is out.** B was as clean by the numbers as A (every rule met, its beat the
+  clearest of the three) and still "feels off": the check cannot judge an idiom. Which part felt off is not known
+  (the 12/8 lilt, the alto recorder's weak low register leading, the strumstick's thin samples, or a tavern band on
+  the hub at all), so none of them leads again without asking; their instruments stay as colours inside the
+  orchestra (`music_rules.md`, The world in sound).
+- **Two of three landed**, so a round of three takes is worth its cost: it found the direction and the middle in
+  one hearing.
+
+## Round 2: A with C's calm, sketches D and E (2 November 2026)
+
+The brief (from the owner's ear, through the coordinator): grow the hub's theme from A, borrowing C's calm, in
+Bush's three parts (A's call and tune, C's texture as the long ambient middle, A's strong close), looping cleanly at
+2 to 3 minutes; before the piece, two sketches of 30 to 40 s for his ear, both from A with C woven in; and more air,
+since all three of round 1's mixes were dark.

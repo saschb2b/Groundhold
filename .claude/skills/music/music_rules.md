@@ -53,6 +53,13 @@ sounded "rather random" to the owner). What the bar asks, from the composers' wo
 
 Before the owner hears anything, say in the gate report (SKILL.md) how each of these five is met.
 
+**The owner's ear so far** (his words, verbatim; each one a gate note the rules below now carry):
+- 2 November 2026, on the first three sketches: "A sounds the best. also really like C for its relaxing
+  atmosphere. B is not my jam. feels off." A, the orchestra (a horn's call, the violins' tune, a strong close over
+  Bb C to D), and C, the sparse daylight (a harp high, the held low D, the call handed from flute to horn to
+  violins, left open), landed; B, a folk band in a 12/8 jig with an alto recorder's tune, did not. All three had met
+  every rule check.py held: the idiom is the ear's to judge, not the numbers'.
+
 ## What Blizzard's RTS-era music does
 
 **Form.**
@@ -101,7 +108,7 @@ Before the owner hears anything, say in the gate report (SKILL.md) how each of t
 
 | Piece | What it is | Length |
 | --- | --- | --- |
-| The Causeway (the hub) | The theme in Bush's three parts: the call stated and answered, an ambient middle over the flats, a summation; then the ambience alone for 20 to 40 s before it comes back (WC3's gaps, WoW's silences), its last bars left open into the ambience | 2:30 to 3:30, then the gap |
+| The Causeway (the hub) | The theme in Bush's three parts, grown from sketch A with sketch C's calm (owner, 2 November 2026): A's horn call and tune stated and answered, C's texture as the long ambient middle over the flats, A's strong close; then the ambience alone for 20 to 40 s before it comes back (WC3's gaps, WoW's silences), its last bars left open into the ambience so the loop's seam is a breath, not a cut | 2:00 to 3:00, then the gap |
 | The queue | The ambient middle's material as a loop that can run for minutes: the ostinato and the drone, the call in fragments, nothing that builds | a loop of 1:00 to 2:00 |
 | Match Found | A sting over the queue's bar: the call on the horn over a rising harp and a bell (Hearthstone's stingers run about 5 s) | 4 to 6 s |
 | Loading ("Walking out") | The theme's head as a slow processional, the frame drum as footsteps, ending on the horn's A so the match's horn lands as its own | a loop of 0:45 to 1:30 |
@@ -114,10 +121,13 @@ fifth (front-end.md §5.3). Every map has a Holdfast, so the call runs on every 
 
 **The world in sound** (*ours*, from world.md):
 - The Flats are wide: open fifths and a held D under the music (the horizon); nothing below C3 closer than a fifth.
-- The Tide is one water, rising and falling: an ostinato that turns up and down over its chord (a harp, a
-  strumstick), slow, like water on sand.
-- Builders come from every shore and every age, so a band from everywhere stands beside the orchestra: a
-  strumstick, a psaltery bowed and plucked, recorders, a frame drum, a folk harp, hand chimes.
+- The Tide is one water, rising and falling: an ostinato that turns up and down over its chord (a harp, high, as
+  in sketch C), slow, like water on sand.
+- Builders come from every shore and every age, and their instruments are colours inside the orchestra (a bowed
+  psaltery's or a rubbed glass's air, hand chimes, a recorder doubling the flute), never a band of their own and
+  never a jig: sketch B's band in 12/8 was "not my jam. feels off" (owner, 2 November 2026). Which part of it felt
+  off is not known (the jig's lilt, the recorder's weak low register, the strumstick's thin samples, or a tavern on
+  the hub at all): ask before any of them leads again.
 - The Holdfast is held: the horn, and timpani on the roots of a summation.
 - It is daylight: the hub is never night (front-end.md §4.4). No lantern, gourd, autumn or night in anything that
   runs on every map (AGENTS.md): no harvest dance, no spooky celesta, no Hollowtide colour. A Builder's own land
@@ -150,7 +160,8 @@ fifth (front-end.md §5.3). Every map has a Holdfast, so the call runs on every 
    12% leaps past a fifth; one long note a phrase (a beat and a half or more), after a rise.
 4. **The rhythm comes back.** A quarter to three quarters of the tune's bars share a rhythm with another bar within
    eight (the call's long-short-long is the thread); the call itself returns at least once in eight bars.
-5. **Folk colour sparingly**: a jig's long-short in 12/8, a turn, a dotted figure. Never a whole melody of runs.
+5. **Folk colour sparingly**: a turn, a dotted figure, never a whole melody of runs and never a jig's lilt on
+   the hub (sketch B, above).
 
 ## Arrangement and orchestration
 
@@ -167,8 +178,10 @@ fifth (front-end.md §5.3). Every map has a Holdfast, so the call runs on every 
    low octave is soft (-12 dB) and muddies the middle: keep its ostinato above C3 in a thin texture.
 4. **Dynamics** build by adding parts, not by fading; a section holds its level; a summation is at most about 6 dB
    over the statement before it (Brower's no sudden loud sounds).
-5. **The ambient middle** (a piece's second part, the queue): ostinato and drone, the call in fragments, the
-   ambience bed louder under it.
+5. **The ambient middle** (a piece's second part, the queue) is sketch C's texture, which the owner liked "for its
+   relaxing atmosphere": a harp turning high (above D4), the held low D, a rubbed glass's long note, a far bell at
+   a section's head, and the call handed from flute to horn to violins, each statement in its own bar, left open on
+   the second or the ninth. Nothing builds there; the ambience bed rises under it.
 
 ## Mix and master
 
@@ -186,9 +199,14 @@ fifth (front-end.md §5.3). Every map has a Holdfast, so the call runs on every 
    (Garry Taylor, Designing Sound, 2012,
    <https://designingsound.org/2012/07/30/video-games-and-loudness-standards-interview-with-sonys-garry-taylor/>):
    a browser and desktop game's menu, music over ambience and cues, sits between them; the Music bus trims it.
-5. **Bands.** No target yet: the first sketches measure about 5-20% below 120 Hz, 25-60% from 120 to 500, 25-55%
-   from 500 to 2000 and 1-4% from 2 to 6 kHz, which may be dull. Set the targets from a reference the owner hands
-   over (`check.py --ref FILE`), as Cyberworld's came from his recording of "Surge of Power!".
+5. **Bands and air.** No target yet: round 1's sketches measured about 5-20% below 120 Hz, 25-60% from 120 to
+   500, 25-55% from 500 to 2000 and 1-4% from 2 to 6 kHz, dull. The air comes from the writing and the room before
+   any filter: the violins (25-30% of their energy above 2 kHz) and the flute in its upper register, strings in
+   their upper velocity layer at a lower gain, the hall's tail and early reflections less damped (`hall_air`,
+   `early`), a glockenspiel's or hand chimes' glint at a phrase head; then a small shelf from 3 kHz (`Part.air`, a
+   few dB) on strings and harp. VSCO's harp and horn keep almost nothing above 2 kHz: no shelf gives them air. The
+   check prints the mix's air as 2-6 kHz against 500-2000 Hz, in dB. Set the targets from a reference the owner
+   hands over (`check.py --ref FILE`), as Cyberworld's came from his recording of "Surge of Power!".
 6. **Level the library first.** `levels.json` brings every instrument's median note to one level
    (`render.py --calibrate`), so a part's `gain_db` is a mix decision; VSCO's contrabass sits 10 dB under its horn
    and its glockenspiel 24 dB under, as recorded.
