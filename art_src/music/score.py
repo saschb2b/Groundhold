@@ -89,6 +89,7 @@ class Part:
     width: float = 1.0                # 0 mono .. 1 as recorded .. 1.5 wider
     hp: float = 0.0                   # high-pass, Hz (0: none)
     lp: float = 0.0                   # low-pass, Hz (0: none)
+    air: float = 0.0                  # a high shelf from about 3 kHz, dB: a string's upper partials, a harp's attack
     hall: float = 0.35                # share sent to the hall reverb, 0..1
     dyn: list[tuple[float, float]] = field(default_factory=list)   # (beat, dB) breakpoints, linear in dB between
     cc: list[tuple[float, int, int]] = field(default_factory=list)  # (beat, controller, value) sent to the renderer
@@ -151,6 +152,8 @@ class Score:
     kind: str = 'sketch'                     # sketch, theme, loop, sting, bed
     loudness: float = -20.0                  # the master's integrated loudness, LUFS
     hall_seconds: float = 2.4                # the hall's reverb time (RT60 at 500 Hz to 1 kHz)
+    hall_air: float = 0.55                   # the hall's reverb time above 3.5 kHz, as a share of hall_seconds
+    early: float = 0.9                       # the hall's early reflections, against its tail (the room's first answer)
 
     @property
     def beats_per_bar(self) -> int:

@@ -203,7 +203,8 @@ def sound_lines(x, sr, bpm, beats_per_bar, target=None, music_s=None):
     b = bands(span, sr)
     lines.append('bands % (<120, 120-500, 500-2k, 2k-6k, >6k Hz): ' + ' / '.join(f'{v:.0f}' for v in b))
     c, fl = timbre(span, sr)
-    lines.append(f'spectral centre {c:.0f} Hz, flatness {fl:.3f}')
+    lines.append(f'spectral centre {c:.0f} Hz, flatness {fl:.3f}; air: 2-6 kHz '
+                 f'{10 * math.log10((b[3] + 1e-9) / (b[2] + 1e-9)):+.1f} dB against 500-2000 Hz')
     w, corr = stereo(span)
     lines.append(f'stereo: side {w:.1f} dB under middle, correlation {corr:.2f}' + mark(corr > 0.2))
     lines.append(f'punch (the swing inside a beat) {punch(span, sr, bpm):.1f} dB')
@@ -401,6 +402,7 @@ def stem_lines(stems_dir: str, score) -> list[str]:
         loud = mix.integrated(seg, sr) if len(seg) > sr // 2 else -120.0
         b = bands(seg, sr) if len(seg) > 1 << 15 else [0] * 5
         main = ['<120', '120-500', '500-2k', '2k-6k', '>6k'][int(np.argmax(b))]
+        main += f' Hz, {b[3] + b[4]:.0f}% above 2k'
         rows.append((loud, p, main, mix.db(float(np.max(np.abs(x))))))
     leads = [(loud, p) for loud, p, _, _ in rows if p.role == 'lead' and not p.doubles]
     tune = max((loud for loud, _ in leads), default=None)
@@ -418,7 +420,7 @@ def stem_lines(stems_dir: str, score) -> list[str]:
         else:
             want = 'a doubling' if p.doubles else ''
         out.append(f'  {p.name:12s} {loud:6.1f} LUFS ({rel:+5.1f}; {p.role}: {want}), peak {peak:5.1f} dBFS, '
-                   f'most in {main} Hz' + mark(ok))
+                   f'most in {main}' + mark(ok))
     return out
 
 

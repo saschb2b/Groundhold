@@ -67,3 +67,54 @@ What the numbers caught before anyone listened:
 
 Waiting for the owner: which sketch to grow, or none; whether the cues and the ambience are the right direction;
 whether to keep generating or to commission a theme (front-end.md §8, decision 3).
+
+The owner's ear (2 November 2026): "A sounds the best. also really like C for its relaxing atmosphere. B is not my
+jam. feels off."
+
+What it teaches:
+- **The orchestra is the hub's voice.** A's sampled orchestra in Bush's shape (a horn's call alone, the violins'
+  tune with the horn under it, a strong close over Bb C to D with timpani) is the sound he hears as the game's.
+  The hub's theme grows from it.
+- **C's calm is the middle.** A harp turning high, the held low D, a rubbed glass, a far bell, and the call handed
+  from flute to horn to violins, left open: what he liked "for its relaxing atmosphere" is the long ambient middle
+  of Bush's three parts, and the queue's loop.
+- **A band of its own, in a jig, is out.** B was as clean by the numbers as A (every rule met, its beat the
+  clearest of the three) and still "feels off": the check cannot judge an idiom. Which part felt off is not known
+  (the 12/8 lilt, the alto recorder's weak low register leading, the strumstick's thin samples, or a tavern band on
+  the hub at all), so none of them leads again without asking; their instruments stay as colours inside the
+  orchestra (`music_rules.md`, The world in sound).
+- **Two of three landed**, so a round of three takes is worth its cost: it found the direction and the middle in
+  one hearing.
+
+## Round 2: A with C's calm, sketches D and E (2 November 2026)
+
+The brief (from the owner's ear, through the coordinator): grow the hub's theme from A, borrowing C's calm, in
+Bush's three parts (A's call and tune, C's texture as the long ambient middle, A's strong close), looping cleanly at
+2 to 3 minutes; before the piece, two sketches of 30 to 40 s for his ear, both from A with C woven in; and more air,
+since all three of round 1's mixes were dark.
+
+What was made: A's theme and C's flats now live once in `pieces/causeway.py` (THEME, FLATS), so the sketches and
+the piece play the same notes. Both sketches are in D at 80 (a bar 3 s, 90 frames at 30 fps), eleven bars, about
+38 s, at -20 LUFS:
+- **D, "The call, then the flats"**: A's order. The horn's call alone, with C's high harp and glass already there;
+  A's four bars of tune; then the half close opens onto D major and the orchestra thins to C's flats (the flute's
+  call, the horn's turn with voices under it, the violins leaving E hanging over C on the D pedal). The first half
+  of the hub's piece, cut short.
+- **E, "The flats, then the call"**: a calmer A. C's opening, the flute's call, A's tune softer, A's close held to
+  about 4 dB over the tune, then the horn echoing the call quietly over bar 1's floor, so the end runs into the
+  start: the hub's loop in miniature.
+
+The air: the harp kept high throughout, the strings in their upper velocity layer with a 3 dB shelf from 3 kHz, a
+soft high violin tremolo over the flats, a glockenspiel's glint at a section's head, and a hall less damped above
+3.5 kHz (0.8 of its reverb time against 0.55) with louder early reflections (1.3 against 0.9). By the check's air
+line (2-6 kHz against 500-2000 Hz): A -9.3 dB and C -11.2 in round 1; D -10.3 (mostly C's dark texture: the harp,
+the horn and the low flute keep almost nothing above 2 kHz), E -7.6 (its violins and tremolo longer). A little,
+not much: more would mean writing higher (the flute's call an octave up) or a shelf on the master, which is the
+owner's ear to ask for.
+
+Caught on the way: the harp moved high rang its D minor F a semitone over the tune's held E (the figure under D
+minor is now D and E, and the harp rings less under the tune); the flute and the echoing horn sat more than 4 dB
+under the violins until raised; the voices and the glass sat under their roles' floors.
+
+Waiting for the owner: D or E (or a mix: E's opening and echo around D's order), and whether the air is enough.
+Then the piece: Bush's three parts at 2 to 3 minutes, looping, from the chosen sketch.
