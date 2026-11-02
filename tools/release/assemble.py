@@ -7,17 +7,20 @@
 an installer and a portable zip, for macOS a disk image, for Linux an AppImage with its .zsync, a
 .deb and a tar.gz) and the server's archives (groundhold-server-<target>.zip for its five native
 targets and groundhold-server-python.zip, the zipapp for any computer with Python 3.11 or newer;
-server-native.yml). FILES is that list, the one
-every page that tells players what to download names (README.md, server/README.md, the release's
-notes; tools/release/test_workflows.py holds them to it). It fails, naming each, on a file missing
-or one no release has; then it writes SHA256SUMS.txt and the list of files to attach (one path a
-line, the checksums last). Standard library only.
+server-native.yml). TABLE is that list with what each file is, the one table of a release's files:
+FILES, which this checks `dist` against, is its names, and the release's Downloads block
+(tools/release/release_notes.py) lists its rows and nothing else; every page that tells players what
+to download names only FILES (README.md, server/README.md, the site; tools/release/test_workflows.py
+holds them to it). It fails, naming each, on a file missing or one no release has; then it writes
+SHA256SUMS.txt and the list of files to attach (one path a line, the checksums last). Standard
+library only.
 """
 
 import argparse
 import hashlib
 from pathlib import Path
 import sys
+from typing import NamedTuple
 
 # the game, as tools/release/package.py makes it (versionless names, so releases/latest/download/<file>
 # lasts; the AppImage's update information names its .zsync, so neither may change)
@@ -28,30 +31,49 @@ APPIMAGE = "groundhold-x86_64.AppImage"
 ZSYNC = APPIMAGE + ".zsync"
 DEB = "groundhold_amd64.deb"
 LINUX_TAR = "groundhold-linux-x64.tar.gz"
-GAME = [WINDOWS_SETUP, WINDOWS_ZIP, MACOS_DMG, APPIMAGE, ZSYNC, DEB, LINUX_TAR]
 # the server's native targets, as server/release.py and server-native.yml name them
 SERVER_TARGETS = ("windows-x64", "macos-arm64", "macos-x64", "linux-x64", "linux-arm64")
-SERVER = ["groundhold-server-python.zip"] + [f"groundhold-server-{target}.zip" for target in SERVER_TARGETS]
 SUMS = "SHA256SUMS.txt"
-FILES = GAME + SERVER
 
-# what each file is, for the release's notes (tools/release/gate.py notes)
-WHAT = {
-    WINDOWS_SETUP: "The game for 64-bit Windows 10 or 11: an installer for your account, no administrator needed",
-    WINDOWS_ZIP: "The same game in a folder, to unpack anywhere and run `Groundhold.exe`",
-    MACOS_DMG: "The game for macOS, Apple silicon and Intel: drag it to Applications (not notarised: see below)",
-    APPIMAGE: "The game for Linux on x86-64 in one file: make it executable and run it",
-    ZSYNC: "The AppImage's update file, for AppImageUpdate and Gear Lever",
-    DEB: "The game for Debian, Ubuntu and their kin: `sudo apt install ./groundhold_amd64.deb`",
-    LINUX_TAR: "The game for Linux in a folder, with `install.sh` for the application menu",
-    "groundhold-server-python.zip": "The server for any computer with Python 3.11 or newer",
-    "groundhold-server-windows-x64.zip": "The server for 64-bit Windows, nothing to install",
-    "groundhold-server-macos-arm64.zip": "The server for an Apple silicon Mac",
-    "groundhold-server-macos-x64.zip": "The server for an Intel Mac",
-    "groundhold-server-linux-x64.zip": "The server for Linux on x86-64",
-    "groundhold-server-linux-arm64.zip": "The server for Linux on ARM64 (a 64-bit Raspberry Pi OS)",
-    SUMS: "The files' SHA-256 checksums",
-}
+
+class File(NamedTuple):
+    """A file of a release, as its Downloads block shows it."""
+
+    name: str
+    system: str          # the heading it is listed under: windows, macos, linux or server
+    what: str            # what it is and how to start it, in a player's words ({name} is its name)
+    choice: str = ""     # its link's word where a player picks between a system's files; "" for a
+                         # file that only serves another (the AppImage's .zsync), shown in small type
+    first: bool = False  # the one to pick first, marked "recommended" where there is a choice
+
+
+# Every file of a release, in the order its page lists them.
+TABLE = (
+    File(WINDOWS_SETUP, "windows", "Installs Groundhold for your account alone, no administrator needed, with a "
+         "Start menu entry and, if you tick it, one on the desktop. **Settings › Apps** removes it again; your "
+         "saves stay.", "Installer", True),
+    File(WINDOWS_ZIP, "windows", "Nothing to install: unpack it anywhere and run `Groundhold.exe` in its "
+         "`Groundhold` folder.", "Portable"),
+    File(MACOS_DMG, "macos", "Open it and drag Groundhold onto Applications. The first start needs one step "
+         "more, below.", "Disk image", True),
+    File(APPIMAGE, "linux", "One file: make it executable (`chmod +x {name}`) and run it. AppImageUpdate or "
+         "Gear Lever brings it up to date from the newest release, fetching only what changed.", "AppImage", True),
+    File(ZSYNC, "linux", "the AppImage's update file, which AppImageUpdate reads to fetch only what changed; "
+         "you need not download it"),
+    File(DEB, "linux", "For Debian, Ubuntu, Mint and their kin: `sudo apt install ./{name}` puts Groundhold in "
+         "your menu.", "Debian package"),
+    File(LINUX_TAR, "linux", "Unpack it anywhere: `./install.sh` in its `Groundhold` folder adds Groundhold to "
+         "your menu for you alone, and `./install.sh --remove` takes it out again.", "Archive"),
+    File("groundhold-server-python.zip", "server", "The server for any computer with Python 3.11 or newer"),
+    File("groundhold-server-windows-x64.zip", "server", "The server for 64-bit Windows, nothing to install"),
+    File("groundhold-server-macos-arm64.zip", "server", "The server for an Apple silicon Mac"),
+    File("groundhold-server-macos-x64.zip", "server", "The server for an Intel Mac"),
+    File("groundhold-server-linux-x64.zip", "server", "The server for Linux on x86-64"),
+    File("groundhold-server-linux-arm64.zip", "server", "The server for Linux on ARM64 (a 64-bit Raspberry Pi OS)"),
+)
+FILES = [row.name for row in TABLE]
+GAME = [row.name for row in TABLE if row.system != "server"]
+SERVER = [row.name for row in TABLE if row.system == "server"]
 
 
 def digest(path: Path) -> str:

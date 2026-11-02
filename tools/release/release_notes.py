@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The text of a GitHub release (docs/design/core-loop.md 7.6; .claude/skills/release/SKILL.md says how a
 release's page and its pictures are made): the release's own page, docs/releases/vX.Y.Z.md, where there
-is one, else CHANGELOG.md's section for its version; then the Downloads block, every file of
-tools/release/assemble.py's FILES under the system it is for.
+is one, else CHANGELOG.md's section for its version; then the Downloads block, every row of
+tools/release/assemble.py's TABLE (the files the release attaches, and nothing else) under the system it
+is for, in its words.
 
     python3 tools/release/release_notes.py v0.9.0 > NOTES.md     # the notes
     python3 tools/release/release_notes.py v0.9.0 --dist dist    # with each file's size, and the
@@ -47,34 +48,13 @@ MEDIA = (".png", ".webp", ".gif", ".jpg", ".jpeg", ".svg", ".mp4", ".webm")
 # the largest file of each kind a page may show (GitHub draws the release from these raw files)
 LIMITS = {".gif": 4 * 1024 * 1024, ".webp": 1024 * 1024, ".png": 1536 * 1024, ".jpg": 1024 * 1024}
 
-# The game's systems, in the order the Downloads block gives them: (key, heading, what it runs on).
+# The game's systems, in the order the Downloads block gives them: (key, heading, what it runs on). Each
+# file's system, its words and the one to pick first are assemble.TABLE's.
 SYSTEMS = (
     ("windows", "🪟 Windows", "64-bit Windows 10 or 11"),
     ("macos", "🍎 macOS", "one app for Apple silicon and Intel"),
     ("linux", "🐧 Linux", "64-bit x86, any distribution"),
 )
-# The kinds of file a player picks between, by how the name ends (assemble.FILES names them; the first
-# kind that fits a name is its kind): (end, system, choice, recommended, how to start it). A file of no
-# kind here is still listed, under the system its name says, in assemble.WHAT's words.
-KINDS = (
-    ("-setup.exe", "windows", "Installer", True,
-     "Installs Groundhold for your account alone, no administrator needed, with a Start menu entry and, if "
-     "you tick it, one on the desktop. **Settings › Apps** removes it again; your saves stay."),
-    ("-windows-x64.zip", "windows", "Portable", False,
-     "Nothing to install: unpack it anywhere and run `Groundhold.exe`."),
-    (".dmg", "macos", "Disk image", True,
-     "Open it and drag Groundhold onto Applications. The first start needs one step more, below."),
-    (".AppImage", "linux", "AppImage", True,
-     "One file: make it executable (`chmod +x {name}`) and run it. AppImageUpdate brings it up to date from "
-     "the newest release, fetching only what changed."),
-    ("_amd64.deb", "linux", "Debian package", False,
-     "For Debian, Ubuntu, Mint and their kin: `sudo apt install ./{name}` puts Groundhold in your menu."),
-    ("-linux-x64.tar.gz", "linux", "Archive", False,
-     "Unpack it anywhere: `./install.sh` in its folder adds Groundhold to your menu for you alone, and "
-     "`./install.sh --remove` takes it out again."),
-)
-# files that serve another file, never a player's choice: (end, what they are for)
-HELPERS = ((".AppImage.zsync", "lets AppImageUpdate fetch only what changed; you need not download it"),)
 
 
 class NotesError(Exception):
@@ -190,29 +170,6 @@ def title(root: Path, tag: str) -> str:
     return f"Groundhold {tag}" + (f" ({stage})" if stage else "")
 
 
-def system_of(name: str) -> str:
-    """The system a file of the game is for, by its name; "server" for the server's, "" for neither."""
-    low = name.lower()
-    if "server" in low:
-        return "server"
-    if "windows" in low or low.endswith(".exe"):
-        return "windows"
-    if "macos" in low or low.endswith(".dmg"):
-        return "macos"
-    if "linux" in low or low.endswith((".appimage", ".deb", ".appimage.zsync")):
-        return "linux"
-    return ""
-
-
-def kind_of(name: str):
-    return next((kind for kind in KINDS if name.endswith(kind[0])), None)
-
-
-def recommended(name: str) -> bool:
-    kind = kind_of(name)
-    return bool(kind and kind[3])
-
-
 def size_text(size: int) -> str:
     if size >= 10 * 1024 * 1024:
         return f"{round(size / (1024 * 1024))} MB"
@@ -221,19 +178,18 @@ def size_text(size: int) -> str:
     return f"{max(1, round(size / 1024))} KB"
 
 
-def downloads(tag: str, files: list[str] | None = None, what: dict[str, str] | None = None,
-              dist: Path | None = None) -> str:
+def downloads(tag: str, table=None, dist: Path | None = None) -> str:
     """The Downloads block: each system's files, the one to pick first marked where there is a choice,
     the browser game, the server's archives and image, the help for an unsigned build, the checksums.
-    `files` and `what` are assemble.FILES and assemble.WHAT unless given; with `dist`, each file's size,
-    and the checksums from its SHA256SUMS.txt."""
-    files = list(assemble.FILES if files is None else files)
-    what = assemble.WHAT if what is None else what
+    `table` is assemble.TABLE unless given; with `dist`, each file's size, and the checksums from its
+    SHA256SUMS.txt."""
+    table = list(assemble.TABLE if table is None else table)
     version = version_of(tag)
     base = f"https://github.com/{REPO}/releases/download/{tag}/"
-    unknown = [name for name in files if not system_of(name)]
+    known = {key for key, _, _ in SYSTEMS} | {"server"}
+    unknown = [f"{row.name} ({row.system!r})" for row in table if row.system not in known]
     if unknown:
-        raise NotesError("no system for " + ", ".join(unknown) + ": name it for Windows, macOS, Linux or the server")
+        raise NotesError("no system for " + ", ".join(unknown) + ": it is windows, macos, linux or server")
 
     def size(name: str) -> str:
         path = dist / name if dist else None
@@ -243,35 +199,32 @@ def downloads(tag: str, files: list[str] | None = None, what: dict[str, str] | N
            f"Pick your system. Or play at once in the browser: **[{PLAY.removeprefix('https://')}]({PLAY})**, "
            "nothing to install, on the official server.", ""]
     for key, heading, runs_on in SYSTEMS:
-        mine = [name for name in files if system_of(name) == key and not name.endswith(tuple(h[0] for h in HELPERS))]
+        mine = [row for row in table if row.system == key]
         if not mine:
             continue
-        choices = sorted(mine, key=lambda name: (not recommended(name), files.index(name)))
+        # (the one to pick first, then the table's order; a file that serves another last, in small type)
+        choices = sorted((row for row in mine if row.choice), key=lambda row: not row.first)
         out += [f"### {heading}", "", f"<sub>{runs_on}</sub>", ""]
-        for name in choices:
-            kind = kind_of(name)
-            if kind:
-                _, _, choice, first, how = kind
-                mark = " · recommended" if first and len(choices) > 1 else ""
-                words = how.format(name=name)
-            else:
-                choice, mark, words = "Download", "", what.get(name, "")
-            out.append(f"- **[{choice}]({base}{name})**{mark} · `{name}`{size(name)}<br>{words}")
-        for name in files:
-            helper = next((h for h in HELPERS if name.endswith(h[0])), None)
-            if helper and system_of(name) == key:
-                out.append(f"- <sub>[`{name}`]({base}{name}){size(name)} {helper[1]}.</sub>")
+        for row in choices:
+            mark = " · recommended" if row.first and len(choices) > 1 else ""
+            out.append(f"- **[{row.choice}]({base}{row.name})**{mark} · `{row.name}`{size(row.name)}<br>"
+                       f"{row.what.format(name=row.name)}")
+        for row in mine:
+            if not row.choice:
+                out.append(f"- <sub>[`{row.name}`]({base}{row.name}){size(row.name)}: "
+                           f"{row.what.format(name=row.name)}.</sub>")
         out.append("")
-    servers = [name for name in files if system_of(name) == "server"]
+    servers = [row for row in table if row.system == "server"]
     out += ["## 🖥️ Host a server", "",
             f"The browser game and the desktop game play online on the official server, `{OFFICIAL}` "
             f"([its policy]({POLICY})). To play on your own network, or to host for friends, run one of these; "
             f"[server/README.md](https://github.com/{REPO}/blob/{tag}/server/README.md) says how.", "",
             "| Download | For |", "| --- | --- |"]
-    out += [f"| [`{name}`]({base}{name}){size(name)} | {what.get(name, '')} |" for name in servers]
+    out += [f"| [`{row.name}`]({base}{row.name}){size(row.name)} | {row.what.format(name=row.name)} |"
+            for row in servers]
     out += ["", f"Or the image: `docker pull {IMAGE}:{version}`, with a Compose file for it in "
             f"[deploy/selfhost/](https://github.com/{REPO}/tree/{tag}/deploy/selfhost).", ""]
-    out += ["<details>", "<summary><b>Windows or macOS will not start it?</b></summary>", "",
+    out += ["<details>", "<summary><b>Your system will not start it?</b></summary>", "",
             "The builds carry no publisher's signature that Windows or Apple knows, so each system warns the "
             "first time.", "",
             "**Windows:** if SmartScreen says it protected your PC, choose **More info**, then **Run anyway**.", "",
@@ -283,7 +236,7 @@ def downloads(tag: str, files: list[str] | None = None, what: dict[str, str] | N
             "alone. Without Terminal: on macOS 15 and newer, after the first refusal, **System Settings › Privacy & "
             "Security**, then **Open Anyway**; on macOS 14 and older, Control-click `Groundhold.app`, choose Open, "
             "then Open again.", ""]
-    if any(name.endswith(".AppImage") for name in files):
+    if any(row.name.endswith(".AppImage") for row in table):
         out += ["**Linux:** an AppImage that will not start on a system without FUSE runs with "
                 "`--appimage-extract-and-run`.", ""]
     out += ["</details>", ""]

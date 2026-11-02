@@ -59,7 +59,25 @@ class AssembleTest(unittest.TestCase):
             "groundhold-linux-x64.tar.gz",
             "groundhold-server-python.zip", "groundhold-server-windows-x64.zip", "groundhold-server-macos-arm64.zip",
             "groundhold-server-macos-x64.zip", "groundhold-server-linux-x64.zip", "groundhold-server-linux-arm64.zip"])
-        self.assertEqual(set(assemble.WHAT), set(assemble.FILES) | {assemble.SUMS}, "each file says what it is")
+        self.assertEqual(assemble.GAME, assemble.FILES[:7])
+        self.assertEqual(assemble.SERVER, ["groundhold-server-python.zip"]
+                         + [f"groundhold-server-{target}.zip" for target in assemble.SERVER_TARGETS])
+
+    def test_each_file_says_what_it_is_and_each_system_which_to_pick(self):
+        # (TABLE is the one table of a release's files: this checks dist against its names, and the
+        # release's Downloads block, tools/release/release_notes.py, shows each row in its own words)
+        self.assertEqual(len(set(assemble.FILES)), len(assemble.FILES), "no file twice")
+        for row in assemble.TABLE:
+            self.assertIn(row.system, ("windows", "macos", "linux", "server"), row.name)
+            self.assertTrue(row.what.strip(), f"{row.name} says what it is")
+            if row.system == "server":
+                self.assertEqual((row.choice, row.first), ("", False), f"{row.name}: the server's are a table")
+        for system in ("windows", "macos", "linux"):
+            rows = [row for row in assemble.TABLE if row.system == system]
+            self.assertEqual([row.first for row in rows].count(True), 1, f"{system}: one file to pick first")
+            self.assertTrue(all(row.choice for row in rows if row.first), f"{system}: the first is a choice")
+        self.assertEqual([row.name for row in assemble.TABLE if row.system != "server" and not row.choice],
+                         [assemble.ZSYNC], "only the AppImage's update file is no player's choice")
 
     def test_every_file_and_the_checksums_last(self):
         self.put(*assemble.FILES)

@@ -28,6 +28,7 @@ import zipfile
 import assemble
 import deploy as deploy_tool
 import package
+import release_notes
 
 ROOT = Path(__file__).resolve().parents[2]
 GAME_ID = "io.github.saschb2b.Groundhold"  # the macOS bundle, the Linux packages, the installer (package.APP_ID)
@@ -358,12 +359,17 @@ class AcrossTheRepositoryTest(unittest.TestCase):
     # are no downloads)
     MENTIONED = re.compile(r"\bgroundhold[-_](?!state-|server\.)[A-Za-z0-9._-]*?"
                            r"\.(?:zip|exe|dmg|AppImage\.zsync|AppImage|deb|tar\.gz)\b")
+    # the GitHub release's own downloads, which release_notes.py writes from assemble.TABLE
+    DOWNLOADS = "the release's Downloads block"
+
+    def text_of(self, page: str) -> str:
+        return release_notes.downloads("v1.0.0") if page == self.DOWNLOADS else (ROOT / page).read_text(encoding="utf-8")
 
     def test_the_pages_that_name_release_files_name_only_those(self):
         seen = set()
-        for page in ("README.md", "server/README.md", "web/index.html", "web/policy.html",
+        for page in ("README.md", "server/README.md", "web/index.html", "web/policy.html", self.DOWNLOADS,
                      *[f"tools/release/readme/{name}" for name in ("linux.txt", "windows.txt", "macos.txt")]):
-            text = (ROOT / page).read_text(encoding="utf-8")
+            text = self.text_of(page)
             for name in set(self.MENTIONED.findall(text)):
                 seen.add(name)
                 self.assertIn(name, assemble.FILES, f"{page} names {name}, which no release has")
@@ -377,16 +383,16 @@ class AcrossTheRepositoryTest(unittest.TestCase):
 
     def test_the_macos_steps_put_the_terminal_first(self):
         # (Control-click > Open and Open Anyway do not get past "is damaged"; the quarantine step does)
-        for page in ("README.md", "web/index.html", "tools/release/readme/macos.txt"):
-            text = (ROOT / page).read_text(encoding="utf-8")
+        for page in ("README.md", "web/index.html", "tools/release/readme/macos.txt", self.DOWNLOADS):
+            text = self.text_of(page)
             self.assertLess(text.index("xattr -dr com.apple.quarantine"), text.index("Control-click"), page)
 
     def test_the_macos_steps_reach_macos_15_and_apple_silicon(self):
         # (macOS 15 dropped Control-click > Open for an unsigned app: Open Anyway in System
         # Settings is the way without Terminal there; an ad-hoc signature the fallback on
         # Apple silicon; review M5 round 2: the site gave neither)
-        for page in ("README.md", "web/index.html", "tools/release/readme/macos.txt"):
-            text = " ".join((ROOT / page).read_text(encoding="utf-8").split())
+        for page in ("README.md", "web/index.html", "tools/release/readme/macos.txt", self.DOWNLOADS):
+            text = " ".join(self.text_of(page).split())
             self.assertIn("Open Anyway", text, page)
             self.assertIn("codesign --force --deep --sign -", text, page)
 

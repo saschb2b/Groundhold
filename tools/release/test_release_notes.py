@@ -20,12 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RAW = "https://raw.githubusercontent.com/saschb2b/Groundhold"
 BLOB = "https://github.com/saschb2b/Groundhold/blob"
 DOWNLOAD = "https://github.com/saschb2b/Groundhold/releases/download"
-# the game's files once the installers land (the packaging track's names), and the server's as they are
-PACKAGED = ["groundhold-windows-x64-setup.exe", "groundhold-windows-x64.zip", "groundhold-macos.dmg",
-            "groundhold-x86_64.AppImage", "groundhold-x86_64.AppImage.zsync", "groundhold_amd64.deb",
-            "groundhold-linux-x64.tar.gz"] + assemble.SERVER
-# 0.9.0's game files, before them
-ZIPS = ["groundhold-windows-x64.zip", "groundhold-macos.zip", "groundhold-linux-x64.zip"]
+# (every link to a file of a release in a Downloads block)
+LINKED = re.compile(r"\]\(" + re.escape(DOWNLOAD) + r"/v[\d.]+/([^)\s]+)\)")
 
 CHANGELOG = """# Changelog
 
@@ -124,9 +120,8 @@ class BodyTest(unittest.TestCase):
 
 
 class DownloadsTest(unittest.TestCase):
-    def block(self, files=PACKAGED, dist=None) -> str:
-        what = {name: assemble.WHAT.get(name, f"what {name} is") for name in files}
-        return notes.downloads("v1.2.0", files=list(files), what=what, dist=dist)
+    def block(self, table=None, dist=None) -> str:
+        return notes.downloads("v1.2.0", table=table, dist=dist)
 
     def section(self, text: str, heading: str) -> str:
         start = text.index(heading)
@@ -161,8 +156,11 @@ class DownloadsTest(unittest.TestCase):
 
     def test_the_server_apart_with_its_image(self):
         server = self.section(self.block(), "## 🖥️ Host a server")
-        for name in assemble.SERVER:
-            self.assertIn(f"| [`{name}`]({DOWNLOAD}/v1.2.0/{name}) | {assemble.WHAT[name]} |", server)
+        for row in assemble.TABLE:
+            if row.system == "server":
+                self.assertIn(f"| [`{row.name}`]({DOWNLOAD}/v1.2.0/{row.name}) | {row.what} |", server)
+        self.assertEqual(LINKED.findall(server[:server.index("<details>")]), assemble.SERVER,
+                         "the server's archives, in the table's order")
         self.assertIn("docker pull ghcr.io/saschb2b/groundhold-server:1.2.0", server)
         self.assertIn(f"{BLOB}/v1.2.0/server/README.md", server)
         self.assertIn("wss://groundhold.saschb2b.com/causeway", server)
@@ -173,11 +171,13 @@ class DownloadsTest(unittest.TestCase):
         text = self.block()
         help_ = text[text.index("<details>"):text.index("</details>")]
         for words in ("**More info**", "**Run anyway**", "xattr -dr com.apple.quarantine /Applications/Groundhold.app",
-                      "**Open Anyway**", "--appimage-extract-and-run"):
+                      "codesign --force --deep --sign - /Applications/Groundhold.app", "**Open Anyway**",
+                      "Control-click", "--appimage-extract-and-run"):
             self.assertIn(words, help_)
         self.assertLess(help_.index("xattr -dr"), help_.index("Open Anyway"), "Terminal first")
-        self.assertNotIn("--appimage-extract-and-run", self.block(files=ZIPS + assemble.SERVER),
-                         "no AppImage, no word of FUSE")
+        self.assertLess(help_.index("xattr -dr"), help_.index("Control-click"), "Terminal first")
+        without = [row for row in assemble.TABLE if not row.name.startswith(assemble.APPIMAGE)]
+        self.assertNotIn("--appimage-extract-and-run", self.block(table=without), "no AppImage, no word of FUSE")
 
     def test_the_checksums_and_with_the_files_their_sizes(self):
         text = self.block()
@@ -194,31 +194,32 @@ class DownloadsTest(unittest.TestCase):
         self.assertIn("`groundhold-windows-x64-setup.exe` · 95 MB<br>", text)
         self.assertIn("`groundhold-macos.dmg` · 1.5 MB<br>", text)
         self.assertIn("groundhold-x86_64.AppImage.zsync`](", text)
-        self.assertIn(" · 300 KB lets AppImageUpdate", text)
+        self.assertIn(" · 300 KB: the AppImage's update file", text)
         self.assertIn("```\nabc  groundhold-macos.dmg\n```", text, "the sums themselves, folded")
 
-    def test_a_file_of_no_known_kind_is_still_listed_in_its_own_words(self):
-        text = self.block(files=ZIPS + assemble.SERVER)
-        mac = self.section(text, "### 🍎 macOS")
-        self.assertIn(f"**[Download]({DOWNLOAD}/v1.2.0/groundhold-macos.zip)** · `groundhold-macos.zip`<br>"
-                      "what groundhold-macos.zip is", mac)
-        with self.assertRaisesRegex(notes.NotesError, "no system for groundhold-tvos.ipa"):
-            self.block(files=["groundhold-tvos.ipa"])
+    def test_a_row_is_shown_in_its_own_words(self):
+        # (the block has no words of its own for a file: a new row of assemble.TABLE shows as it says)
+        table = list(assemble.TABLE) + [assemble.File("groundhold-macos-legacy.zip", "macos", "For an old Mac.",
+                                                      "Legacy")]
+        mac = self.section(self.block(table=table), "### 🍎 macOS")
+        self.assertIn(f"**[Disk image]({DOWNLOAD}/v1.2.0/groundhold-macos.dmg)** · recommended", mac,
+                      "two choices now: the first marked")
+        self.assertIn(f"**[Legacy]({DOWNLOAD}/v1.2.0/groundhold-macos-legacy.zip)** · `groundhold-macos-legacy.zip`"
+                      "<br>For an old Mac.", mac)
+        with self.assertRaisesRegex(notes.NotesError, r"no system for groundhold-tvos.ipa \('tvos'\)"):
+            self.block(table=[assemble.File("groundhold-tvos.ipa", "tvos", "For a television.", "App")])
 
-    def test_every_file_of_the_release_has_its_place(self):
-        # (assemble.FILES is the one list of a release's files: the block takes the names from it)
+    def test_the_block_names_exactly_the_releases_files(self):
+        # (assemble.TABLE is the one table of a release's files: assemble.py checks dist against its names,
+        # and the block links each of them once, the checksums too, and nothing else)
         text = notes.downloads("v9.9.9")
-        for name in assemble.FILES + [assemble.SUMS]:
-            self.assertIn(f"]({DOWNLOAD}/v9.9.9/{name})", text)
-
-    @unittest.skipIf(set(ZIPS) & set(assemble.FILES),
-                     "assemble.FILES still lists 0.9.0's zips: the installers' track has not landed")
-    def test_every_game_file_is_a_kind_the_block_knows(self):
-        # (once the installers land, each game file gets its own words, not assemble.WHAT's)
-        for name in assemble.FILES:
-            if notes.system_of(name) != "server":
-                kind = notes.kind_of(name) or next((h for h in notes.HELPERS if name.endswith(h[0])), None)
-                self.assertIsNotNone(kind, f"{name}: add its kind to release_notes.KINDS")
+        self.assertEqual(sorted(LINKED.findall(text)), sorted(assemble.FILES + [assemble.SUMS]))
+        for key, heading, _ in notes.SYSTEMS:
+            shown = LINKED.findall(self.section(text, f"### {heading}"))
+            self.assertEqual(sorted(shown), sorted(row.name for row in assemble.TABLE if row.system == key), heading)
+        for row in assemble.TABLE:
+            if row.system != "server":
+                self.assertIn(row.what.format(name=row.name), text, f"{row.name} in its own words")
 
 
 class NotesTest(unittest.TestCase):

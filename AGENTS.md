@@ -896,9 +896,11 @@ roll back; `deploy.py coolify` calls Coolify's deploy API after a move when the 
 hand it is a dry run unless told otherwise: nothing published, the files kept as the `release-dry-run` artifact. Only
 GitHub and the user's session push tags, change secrets or make the ghcr package public; an agent never does.
 
-- `assemble.FILES` is the one list of a release's files (versionless names, so `releases/latest/download/<file>`
-  links last): README.md, `server/README.md`, the site and the `README-first.txt` templates may name only those, and
-  the READMEs must name all of them (`tools/release/test_workflows.py`). The self-host Compose pulls the image
+- `assemble.TABLE` is the one table of a release's files, each with its system and what it is (versionless names,
+  so `releases/latest/download/<file>` links last): `assemble.py` checks the built files against its names
+  (`assemble.FILES`), the release's downloads list its rows, README.md, `server/README.md`, the site and the
+  `README-first.txt` templates may name only those, and the READMEs must name all of them
+  (`tools/release/test_workflows.py`). The self-host Compose pulls the image
   `server-image.yml` pushes. Change a file's name in `assemble.py` (the game's, which `pack_*.py` take from there)
   or `server/release.py` together; never the AppImage's or its `.zsync`'s, which installed AppImages ask the newest
   release for.
@@ -921,8 +923,8 @@ GitHub and the user's session push tags, change secrets or make the ghcr package
   paragraph, then "Everything else"; a player's words, no internal names. `tools/release/release_notes.py vX.Y.Z`
   prints what GitHub shows: the page without its frontmatter and with every relative path pinned at the tag
   (pictures raw, links to the blob view; `--ref` for a page written after its tag), else the CHANGELOG's section,
-  else it fails; then the downloads, every file of `assemble.FILES` under its system (the one to pick first marked,
-  `release_notes.KINDS`; a file of no kind in `assemble.WHAT`'s words), the browser game, the server's archives and
+  else it fails; then the downloads, every row of `assemble.TABLE` under its system in its own words (the one to
+  pick first marked), the browser game, the server's archives and
   image apart, the unsigned-build help folded, the checksums (`--dist`: sizes and the sums themselves). `--title`
   is `Groundhold vX.Y.Z`, and a page's frontmatter `stage:` adds it in brackets (none set). `--check` holds every
   page to the rules (a tagline, alt text and a width on each picture, its pictures in `media/vX.Y.Z/` and under

@@ -103,11 +103,13 @@ repository before the tag and the release keeps its pictures after main moves on
 ("Groundhold vX.Y.Z"; a page's frontmatter `stage: beta` adds " (beta)": none is set until the owner names a
 stage).
 
-- The downloads come from `assemble.FILES`, never from names typed into the page: by system (Windows, macOS,
-  Linux, the browser), the recommended file first where there is a choice (`release_notes.KINDS` says each kind's
-  words and which to pick), the server's archives and image apart, the unsigned-build help folded, the checksums. A
-  new kind of file gets its line in `KINDS`; a file of no kind still shows, under its system, in `assemble.WHAT`'s
-  words.
+- The downloads come from `assemble.TABLE`, never from names typed into the page: the one table of a release's
+  files, whose names (`assemble.FILES`) `assemble.py` checks the built files against, so the block lists exactly
+  what the release attaches. By system (Windows, macOS, Linux, the browser), each row in its own words with its
+  link's word (Installer, Portable, Disk image, AppImage, Debian package, Archive), the one marked `first`
+  recommended where there is a choice, a row without a choice (the AppImage's `.zsync`) in small type under its
+  system, the server's archives and image apart, the unsigned-build help folded, the checksums. A new file is a new
+  row there, with `pack_*.py` making it under that name.
 - `python3 tools/release/release_notes.py --check` holds every page to the rules above (a tagline, alt text and a
   width on each picture, the picture in the page's own media folder and under its size, every path there, the page
   in the index); `test_release_notes.py` runs it over the tree, so CI's release tests do too.
