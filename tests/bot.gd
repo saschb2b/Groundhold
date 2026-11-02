@@ -14,7 +14,7 @@
 ## contract-m7 §2), by the caretaker's own functions, but through the game's own duel orders
 ## (Game.cork, Game.uncork, Game.seawall), so a CORK carries the client's commitment to a salt
 ## of its own and its UNCORK reveals that salt: in the window both hollows share, before the
-## plan spends, it corks the pack SimUndertow.weakest_pack picks while Caretaker.cork_tier
+## plan spends, it corks the pack SimUndertow.pick_pack picks while Caretaker.cork_tier
 ## allows a cork (the cheapest tier, its corks within CORK_SHARE_PM of everything it holds),
 ## one order at a time, and the plan waits while a cork it would make is refused or does not
 ## go out, and while my hollow stands in a window the rival's wave keeps shut
@@ -38,6 +38,13 @@
 ##   BOT walking wave <w> hollow <h> creeps <n>    my uncorked creeps on the rival's road
 ##   BOT seawall rose wave <w> charges <n>          the simulation spent a charge of mine
 ## Outside a duel none of this runs.
+##
+## Stacked waves (M8, design 2.7): with `stacking` on (off unless asked: main.gd's
+## --bot-stacks, a scenario's `bot.stacking = true`), in a mode that stacks it calls the
+## waves its plan's `stack` list names during the wave before, as the caretaker would
+## (Caretaker.wants_stack: its builds it can pay for done, its step not holding Ready, at
+## Normal only), through the build controller's horn and its second press, so the call goes
+## out as a player's does. It prints `BOT stack wave <k> seq <seq>` for each call sent.
 extends RefCounted
 
 const BUILDER := "lamplighter"
@@ -65,6 +72,9 @@ var played_window := -1
 var bottles_said := {}
 var walked := {}
 var _charges := -1
+## (M8) Whether it stacks its plan's waves (off unless asked), and the waves it called.
+var stacking := false
+var stacks_sent: Array[int] = []
 
 
 ## Takes the next steps of the plan it can afford. Returns how many steps are done.
@@ -136,7 +146,34 @@ func _step_as_caretaker(main: Node, sim: SimMatch) -> int:
 		done += 1
 	if sim.duel and main.settled() and shared_window(sim, s) > 0:
 		played_window = shared_window(sim, s)  # (corked or nothing to cork, and the plan waits or is done)
+	if stacking and not sim.duel:
+		_stack(main, sim, s, steps)
 	return done
+
+
+## (M8) Calls the next wave during this one where the plan's stack list names it and the
+## caretaker's rule says it would now (Caretaker.wants_stack, `done` its plan cursor): two
+## presses of the horn through the build controller, the second sending it.
+func _stack(main: Node, sim: SimMatch, s: SimRecords.SimSeat, steps: Array) -> void:
+	if not main.settled():
+		return
+	var controller: BuildController = main.get("controller")
+	if controller == null or controller.wants_ready():
+		return
+	if not Caretaker.wants_stack(sim, s, steps, done):
+		return
+	var wave := sim.hollows[s.hollow].wave + 1
+	if stacks_sent.has(wave):
+		return  # (called once: taken back or refused, it is not pressed again)
+	controller.toggle_ready()  # (the first press asks)
+	if not controller.toggle_ready():  # (the second sends it)
+		return
+	stacks_sent.append(wave)
+	var seq := -1
+	for n: int in controller.pending:
+		if controller.pending[n]["what"] == "ready":
+			seq = n
+	_say("stack wave %d seq %d" % [wave, seq])
 
 
 # ── The duel (M7) ──
@@ -213,14 +250,14 @@ func _settled(seq: int, accepted: bool) -> void:
 
 ## The pack the caretaker's policy corks now, as its CHECK_IDS id: in the window both
 ## hollows share, once the Drift has drawn its packs and while a cork is left in it, the
-## pack SimUndertow.weakest_pack picks if Caretaker.cork_tier allows a cork; "" for none.
+## pack SimUndertow.pick_pack picks if Caretaker.cork_tier allows a cork; "" for none.
 static func cork_due(sim: SimMatch, s: SimRecords.SimSeat) -> String:
 	var window := shared_window(sim, s)
 	if window <= 0 or sim.drift_window != window or Game.corks_left() <= 0:
 		return ""
 	if Caretaker.cork_tier(sim, s) < 0:
 		return ""  # (the plan keeps the gold)
-	var pack := SimUndertow.weakest_pack(sim, s.seat)
+	var pack := SimUndertow.pick_pack(sim, s.seat)
 	return str(SimContent.CHECK_IDS[pack]) if pack >= 0 else ""
 
 

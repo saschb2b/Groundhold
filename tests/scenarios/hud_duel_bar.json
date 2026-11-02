@@ -26,6 +26,8 @@
     {"wait_until": "resource('res://tests/ui/duel_stage.gd').in_window(2)", "timeout": 800},
     {"set_ticks_per_frame": 1},
     {"eval": "scene.set('_bot', null)"},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').gold_for(2, 400)", "msg": "the caretaker rival's gold, so it corks in window 2: tier I costs 45 since the sends' pass, more than its fifth of what it holds there"},
+    {"wait_until": "Game.bottles_of(2).size() == 1", "timeout": 120},
     {"key": "1"},
     {"wait_until": "scene.settled()", "timeout": 30},
     {"key": "Space"},

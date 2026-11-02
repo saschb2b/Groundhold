@@ -1,13 +1,13 @@
 {
   "name": "sim_determinism_across_a_stall",
-  "description": "A stalled client ends where the others do (design 6.7 and 6.8, M4): three clients play High Water, and in wave 3 client 3's loop stops for 20 s, as a hidden tab or a long hitch does, while the others play on. After 5 s of its silence the server's AWAY hands seat 3 to the caretaker; halfway through the stall a fourth client joins from client 1's checkpoint, as a rejoin does. Then client 3 catches up 8 ticks a frame, running the AWAY, the caretaker's choices for its own seat and its partners' orders in one burst, and BACK returns its seat at the next window. Every hash of all four clients agrees, every field of every record matches, the seat moved at the same ticks on every client, and a fresh replay of the turn log reproduces every hash.",
+  "description": "A stalled client ends where the others do (design 6.7 and 6.8, M4): three clients play High Water, and in wave 2 client 3's loop stops for 20 s, as a hidden tab or a long hitch does, while the others play on (wave 2 since the Lamplighter's opening answers the Bristlesow: in wave 3 the caretaker's next step for the seat, an arrow, now waits for gold through the whole burst, so the burst held none of its choices). After 5 s of its silence the server's AWAY hands seat 3 to the caretaker; halfway through the stall a fourth client joins from client 1's checkpoint, as a rejoin does. Then client 3 catches up 8 ticks a frame, running the AWAY, the caretaker's choices for its own seat and its partners' orders in one burst, and BACK returns its seat at the next window. Every hash of all four clients agrees, every field of every record matches, the seat moved at the same ticks on every client, and a fresh replay of the turn log reproduces every hash.",
   "scene": "res://tests/sim/sim_harness.tscn",
   "seed": 1,
   "timeout_frames": 3000,
   "watch": {"hash1": "scene.client(1).state_hash_hex()", "hash3": "scene.client(3).state_hash_hex()"},
   "steps": [
     {"eval": "scene.start({'mode': 'high_water', 'seats': 3, 'builders': ['lamplighter', 'lookout', 'lamplighter'], 'clients': 3, 'seed': 9})"},
-    {"repeat": 600, "steps": [{"eval": "scene.plan_step(1)"}, {"eval": "scene.plan_step(2)"}, {"eval": "scene.plan_step(3)"}, {"eval": "scene.run_ticks(30)"}], "until": "scene.client(1).hollows[0].wave == 3 and scene.client(1).hollows[0].phase == 1"},
+    {"repeat": 600, "steps": [{"eval": "scene.plan_step(1)"}, {"eval": "scene.plan_step(2)"}, {"eval": "scene.plan_step(3)"}, {"eval": "scene.run_ticks(30)"}], "until": "scene.client(1).hollows[0].wave == 2 and scene.client(1).hollows[0].phase == 1"},
     {"eval": "scene.client(1).tick", "as": "stall_at"},
     {"eval": "scene.stall(3, 1200)"},
     {"repeat": 10, "steps": [{"eval": "scene.plan_step(1)"}, {"eval": "scene.plan_step(2)"}, {"eval": "scene.run_ticks(30)"}]},

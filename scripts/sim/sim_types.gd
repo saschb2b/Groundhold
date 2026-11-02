@@ -87,9 +87,14 @@ const REFUSE_NO_SUCH_TOWER := 13
 const REFUSE_BAD_COMMAND := 14
 ## The seat is played by the caretaker until the next build window.
 const REFUSE_CARETAKEN := 15
+## (M8, contract-m8 §1 and §2) A Ready during a wave of a preset that stacks while the
+## hollow cannot take another wave: as many on its road as `stack_max`, the newest the
+## last, a seat returning from the caretaker, or the match over. A preset that never
+## stacks (classic, undertow) refuses a Ready in its waves as WRONG_PHASE, as before.
+const REFUSE_NO_STACK := 16
 # (M2 adds no reason: a fork on a teammate's tower is NOT_YOURS, a second fork
 # ALREADY_FORKED, a branch or kit slot that does not exist BAD_COMMAND. Append any new
-# reason after 15 and to REFUSAL_NAMES.)
+# reason after 16 and to REFUSAL_NAMES.)
 
 const REFUSAL_NAMES := [
 	"",
@@ -108,13 +113,15 @@ const REFUSAL_NAMES := [
 	"NO_SUCH_TOWER",
 	"BAD_COMMAND",
 	"CARETAKEN",
+	"NO_STACK",
 ]
 
 # ── Events (drain_events); each is a Dictionary with "type" and "tick" ──
 # A comment lists the event's fields. "(M2)" marks fields and events the M2/M3 contract
 # fixes (docs/design/contract-m2m3.md) and M2 starts to send; a reader treats a missing
 # one as its default (0, "", false). Kinds are base tower ids; tower_form() gives the form.
-## id, hollow, kind; (M7) sent_by: the seat whose uncorked pack it is, only on those
+## id, hollow, kind; (M7) sent_by: the seat whose uncorked pack it is, only on those; (M8)
+## wave: the creep's own (SimCreep.wave)
 const EV_SPAWN := 1
 ## tower, shot, target, kind, flight, land (road micrometres, -1 when homing);
 ## (M2) from: the creep a bounce leaves (0: the tower), form: the firing tower's form id
@@ -124,8 +131,8 @@ const EV_FIRE := 2
 ## bounce number (0 for the first creep)
 const EV_HIT := 3
 const EV_EFFECT := 4  # what ("splash"), shot, hollow, x, z, r (millimetres)
-const EV_DIE := 5  # id, kind, hollow, tower, seat, bounty
-const EV_LEAK := 6  # id, kind, hollow, team, toll
+const EV_DIE := 5  # id, kind, hollow, tower, seat, bounty, wave (M8: the creep's)
+const EV_LEAK := 6  # id, kind, hollow, team, toll, wave (M8: the creep's)
 const EV_BUILT := 7  # id, seat, seq, kind, hollow, x, z
 const EV_FORKED := 8  # id, seat, seq, branch; (M2) form: the branch's TOWER_IDS id
 const EV_SOLD := 9  # id, seat, seq, refund, hollow, x, z

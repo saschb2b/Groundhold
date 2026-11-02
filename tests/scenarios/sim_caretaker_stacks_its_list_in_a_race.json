@@ -1,0 +1,24 @@
+{
+  "name": "sim_caretaker_stacks_its_list_in_a_race",
+  "description": "In a race the caretaker calls its waves itself, and from M8 it stacks too (contract-m8 §1 and §2, CARETAKER_VERSION 5): during wave k - 1 it says Ready for each wave k of its plan's stack list (the Lamplighter's: waves 2 and 3) once its builds are paid for, and the stacked horn calls it at once, the listed wave walking with the one before (the waves truly overlap). Two caretaken Lamplighters race to the end: each hollow stacks waves 2 and 3, no other. Handed another list (the harness's stacks, waves 4 and 9), it stacks those. At Hard it never stacks, and in High Water, where it only counts as Ready, neither.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'caretakers': [1, 2], 'events': false})"},
+    {"assert": "scene.client(1).stacks['lamplighter'] == PackedInt32Array([2, 3])", "msg": "the Lamplighter's plan stacks waves 2 and 3"},
+    {"eval": "scene.play_out([])"},
+    {"eval": "[scene.stacked_waves(0), scene.stacked_waves(1)]", "as": "called"},
+    {"assert": "called == [[2, 3], [2, 3]] and scene.client(1).decided_by() == 'draw'", "msg": "each hollow stacked waves 2 and 3, and the mirror is a draw"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'caretakers': [1, 2], 'events': false, 'stacks': {'lamplighter': [4, 9]}})"},
+    {"eval": "scene.play_out([])"},
+    {"eval": "scene.stacked_waves(0)", "as": "other"},
+    {"assert": "other == [4, 9]", "msg": "another list, those waves"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'caretakers': [1, 2], 'events': false, 'difficulty': 'hard'})"},
+    {"eval": "scene.play_out([])"},
+    {"assert": "scene.stack_summary()['count'] == 0 and scene.client(1).hollows[0].wave >= 4", "msg": "at Hard it never stacks"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1, 'caretakers': [1], 'events': false})"},
+    {"eval": "scene.play_out([])"},
+    {"assert": "scene.stack_summary()['count'] == 0 and scene.client(1).hollows[0].phase == 2", "msg": "in High Water it never calls a wave"}
+  ]
+}

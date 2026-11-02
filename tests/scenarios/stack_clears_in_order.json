@@ -1,0 +1,28 @@
+{
+  "name": "stack_clears_in_order",
+  "description": "Stacked waves clear in order (contract-m8 §2, design 2.7): wave k clears once every creep of waves 1 to k has set out and none of them is on the road. The Beekeeper alone, with a Hive Hum for the Tithe (it fires at nothing), calls wave 2 during wave 1 and holds wave 1's first Gourdling at the Welling (a logged setter); the other creeps of both waves walk to the Holdfast (200 lives, a setter). Wave 2's road is empty while that Gourdling stands, yet wave 2 does not clear before wave 1. Once it reaches the Holdfast, wave 1 clears and wave 2 in the same tick right after it: each pays its own clear bonus (8 + 2 x its wave: 10, then 12) and the Tithe once, says EV_WAVE cleared with its own wave, and only the last clear opens the window.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1, 'builders': ['beekeeper']})"},
+    {"eval": "scene.debug(2, 0, 200)"},
+    {"eval": "[scene.cmd(1, 'BUILD', 2, 20, 2), scene.cmd(1, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.forms(1) == ['hive_hum'] and scene.client(1).hollows[0].wave == 1", "msg": "a Hive Hum stands and wave 1 walks"},
+    {"eval": "scene.events_of('SPAWN')[0]['id']", "as": "held"},
+    {"eval": "scene.hold(held)"},
+    {"eval": "scene.run_to(30)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_to(3600)"},
+    {"assert": "scene.client(1).creeps_on(0) == 1 and scene.creep(held).alive and scene.creep_wave(held) == 1 and scene.client(1).spawns_left(0) == 0", "msg": "every creep but the held one of wave 1 has reached the Holdfast: wave 2's road is empty"},
+    {"assert": "scene.client(1).waves_on_road(0) == PackedInt32Array([1, 2]) and scene.rows('WAVE', ['wave'], {'cleared': true}) == []", "msg": "wave 2 waits for the older wave: nothing has cleared"},
+    {"eval": "[scene.debug(5, held, scene.client(1).hollows[0].road.length_um - 1), scene.hold(held, 1000)]"},
+    {"eval": "scene.run_ticks(2)"},
+    {"eval": "scene.rows('WAVE', ['tick', 'wave', 'phase', 'bonus'], {'cleared': true})", "as": "clears"},
+    {"assert": "clears.size() == 2 and clears[0][0] == clears[1][0] and clears[0].slice(1) == [1, 1, 10] and clears[1].slice(1) == [2, 0, 12]", "msg": "wave 1 clears, still in a wave, then wave 2 in the same tick, which opens the window"},
+    {"eval": "[scene.rows('GOLD', ['tick', 'change', 'why'], {'why': 'clear'}), scene.rows('GOLD', ['tick', 'change', 'why'], {'why': 'tithe'})]", "as": "pay"},
+    {"assert": "pay[0] == [[clears[0][0], 10, 'clear'], [clears[0][0], 12, 'clear']] and pay[1] == [[clears[0][0], 2, 'tithe'], [clears[0][0], 2, 'tithe']]", "msg": "each clear pays its own wave's bonus and the Tithe, once each"},
+    {"assert": "scene.client(1).hollows[0].phase == 0 and scene.client(1).hollows[0].cleared == 2 and scene.client(1).waves_on_road(0) == PackedInt32Array()", "msg": "the window before wave 3 is open"}
+  ]
+}

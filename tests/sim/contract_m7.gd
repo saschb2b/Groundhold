@@ -8,10 +8,10 @@
 extends RefCounted
 
 const PACK_COUNTS := {
-	"swarm": ["gourdling", [6, 10, 14]],
-	"swift": ["scuttler", [6, 10, 14]],
-	"armored": ["thornback", [2, 3, 5]],
-	"winged": ["duskmoth", [4, 6, 9]],
+	"swarm": ["gourdling", [6, 14, 20]],
+	"swift": ["scuttler", [8, 17, 28]],
+	"armored": ["thornback", [3, 5, 9]],
+	"winged": ["duskmoth", [4, 5, 7]],
 }
 const EVENTS := {"DRIFT": 21, "CORK": 22, "UNCORK": 23, "FIZZLE": 24, "BREACH": 25, "SEAWALL": 26, "SURGE": 27}
 const REFUSALS := {
@@ -118,8 +118,20 @@ static func _preset(out: Array) -> void:
 	if int(r.get("teams", 0)) != 2 or r.get("seats", []) != [2, 2] or str(r.get("clock", "")) != "shared":
 		out.append("RULES.undertow is not two teams of one with a shared clock")
 	var duel: Dictionary = r.get("duel", {})
-	for key: String in ["drift_from", "offered", "tiers", "corks", "corks_two_from", "uncork_after_t", "auto_uncork_t", "fizzle_t", "breach_pay", "seawall", "surge"]:
+	for key: String in ["drift_from", "offered", "tiers", "corks", "corks_two_from", "uncork_after_t", "auto_uncork_t", "fizzle_t", "breach_pay", "send_hp_pm", "seawall", "surge"]:
 		if not duel.has(key):
 			out.append("RULES.undertow.duel lacks %s" % key)
+	if int(duel.get("send_hp_pm", 1000)) < 1000:
+		out.append("a sent creep is weaker than the wave's own (send_hp_pm under 1000)")
+	# (the packs' matrix) a pack's own premium and spacing, keyed by the check it tests
+	for key: String in ["pack_hp_pm", "pack_gap_t"]:
+		var by_pack: Dictionary = duel.get(key, {})
+		for check: String in by_pack:
+			if not SimContent.CHECK_IDS.has(check):
+				out.append("RULES.undertow.duel.%s names %s, which is not a check" % [key, check])
+			elif key == "pack_hp_pm" and int(by_pack[check]) < 1000:
+				out.append("a sent %s creep is weaker than the wave's own (pack_hp_pm under 1000)" % check)
+			elif key == "pack_gap_t" and int(by_pack[check]) < 1:
+				out.append("the %s pack's creeps would set out on one tick (pack_gap_t under 1)" % check)
 	if int(duel.get("auto_uncork_t", 0)) >= int(duel.get("fizzle_t", 0)):
 		out.append("the client's auto uncork does not come before the fizzle")

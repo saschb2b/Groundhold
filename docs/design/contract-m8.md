@@ -15,7 +15,9 @@ The owner's decisions of 1 November 2026, after the report: waves stack, as send
 the early-call bonus pays for the risk; a party-wide difficulty, Normal by default, with Hard and Very Hard ("more
 creep health, fewer lives, a tougher boss"), and the queue matching on it; a rival's corked bottle names which of
 its window's packs it may hold, still not which one; a balance pass spreads the fork pairs so each branch has its
-own job.
+own job. And of 2 November 2026, after A's first stacking showed stacking every wave was always the best play (its
+horn waited for the newest wave's last creep, so a skipped window cost nothing): the waves truly overlap, the
+called wave setting out the moment the horn sounds, among the current wave's creeps (§2; core-loop §10, item 18).
 
 `contract_m8_tables` (`tests/sim/contract_m8.gd`) guards §1's ids, keys and numbers, §5's protocol fields and,
 once a track adds them, the presets' keys, the `DIFFICULTIES` table and the plans' `stack` lists. It checks what
@@ -29,75 +31,109 @@ exists and skips what a track has not written yet, as `contract_m7_tables` did. 
   `SimContent.DIFFICULTIES[id]` holds the keys a level lays over a preset (§3); `normal` is `{}`.
 - **Preset keys** (A, in `RULES`, documented above it):
   - `stack_max`: how many waves a hollow's road holds at once; 1 or absent, no stacking.
-  - `stake_pm`: what a stacked horn pays for each life on the road, per mille of a gold.
+  - `stake_pm`: what a stacked horn pays for each life the waves on the road could still take, per mille of a
+    gold.
   - `levels`: the preset takes a level.
 
   | Preset | `stack_max` | `stake_pm` | `levels` |
   |---|---|---|---|
   | `classic` | absent (M1's game, untouched) | absent | absent |
-  | `high_water` | 2 (*tunable*) | 1000 (*tunable*) | true |
-  | `tide_race` | 2 (*tunable*) | 1000 (*tunable*) | true |
+  | `high_water` | 3 (*tunable*; tuned from 2 by A, §2) | 400 (*tunable*; tuned from 1000) | true |
+  | `tide_race` | 3 (*tunable*; tuned from 2) | 400 (*tunable*; tuned from 1000) | true |
   | `undertow` | 1 | absent | absent |
 
 - **`protocol.json` `modes`:** `high_water` and `tide_race` gain `"levels": true`, the server's copy of which modes
   take a level (it never reads `content.gd`); `contract_m8_tables` holds the two to agree.
 - **Refusal** `REFUSE_NO_STACK` 16 (`sim_types.gd`): a Ready in a wave of a preset that stacks, while the wave
   cannot take another (§2). A preset that never stacks refuses a Ready in its waves as `WRONG_PHASE`, as before.
-- **No new event number.** `EV_WAVE` at a stacked horn adds `stacked` (true) and `stake` (the lives on the road);
-  `EV_GOLD` `why` `"stack"` is a stacked horn's pay, the window's part and the stake together; `"ready"` stays a
-  window's.
+- **No new event number.** `EV_WAVE` at a stacked horn adds `stacked` (true) and `stake` (the lives on the road,
+  not gold: its `early` is what the horn paid each seat, in gold); (the review) `EV_SPAWN`, `EV_DIE` and `EV_LEAK`
+  add `wave`, the creep's `SimCreep.wave`, which a view reading a frame of many ticks needs (events are not hashed); `EV_GOLD` `why` `"stack"` is a stacked horn's
+  pay, the window's part and the stake's part together; `"ready"` stays a window's.
 - **`SimContent.CARETAKER_VERSION` 5:** the caretaker stacks (§2).
 - **A plan's `stack`** (A, `data/plans/<builder>.json`): the waves its caretaker and its plan bot call during the
   wave before; at the top level for every preset that stacks, and a mode block may hold its own. First lists
   (*tunable*), each Builder's own checks called during a wave of its own checks, never behind a boss: the
   Lamplighter `[2, 3]`, the Lookout `[5]`, the Bellfounder `[4]`, the Beekeeper `[2]`. A listed wave is 2 to 12.
-- **The rules hash** covers `DIFFICULTIES` and every plan's `stack` list besides what it covered. It stays one hash
-  per build for every mode and every level, so `HELLO` is unchanged.
+- **The rules hash** covers `DIFFICULTIES` and every plan's `stack` list besides what it covered, and (the review)
+  `SimContent.ORDERS_VERSION` 2, the READY that names its wave (§2). It stays one hash per build for every mode and
+  every level, so `HELLO` is unchanged.
 
 ## 2. Stacked waves (track A; design §2.7)
 
 - **When Ready is taken.** In a build window, as before. In a wave of a preset whose `stack_max` is above 1, a
   present seat's `READY 1` is taken (`EV_READY`) while the hollow has fewer than `stack_max` waves on its road, the
   newest is not the last wave, no seat of the hollow is returning from the caretaker (its hand-back needs a
-  window), and the match is not over; otherwise `NO_STACK`. `READY 0` is always taken.
-- **The stacked horn** sounds, in stage 2, when every present seat of the hollow is Ready (a seat the caretaker
-  plays counts as Ready, as in a window) and the Welling has sent the newest wave's last creep. The called wave's
-  first creep waits its first group's `interval_t` after the horn; the rest follow as listed. Every horn clears
-  every Ready. A hollow nobody is present at stacks only as its caretaker calls (below).
+  window), and the match is not over; otherwise `NO_STACK`. `READY 0` is always taken. (The review) A `READY 1`
+  names the wave it calls in `b`, the hollow's newest plus one, in a window as in a wave, and is taken only for that
+  wave, or for `b` 0, which names none (the caretaker's, and every turn log recorded before): one naming another is
+  `WRONG_PHASE`, so a window's press that lands after its horn, online, never calls the wave after it, alone, nor
+  stands as a call for it beside a partner and carries into the next window. The game names the wave in every
+  mode (`BuildController._send_ready`, `Game.called_wave()`); a press late in a window asks for a second press while
+  the countdown is within the order's lead, its trip there and back (`Game.order_trip()`, `MatchClient.rtt_ms` in
+  whole turns) and a turn (`Game.late_in_window()`), and that second press goes out once the window's horn has
+  sounded, naming the wave after it.
+- **The stacked horn** sounds in stage 2 of the tick on which every present seat of the hollow is Ready (a seat
+  the caretaker plays counts as Ready, as in a window): a player's Ready lands in stage 1, so its horn sounds in the
+  same tick; a caretaker says it in stage 3, so its horn sounds in the next. Nothing else waits: the newest wave
+  may still be setting out. The called wave sets out at once, its first creep in that stage 2 as at a window's
+  horn (its queue's first wait 0) and the rest at its groups' `interval_t`. What the older wave has still to send
+  moves, at the horn and before that tick's spawns, to `SimHollow.behind` as `[creep kind index, wave, tick]`, each
+  on the tick its queue would have sent it (`SimWaves.hold_back`), and the Welling sends both: each tick, first the
+  `behind` entries whose tick has come, in their order (the oldest wave first), then the newest wave's queue
+  (`SimWaves._spawns`). `SimHollow.queue`, `cursor` and `spawn_wait_t` stay the newest wave's schedule, as the M1
+  to M7 records say. A creep comes with its own wave and grows by it (`SimWaves.spawn(m, h, kind, sent_by,
+  wave)`). Every horn clears every Ready. A hollow nobody is present at stacks only as its caretaker calls (below).
 - **On the road.** A wave is on the road from its horn until it clears. `SimHollow.wave` stays the newest wave
-  called. New state: `SimHollow.cleared`, the waves cleared in order, and `SimCreep.wave`, the wave a creep came
-  with (an uncorked creep's is the wave it walks, in a duel). The phase is `WAVE` while any wave is on the road.
-- **Clears** (stage 7). Wave *k* clears when every creep of waves 1 to *k* has set out and none of them is on the
-  road, so waves clear in order, and a younger wave whose road is empty clears in the same stage right after the
-  older. Each clear pays each seat the clear bonus of its own wave (`clear_bonus`: 8 + 2 × *k*) and the Hive Tithe,
-  and says `EV_WAVE` `cleared` *k*.
+  called. New state: `SimHollow.cleared`, the waves cleared in order, `SimHollow.behind` (above), and
+  `SimCreep.wave`, the wave a creep came with (an uncorked creep's is the wave it walks, in a duel). The phase is
+  `WAVE` while any wave is on the road. `spawns_left(hollow)` counts every wave's spawns still to come.
+- **Clears** (stage 7). Wave *k* clears when every creep of waves 1 to *k* has set out (`SimWaves.to_come_up_to`:
+  the newest wave's queue, the older waves' `behind`) and none of them is on the road, so waves clear in order, and
+  a younger wave whose road is empty clears in the same stage right after the older. Each clear pays each seat the
+  clear bonus of its own wave (`clear_bonus`: 8 + 2 × *k*) and the Hive Tithe, and says `EV_WAVE` `cleared` *k*.
 - **Windows.** No window comes between stacked waves. When the last wave on the road clears, the next window opens
   with the preset's `window_t`, or the hollow is done after its last wave. A seat's Ready from a wave that clears
   before its horn stands into that window (`open_window` clears no Ready said in the wave before it).
 - **Pay.** A window's horn pays one gold per whole second left, as before. A stacked horn pays each seat of the
   hollow the whole window it skips (`window_t` for the hollow's seat count, in whole seconds) plus `stake_pm` per
-  mille of the **stake**, the tolls of every creep on the hollow's road at the horn, rounded down: one `EV_GOLD`
-  `"stack"`. Bounties pay at each kill, as before.
+  mille of the **stake**, rounded down: the lives the waves on the road could still take at the horn, the tolls of
+  every creep on the hollow's road and of every creep the Welling has still to send (the newest wave's queue from
+  its cursor and `behind`), so a call made while the older wave is still setting out stakes all of it. One
+  `EV_GOLD` `"stack"`. Bounties pay at each kill, as before.
 - **A race.** Each hollow stacks on its own clock. Race time counts as before: the last wave's clear tick plus
   `life_t` a life lost. `cleared_waves(team)` is the hollow's `cleared` (its last wave once done). A team that falls
   fell on its oldest wave on the road, its waves cleared plus one (in a window, the wave it faced, as before), and
-  `fell_kills` counts the kills of that wave's creeps, whichever horn they came with.
+  `fell_kills` counts the kills of that wave's creeps, whichever horn they came with. A fall drops what `behind`
+  still held. Nothing else of Tide Race changes.
 - **No stacking in Undertow or classic.** Their Ready in a wave stays refused as before; the duel's shared clock,
   Drift and corks are M7's, unchanged.
 - **The caretaker** says Ready during wave *k* − 1 for each wave *k* of its plan's `stack`, once the build steps it
-  can pay for now are done and the step it waits on does not hold Ready (`"ready": false`), wherever it calls
+  can pay for now are done and the step it waits on does not hold Ready (`"ready": false`), so at its first think
+  in that wave where nothing it can pay for is left to build, and wave *k* walks with *k* − 1, wherever it calls
   waves itself: in a race (as M6's caretaker calls each window's wave), and for the sim harness's seats played by
   command that stack. It never stacks at Hard or Very Hard. Beside a present player it only counts as Ready, as
-  before.
+  before. On a hollow nobody is present at, a crew of caretakers (a race team of two: Race the caretaker for a
+  party of two, the queue's caretaker mirror) says it for each wave *k* one of the crew's plans lists
+  (`Caretaker.stacks_wave`), each once its own builds are paid: the horn still waits for every caretaker's Ready,
+  and the crew stacks what each of them alone would, not only the waves both list (Lamplighter and Lookout list
+  none alike; `sim_caretaker_crew_stacks_every_list`).
 - **The codec's M8 block** follows M7's and is written only when the match holds what the M1 to M7 records cannot
-  say: a hollow with two waves on its road, a creep of an older wave than its hollow's newest, a race's kills of a
-  stacked wave, or a level other than Normal (its `DIFFICULTY_IDS` index; decode refuses bytes whose level is not
-  the rules'). classic, and every Normal match nobody stacked in, keep their checkpoint bytes and state hashes:
-  every High Water and duel gate's summary is the same before and after A's merge.
+  say: a hollow with two or more waves on its road, an older wave's spawns still to come (`behind`), a creep of an
+  older wave than its hollow's newest, a race's kills of a stacked wave, or a level other than Normal (its
+  `DIFFICULTY_IDS` index; decode refuses bytes whose level is not the rules'). It holds the level (u8), then per
+  hollow its `cleared` (u16) and its `behind` (a u16 count, then u8 kind, u16 wave, u32 tick each), the creeps of
+  another wave than their hollow's newest (a u16 count, then u16 index and u16 wave each), and per team its
+  `stack_kills` (a u8 count, then u32 each). classic, and every Normal match nobody stacked in, keep their
+  checkpoint bytes and state hashes: every High Water and duel gate's summary is the same before and after A's
+  merge.
 - **API** for the views and the tests: `SimMatch.waves_on_road(hollow) -> PackedInt32Array` (oldest first),
   `can_stack(hollow) -> bool` (a present seat's Ready in this wave would be taken), `stack_pay(hollow) -> Array`
-  (`[window part, stake]` were the stacked horn to sound now; `[0, 0]` outside a wave), `cleared_waves(team)` as
-  above, `SimCreep.wave`. The sim harness: `play_out(by_command, every, limit, ready_at_once, stacking)`, where
+  (`[window part, stake part]`, both in gold, were the stacked horn to sound now: the window's whole seconds and
+  `stake_pm` per mille of the stake, rounded down; `[0, 0]` outside a wave; the two were one number only at
+  `stake_pm` 1000), `road_tolls(hollow)` (the stake itself, in lives: the creeps walking and, in a wave, those still
+  to come), `spawns_left(hollow)` (every wave's still to come), `cleared_waves(team)` as above, `SimCreep.wave`,
+  `SimHollow.behind`. The sim harness: `play_out(by_command, every, limit, ready_at_once, stacking)`, where
   `stacking` maps a seat played by command to `"plan"` (it also stacks its plan's list) or `"all"` (it stacks every
   wave it may), and `cfg` takes `"difficulty"`.
 
@@ -109,7 +145,21 @@ exists and skips what a track has not written yet, as `contract_m7_tables` did. 
 | `hard` (1) | Hard | 1300 | 1500 | 100 | 15 |
 | `very_hard` (2) | Very Hard | 1600 | 2000 | 200 | 10 |
 
-Every number but Normal's is *tunable* by A against the gates.
+Every number but Normal's is *tunable* by A against the gates. As tuned (`content.gd`'s `DIFFICULTIES` says why):
+Hard 1100, 1500, 100 and 15; Very Hard 1150, 1550, 100 and 10. A's gates took both levels' creep health down from the
+first numbers. Very Hard's bosses came down from 2000 and 200 on 2 November 2026, after the playtest `halv` s3 (H3-02)
+found Very Hard "a wall at wave 6, not a close wave 12" and its gates were held to the owner's "a close wave 12"
+(core-loop §10, item 16) on the Crest: it dies, or reaches the Holdfast with at most a quarter of its health left; a
+win keeps at most half the lives; and at least half of the six crews (each Builder alone, the two complementary
+pairs) win (`difficulty_very_hard_half_win`). Each level keeps fewer lives and more creep and boss health than the
+level before, as `contract_m8_tables` holds, so Very Hard's Bristlesow has more health than Hard's.
+
+The owner decided the wave-6 boss at Normal on 2 November 2026 ("Yes, at Normal"; core-loop §10, item 19): every
+Builder's plan alone kills the Bristlesow at Normal (`bot_kills_bristlesow_solo_*`), where the Lamplighter's and the
+Lookout's had leaked it for 5 lives. Normal still lays nothing and the Bristlesow's own numbers stay. The plans answer
+it (A's files): the Lamplighter's High Water opening forks an Iron Mortar before her third arrow and the Lookout's
+builds a Siege Perch before her second Kestrel Flock. Their duels keep the orders before it (the plans' `undertow`
+blocks), so no duel gate moved. At Hard and Very Hard the Bristlesow stays a toll that a strong opening comes near.
 
 - **`SimContent.rules(mode, difficulty := "normal")`:** the preset, with `"difficulty"` set to the level played
   and, where the preset has `levels`, the level's keys laid over it: `lives` replaced; `hp_pm`, `boss_hp_pm` and
@@ -155,8 +205,8 @@ Every number but Normal's is *tunable* by A against the gates.
 - **B**, the duel's views:
   - **The Drift tray:** under each rival bottle, its candidates' pack icons, small and dim, beside the tier
     numeral; `DriftTray.rivals_shown()` gains `candidates`.
-  - **The bottle's tooltip:** "Your rival's bottle · Tier II, corked for wave 7. It holds one of: 10 Gourdlings
-    (Gourd Rush), 3 Thornbacks (Thorn Herd) or 6 Duskmoths (Moth Cloud). Which one stays hidden until it is
+  - **The bottle's tooltip:** "Your rival's bottle · Tier II, corked for wave 7. It holds one of: 14 Gourdlings
+    (Gourd Rush), 5 Thornbacks (Thorn Herd) or 5 Duskmoths (Moth Cloud). Which one stays hidden until it is
     uncorked." Counts are the bottle's tier's (`SimContent.PACKS`), names `Game.PACKS`'. When the rival corked two
     bottles in one window, each tooltip adds "Both may hold the same pack."
   - **The duel bar:** the rival's row ends with its corked bottles' candidates by check while one is corked for the
@@ -181,7 +231,10 @@ The difficulty's change, and only that. Stacked waves are the simulation's alone
   without levels), from the party or from the queue's key, and on a rejoin the match's own.
 - **Unchanged:** `HELLO` (its rules hash covers every level), `LOADED`, `MATCH_FOUND` (the queue matches one level,
   so each party's own is the match's), `QUEUE`, `QUEUE_STATE`, `ACCEPT`, `RESULT`, `MATCH_END`, the beacon, every
-  message of a match and the commands (`READY`'s new refusal is the simulation's).
+  message of a match and the commands' layouts (`READY`'s new refusal is the simulation's). One range moves (the
+  review): `READY`'s `b`, 0 before, is 0 to 65535, the wave a `READY 1` calls (§2); the server checks only the
+  range, `test_contract_m8.py` and `test_turn_stamping.py` hold it, and no transcript records a `READY` naming a
+  wave, so none changes.
 - **The server:** `party.py` (the party's `difficulty`, `set_difficulty`), `queue.py` (tickets keyed on mode, rules
   hash and level; `waiting` and `look` by all three), the match's `MATCH_CONFIG`, `--dev-match MODE:N[:LEVEL]`
   (`high_water:2:hard`), `/stats` matches by mode and level, and the README's byte tables
@@ -214,6 +267,16 @@ The difficulty's change, and only that. Stacked waves are the simulation's alone
 - **Acceptance:** `fork_pairs_apart`, and every balance gate after the pass with its bar unchanged (the plans move
   first where one fails; D owns `data/plans/` from A's merge); `sim_bench` above its floors (a Queen's Guard that
   aims at the most health walks the road differently from one that takes the first).
+- **What the pass set** (D): the bench as `fork_bench.gd` writes it (a crowd's line at three times wave 7's health,
+  holding and lifting lines at fifty times, so no measure saturates; a `single` at every creep health the game plays,
+  one to four seats at every level, and a crowd or a hold on every cell the base's Builder's plan builds it on, a pair
+  apart at each; the Sky Toll's job measured by a flier's damage and its hold on a line of fliers, its slow held to
+  the patch ceiling), its numbers and the reasons beside each in `content.gd`'s `TOWERS`, the table before and after
+  in core-loop §3.8. One stated exception: the Sky Toll's damage to a flock is not held, since on its bends it does
+  what the Royal Apiary does there, as the Bellfounder's one tower for the sky at Hard needs (core-loop §3.8). The four gates A held (§9, core-loop §4.4: the Bellfounder and the Lookout alone at Hard and Very
+  Hard) stand by the Clapper Tower's 35 and two plan orders, and the generator's `HELD` is empty. Beside the pass,
+  the owner's decision of 2 November 2026 raised Tide Race's `race.life_t` from 600 to 3600 ticks (contract-m6 §4's
+  number; `contract_m6_tables` holds the new one), held by `race_pair_stacking_every_wave_not_dominant`.
 
 ## 7. Who owns what
 
@@ -243,16 +306,20 @@ Each track adds only newly named scenarios and its own lines in `AGENTS.md` and 
 
 ## 9. Acceptance
 
-**A:** `stack_ready_in_a_wave` (taken in a wave; the horn waits for the newest wave's last creep, then its first
-group's interval), `stack_at_most_two` (`NO_STACK` with two on the road and in the last wave),
-`stack_pays_window_and_stake` (the window's whole seconds plus the tolls on the road, `EV_GOLD` "stack"),
+**A:** `stack_ready_in_a_wave` (taken in a wave; the horn sounds on the tick the Ready lands, the called wave's
+first creep on that tick and the older wave's schedule untouched), `sim_stacked_waves_spawn_together` (both
+schedules on one tick, the older's creep first, each creep its own wave's health, a checkpoint and a client joined
+from it while both send), `stack_at_most_three` (`NO_STACK` with three on the road and in the last wave; named
+`stack_at_most_two` while `stack_max` was 2), `stack_pays_window_and_stake` (the window's whole seconds plus the
+tolls of the creeps on the road and still to come, `EV_GOLD` "stack"),
 `stack_clears_in_order` (a younger wave with an empty road clears right after the older; each clear pays its own
-bonus and Tithe once), `stack_no_window_between`, `stack_ready_carries_into_window`, `stack_waits_for_returning`,
+bonus and Tithe once), `stack_no_window_between`, `stack_ready_carries_into_window`, `stack_ready_names_its_wave` (the
+review: a READY 1 taken only for the wave its `b` names), `stack_waits_for_returning`,
 `stack_not_in_classic_or_duel` (`WRONG_PHASE` in both; `contract_ids_keep_state_hashes` still green),
 `race_stacked_fall_wave` (the oldest wave on the road, its own creeps' kills),
 `sim_caretaker_stacks_its_list_in_a_race`, `difficulty_rules_apply` (lives, creep and boss health, boss armour
 exactly by §3's formula), `difficulty_normal_changes_nothing` (High Water at Normal hashes as before A),
-`sim_checkpoint_roundtrip_m8` (a stacked race at Hard, round-tripped while two waves walk),
+`sim_checkpoint_roundtrip_m8` (a stacked race at Hard, round-tripped while two waves walk and while two send),
 `bottle_candidates_are_its_window_offer` (the same on both clients, never a pack id before the uncorking), and
 core-loop §4.4's stacking and level gates; every earlier gate's summary unchanged but `race_mirror_is_fair` and
 `race_bots_both_finish`, which hold their bars.
@@ -262,7 +329,10 @@ core-loop §4.4's stacking and level gates; every earlier gate's summary unchang
 that answer no click, Undertow's grey), `view_difficulty_named` (Match Found, loading, results, the Esc menu,
 Try's tooltip), `view_duel_bottle_candidates` (tray, tooltip and bar from the real preset, on both clients alike),
 `bot_stacks_through_its_orders` (the plan bot's stacked calls go out through the game's input route, the second
-press included; `bot_wins_classic` still green).
+press included; `bot_wins_classic` still green), and after the review `hud_stack_late_press_race_latency_2` to `_4`
+and `hud_stack_late_press_partner_latency_2` to `_4` (online, 100 to 200 ms each way: a press late in a window asks
+for a second by the order's lead and trip, a READY that lands after the horn calls nothing, and the second press
+waits for the horn).
 
 **C:** Python `test_party_flow` (the op, its refusals, Ready cleared, a countdown stopped), `test_queue` (the level
 in the key; a Hard party never meets a Normal one; a duel at Normal whatever its party chose), `test_versions`

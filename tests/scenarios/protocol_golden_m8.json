@@ -1,0 +1,20 @@
+{
+  "name": "protocol_golden_m8",
+  "description": "The GDScript codec decodes every message of the M8 golden transcript (the party's level, recorded from the Python server at protocol version 2: a member's PARTY difficulty answered to her alone, the leader's Hard to both with the Ready cleared, a Hard party queued beside a Normal party that would fill its seats and never merged with it, and the caretakers at 60 s: MATCH_CONFIG at difficulty 1) into the listed values, and encodes each back to the same bytes; the level sits right after the mode in PARTY_STATE and MATCH_CONFIG.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://scripts/net/protocol.gd')", "as": "codec"},
+    {"eval": "resource('res://tests/net/golden.gd').check(['m8_difficulty'])", "as": "report"},
+    {"assert": "report['mismatches'] == []", "msg": "no record differs"},
+    {"assert": "report['records'] == 63 and report['decoded'] == 63 and report['reencoded'] == 63", "msg": "all 63 records decode and re-encode byte for byte"},
+    {"assert": "report['version'] == codec.number('version') and codec.number('version') == 2", "msg": "the transcript speaks this game's protocol version, 2"},
+    {"assert": "report['types']['PARTY'] == 11 and report['types']['PARTY_STATE'] == 25 and report['types']['QUEUE'] == 3", "msg": "the parties' ops and states and the queue's three asks are in"},
+    {"assert": "report['types']['MATCH_CONFIG'] == 2 and report['types']['NOTICE'] == 2 and not report['types'].has('MATCH_FOUND')", "msg": "no Match Found between the levels; the offer and the Hard party's config are in"},
+    {"eval": "codec.decode(codec.encode('PARTY', {'op': 'difficulty', 'difficulty': 1}))", "as": "op"},
+    {"assert": "op['fields'] == {'op': 'difficulty', 'difficulty': 1}", "msg": "PARTY difficulty round-trips by its op's name"},
+    {"eval": "codec.encode('PARTY', {'op': 'difficulty', 'difficulty': 1})", "as": "op_bytes"},
+    {"assert": "op_bytes == PackedByteArray([20, 12, 1])", "msg": "PARTY difficulty is op 12 and the level's byte"}
+  ]
+}

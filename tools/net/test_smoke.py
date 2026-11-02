@@ -85,7 +85,7 @@ class LingerTests(unittest.TestCase):
         import tempfile
         with tempfile.TemporaryDirectory() as out:
             args = argparse.Namespace(clients=2, builders="lamplighter,lookout", no_bot=True, linger=linger,
-                                      godot="godot", out=out)
+                                      godot="godot", out=out, difficulty=None)
             flow = smoke.Flow(args)
             spawned = []
             flow.spawn = lambda command, log, **options: spawned.append(command)
@@ -423,6 +423,52 @@ class DuelQueueFlowTests(unittest.TestCase):
             self.assertIn("--mode=undertow", command)
             self.assertIn("--queue", command)
         self.assertFalse(any(arg.startswith("--mode") for command in others for arg in command))
+
+
+class DifficultyTests(unittest.TestCase):
+    """--flow --difficulty LEVEL (M8): the party's level, or each queued game's, and its check."""
+
+    def spawned(self, *argv):
+        with tempfile.TemporaryDirectory() as out:
+            args = smoke.parse_args(["--flow", "--no-bot", "--out", out, "--godot", "godot", *argv])
+            flow = (smoke.QueueFlow if args.queue else smoke.Flow)(args)
+            commands = []
+            flow.spawn = lambda command, log, **options: commands.append(command)
+            flow.start_clients(8766)
+            return commands
+
+    def test_the_leader_makes_the_party_at_it_and_every_queued_game_queues_at_it(self):
+        leader, member = self.spawned("--difficulty", "hard")
+        self.assertIn("--difficulty=hard", leader)
+        self.assertFalse(any(arg.startswith("--difficulty") for arg in member))
+        queued = self.spawned("--queue", "--difficulty", "very_hard")
+        self.assertEqual(len(queued), 4)
+        self.assertTrue(all("--difficulty=very_hard" in command for command in queued))
+        self.assertFalse(any(arg.startswith("--difficulty") for command in self.spawned() for arg in command))
+
+    def test_only_with_flow_and_only_a_level(self):
+        for argv in (["--difficulty", "hard"], ["--flow", "--difficulty", "brutal"]):
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                smoke.parse_args(argv)
+
+    def test_the_check_reads_every_games_level_and_the_servers(self):
+        good = ["FLOW config builders lamplighter,lookout", "FLOW level hard rules hard lives 15 numbers ok"]
+        events = '{"event": "match", "match": 1, "mode": "high_water", "level": "hard"}\n'
+        self.assertEqual(smoke.level_problems({1: good, 2: good}, events, "hard"), [])
+        problems = smoke.level_problems({1: good, 2: ["FLOW level hard rules normal lives 20 numbers ok"], 3: []},
+                                        events.replace('"hard"', '"normal"'), "hard")
+        self.assertEqual(len(problems), 3)
+        self.assertIn("client 2 played", problems[0])
+        self.assertIn("client 3 said no FLOW level line", problems[1])
+        self.assertIn("not hard", problems[2])
+        # (rules named Hard that keep Normal's numbers are no Hard match: the check reads them)
+        named_only = ["FLOW level hard rules hard lives 20 numbers hard: lives 20, not 15"]
+        problems = smoke.level_problems({1: good, 2: named_only}, events, "hard")
+        self.assertEqual(len(problems), 1)
+        self.assertIn("client 2's rules named hard but its numbers differ: hard: lives 20, not 15", problems[0])
+        # (a duel plays Normal whatever is asked; High Water and Tide Race the level)
+        self.assertEqual([smoke.played_level(mode, "hard") for mode in ("high_water", "tide_race", "undertow")],
+                         ["hard", "hard", "normal"])
 
 
 class ClassCacheTests(unittest.TestCase):

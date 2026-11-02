@@ -1,0 +1,22 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_stack_rival_caretaker_mark",
+  "description": "A caretaker's Ready mark is lit only where it counts toward a present player's call (M8, design 2.7: in a wave a mark 'is a call for the next wave'; SimWaves._all_ready): racing the caretaker, the rival's caretaker Lookout plays a hollow nobody is present at, where it calls only as its plan says (its stack list is wave 5), so through the rival's wave 1 its plate shows the mark unlit, not 'caretaker ready'. In High Water beside me a caretaker partner counts as Ready, so in a wave that may stack its mark is lit, and mine is not until I call.",
+  "seed": 1,
+  "timeout_frames": 4000,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('tide_race', [{'team': 0, 'builder': 'lamplighter'}, {'team': 1, 'builder': 'lookout', 'caretaker': true}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 3},
+    {"wait_until": "scene.sim.hollows[1].phase == 1", "timeout": 3000},
+    {"wait": 30},
+    {"assert": "scene.sim.hollows[1].wave == 1 and not scene.sim.seat(2).ready and scene.sim.can_stack(1)", "msg": "the rival's wave 1 walks, a call could be taken there, and its caretaker has said none"},
+    {"assert": "node('PartyStrip').ready_marks_shown() == 2 and node('PartyStrip').lines()[1] == 'Seat 2 caretaker'", "msg": "its plate shows the mark, unlit: no call stands"},
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}, {'team': 0, 'builder': 'lookout', 'caretaker': true}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 3},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.state == 1 and Game.wave == 1", "timeout": 120},
+    {"wait": 2},
+    {"assert": "node('PartyStrip').ready_marks_shown() == 2 and node('PartyStrip').lines()[1].ends_with('ready') and not node('PartyStrip').lines()[0].ends_with('ready')", "msg": "beside me a caretaker partner counts as Ready: its mark lit, mine not"}
+  ]
+}

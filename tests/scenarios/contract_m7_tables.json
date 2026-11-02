@@ -1,6 +1,6 @@
 {
   "name": "contract_m7_tables",
-  "description": "The M7 contract (docs/design/contract-m7.md) holds: undertow follows tide_race as mode 3, its wire id, one seat on each of two teams; the Drift's packs are the four checks with the hollow's creeps and counts per tier (Gourdlings and Scuttlers 6, 10, 14; Thornbacks 2, 3, 5; Duskmoths 4, 6, 9); the duel's events are 21 to 27 and its refusals and commands the numbers M1 reserved; SimUndertow.commit, once written, hashes the contract's bytes; and the undertow preset, once added, has a shared clock and every duel key, the client's auto uncork before the fizzle.",
+  "description": "The M7 contract (docs/design/contract-m7.md) holds: undertow follows tide_race as mode 3, its wire id, one seat on each of two teams; the Drift's packs are the four checks with the hollow's creeps and counts per tier (Gourdlings 6, 14, 20; Scuttlers 8, 17, 28; Thornbacks 3, 5, 9; Duskmoths 4, 5, 7), each pack's own premium and spacing keyed by a check; the duel's events are 21 to 27 and its refusals and commands the numbers M1 reserved; SimUndertow.commit, once written, hashes the contract's bytes; and the undertow preset, once added, has a shared clock and every duel key, the client's auto uncork before the fizzle.",
   "scene": "res://tests/sim/sim_harness.tscn",
   "steps": [
     {"eval": "resource('res://tests/sim/contract_m7.gd').problems()", "as": "found"},

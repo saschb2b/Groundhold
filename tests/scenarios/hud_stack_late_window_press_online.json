@@ -1,0 +1,25 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_stack_late_window_press_online",
+  "description": "Online a READY lands later than offline: the turns the game holds and has not run yet (TurnSource.order_lead), its trip there and back (Game.order_trip, the measured round trip in whole turns: 6 ticks at one turn of latency) and a turn more (M8, design 5.7). Over loopback_main, in High Water with a partner, one press of N with 8 ticks of the window left, more than a turn, asks for a second press and sends nothing: the window's horn sounds on its own, my bead and the horn stay unlit, the strip counts no call ('· Ready 1/2' would be one), and wave 1 walks alone.",
+  "seed": 1,
+  "timeout_frames": 6000,
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"},
+    {"eval": "node('LoopbackMain').start({'seed': 3})"},
+    {"set": "node('LoopbackMain').seq.mode", "value": "high_water"},
+    {"wait_until": "scene.client.phase_name() == 'IN_MATCH'", "timeout": 900},
+    {"set_ticks_per_frame": 1},
+    {"wait_until": "Game.sim.hollows[0].countdown_t <= 8", "timeout": 3000},
+    {"eval": "scene.source.order_lead(Game.sim)", "as": "lead"},
+    {"assert": "Game.state == 0 and Game.sim.hollows[0].countdown_t > 3 and Game.late_in_window()", "msg": "more than a turn left, but less than the order's lead, its trip and a turn"},
+    {"key": "N"},
+    {"wait": 2},
+    {"assert": "scene.controller.call_armed() and node('Notice').text == 'Call wave 2 now? Press again' and scene.settled()", "msg": "the press asks for a second and sends nothing"},
+    {"wait_until": "Game.state == 1", "timeout": 120},
+    {"wait": 20},
+    {"assert": "Game.wave == 1 and Game.waves_on_road() == PackedInt32Array([1]) and not Game.is_ready() and not scene.controller.wants_ready()", "msg": "the window's horn sounded on its own, nothing called"},
+    {"assert": "not node('Countdown').text.contains('Ready') and not node('PartyStrip').lines()[0].ends_with('ready') and not node('Ready').get_node('Ring').visible", "msg": "my bead and the horn unlit, the strip counts no call"}
+  ]
+}

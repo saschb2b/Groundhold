@@ -1,0 +1,30 @@
+{
+  "name": "net_desync_dump_keeps_level",
+  "description": "The desync dump carries the level (M8, contract-m8 §3: format 2, a u8 level after the mode). A High Water dev match at Very Hard, two seats played by the plan bots; a bug writes client 2's gold past tick 2,000, the two seats part and the match ends desynced. Each dump is format 2 and names level 2 (Very Hard); replayed from its checkpoint at that level, client 2's turns reach client 1's hash. A dump written by a format-1 game (no level byte) still reads, as Normal; one whose level byte names no level reads as no dump, and replay takes no level outside the wire's, so a corrupt dump never replays at the wrong level.",
+  "scene": "res://tests/net/loopback_match.tscn",
+  "seed": 11,
+  "timeout_frames": 600,
+  "watch": {"tick1": "scene.tick(1)", "hash1": "scene.hash_hex(1)", "hash2": "scene.hash_hex(2)"},
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'difficulty': 'very_hard', 'clients': 2, 'seed': 11, 'latency_turns': [1, 2]})"},
+    {"eval": "scene.bots(true)"},
+    {"wait_until": "scene.phase() == 'IN_MATCH'", "timeout": 600},
+    {"assert": "scene.client(1).difficulty == 'very_hard' and scene.client(2).difficulty == 'very_hard'", "msg": "both play Very Hard"},
+    {"eval": "scene.run_until('client(2).sim.tick >= 2000', 4000)"},
+    {"eval": "scene.corrupt(2, 'gold', 777)"},
+    {"eval": "scene.run_until('client(1).phase_name() == \"ENDED\" and client(2).phase_name() == \"ENDED\"', 600)", "as": "ended"},
+    {"assert": "ended and scene.client(1).outcome == 'desynced' and scene.client(2).dump_path != ''", "msg": "two seats apart: desynced, a dump each"},
+    {"eval": "scene.dump(1)", "as": "d1"},
+    {"eval": "scene.dump(2)", "as": "d2"},
+    {"assert": "d1['format'] == 2 and d2['format'] == 2 and d1['difficulty'] == 2 and d2['difficulty'] == 2 and d1['mode'] == 1", "msg": "format 2 names the level after the mode: Very Hard (2) in High Water"},
+    {"eval": "d1['bad_tick']", "as": "bad"},
+    {"assert": "scene.replay_hash(d2, bad) == d1['hashes'][bad]", "msg": "client 2's dump replays at its level to client 1's hash"},
+    {"eval": "scene.format1_dump(1)", "as": "old_path"},
+    {"eval": "resource('res://scripts/net/desync_dump.gd').read(old_path)", "as": "old"},
+    {"assert": "old['format'] == 1 and old['difficulty'] == 0 and old['mode'] == 1 and old['seed'] == 11 and old['bad_tick'] == bad and old['hashes'] == d1['hashes']", "msg": "a format-1 dump still reads, its level Normal"},
+    {"eval": "resource('res://scripts/net/desync_dump.gd').read(scene.level_dump(2, 1))", "as": "hard"},
+    {"assert": "hard['format'] == 2 and hard['difficulty'] == 1 and hard['bad_tick'] == bad", "msg": "the level byte sits where LEVEL_AT says: a dump rewritten to name Hard reads as Hard"},
+    {"assert": "resource('res://scripts/net/desync_dump.gd').read(scene.level_dump(2, 7)).is_empty()", "msg": "a dump whose level byte names no level is no dump: read refuses it rather than replay it at Normal"},
+    {"assert": "scene.replay_hash(d2.merged({'difficulty': 9}, true), bad) == '' and scene.replay_hash(d2, bad) != ''", "msg": "and replay takes no level outside the wire's"}
+  ]
+}

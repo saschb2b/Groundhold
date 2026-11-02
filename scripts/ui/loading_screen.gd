@@ -1,5 +1,6 @@
 ## Loading, the sync barrier (design 5.6, 6.6). One job: reveal the line-up, then start
-## every player on the same turn. A wide plate over the Causeway with the mode, the map and
+## every player on the same turn. A wide plate over the Causeway with the mode (and its
+## level where it is not Normal, M8: "HIGH WATER · HARD · WICKHOLLOW · 12 waves"), the map and
 ## its waves; one card per player (seat glyph and name, Builder, and the seat's state as
 ## the server's LOAD_STATE gives it: Connecting, a bar with its percentage, Checking,
 ## Ready, Slow 0:18 from 15 s on); the team's coverage row; a line that walks out, and
@@ -183,8 +184,10 @@ func refresh() -> void:
 	var shown_mode := Session.profile.mode if client.mode == Profile.played_mode(Session.profile.mode) else client.mode
 	var waves := (SimContent.WAVES[SimContent.RULES[client.mode]["waves"]] as Array).size()
 	var map := NetProtocol.enum_name("maps", int(client.config.get("map", 0)))
+	# (M8: MATCH_CONFIG's level, named where it is not Normal: "HIGH WATER · HARD · WICKHOLLOW")
+	var mode_words := Game.mode_words(Profile.mode_name(shown_mode), client.difficulty).replace(" · ", "  ·  ")
 	_title.text = "%s  ·  %s  ·  %d waves" % [
-		Profile.mode_name(shown_mode).to_upper(), str(MAP_NAMES.get(map, map)).to_upper(), waves
+		mode_words.to_upper(), str(MAP_NAMES.get(map, map)).to_upper(), waves
 	]
 	var seats := []
 	for i in client.seat_list.size():

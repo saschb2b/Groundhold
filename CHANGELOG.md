@@ -1,7 +1,154 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 · 2026-11-02
 
+Stacked waves and harder levels (M8). In High Water and Tide Race the horn can call the next wave while one still
+runs, up to three on the road at once, for the skipped window's gold and more for the lives at stake; and a party's
+leader picks Normal, Hard or Very Hard, where Hard is a close win at wave 12 and Very Hard closer still. Every fork
+now has its own job, a life lost in Tide Race costs a minute, and Undertow's sends are a real threat: each pack
+breaks through the Builders weak to its check, and the caretaker sends what your defence has shown. With it come the
+fixes from three sessions of a persona playtester, a Warcraft III tower defense veteran, among them a duel's Ready
+that never takes your corking window and a wave-6 boss that every Builder can stop at Normal.
+
+- Undertow's sends are a threat now, not a tax: a sent creep comes a quarter stronger than the wave's own (the Drift
+  tray says so), and the packs are bigger (see the next entry). A tier I cork costs 45 gold and a tier III pack adds
+  +12 a wave to your stipend, so each tier pays its price back about once from its first window and a pack your
+  rival holds is no longer a pure loss. The caretaker sends what your defence has shown, all of it what you could
+  see too: the check it has let through most, a Moth Cloud when your towers hardly reach the sky, else the pack
+  your towers take longest to kill; never anything from your corked bottles. About half the sent packs now take a
+  life, where one in four did.
+- Every Undertow pack is a threat to the Builders weak to its check, not only the Moth Cloud: in the third Veteran
+  playtest Moth Clouds broke through a Lamplighter 6 times in 7 and no other pack ever did, and measured over every
+  Builder the Gourd Rush took a life from nobody. The Gourd Rush now sends 6, 14 or 20 Gourdlings, each half again
+  as strong as the wave's own and bunched a quarter second apart, so it swamps a defence that strikes one creep at a
+  time (the Lookout's, the Bellfounder's) while a splash still answers it; the Scuttle 8, 17 or 28 Scuttlers, two
+  fifths stronger; the Thorn Herd 3, 5 or 9 Thornbacks walking a second apart, so a splash finds one at a time and
+  only hits that go through armour hold it; the Moth Cloud 4, 5 or 7 Duskmoths. Against the caretaker each pack
+  now takes a life from the two Builders weak to it 44% to 52% of the time (the Moth Cloud 83%) and from those that
+  cover it about a fifth of the time or less; the Drift tray says each pack's own strength. A Lamplighter who has
+  forked her Iron Mortar still holds a Thorn Herd, as one with Skyward Lofts holds a tier II Moth Cloud: a patch you
+  can see on the board is a defence to read.
+- Hard and Very Hard on the wire (M8): a party has a level, Normal at first, which its leader picks as the mode;
+  changing it clears every Ready and stops a countdown, a member sees the party's level and cannot change it, and
+  the party keeps its level when the mode changes (a duel always plays Normal). A party you make starts at your
+  own level, which your profile keeps beside the mode, and every match the hub starts plays the level it shows:
+  Play, Try and Race the caretaker. The queue only puts parties of one level together, so a Hard party never meets
+  strangers at Normal; the caretakers it offers after a minute play at the party's level, and so does a match taken
+  back after a lost link or a restarted game. This is protocol version 2: a game and a server of different versions
+  say which one needs updating (a 0.7 game hears "A newer version is out"). `server/main.py --dev-match
+  high_water:2:hard` plays a dev match at a level, `/stats` counts the matches at Hard and Very Hard apart, a desync
+  report names the level, and `smoke.py --flow --difficulty hard` plays the loop at Hard against the real server.
+- The results' Towers column counts the towers standing at the end and how many of them stand forked, "9 (4
+  forked)". It counted every fork ever made, a sold tower's too, so a player who sold and forked again all match
+  read "9 (18 forked)".
+- A fork branch that patches a weak check says what "passable" means by what one tower of it holds alone, on the
+  match's card and the Builders screen's kit plate alike: "Lifts Armored from weak to passable: one alone holds the
+  early armored waves; later ones need more". The Sky Toll says it holds them only inside a bend (outside one, a
+  lone Sky Toll takes none of wave 5's Duskmoths, at any level), and the Rime Spire and the Drowsy Clay Hive, which
+  slow, say that alone they hold no wave.
+- Tower and creep numbers show at most two decimals and none they do not need, on the card's tooltips, the plates
+  and the Builders screen alike: the Queen's Guard's cooldown reads 1.43s, not 1.43333333333333s, a fork's damage
+  "18 to 54", not "18.0 to 54.0", and a Thornback's speed 0.85, no longer rounded to 0.8.
+- Waves stack (M8, the rules; the screens follow): in High Water and Tide Race, Ready during a wave calls the next
+  wave at once, and the waves truly overlap: the called wave sets out the moment the horn sounds, its creeps walking
+  in among the current wave's while that one is still sending its own, and the window between the two is skipped.
+  Call early in a wave and both whole waves come at you together; call once the wave has set out and the new one
+  walks in behind it. At most three waves walk the road at once, every player present must say Ready (the horn
+  sounds as the last Ready lands), and a call is refused while three waves walk, during the last wave, and while a
+  partner is being handed back from the caretaker. A call pays each player the whole window it skips (10 gold
+  alone, 15 with company) and 2 gold for every 5 lives the waves on the road could still take, counting the creeps
+  still to come, so an early call pays the most: wave 2 called as wave 1 begins pays 14, wave 3 called right after
+  it 21. Each creep keeps its own wave's health. Waves still clear in order, each paying its own clear bonus; when
+  the last wave on the road clears, the next window opens as usual, and a Ready said during a wave whose call never
+  sounded stands into it. In Tide Race each hollow stacks on its own clock, and a crew that falls with two or three
+  waves on its road fell on the oldest. Undertow and classic never stack. Stacking every wave is a gamble now: a
+  Builder alone that does it loses at least 5 lives more than one calling only its good waves, or falls, and in a
+  race it wins only where its defence holds three waves at once.
+- The caretaker stacks in Tide Race the waves its Builder's plan lists (the Lamplighter's 2 and 3, so her first
+  three waves set out together; the Lookout's 5, the Bellfounder's 4, the Beekeeper's 2), each early in the wave
+  before it, once its builds are paid, at Normal only; a crew of two caretakers stacks every wave either of their plans lists.
+  Beside a player in High Water it never calls a wave.
+- Hard and Very Hard (M8, the rules; the hub's words follow): High Water and Tide Race take a level, both crews of
+  a race the same. Hard gives 15 lives, creeps a tenth more health, and the Bristlesow and the Hollowtide Crest
+  half again as much and 1 more armour; Very Hard 10 lives, creeps 15% more health, and the bosses 55% more health
+  and 1 more armour, so the Crest's toll is every life left and wave 12 is close: the caretaker playing each
+  Builder's plan alone kills the Crest 4 to 14 s before it would reach the Holdfast and wins on 1 to 5 lives, and
+  the Bellfounder with the Beekeeper leaves it a sliver of health and loses. At twice the health and 2 more armour,
+  as first planned, the Bristlesow was a wall at wave 6 and no Builder alone won. Gold, waves, windows, bounties
+  and tolls are Normal's at every level. Undertow and classic always play Normal.
+- Calling a wave early on screen (M8): during a wave of High Water or Tide Race the horn (D, N, Space or a click)
+  calls the next wave, which sets out at once among the creeps on the road. A call takes a second press within two
+  seconds ("Call wave 8 now? Press again"), so a stray key never sends a wave, and one press takes it back; so does a
+  press in a build window's last moments, which would land after the window's horn (online the question comes as
+  early as your connection's round trip needs): one press there calls nothing, never two waves at once, and the
+  second calls the wave after the window's once its horn has sounded. A Ready names the wave it calls, so one that
+  arrives too late for its horn is dropped, beside a partner too, instead of standing as a call for the next wave
+  and carrying into the window after it. The horn's tooltip names the wave it would call, its checks and what it pays now ("+10 for the window, +4 for
+  the lives on the road"), or why it cannot: three waves on the road, the last wave, a partner being handed back; in a
+  duel waves never stack, and its tooltip says so. Its cost shows what a call pays. Alone the wave sets out as the call
+  lands, and so it does beside caretakers only (offline company, or a teammate away or gone), which the tooltip
+  says; with another player present the call waits for every partner, and the strip says who has called ("Ready 1/2"), as the party
+  strip's marks do (a rival caretaker's mark lights only once it has called). With waves on the road together the strip
+  says "Waves 7–8/12" or "Waves 7–9/12" and counts every wave's creeps, the waves to come start at the oldest, the
+  call's banner says what it paid ("Wave 8 called early · +14 gold"), and each wave clears on its own banner with its
+  own bonus and the lives its own creeps took; waves that clear together share one ("Waves 1–2 cleared · 28 lives
+  lost · +22 gold"). In Tide Race the rival line names the waves on the rival's road. The results count a kill or a
+  leak on its creep's own wave, and so do the clear banners, also for creeps that set out and were gone while the
+  game caught up after a hidden tab or a lost link. A creep you select names its own wave, not the newest on the
+  road, and a race decided while a crew still had stacked waves on its road says so on the results ("on waves
+  2–3 at 0:08").
+- Picking Hard and Very Hard in the hub (M8): Normal · Hard · Very Hard stand beside the mode line, the party's
+  level lit; the leader clicks one, a member sees it, and each word's tooltip says what it changes ("Hard: creeps
+  have 10% more health, the bosses 50% more and 1 more armour; 15 lives"). In Undertow they grey: a duel is played
+  at Normal. A level other than Normal is named wherever the mode is: the mode line, Match Found, the loading title,
+  the results (the lives counted out of the level's own: "4 of 10 lives left"), the Esc menu and Try's tooltip.
+  Play, Try and Race the caretaker offline now play the level the hub shows (a Try from Undertow, where the hub shows
+  none, plays Normal), and the leader's words pick only while the party forms: queued or playing they stand fixed.
+- The hub's Normal · Hard · Very Hard stand still when you click one: the mode line beside them keeps the width of
+  its longest wording and each word the width it has lit, so naming the level in the line no longer slides the words
+  out from under the pointer (a click on Hard used to leave it on Normal, where a second click undid the pick).
+- A rival's corked bottle shows what it may hold (M8): under each bottle in the Drift tray, the packs its window
+  offered at its tier, small and dim, never which one; its tooltip names them with their counts ("It holds one of:
+  14 Gourdlings (Gourd Rush), 5 Thornbacks (Thorn Herd) or 5 Duskmoths (Moth Cloud)"), and the duel bar's rival
+  row ends with their checks ("corked II: Swarm, Armored or Winged"), so you know which defence to hold gold for.
+- Every fork is a choice (M8, the fork pass): each branch now does a quarter more than its sibling at its own job,
+  and no branch is ahead at both, measured on a bench of one tower against held creeps, lines of them and a
+  teammate's battery, at the creep health of every level and party size and on every cell the caretakers build
+  the tower on. The Beekeeper's Apiary forks part for good: the Royal Apiary hits 24, and 56.4 to a flier (it was
+  34 and 51), so it takes a late Duskmoth in two bolts and is her tower for the sky; the Queen's Guard hits 54
+  every 1.43 s, ignores 4 armour, gets no bonus against fliers and aims at the creep with the most health in its
+  reach (it was 50 every 1.2 s, ignoring 3). Her Clay Hives part too: the Great Clay Hive stings for 5 (was 4), the
+  Drowsy Clay Hive for 1.5 (was 3) and slows 35% (was 25%). Her Long Hum hastens by 18% (was 15%). The
+  Lamplighter's Iron Mortar hits 52 (was 45); her Arrow, Cannon and Frost Spire and their first branches, which the
+  classic game plays, are unchanged. The Lookout's Kestrel Flock strikes bounce on to three more creeps (was two)
+  and her Twin Gaze marks for +25% (was +20%). The Bellfounder's Clapper Tower strikes for 35 (was 30), her Great
+  Clapper for 80 every 1.4 s (was 72 every 1.6 s), her Ringing Clapper for 32 over 1.2 tiles (was 24 over 1.0),
+  her Sky Toll slows fliers by a third (was half) and does 160% more to them (23.4, was 80% and 16.2), and her Long
+  Chime cracks 3 armour within 4 tiles (was 2 within 3.2).
+- Hard and Very Hard for every Builder alone: the Bellfounder's Clapper Tower takes a Gourdling of the second wave
+  in one strike at every level, and the caretaker's Lookout forks her first Hawk Roost into a Kestrel Flock before
+  she builds the second and stands her first Siege Perch before the Owl's Eye; the Bellfounder builds her fourth
+  Clapper before her third Toll Tower. Both now win Hard and Very Hard alone. A duel's
+  caretaker Lookout keeps her old order. The caretaker's Beekeeper forks her first Queen's Guard before her first
+  Royal Apiary, so the Thornbacks of wave 4 meet a tower made for armour.
+- At Normal the Bristlesow, wave 6's boss, dies to every Builder's plan alone. It had walked through the
+  Lamplighter's and the Lookout's for 5 lives in every match. The caretaker's Lamplighter now forks an Iron Mortar
+  before her third arrow, and her Lookout builds a Siege Perch before her second Kestrel Flock. The Lamplighter
+  kills it 6 s before it would reach the Holdfast, the Lookout 20 s before. The boss itself is unchanged. At Hard and
+  Very Hard it still takes 5 lives, but these openings now deal three fifths to three quarters of its health,
+  where they dealt about a third. In a duel both caretakers keep their old order.
+- Tide Race: a life lost now adds a minute to your race time (it was 10 s). With waves that truly overlap, a crew
+  that stacked every wave saved three or four minutes, and 10 s a life paid back any leak; now stacking every wave
+  wins a race only for a crew whose defence holds three waves at once, and a crew that leaks to it loses to the
+  same crew calling the waves its plans list. The rival line and the results show the lives' part in seconds
+  ("6:12 +120 s").
+- 0.8.0's playtest fixes on M8's screens: the waves to come give each creep's health and armour at the level you
+  play (a boss's with the level's extra armour), from the oldest wave on the road, each wave on it with its own
+  creeps' health; waves cleared together share one banner that still names the Tithe and the stipend they paid;
+  your own race clock and the hub's race rule count a minute a life ("each life lost adds 60 s"), the hub's mode line
+  ending with "+60 s a life lost" beside the level's words and giving the whole rule when hovered; and in a duel,
+  hovering the rival's corked bottles at the end of the duel bar explains them as the Drift tray does, not the
+  Seawall beside them.
 - The server's `GET /health` names the release it runs and the commit it was built from (`"version": "0.8.0",
   "build": "ef83fd29c820"`), so a deploy can be checked from outside and a self-host knows its release; nothing
   else about the build or the host is told. The image's build context lets in `project.godot` for its version line,

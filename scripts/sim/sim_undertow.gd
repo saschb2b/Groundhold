@@ -35,6 +35,15 @@ extends RefCounted
 ## The caretaker raises its Seawall once the creeps inside the ring would take this many
 ## lives, or a boss stands in it (Caretaker.wants_seawall).
 const CARETAKER_SEAWALL_TOLL := 3
+## The caretaker sends the offered check the rival has let through most once this many of
+## its creeps have reached the rival's Holdfast (pick_pack): two, so one Thornback slipping
+## by at wave 4 does not set its sends for the match, while a wave's few leaks do.
+const LEAK_PICK_MIN := 2
+## The rival's sky is weak (pick_pack) while what its towers deal a creep in the sky is less
+## than this, per mille of what they deal one on the ground (sky_pm): half, which the
+## Lamplighter's and the Bellfounder's openings fall under (0 to about 800 in the duels the
+## gates play) and the Lookout's and the Beekeeper's never do (1000 and up).
+const SKY_WEAK_PM := 500
 
 
 # ── The commitment (contract §2) ──
@@ -137,6 +146,32 @@ static func cork_price(m: SimMatch, tier: int, window: int) -> int:
 	if surge_of(m, window) > 0:
 		return price * _surge_num(m, "cork_price_pm") / 1000
 	return price
+
+
+## The health of an uncorked creep of `kind` whose wave's own of its kind has `hp_c`: its
+## pack's premium per mille of it (send_hp_pm: a sent creep comes stronger than the
+## wave's, as a mercenary does); the whole of it where the rules name none.
+static func send_health_c(m: SimMatch, hp_c: int, kind := "") -> int:
+	return hp_c * send_hp_pm(m, check_of(m, kind) if kind != "" else -1) / 1000
+
+
+## The premium on an uncorked creep's health, per mille of the wave's own (send_health_c):
+## the pack of CHECK_IDS index `check`'s own where the duel's pack_hp_pm names it, else
+## send_hp_pm.
+static func send_hp_pm(m: SimMatch, check := -1) -> int:
+	var by_pack: Dictionary = rules_of(m).get("pack_hp_pm", {})
+	if check >= 0 and check < SimContent.CHECK_IDS.size() and by_pack.has(SimContent.CHECK_IDS[check]):
+		return int(by_pack[SimContent.CHECK_IDS[check]])
+	return int(rules_of(m).get("send_hp_pm", 1000))
+
+
+## The ticks between two creeps of an uncorked pack of CHECK_IDS index `check`: its own
+## where the duel's pack_gap_t names it, else pack_interval_t.
+static func pack_gap_t(m: SimMatch, check: int) -> int:
+	var by_pack: Dictionary = rules_of(m).get("pack_gap_t", {})
+	if check >= 0 and check < SimContent.CHECK_IDS.size() and by_pack.has(SimContent.CHECK_IDS[check]):
+		return maxi(0, int(by_pack[SimContent.CHECK_IDS[check]]))
+	return maxi(0, _num(m, "pack_interval_t"))
 
 
 static func tier_stipend(m: SimMatch, tier: int) -> int:
@@ -448,7 +483,7 @@ static func _send(
 	var pack: Dictionary = (SimContent.PACKS[str(m.rules["map"])] as Dictionary)[SimContent.CHECK_IDS[b.pack]]
 	var kind := SimContent.CREEP_IDS.find(str(pack["creep"]))
 	var count := int((pack["counts"] as Array)[b.tier])
-	var gap := maxi(0, _num(m, "pack_interval_t"))
+	var gap := pack_gap_t(m, b.pack)
 	for k in count:
 		rival.sends.append(kind)
 		rival.sends.append(s.seat)
@@ -603,6 +638,27 @@ static func breach(m: SimMatch, c: SimRecords.SimCreep, team: SimRecords.SimTeam
 		m.add_gold(sender, pay, "breach")
 
 
+## A creep reached team `team`'s Holdfast: one more of its check through (SimTeam.leaked),
+## which every client sees, so the rival's caretaker may send by it.
+static func note_leak(m: SimMatch, team: SimRecords.SimTeam, c: SimRecords.SimCreep) -> void:
+	var check := check_of(m, c.kind)
+	if check < 0:
+		return
+	if team.leaked.size() < SimContent.CHECK_IDS.size():
+		team.leaked.resize(SimContent.CHECK_IDS.size())
+	team.leaked[check] += 1
+
+
+## The CHECK_IDS index of the check whose pack sends creeps of `kind` on the match's map, or
+## -1 (a boss).
+static func check_of(m: SimMatch, kind: String) -> int:
+	var packs: Dictionary = SimContent.PACKS[str(m.rules["map"])]
+	for i in SimContent.CHECK_IDS.size():
+		if str((packs[SimContent.CHECK_IDS[i]] as Dictionary)["creep"]) == kind:
+			return i
+	return -1
+
+
 ## Team `team` lost `lost` lives: every every_lives of them charges its seats' Seawalls,
 ## up to `charges` held.
 static func lives_lost(m: SimMatch, team: SimRecords.SimTeam, lost: int) -> void:
@@ -676,8 +732,57 @@ static func salt_zero_pack(m: SimMatch, b: SimRecords.SimBottle) -> int:
 	return -1
 
 
-## The offered pack the rival's coverage is weakest against (the caretaker's pick,
-## contract §2): the one its standing towers take longest to kill (pack_threat), ties to
+## The offered pack the caretaker sends for seat `seat` (contract §2, the owner's decision
+## of 2 November 2026): read from what the rival's defence has shown, all of it public, and
+## never from a rival's bottle: the offered check of which the most creeps have reached the
+## rival's Holdfast so far, the wave's and sent ones alike (SimTeam.leaked), once
+## LEAK_PICK_MIN have; else the winged pack where the rival's sky is weak (sky_pm under
+## SKY_WEAK_PM); else the one its standing towers take longest to kill (weakest_pack). Ties
+## to the earlier check; -1 when the window offers nothing. (Before, weakest_pack alone
+## chose, and sent the Beekeeper 106 Thorn Herds in 130 caretaker uncorkings, none of which
+## breached: kill time ranks the Thornbacks' health and armour and misses that her Queen's
+## Guards stand for them.)
+static func pick_pack(m: SimMatch, seat: int) -> int:
+	if m.drift_packs.is_empty():
+		return -1
+	var s := m.seat(seat)
+	var rival := (s.team + 1) % maxi(1, m.teams.size())
+	var leaked := m.teams[rival].leaked
+	var best := -1
+	var most := LEAK_PICK_MIN - 1
+	for pack in m.drift_packs:
+		var n := leaked[pack] if pack < leaked.size() else 0
+		if n > most:
+			best = pack
+			most = n
+	if best >= 0:
+		return best
+	var winged := SimContent.CHECK_IDS.find("winged")
+	if m.drift_packs.has(winged) and sky_pm(m, rival) < SKY_WEAK_PM:
+		return winged
+	return weakest_pack(m, seat)
+
+
+## What team `team`'s standing towers deal a creep in the sky in a minute (those that reach
+## it, with their air bonus), per mille of what they all deal one on the ground, each hit at
+## its own rate against a creep without armour: 0 with no tower that deals damage or none
+## that reaches the sky, above 1000 where the air bonus outweighs the ground towers.
+static func sky_pm(m: SimMatch, team: int) -> int:
+	var sky := 0
+	var all := 0
+	for t in m.towers:
+		var owner := m.seat(t.owner)
+		if owner == null or owner.team != team or t.dmg_c <= 0:
+			continue
+		var per_minute := t.dmg_c * SimTypes.TICKS_PER_SECOND * 60 / m.cooldown_of(t)
+		all += per_minute
+		if t.air:
+			sky += per_minute * (1000 + maxi(0, t.air_bonus_pm)) / 1000
+	return sky * 1000 / maxi(1, all)
+
+
+## The offered pack the rival's coverage is weakest against (the caretaker's last resort,
+## pick_pack): the one its standing towers take longest to kill (pack_threat), ties to
 ## the earlier check; -1 when the window offers nothing.
 static func weakest_pack(m: SimMatch, seat: int) -> int:
 	var s := m.seat(seat)
@@ -696,7 +801,8 @@ static func weakest_pack(m: SimMatch, seat: int) -> int:
 
 
 ## How hard pack CHECK_IDS[pack] at `tier` is for team `team`'s standing towers: its
-## creeps' health (before the wave's growth, the same for every pack of a window) over the
+## creeps' health with its pack's premium (send_hp_pm; before the wave's growth, the same
+## for every pack of a window) over the
 ## damage those towers deal it in a minute, each tower's hit through the creep's armour
 ## (less its pierce, at least a quarter, as SimMatch._hurt) at its own rate, fliers only
 ## from towers that reach the sky (with their air bonus), and a splash, a bee cloud or a
@@ -724,11 +830,12 @@ static func pack_threat(m: SimMatch, team: int, pack: int, tier: int) -> int:
 			elif t.bounces > 0:
 				area = 1 + t.bounces
 		per_minute += hit * area * SimTypes.TICKS_PER_SECOND * 60 / m.cooldown_of(t)
-	return count * int(data["hp_c"]) * 1000 / maxi(1, per_minute)
+	return count * int(data["hp_c"]) * send_hp_pm(m, pack) / maxi(1, per_minute)
 
 
 ## The seat's bottles as the views show them: {id, tier, window, price, uncorked,
-## fizzled}, and the pack (a CHECK_IDS id) only once it is uncorked.
+## fizzled}, the pack (a CHECK_IDS id) only once it is uncorked, and (M8) a corked bottle's
+## candidates (CHECK_IDS ids, candidates()), never which one it holds.
 static func bottles_of(m: SimMatch, seat: int) -> Array:
 	var out := []
 	for b in m.bottle_list:
@@ -744,5 +851,28 @@ static func bottles_of(m: SimMatch, seat: int) -> Array:
 		}
 		if b.uncorked:
 			row["pack"] = SimContent.CHECK_IDS[b.pack]
+		elif not b.fizzled:
+			var ids := []
+			for i in candidates(m, b):
+				ids.append(SimContent.CHECK_IDS[i])
+			row["candidates"] = ids
 		out.append(row)
+	return out
+
+
+## (M8, contract-m8 §4) A corked bottle's candidates: the CHECK_IDS indexes of the packs its
+## window offered at its tier, in CHECK_IDS order. With one tier a window, as the preset has
+## it, that is the window's whole offer. A corked bottle's window is always the Drift's
+## current one (its wave cannot clear while it is corked, so no window opens to draw
+## again), so this reads drift_packs, which every client holds alike; it never reads the
+## commitment. [] for a bottle uncorked or fizzled, or whose window the Drift has left.
+static func candidates(m: SimMatch, b: SimRecords.SimBottle) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	if b == null or b.uncorked or b.fizzled or m.drift_window != b.window:
+		return out
+	if not tiers_in(m, b.window).has(b.tier):
+		return out
+	for i in SimContent.CHECK_IDS.size():
+		if m.drift_packs.has(i):
+			out.append(i)
 	return out

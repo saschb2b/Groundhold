@@ -47,6 +47,12 @@
 ##   LOADED went out, and catches up (from a RESYNC(behind), or from tick 0).
 ## - A match ending desynced writes DesyncDump's file (`dump_path`).
 ## connection_state() is what the ConnectionOverlay shows.
+##
+## The level (M8, contract-m8 §3 and §5): MATCH_CONFIG's `difficulty` is the level the match
+## plays (Normal in a mode without levels), kept in `difficulty`; every simulation this
+## client builds or loads for the match (tick 0, the tick-0 hash, a RESYNC's checkpoint, the
+## desync dump's replay) is MatchRules.of(mode, difficulty), and a rejoin's MATCH_CONFIG must
+## name the same level.
 @warning_ignore_start("integer_division")
 class_name MatchClient
 extends RefCounted
@@ -153,6 +159,8 @@ var hash_every := 60
 var config := {}
 var match_id := 0
 var mode := ""
+## The level the match plays (MATCH_CONFIG's difficulty, by name): "normal", "hard", ...
+var difficulty := MatchRules.NORMAL
 var match_seed := 0
 ## My seat in the simulation (1-based); 0 before MATCH_CONFIG.
 var seat := 0
@@ -302,6 +310,7 @@ func rearm() -> void:
 	config = {}
 	match_id = 0
 	mode = ""
+	difficulty = MatchRules.NORMAL
 	seat = 0
 	seat_list = []
 	names = []
@@ -717,6 +726,12 @@ func _on_config(fields: Dictionary, rejoin := false) -> void:
 	if not SimContent.RULES.has(mode):
 		_fail("This game cannot play the server's mode (%d)" % int(fields["mode"]))
 		return
+	# (the level the match plays: one of the wire's, and Normal in a mode that takes none)
+	var level := MatchRules.level_name(int(fields["difficulty"]))
+	if level == "" or MatchRules.level_of(mode, level) != level:
+		_fail("This game cannot play the server's level (%d) in %s" % [int(fields["difficulty"]), mode])
+		return
+	difficulty = level
 	var mine := SimContent.rules_hash()
 	if mine != (fields["rules_hash"] as PackedByteArray):
 		_fail("The server's rules differ from this game's: update the game")
@@ -765,7 +780,7 @@ func _on_config(fields: Dictionary, rejoin := false) -> void:
 		link_flags.append(0)
 	seat = int(fields["your_seat"]) + 1
 	source.seat = seat
-	sim = SimMatch.new(SimContent.rules(mode), seat_list, match_seed)
+	sim = SimMatch.new(MatchRules.of(mode, difficulty), seat_list, match_seed)
 	checkpoints.restart_at(sim, PackedByteArray())
 	if not rejoin:
 		_seq_floor = 0
@@ -877,7 +892,7 @@ func catch_up_per_mille() -> int:
 ## The tick-0 hash LOADED carries: the simulation's own at tick 0, or one built again from
 ## MATCH_CONFIG when it has run past it.
 func _tick0_hash() -> PackedByteArray:
-	return SimMatch.new(SimContent.rules(mode), seat_list, match_seed).state_hash()
+	return SimMatch.new(MatchRules.of(mode, difficulty), seat_list, match_seed).state_hash()
 
 
 ## Whether the open link has brought nothing for _silent_ms in a match, while this tab
@@ -952,6 +967,10 @@ func _on_rejoin_config(fields: Dictionary) -> void:
 	if boot_resume:
 		_on_config(fields, true)
 		return
+	if MatchRules.level_name(int(fields["difficulty"])) != difficulty:
+		# (the world kept is the match's: a rejoin names the level it plays, never another)
+		_fail("The server rejoined this game to a match at another level")
+		return
 	config = fields
 	if phase == Phase.LOADING:
 		# (the link was lost while the match loaded, and it started without this seat
@@ -970,6 +989,11 @@ func _on_loading_rejoin(fields: Dictionary) -> void:
 		_fail("The server rejoined this game to another seat")
 		return
 	var link_back := reconnecting
+	if link_back and MatchRules.level_name(int(fields["difficulty"])) != difficulty:
+		# (the world still standing is the match's, at its level: as a rejoin's config, one
+		# naming another level is no config for this world)
+		_fail("The server rejoined this game to a match at another level")
+		return
 	boot_resume = false
 	_resuming = false
 	_resume_welcomed = false
@@ -1079,9 +1103,9 @@ func _load_resync(bytes: PackedByteArray) -> void:
 	var tick := int(_resync["checkpoint_tick"])
 	var loaded: SimMatch
 	if tick == 0:
-		loaded = SimMatch.new(SimContent.rules(mode), seat_list, match_seed)
+		loaded = SimMatch.new(MatchRules.of(mode, difficulty), seat_list, match_seed)
 	else:
-		loaded = SimMatch.deserialize(bytes, SimContent.rules(mode))
+		loaded = SimMatch.deserialize(bytes, MatchRules.of(mode, difficulty))
 	var expected: PackedByteArray = _resync["checkpoint_hash"]
 	if loaded == null or loaded.tick != tick or loaded.state_hash() != expected:
 		_fail("The server's checkpoint does not load")

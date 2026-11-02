@@ -1,0 +1,21 @@
+{
+  "name": "difficulty_normal_changes_nothing",
+  "description": "High Water at Normal plays as it did before M8's rules (contract-m8 §2 and §3): a level that lays nothing and stacked waves nobody calls change no number and no byte of the checkpoint. A Lamplighter by command, Ready at once in every window, beside a caretaken Lookout, and four caretakers of every Builder on seed 3, each played with the level asked for by name (rules('high_water', 'normal')), reach the state hashes recorded after M8's fork pass (track D) and its review, which meant to alter High Water at Normal: its tower numbers and its plans' orders (the review's numbers keep the two-seat match's, whose towers none of them touch); then again after the owner's decision of 2 November 2026 that every Builder's plan alone kills wave 6's Bristlesow at Normal, which reorders the Lamplighter's and the Lookout's openings (the four-seat match's hash at tick 6,000 is still the fork pass's). Until then they were the M8 seam's (23ccb75), from before the rules track wrote a line, and held the rules track to changing nothing. Re-record them only for a change that means to alter High Water at Normal.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'builders': ['lamplighter', 'lookout'], 'caretakers': [2], 'difficulty': 'normal'})"},
+    {"eval": "scene.play_out([1], 30, 24000, [1])", "as": "end_a"},
+    {"eval": "[scene.hash_at(3600), scene.hash_at(12000), scene.hash_at(24000), scene.client(1).hollows[0].wave, scene.client(1).teams[0].lives]", "as": "a"},
+    {"assert": "end_a == 24000 and a[3] == 12", "msg": "the two-seat match ran 24,000 ticks, to wave 12"},
+    {"eval": "scene.refusals(1)", "as": "a_refusals"},
+    {"assert": "not a_refusals.has('NO_STACK') and scene.events_where('WAVE', {'stacked': true}).is_empty()", "msg": "nobody called a wave during a wave: no stacked horn, no NO_STACK"},
+    {"assert": "a[0] == '6ec3189d59c03d8e' and a[1] == '5544a55f2aa5f6a9' and a[2] == '7babcf79c16cffc3'", "msg": "the two-seat match hashes as after the Normal Bristlesow pass"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 4, 'seed': 3, 'builders': ['lamplighter', 'lookout', 'bellfounder', 'beekeeper'], 'caretakers': [1, 2, 3, 4], 'events': false, 'difficulty': 'normal'})"},
+    {"eval": "scene.play_out([], 30, 30000)", "as": "end_b"},
+    {"eval": "[scene.hash_at(6000), scene.hash_at(18000), scene.hash_at(30000), scene.client(1).hollows[0].wave]", "as": "b"},
+    {"assert": "end_b == 30000 and b[3] >= 9", "msg": "the four caretakers ran 30,000 ticks, past wave 9"},
+    {"assert": "b[0] == 'aa4a9e1dad5d2d35' and b[1] == 'adf62f8d78ef0844' and b[2] == '3a03509b8b9fb813'", "msg": "the four-seat match hashes as after the Normal Bristlesow pass"}
+  ]
+}

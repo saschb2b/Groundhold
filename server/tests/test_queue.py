@@ -4,7 +4,9 @@ parties up to four and pairing race teams of one size, keying on the mode and
 the rules hash, Match Found and its accepts, a decline or the timeout
 requeueing the others at the front, Builder clashes between strangers, the
 caretakers offered at 60 s and starting with them, the strangers' barrier, and
-each party its own again after the match."""
+each party its own again after the match; and the level (M8, contract-m8.md
+§3): a third part of the key, the level the match plays, so a Hard party never
+meets a Normal one and every duellist meets at Normal."""
 
 from pathlib import Path
 import random
@@ -12,7 +14,7 @@ import re
 import unittest
 
 from support import (BUILDERS, LOAD, MEMBER, MODES, NOTICES, PHASES, RULES, TICK0, HubTest, drain, named, party,
-                     settle, state, sync)
+                     settle, state, sync, until)
 from groundhold_server import protocol, queue
 from groundhold_server.protocol import SPEC
 
@@ -23,6 +25,7 @@ OUTCOMES = SPEC["outcomes"]
 CARETAKER = SPEC["seat_flags"]["caretaker"]
 OPEN = SPEC["party_flags"]["open"]
 OTHER_RULES = bytes.fromhex("99887766554433ff")
+LEVELS = SPEC["difficulties"]
 ROOT = Path(__file__).resolve().parents[2]
 NAMES = {value: name for name, value in BUILDERS.items()}
 
@@ -37,11 +40,14 @@ class QueueTest(HubTest):
         return await super().start(**options)
 
     async def solo(self, name, number, mode="high_water", main="lamplighter", backup="lookout", open_seats=True,
-                   **hello):
-        """A game in a party of one of its own, its Builders and open seats set, every state read."""
+                   level="normal", **hello):
+        """A game in a party of one of its own, its Builders, level and open seats set, every state read."""
         client = await self.join(name, number, **hello)
         await party(client, "create", mode=MODES[mode])
         await state(client)
+        if level != "normal":
+            await party(client, "difficulty", difficulty=LEVELS[level])
+            await state(client)
         if (main, backup) != ("lamplighter", "lookout"):
             await party(client, "builders", main=BUILDERS[main], backup=BUILDERS[backup])
             await state(client)
@@ -51,11 +57,14 @@ class QueueTest(HubTest):
         client.name = name
         return client
 
-    async def group(self, names, first, mode="high_water", open_seats=True, team=None, mains=None):
+    async def group(self, names, first, mode="high_water", open_seats=True, team=None, mains=None, level="normal"):
         """A party of `names` (tokens from `first` on), every member Ready and every state read."""
         clients = [await self.join(name, first + index) for index, name in enumerate(names)]
         await party(clients[0], "create", mode=MODES[mode])
         code = (await state(clients[0]))["code"]
+        if level != "normal":
+            await party(clients[0], "difficulty", difficulty=LEVELS[level])
+            await state(clients[0])
         for index, client in enumerate(clients[1:], start=1):
             await party(client, "join", code=code)
             for earlier in clients[:index + 1]:
@@ -304,8 +313,8 @@ class Merging(QueueTest, unittest.IsolatedAsyncioTestCase):
         found = await self.found(newer + [fourth])
         self.assertEqual(found[0]["seats"], 4)
         self.assertEqual(named(await drain(older), "MATCH_FOUND"), [])
-        keys = {(t.mode, t.rules) for t in self.server.lobby.queue.tickets.values() if t.found is None}
-        self.assertEqual(keys, {("high_water", OTHER_RULES), ("classic", RULES)})
+        keys = {(t.mode, t.rules, t.level) for t in self.server.lobby.queue.tickets.values() if t.found is None}
+        self.assertEqual(keys, {("high_water", OTHER_RULES, 0), ("classic", RULES, 0)})
 
     async def test_tide_race_pairs_a_team_with_a_rival_team_of_its_size(self):
         await self.start()
@@ -331,6 +340,94 @@ class Merging(QueueTest, unittest.IsolatedAsyncioTestCase):
         config = await pair[0].until("MATCH_CONFIG", skip=("PARTY_STATE", "MATCH_FOUND", "PONG"))
         self.assertEqual([(s["team"], s["name"]) for s in config["seats"]],
                          [(0, "Tamsin"), (0, "Edda"), (1, "Bram"), (1, "Wen")])
+
+
+class Levels(QueueTest, unittest.IsolatedAsyncioTestCase):
+    """The level is the key's third part (M8): the level the match plays (Party.level)."""
+
+    async def test_a_hard_party_never_meets_a_normal_one(self):
+        await self.start()
+        hard = await self.group(["Tamsin", "Edda"], 1, level="hard")
+        await self.enter(hard[0], hard[1:])
+        normal = await self.group(["Ottilie", "Sefa"], 10)
+        await self.enter(normal[0], normal[1:])
+        # (two and two would fill the four seats: at two levels they wait apart)
+        self.assertEqual([named(await drain(c), "MATCH_FOUND") for c in hard + normal], [[]] * 4)
+        keys = sorted((t.party.leader.name, t.level) for t in self.server.lobby.queue.tickets.values())
+        self.assertEqual(keys, [("Ottilie", LEVELS["normal"]), ("Tamsin", LEVELS["hard"])])
+        # (two more at Hard fill the Hard party's seats; Very Hard is a third level of its own)
+        very = await self.solo("Wen", 30, level="very_hard")
+        await self.enter(very)
+        self.assertEqual(named(await drain(very), "MATCH_FOUND"), [])
+        bram, cai = await self.solo("Bram", 20, level="hard"), await self.solo("Cai", 21, level="hard")
+        await self.enter(bram)
+        await cai.send_message("QUEUE", op=OPS["enter"])
+        found = await self.found(hard + [bram, cai])
+        self.assertEqual(found[0]["seats"], 4)
+        self.assertEqual([named(await drain(c), "MATCH_FOUND") for c in normal + [very]], [[]] * 3)
+        await self.accept(hard + [bram, cai], found[0]["match"])
+        configs = [await c.until("MATCH_CONFIG", skip=("PARTY_STATE", "MATCH_FOUND", "PONG")) for c in hard + [bram, cai]]
+        self.assertEqual({c["difficulty"] for c in configs}, {LEVELS["hard"]})
+        self.assertEqual(self.match().level, LEVELS["hard"])
+        self.assertEqual(sorted(t.party.leader.name for t in self.server.lobby.queue.tickets.values()),
+                         ["Ottilie", "Wen"])
+
+    async def test_a_race_pairs_rival_teams_of_one_level(self):
+        await self.start()
+        hard = await self.solo("Tamsin", 1, mode="tide_race", open_seats=False, level="hard")
+        await self.enter(hard)
+        normal = await self.solo("Edda", 2, mode="tide_race", open_seats=False)
+        await self.enter(normal)
+        self.assertEqual(named(await drain(hard), "MATCH_FOUND"), [])
+        rival = await self.solo("Ottilie", 3, mode="tide_race", open_seats=False, level="hard")
+        await rival.send_message("QUEUE", op=OPS["enter"])
+        found = await self.found([hard, rival])
+        await self.accept([hard, rival], found[0]["match"])
+        config = await rival.until("MATCH_CONFIG", skip=("PARTY_STATE", "MATCH_FOUND", "PONG"))
+        self.assertEqual(([s["name"] for s in config["seats"]], config["difficulty"]),
+                         (["Tamsin", "Ottilie"], LEVELS["hard"]))
+
+    async def test_a_duel_is_at_normal_whatever_its_party_chose(self):
+        await self.start()
+        hard = await self.solo("Tamsin", 1, mode="undertow", open_seats=False, level="very_hard")
+        await self.enter(hard)
+        self.assertEqual(next(iter(self.server.lobby.queue.tickets.values())).level, LEVELS["normal"])
+        normal = await self.solo("Edda", 2, mode="undertow", open_seats=False)
+        await normal.send_message("QUEUE", op=OPS["enter"])
+        found = await self.found([hard, normal])
+        await self.accept([hard, normal], found[0]["match"])
+        configs = [await c.until("MATCH_CONFIG", skip=("PARTY_STATE", "MATCH_FOUND", "PONG")) for c in (hard, normal)]
+        self.assertEqual({(c["mode"], c["difficulty"]) for c in configs}, {(MODES["undertow"], LEVELS["normal"])})
+        # (her party keeps its Very Hard for a mode that takes a level)
+        self.assertEqual(self.server.lobby.parties[self.code_of("Tamsin")].difficulty, LEVELS["very_hard"])
+
+    async def test_the_caretakers_keep_the_partys_level(self):
+        await self.start()
+        for mode, level, open_seats in (("high_water", "very_hard", True), ("tide_race", "hard", False)):
+            leader = await self.solo("Tamsin", 1, mode=mode, open_seats=open_seats, level=level)
+            await self.enter(leader)
+            await self.clock.advance(SPEC["caretaker_offer_ms"])
+            await drain(leader)
+            await leader.send_message("QUEUE", op=OPS["start_with_caretakers"])
+            config = await leader.until("MATCH_CONFIG", skip=("PARTY_STATE",))
+            self.assertEqual((config["mode"], config["difficulty"]), (MODES[mode], LEVELS[level]))
+            await leader.bye()
+            await until(lambda: not self.server.matches)
+
+    async def test_a_strangers_match_nobody_loaded_requeues_at_its_level(self):
+        await self.start()
+        clients = [await self.solo(name, index + 1, level="hard") for index, name in enumerate(("Ana", "Ben", "Cai", "Dot"))]
+        for client in clients[:3]:
+            await self.enter(client)
+        await clients[3].send_message("QUEUE", op=OPS["enter"])
+        match_id = (await self.found(clients))[0]["match"]
+        await self.accept(clients, match_id)
+        for client in clients:
+            await client.until("MATCH_CONFIG", skip=("PARTY_STATE", "MATCH_FOUND", "PONG"))
+        await self.clock.advance(120_000)
+        for client in clients:
+            await drain(client)
+        self.assertEqual([found.level for found in self.server.lobby.queue.found.values()], [LEVELS["hard"]])
 
 
 class Filling(unittest.TestCase):
@@ -824,6 +921,25 @@ class Transcripts(unittest.TestCase):
         self.assertEqual(ends, [(0, OUTCOMES["won"]), (1, OUTCOMES["lost"])])
         last = [f for d, c, kind, f in said if kind == "QUEUE_STATE" and c == 0][-1]
         self.assertEqual(last["state"], QUEUE["queued"])
+
+
+class LevelTranscript(unittest.TestCase):
+    """m8_difficulty, as the server served it (contract-m8.md §5)."""
+
+    def test_m8_difficulty_refuses_a_member_keeps_the_levels_apart_and_configures_hard(self):
+        said = Transcripts.said(self, "m8_difficulty")
+        asked = [(c, f["difficulty"]) for d, c, kind, f in said if kind == "PARTY" and f["op"] == "difficulty"]
+        self.assertEqual(asked, [(1, LEVELS["hard"]), (0, LEVELS["hard"])])
+        # (Edda's own ask answered to her alone at Normal; then Tamsin's Hard to both, her Ready cleared)
+        after = [(c, f["difficulty"], [m["state"] for m in f["members"]]) for d, c, kind, f in said
+                 if kind == "PARTY_STATE" and f["members"] and f["members"][0]["name"] == "Tamsin"]
+        self.assertIn([(1, 0, [MEMBER["here"], MEMBER["ready"]]), (0, 1, [MEMBER["here"], MEMBER["here"]]),
+                       (1, 1, [MEMBER["here"], MEMBER["here"]])],
+                      [after[i:i + 3] for i in range(len(after) - 2)])
+        self.assertEqual([kind for d, c, kind, f in said if kind == "MATCH_FOUND"], [])
+        configs = [f for d, c, kind, f in said if kind == "MATCH_CONFIG"]
+        self.assertEqual([(c["difficulty"], [s["flags"] for s in c["seats"]]) for c in configs],
+                         [(LEVELS["hard"], [0, 0, CARETAKER, CARETAKER])] * 2)
 
 
 class _T:

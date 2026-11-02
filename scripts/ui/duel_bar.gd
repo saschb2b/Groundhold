@@ -7,6 +7,13 @@
 ## its column's caption) explains it on a plate hung under the bar, from the rules' seawall
 ## block: what a burst does, how it charges, how long after one the next may come, and where
 ## it stands now. It reads Game (the duel's records) and decides nothing.
+##
+## (M8, contract-m8 §4) While the rival has a bottle corked for the coming or running wave,
+## its row ends with the bottle's tier and its candidates by check, the glyphs of the checks
+## a defender holds gold for: "corked II: Swarm, Armored or Winged". It stands at the end of
+## the rival's Seawall cell but explains itself: hovering it, the plate speaks of the corked
+## bottles (their tiers, waves and the packs each may hold, as the Drift tray's do), not of
+## the Seawall.
 class_name DuelBar
 extends PanelContainer
 
@@ -23,6 +30,9 @@ var _tip: PanelContainer
 var _tip_title: Label
 var _tip_body: Label
 var _hovered := -1
+## (M8) Whether the pointer is on the rival's corked cell (inside its Seawall's): the plate
+## then speaks of the corked bottles.
+var _hover_corked := false
 
 
 func setup(plate: StyleBox, fonts: Array, icons: Dictionary) -> void:
@@ -78,13 +88,17 @@ func setup(plate: StyleBox, fonts: Array, icons: Dictionary) -> void:
 		wait.add_theme_constant_override("outline_size", 0)
 		wall.add_child(wait)
 		row["wait"] = wait
+		if side == 1:
+			row["corked"] = _corked_cell(wall)
 		_rows.append(row)
 	_build_tip(plate)
 	visible = false
 
 
 ## The two rows as shown, mine first, for tests: "You · 18 lives · 3 breach · +10 a wave ·
-## Seawall 2 (F)", the rival's without the key; " · ready in 12 s" while a Seawall stands.
+## Seawall 2 (F)", the rival's without the key; " · ready in 12 s" while a Seawall stands;
+## (M8) the rival's ending " · corked II: Swarm, Armored or Winged" while a bottle of theirs
+## is corked.
 func lines() -> Array[String]:
 	var out: Array[String] = []
 	for line: String in _shown:
@@ -92,7 +106,8 @@ func lines() -> Array[String]:
 	return out
 
 
-## The explaining plate's title and body while a Seawall is hovered, else ["", ""].
+## The explaining plate's title and body while a Seawall (or, M8, the rival's corked cell)
+## is hovered, else ["", ""].
 func tip_shown() -> Array:
 	return [_tip_title.text, _tip_body.text] if _tip.visible else ["", ""]
 
@@ -130,10 +145,14 @@ func refresh() -> void:
 			line += " (F)"
 		if wait != "":
 			line += " · ready in " + wait
+		if side == 1:
+			var corked := _show_corked(row["corked"])
+			if corked != "":
+				line += " · " + corked
 		shown.append(line)
 	_shown = shown
-	if _hovered >= 0:
-		_show_tip(_hovered)
+	if _hovered >= 0 or _hover_corked:
+		_update_tip()
 
 
 # ── The explaining plate ──
@@ -170,10 +189,35 @@ func _build_tip(plate: StyleBox) -> void:
 
 func _hover(side: int) -> void:
 	_hovered = side
-	if side < 0:
+	_update_tip()
+
+
+## (M8) The pointer came onto (or left) the rival's corked cell.
+func _hover_bottles(on: bool) -> void:
+	_hover_corked = on
+	_update_tip()
+
+
+## The plate for what the pointer is on: the rival's corked bottles while on their cell and
+## one is corked (M8), else the hovered side's Seawall, else nothing.
+func _update_tip() -> void:
+	if _hover_corked and Game.is_duel() and not Game.rival_bottles().is_empty():
+		_show_bottles_tip()
+	elif _hovered >= 0:
+		_show_tip(_hovered)
+	else:
 		_tip.visible = false
-		return
-	_show_tip(side)
+
+
+## (M8) The rival's corked bottles in words, one paragraph each (Game.rival_bottle_text).
+func _show_bottles_tip() -> void:
+	var bottles := Game.rival_bottles()
+	var paras := PackedStringArray()
+	for b: Dictionary in bottles:
+		paras.append(Game.rival_bottle_text(b, bottles))
+	_tip_title.text = "Your rival's corked bottle" if bottles.size() == 1 else "Your rival's corked bottles"
+	_tip_body.text = "\n".join(paras)
+	_place_tip()
 
 
 ## Side `side`'s Seawall in words: mine, the rules (Game.seawall_rule_text) and where it
@@ -207,11 +251,87 @@ func _show_tip(side: int) -> void:
 	else:
 		_tip_title.text = "Your rival's Seawall"
 		_tip_body.text = "It bursts round your rival's Holdfast as yours does round yours. %s." % held
+	_place_tip()
+
+
+## Shows the plate hung under the bar, its right edge with the bar's.
+func _place_tip() -> void:
 	_tip.visible = true
 	_tip.reset_size()
 	var shown := _tip.get_combined_minimum_size()
 	var rect := get_global_rect()
 	_tip.global_position = Vector2(rect.end.x - shown.x, rect.end.y + 4)
+
+
+## (M8) The rival's corked bottles at the row's end: their tiers ("II", "III ×2"), then the
+## glyph of each check one of them may hold, dimmed, in CHECK_IDS order. Returns the words
+## lines() says, "corked II: Swarm, Armored or Winged", or "" while none is corked.
+func _show_corked(cell: Dictionary) -> String:
+	var bottles := Game.rival_bottles()
+	var box: HBoxContainer = cell["box"]
+	box.visible = not bottles.is_empty()
+	if bottles.is_empty():
+		return ""
+	var tiers := PackedStringArray()
+	for b: Dictionary in bottles:
+		var tier_name: String = Game.TIER_NAMES[clampi(int(b["tier"]), 0, 2)]
+		if not tiers.has(tier_name):
+			tiers.append(tier_name)
+	var tier_words := ", ".join(tiers)
+	if tiers.size() == 1 and bottles.size() > 1:
+		tier_words += " ×%d" % bottles.size()
+	(cell["tier"] as Label).text = tier_words
+	var checks := []
+	for check: String in SimContent.CHECK_IDS:
+		for b: Dictionary in bottles:
+			if (b.get("candidates", []) as Array).has(check) and not checks.has(check):
+				checks.append(check)
+	var glyphs: HBoxContainer = cell["glyphs"]
+	for i in glyphs.get_child_count():
+		var glyph := glyphs.get_child(i) as TextureRect
+		glyph.visible = i < checks.size()
+		if glyph.visible and str(glyph.get_meta("check", "")) != checks[i]:
+			glyph.texture = Game.icon(str(Game.CHECKS[checks[i]]["icon"]))
+			glyph.tooltip_text = str(Game.CHECKS[checks[i]]["name"])
+			glyph.set_meta("check", checks[i])
+	var words := Game.candidate_checks(bottles)
+	return "corked %s: %s" % [tier_words, words] if words != "" else "corked %s" % tier_words
+
+
+## (M8) The rival's corked cell, at the end of its Seawall's: a dim "corked" caption, the
+## tiers in gold and up to four check glyphs.
+func _corked_cell(wall: HBoxContainer) -> Dictionary:
+	var box := HBoxContainer.new()
+	box.name = "Corked"
+	box.add_theme_constant_override("separation", 3)
+	# (it explains the bottles, not the Seawall whose cell it ends: the pointer on it is
+	# still on the wall, which hears no exit while it stays within its children)
+	box.mouse_filter = Control.MOUSE_FILTER_STOP
+	box.mouse_entered.connect(_hover_bottles.bind(true))
+	box.mouse_exited.connect(_hover_bottles.bind(false))
+	box.visible = false
+	wall.add_child(box)
+	var gap := Control.new()
+	gap.custom_minimum_size.x = 6
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(gap)
+	var caption := _label("corked", _body, 12, Hud.DIM)
+	caption.add_theme_constant_override("outline_size", 0)
+	box.add_child(caption)
+	var tier := _label("", Hud.TITLE_FONT, 14, Hud.GOLD)
+	tier.name = "CorkedTier"
+	box.add_child(tier)
+	var glyphs := HBoxContainer.new()
+	glyphs.name = "CorkedChecks"
+	glyphs.add_theme_constant_override("separation", 1)
+	glyphs.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(glyphs)
+	for i in SimContent.CHECK_IDS.size():
+		var glyph := _icon(null, Vector2(16, 16))
+		glyph.modulate = Color(1, 1, 1, 0.85)
+		glyph.visible = false
+		glyphs.add_child(glyph)
+	return {"box": box, "tier": tier, "glyphs": glyphs}
 
 
 func _cell(grid: GridContainer, texture: Texture2D, node_name: String, color: Color) -> Label:

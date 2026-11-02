@@ -61,7 +61,9 @@ const SIGNAL_ICON := "res://ui/icons/signal.png"
 
 ## Every tower form (SimContent.TOWER_IDS) has at least "name" and "icon"; a base also
 ## "description" (its tooltip line), a branch "gain" (a few words on what the fork
-## changes, as the Builders screen lists it). The view's keys (Tower, Projectile):
+## changes, as the Builders screen lists it), and a branch that patches a weak check may
+## say how one of it holds that check alone, "lift" (LIFTS; lifts_line). The view's keys
+## (Tower, Projectile):
 ##   model        the form's building; a fork swaps it for the branch's
 ##   head         a part on top that moves: "turn" toward the target (a gun, a ballista,
 ##                a telescope) or "spin" (head_motion: a frost crystal); seated at
@@ -198,6 +200,7 @@ const TOWERS := {
 	{
 		"name": "Rime Spire",
 		"gain": "reaches the sky",
+		"lift": "slow",
 		"icon": "res://ui/icons/rime_spire.png",
 		"model": "res://models/towers/rime_spire.glb",
 		"head": "res://models/towers/rime_spire_head.glb",
@@ -283,7 +286,7 @@ const TOWERS := {
 	"kestrel_flock":
 	{
 		"name": "Kestrel Flock",
-		"gain": "strikes bounce to two more",
+		"gain": "strikes bounce to three more",
 		"icon": "res://ui/icons/kestrel_flock.png",
 		"model": "res://models/towers/kestrel_flock.glb",
 		"muzzle": Vector3(0, 1.82, 0.05),
@@ -303,7 +306,7 @@ const TOWERS := {
 	"twin_gaze":
 	{
 		"name": "Twin Gaze",
-		"gain": "marks two at once",
+		"gain": "marks two at once, a little harder",
 		"icon": "res://ui/icons/twin_gaze.png",
 		"model": "res://models/towers/twin_gaze.glb",
 		"head": "res://models/towers/twin_gaze_head.glb",
@@ -384,7 +387,8 @@ const TOWERS := {
 	"sky_toll":
 	{
 		"name": "Sky Toll",
-		"gain": "reaches fliers, slowing them by half for 2 s and striking them 80% harder",
+		"gain": "reaches fliers, slowing them by a third for 2 s and striking them 160% harder",
+		"lift": "bend",
 		"icon": "res://ui/icons/sky_toll.png",
 		"model": "res://models/towers/sky_toll.glb",
 		"muzzle": Vector3(0, 1.94, 0),
@@ -402,7 +406,7 @@ const TOWERS := {
 	"long_chime":
 	{
 		"name": "Long Chime",
-		"gain": "cracks armour farther out",
+		"gain": "cracks more armour, farther out",
 		"icon": "res://ui/icons/long_chime.png",
 		"model": "res://models/towers/long_chime.glb",
 		"muzzle": Vector3(0, 1.2, 0),
@@ -450,7 +454,8 @@ const TOWERS := {
 	"drowsy_clay_hive":
 	{
 		"name": "Drowsy Clay Hive",
-		"gain": "stung creeps slow by a quarter",
+		"gain": "softer stings that slow creeps by a third",
+		"lift": "slow",
 		"icon": "res://ui/icons/drowsy_clay_hive.png",
 		"model": "res://models/towers/drowsy_clay_hive.glb",
 		"muzzle": Vector3(0, 0.46, 0.3),
@@ -459,7 +464,7 @@ const TOWERS := {
 	"royal_apiary":
 	{
 		"name": "Royal Apiary",
-		"gain": "much harder stings",
+		"gain": "stings fliers far harder",
 		"icon": "res://ui/icons/royal_apiary.png",
 		"model": "res://models/towers/royal_apiary.glb",
 		"muzzle": Vector3(0, 1.13, 0),
@@ -470,7 +475,7 @@ const TOWERS := {
 	"queens_guard":
 	{
 		"name": "Queen's Guard",
-		"gain": "slower, far heavier stings that pierce armour",
+		"gain": "slower, far heavier stings that pierce armour, at the creep with the most health",
 		"icon": "res://ui/icons/queens_guard.png",
 		"model": "res://models/towers/queens_guard.glb",
 		"muzzle": Vector3(0, 0.83, 0),
@@ -490,7 +495,7 @@ const TOWERS := {
 	"long_hum":
 	{
 		"name": "Long Hum",
-		"gain": "hums farther out",
+		"gain": "a stronger hum, farther out",
 		"icon": "res://ui/icons/long_hum.png",
 		"model": "res://models/towers/long_hum.glb",
 		"muzzle": Vector3(0, 1.35, 0),
@@ -659,7 +664,28 @@ const NOTICES := {
 	SimTypes.REFUSE_BAD_REVEAL: "That bottle would not open",
 	SimTypes.REFUSE_NO_CHARGE: "No Seawall charge",
 	SimTypes.REFUSE_SEAWALL_STANDING: "The Seawall is still standing",
+	# (M8: the stacked call's; stack_refusal() says why where the state still shows it)
+	SimTypes.REFUSE_NO_STACK: "No wave can be called now",
 }
+## The levels on screen (M8, contract-m8 §3; design 2.6 and 5.2, world.md: plain words), by
+## SimContent.DIFFICULTY_IDS: each level's word and what its tooltip says it changes, whose
+## numbers difficulty_tip() fills in from SimContent.DIFFICULTIES and the preset, so the
+## words follow the rules' numbers when they are tuned.
+const DIFFICULTIES := {
+	"normal": {"name": "Normal", "tip": "the creeps and the bosses as the game was tuned; {lives} lives"},
+	"hard":
+	{"name": "Hard", "tip": "creeps have {hp} more health, the bosses {boss} more and {armor} more armour; {lives} lives"},
+	"very_hard":
+	{
+		"name": "Very Hard",
+		"tip": "creeps have {hp} more health, the bosses {boss} more and {armor} more armour; {lives} lives"
+	},
+}
+## Why a duel's level words grey (design 1.4 and 5.2): it is tuned to Normal's lives.
+const DUEL_LEVEL := "A duel is played at Normal: your rival sets the pace"
+## How long a stacked call's first press waits for the second (design 2.7 and 5.7: a stray
+## key never sends a wave), in physics frames.
+const CALL_PRESS_FRAMES := 120
 ## An order aimed at the other team's hollow in a race, refused here before it goes out
 ## (contract-m6.md §5): the simulation reads a seat's cells on its own hollow, so the same
 ## cell sent would land on mine.
@@ -700,15 +726,26 @@ var pending_gold := 0
 ## scenarios.
 var team_notices: Array[String] = []
 const TEAM_NOTICES_KEPT := 32
-## The lives my team had before the first it lost in my hollow's wave now running, and
-## the lives after its latest loss (-1 while it lost none): the clear banner says how many
-## the wave cost. Read from EV_LIVES in event order, as absolute counts, so a frame that
-## runs many ticks, or turns run again after a resync, count each life once.
-var _wave_lives_from := -1
-var _wave_lives_now := -1
+## What got through to my team's Holdfast, for the clear banners (M8: each wave's own, the
+## lives its creeps took): by the creep's id, [its wave, the lives it took], from EV_LEAK
+## and the EV_LIVES after it, so a frame that runs many ticks, or turns run again after a
+## resync, count each creep once. A loss no creep made (a scenario's lives write) counts on
+## the oldest wave on the road, by its tick. A wave's are let go once its banner said them.
+var _lost_by := {}
+## The wave each creep on my hollow's road came with (SimCreep.wave), from EV_SPAWN's `wave` and
+## at attach: a leaked creep's record has left the simulation by the time its EV_LEAK is read
+## (which carries its wave too, and wins).
+var _creep_waves := {}
+## The creep whose EV_LEAK came last and whose EV_LIVES has not yet: [id, wave], or [].
+var _leaking := []
+## (M8) My hollow's clears read this frame and not yet said, [wave, bonus, what else it paid
+## (_clear_pays)] each: waves that clear in one tick (or one frame of several) share one
+## banner ("Waves 1–2 cleared").
+var _clears := []
 ## What a clear of my hollow pays me beside its bonus, by EV_GOLD's why ("tithe": the Hive
 ## Tithe; "stipend": a duel's), read from the events that come before the clear's EV_WAVE in
-## the same tick, so its banner names them; spent by that banner.
+## the same tick, so its banner names them; kept with that clear in _clears (M8) until the
+## banner says it.
 var _clear_pays := {}
 
 var gold: int:
@@ -771,6 +808,7 @@ func attach(match_sim: SimMatch, turns: TurnSource, my_seat: int) -> void:
 	seat = my_seat
 	pending_gold = 0
 	_attach_duel()
+	_attach_waves()
 	gold_changed.emit(gold)
 	lives_changed.emit(lives)
 	wave_changed.emit(wave)
@@ -783,13 +821,38 @@ func detach() -> void:
 	pending_gold = 0
 	team_notices.clear()
 	forget_duel()
-	_wave_lives_from = -1
-	_wave_lives_now = -1
+	_lost_by.clear()
+	_creep_waves.clear()
+	_leaking = []
+	_clears.clear()
 	_clear_pays.clear()
 
 
+## (M8) The waves of the creeps on my hollow's road, from the records (a match begun, a
+## checkpoint loaded): what a leak's banner counts on. A world built again keeps what got
+## through before it (by creep id), unless it is another match.
+func _attach_waves() -> void:
+	_creep_waves.clear()
+	_leaking = []
+	_clears.clear()
+	_clear_pays.clear()
+	if sim.tick == 0:
+		_lost_by.clear()
+	_read_creep_waves()
+
+
+## The waves of the creeps on my hollow's road, read again from their records.
+func _read_creep_waves() -> void:
+	_creep_waves.clear()
+	for c in sim.creeps:
+		if c.hollow == _seat().hollow:
+			_creep_waves[c.id] = c.wave
+
+
 ## Sends a command from my seat for the next turn; returns its sequence number, or -1
-## (command_refusal() says why).
+## (command_refusal() says why). (M8) A READY 1 names the wave it calls in b
+## (BuildController._send_ready: called_wave()), so one that lands after another horn is
+## refused WRONG_PHASE, which goes unsaid (_refused).
 func command(type: int, a := 0, b := 0, c := 0) -> int:
 	if source == null:
 		return -1
@@ -874,12 +937,22 @@ func handle(events: Array) -> void:
 					if CLEAR_PAYS.has(why):
 						_clear_pays[why] = int(_clear_pays.get(why, 0)) + int(e["change"])
 					gold_changed.emit(int(e["gold"]))
+			SimTypes.EV_SPAWN:
+				# (M8: the event's wave, as a frame of many ticks may read a creep that set out
+				# and was gone, or its hollow on another wave, before this reads it)
+				if e["hollow"] == _seat().hollow:
+					_creep_waves[int(e["id"])] = int(e.get("wave", _oldest_on_road()))
+			SimTypes.EV_DIE:
+				_creep_waves.erase(int(e["id"]))
+			SimTypes.EV_LEAK:
+				if e["team"] == _seat().team:
+					var known := int(_creep_waves.get(int(e["id"]), _oldest_on_road()))
+					_leaking = [int(e["id"]), int(e.get("wave", known))]
+				_creep_waves.erase(int(e["id"]))
 			SimTypes.EV_LIVES:
 				if e["team"] == _seat().team:
 					if int(e.get("change", 0)) < 0:
-						if _wave_lives_from < 0:
-							_wave_lives_from = int(e["lives"]) - int(e["change"])
-						_wave_lives_now = int(e["lives"])
+						_count_loss(e)
 					lives_changed.emit(int(e["lives"]))
 			SimTypes.EV_WAVE:
 				if e["hollow"] == _seat().hollow:
@@ -903,6 +976,7 @@ func handle(events: Array) -> void:
 				_on_duel(e)
 		if int(e["type"]) in ORDER_EVENTS and int(e.get("seat", 0)) == seat and int(e.get("seq", 0)) > 0:
 			_order_ran(int(e["seq"]))  # (after the event's own settling: what waits below it is lost)
+	_say_clears()  # (M8: the frame's clears on one banner)
 	if is_duel():
 		_duel_decided()
 
@@ -963,25 +1037,36 @@ func _scene_client() -> MatchClient:
 
 
 func _on_wave(e: Dictionary) -> void:
+	var clear: bool = e.get("cleared", false) and int(e["phase"]) in [SimTypes.PHASE_WAVE, SimTypes.PHASE_PREP]
+	if not clear:
+		_say_clears()  # (what cleared before this moment is said first: its banner gives way)
 	if e.get("start", false):
-		_wave_lives_from = -1  # (this wave has cost nothing yet)
-		_wave_lives_now = -1
-		_clear_pays.clear()
+		_clear_pays.clear()  # (what a clear paid before this horn was said with it)
 		wave_changed.emit(wave)
 		state_changed.emit(state)
-		announce(_wave_title(int(e["wave"])))
+		if e.get("stacked", false):
+			# (M8: a call during the wave, paid the window it skips and the stake)
+			announce(called_title(int(e["wave"]), int(e.get("early", 0))))
+		else:
+			announce(_wave_title(int(e["wave"])))
 		Sfx.play("wave", -6.0)
+		return
+	if clear:
+		# (M8: a wave's clear, said on its own banner, or with the waves that cleared
+		# beside it in this frame on one: _say_clears; the older of waves on the road
+		# clears while the younger walks on)
+		_clears.append([int(e["wave"]), int(e["bonus"]), _clear_pays])
+		_clear_pays = {}
+		wave_changed.emit(wave)
+		if int(e["phase"]) == SimTypes.PHASE_PREP:
+			state_changed.emit(state)
 		return
 	match int(e["phase"]):
 		SimTypes.PHASE_PREP:
 			wave_changed.emit(wave)
 			state_changed.emit(state)
-			if e.get("cleared", false):
-				announce(clear_title(int(e["wave"]), int(e["bonus"]), wave_lives_lost(), _clear_pays))
-				_wave_lives_from = -1
-				_wave_lives_now = -1
-				_clear_pays = {}
 		SimTypes.PHASE_WAVE:
+			_read_creep_waves()  # (a scenario's wave write moves the whole road to its wave)
 			wave_changed.emit(wave)
 		SimTypes.PHASE_DONE:
 			state_changed.emit(State.WON)
@@ -1001,9 +1086,13 @@ func _on_wave(e: Dictionary) -> void:
 ## the Holdfast in it, what they cost: "Wave 6 cleared · 5 lives lost · +20 gold"; then what
 ## else the clear paid me (`pays`, by EV_GOLD's why, CLEAR_PAYS), each by name: "Wave 1
 ## cleared · +10 gold · Tithe +4" (playtest halv s1, f43548: the Hive Tithe paid 4 at the
-## clear, and the banner said only "+10 gold").
-func clear_title(number: int, bonus: int, lost: int, pays := {}) -> String:
+## clear, and the banner said only "+10 gold"). (M8) Waves `number` to `through` cleared
+## together, in one tick or one frame: "Waves 1–2 cleared · 28 lives lost · +22 gold", their
+## bonuses, lives and pays summed.
+func clear_title(number: int, bonus: int, lost: int, pays := {}, through := 0) -> String:
 	var name := wave_name(number)
+	if through > number:
+		name = "Waves %d–%d" % [number, through]
 	var title := "%s cleared · +%d gold" % [name, bonus]
 	if lost > 0:
 		title = "%s cleared · %d %s lost · +%d gold" % [name, lost, "life" if lost == 1 else "lives", bonus]
@@ -1013,9 +1102,74 @@ func clear_title(number: int, bonus: int, lost: int, pays := {}) -> String:
 	return title
 
 
-## The lives my team lost in my hollow's wave now running (or just cleared).
-func wave_lives_lost() -> int:
-	return maxi(0, _wave_lives_from - _wave_lives_now) if _wave_lives_from >= 0 else 0
+## The banner of a stacked call's horn (M8, design 2.7): "Wave 8 called early · +17 gold",
+## `paid` what it paid each seat (EV_WAVE's early: the window it skips and the stake).
+func called_title(number: int, paid: int) -> String:
+	if paid <= 0:
+		return "%s called early" % wave_name(number)
+	return "%s called early · +%d gold" % [wave_name(number), paid]
+
+
+## The lives my team lost to wave `number`'s creeps on my hollow (by default the oldest on
+## the road, or the one just cleared): each creep counts on its own wave (M8: with waves on
+## the road together a younger wave's creep may get through first), as the results' leak
+## table counts it (main.gd's leaks_in).
+func wave_lives_lost(number := -1) -> int:
+	var k := number if number >= 0 else _oldest_on_road()
+	var lost := 0
+	for key: Variant in _lost_by:
+		var entry: Array = _lost_by[key]
+		if int(entry[0]) == k:
+			lost += int(entry[1])
+	return lost
+
+
+## The oldest wave on my hollow's road (its waves cleared plus one); in a window the one
+## just cleared (0 before the first).
+func _oldest_on_road() -> int:
+	if sim == null:
+		return 0
+	var h := _hollow()
+	return h.cleared + 1 if h.phase == SimTypes.PHASE_WAVE else h.wave
+
+
+## An EV_LIVES of my team that took lives: the creep whose EV_LEAK came just before it took
+## them for its own wave; any other loss (a scenario's lives write) counts on the oldest wave
+## on the road, and in a window on none.
+func _count_loss(e: Dictionary) -> void:
+	var taken := -int(e["change"])
+	if not _leaking.is_empty():
+		_lost_by[int(_leaking[0])] = [int(_leaking[1]), taken]
+		_leaking = []
+	elif _hollow().phase == SimTypes.PHASE_WAVE:
+		_lost_by["t%d" % int(e.get("tick", 0))] = [_oldest_on_road(), taken]
+
+
+## (M8) Says the clears read since the last was said: one banner for one wave, one for waves
+## that cleared together ("Waves 1–2 cleared · 28 lives lost · +22 gold"), each wave's
+## lives its own creeps', and what else each paid named (a Tithe, a stipend). What they cost
+## is let go once said.
+func _say_clears() -> void:
+	if _clears.is_empty():
+		return
+	var said := _clears
+	_clears = []
+	var first := int(said[0][0])
+	var last := int(said[said.size() - 1][0])
+	var bonus := 0
+	var lost := 0
+	var pays := {}
+	for c: Array in said:
+		bonus += int(c[1])
+		lost += wave_lives_lost(int(c[0]))
+		var paid: Dictionary = c[2]
+		for why: String in CLEAR_PAYS:
+			if paid.has(why):
+				pays[why] = int(pays.get(why, 0)) + int(paid[why])
+	for key: Variant in _lost_by.keys():
+		if int((_lost_by[key] as Array)[0]) <= last:
+			_lost_by.erase(key)
+	announce(clear_title(first, bonus, lost, pays, last))
 
 
 ## "Wave 5 · Duskmoths"; a wave with a boss is named for it ("Wave 6 · The Bristlesow"),
@@ -1037,13 +1191,15 @@ func _wave_title(number: int) -> String:
 
 ## A refusal's words for the notice: NOTICES', and for one the duel's timing decides, read
 ## from its rules ("The cork holds for 3 s after the horn", uncork_after_t), so the words
-## follow the numbers. A refusal for the wrong moment (REFUSE_WRONG_PHASE, which NOTICES
-## leaves out) says what moved on under the order of `cmd` (WRONG_MOMENT): the match over,
-## or the horn or the wave's end that came before a duel's order ran, never a bare "Not
-## now" (playtest halv s1, f106511).
+## follow the numbers; (M8) a refused stacked call says why (stack_refusal()). A refusal for
+## the wrong moment (REFUSE_WRONG_PHASE, which NOTICES leaves out) says what moved on under
+## the order of `cmd` (WRONG_MOMENT): the match over, or the horn or the wave's end that came
+## before a duel's order ran, never a bare "Not now" (playtest halv s1, f106511).
 func refusal_text(reason: int, cmd := 0) -> String:
 	if reason == SimTypes.REFUSE_TOO_EARLY:
 		return "The cork holds for %s after the horn" % duel_seconds("uncork_after_t")
+	if reason == SimTypes.REFUSE_NO_STACK and stack_refusal() != "":
+		return stack_refusal()  # (M8: why, while the state still shows it: a full road, the last wave)
 	if reason == SimTypes.REFUSE_WRONG_PHASE:
 		if sim != null and sim.over:
 			return MATCH_OVER
@@ -1059,7 +1215,8 @@ func refusal_text(reason: int, cmd := 0) -> String:
 func duel_seconds(key: String) -> String:
 	if not is_duel():
 		return ""
-	return _seconds(int(duel_rules().get(key, 0)))
+	var ticks := int(duel_rules().get(key, 0))
+	return "%s s" % num(ticks / float(SimTypes.TICKS_PER_SECOND))
 
 
 func _refused(e: Dictionary) -> void:
@@ -1068,7 +1225,7 @@ func _refused(e: Dictionary) -> void:
 	if not _duel_refused(e):
 		return  # (an uncorking the client sent by itself: it tries again, unheard)
 	if reason == SimTypes.REFUSE_WRONG_PHASE and int(e["cmd"]) == SimTypes.CMD_READY:
-		return  # the horn had already sounded
+		return  # the horn had already sounded (M8: or the horn of the wave it named)
 	Sfx.play("error")
 	notice(refusal_text(reason, int(e.get("cmd", 0))))
 
@@ -1101,8 +1258,9 @@ func wave_groups(index: int) -> Array:
 
 ## The health a creep of `kind` has when wave `number` (the match's, 1-based: a duel's
 ## Surge's grows as the wave it repeats, with the Surge's share on top) sends it onto my
-## hollow, scaled by my hollow's seats, in whole points as its plate shows them
-## (SimWaves.health_c, the very sum its spawn takes).
+## hollow, scaled by my hollow's seats and (M8) the level, in whole points as its plate
+## shows them (SimWaves.health_c, the very sum its spawn takes: a creep an older wave still
+## sends after a stacked horn grows by its own wave, as this row's does).
 func wave_health(kind: String, number: int) -> int:
 	if sim == null or not SimContent.CREEPS.has(kind):
 		return 0
@@ -1110,11 +1268,12 @@ func wave_health(kind: String, number: int) -> int:
 
 
 ## The armour a creep of `kind` wears in this match, as its plate shows it: none where the
-## rules leave armour out (classic).
+## rules leave armour out (classic), and (M8) a boss's with its level's more
+## (SimWaves.armor_c, as its spawn takes it).
 func creep_armor(kind: String) -> float:
-	if sim == null or not bool(sim.rules.get("armor", true)) or not SimContent.CREEPS.has(kind):
+	if sim == null or not SimContent.CREEPS.has(kind):
 		return 0.0
-	return int(SimContent.CREEPS[kind]["armor_c"]) / 100.0
+	return SimWaves.armor_c(sim, kind) / 100.0
 
 
 func can_afford(cost: int) -> bool:
@@ -1147,7 +1306,10 @@ func lose_lives(amount: int) -> void:
 	lives = maxi(0, lives - amount)
 
 
+## A banner. (M8) Clears read before it and not yet said are said first, so a later moment's
+## banner (a race's, a call's) still gives way to nothing older.
 func announce(text: String) -> void:
+	_say_clears()
 	announced.emit(text)
 
 
@@ -1174,6 +1336,172 @@ func early_gold() -> int:
 
 func is_ready() -> bool:
 	return sim != null and _seat().ready
+
+
+# ── Stacked waves (M8, contract-m8 §2; design 2.7 and 5.7) ──
+
+
+## Whether my hollow's waves stack (High Water and Tide Race: SimMatch.stack_max above 1):
+## a Ready during a wave calls the next, which sets out the moment its horn sounds, among the
+## creeps already on the road. Never in classic or a duel.
+func stacks() -> bool:
+	return sim != null and sim.stack_max > 1
+
+
+## The waves on my hollow's road, oldest first: one in an ordinary wave, up to stack_max (3)
+## once calls brought the next ones in beside it, none in a window (SimMatch.waves_on_road).
+func waves_on_road(hollow := -1) -> PackedInt32Array:
+	if sim == null:
+		return PackedInt32Array()
+	return sim.waves_on_road(my_hollow() if hollow < 0 else hollow)
+
+
+## Whether a Ready of mine during this wave would be taken now (SimMatch.can_stack).
+func can_stack() -> bool:
+	return stacks() and sim.can_stack(my_hollow())
+
+
+## What a stacked call would pay each seat now, in gold: [the window it skips, the stake's
+## part for the lives the waves on the road could still take, walking or still to come]
+## (SimMatch.stack_pay); [0, 0] outside a wave.
+func stack_pay() -> Array:
+	return sim.stack_pay(my_hollow()) if stacks() else [0, 0]
+
+
+## Whether another player is present on my hollow: its horn then waits for every present
+## one, as a stacked call does (SimWaves._all_ready). In a race against one rival I am alone
+## on mine, whatever seat_count(), and so I am beside caretaken seats only (offline company,
+## a teammate away or gone), which count as Ready.
+func has_company() -> bool:
+	if sim == null:
+		return false
+	for n in _hollow().seats:
+		if n != seat and sim.seat(n).state == SimTypes.SEAT_PRESENT:
+			return true
+	return false
+
+
+## The wave my Ready calls now: the next after the newest on the road (or the window's).
+func called_wave() -> int:
+	return wave + 1
+
+
+## Whether a Ready said now in this build window may land after its horn (design 5.7): with
+## at most an order's lead (TurnSource.order_lead: 0 offline, online the turns held and not
+## run yet), its trip there and back (order_trip()) and one turn of the countdown left. Its
+## READY names the window's wave, so landing there it would call nothing; the press means the
+## wave after the window's, which sets out at once, so the horn asks for a second press as in
+## a wave. Only where waves stack and that wave is not past the last.
+func late_in_window() -> bool:
+	if not stacks() or state != State.PREP or wave + 2 > last_wave():
+		return false
+	var lead := source.order_lead(sim) if source != null else 0
+	return _hollow().countdown_t <= lead + order_trip() + SimTypes.TURN_TICKS
+
+
+## The ticks an order sent now spends on its way beyond order_lead, online: the server stamps
+## it into the turn open when it arrives, ahead of the newest turn here by the trip there and
+## back (MatchClient.rtt_ms, as whole turns of the server's turn length). 0 offline and
+## before the first PONG.
+func order_trip() -> int:
+	var client := _scene_client()
+	if client == null or client.rtt_ms <= 0:
+		return 0
+	var turn_ms := maxi(1, client.playout.turn_ms)
+	@warning_ignore("integer_division")
+	var turns := (client.rtt_ms + turn_ms - 1) / turn_ms
+	return turns * SimTypes.TURN_TICKS
+
+
+## How many waves a road holds as a word at the start of the notice: "Two", "Three".
+static func waves_word(count: int) -> String:
+	var words := ["None", "One", "Two", "Three", "Four", "Five"]
+	return str(words[count]) if count >= 0 and count < words.size() else str(count)
+
+
+## Why a Ready of mine during this wave would not call the next (design 5.7's words): "" when
+## it would (can_stack()), "Waves do not stack in a duel", "The horn waits until this wave is
+## cleared" where waves never stack (classic), "Three waves are on the road" (stack_max of
+## them), "Wave 12 is the last", "Ben takes the seat back at the next window" (a teammate
+## returning from the caretaker: the hand-back needs a window), or the order's own refusal
+## (the match over, my seat caretaken, no link).
+func stack_refusal() -> String:
+	if sim == null or state != State.WAVE:
+		return ""
+	if not stacks():
+		return "Waves do not stack in a duel" if is_duel() else "The horn waits until this wave is cleared"
+	if order_refusal() != "":
+		return order_refusal()
+	if can_stack():
+		return ""
+	var h := _hollow()
+	if h.wave >= last_wave():
+		return "%s is the last" % wave_name(h.wave)
+	if waves_on_road().size() >= sim.stack_max:
+		return "%s waves are on the road" % waves_word(waves_on_road().size())
+	for n in h.seats:
+		if sim.seat(n).state == SimTypes.SEAT_RETURNING:
+			return "%s takes the seat back at the next window" % seat_name(n)
+	return NOTICES[SimTypes.REFUSE_NO_STACK]
+
+
+## The waves on a hollow's road as one name: "Wave 7", "Waves 6–7" with two, "Waves 6–8"
+## with three (design 5.7).
+func road_words(hollow := -1) -> String:
+	var on := waves_on_road(hollow)
+	if on.size() >= 2:
+		return "Waves %d–%d" % [on[0], on[on.size() - 1]]
+	var h := sim.hollows[my_hollow() if hollow < 0 else hollow] if sim else null
+	return wave_name(h.wave) if h else ""
+
+
+## The wave my Holdfast fell on: the oldest on its road (its waves cleared plus one), and
+## the one it faced in a window; 0 while it stands or before the first.
+func fell_wave_number() -> int:
+	if sim == null:
+		return 0
+	var h := _hollow()
+	return mini(h.wave, h.cleared + 1) if h.wave > 0 else 0
+
+
+# ── The levels (M8, contract-m8 §3; design 2.6) ──
+
+
+## The level my match plays ("normal", "hard", "very_hard"): its rules' (MatchRules).
+func level() -> String:
+	return MatchRules.level_played(sim.rules) if sim else MatchRules.NORMAL
+
+
+## A level's word on screen: "Normal", "Hard", "Very Hard".
+static func level_name(id: String) -> String:
+	return str((DIFFICULTIES.get(id, DIFFICULTIES["normal"]) as Dictionary)["name"])
+
+
+## A mode's name with its level where that is not Normal, as every place that names the
+## mode says it (design 2.6): "High Water · Hard", "Tide Race", "Undertow".
+static func mode_words(mode_name: String, level_id: String) -> String:
+	if level_id == "" or level_id == MatchRules.NORMAL or not DIFFICULTIES.has(level_id):
+		return mode_name
+	return "%s · %s" % [mode_name, level_name(level_id)]
+
+
+## A level's tooltip with its numbers (design 5.2): "Hard: creeps have 10% more health, the
+## bosses 50% more and 1 more armour; 15 lives", read from SimContent.DIFFICULTIES laid over
+## `mode`'s preset, so the words follow the rules when a level is tuned.
+static func difficulty_tip(id: String, mode := "high_water") -> String:
+	var played := mode if SimContent.RULES.has(mode) else "high_water"
+	var rules := SimContent.rules(played, id)
+	var tip := str((DIFFICULTIES.get(id, DIFFICULTIES["normal"]) as Dictionary)["tip"])
+	var more := func(pm: int) -> String: return "%s%%" % num((pm - 1000) / 10.0)
+	var words := tip.format(
+		{
+			"hp": more.call(int(rules.get("hp_pm", 1000))),
+			"boss": more.call(int(rules.get("boss_hp_pm", 1000))),
+			"armor": num(int(rules.get("boss_armor_c", 0)) / 100.0),
+			"lives": int(rules["lives"]),
+		}
+	)
+	return "%s: %s" % [level_name(id), words]
 
 
 ## [ready seats, seats] on my hollow; in a duel on both, whose one clock's horn waits for
@@ -1289,25 +1617,25 @@ func kit_tip(builder: String, slot: int, bonus_mm := 0, pierce_c := 0) -> String
 	# (an aura deals nothing and has no cooldown to show: it holds what is in reach)
 	var aura := float(data["damage"]) <= 0.0 and (data.has("crack") or data.has("haste"))
 	if float(data["damage"]) > 0.0:
-		parts.append("Damage %s" % _tip_num(float(data["damage"])))
-	parts.append("Range %s" % _tip_num(float(data["range"])))
+		parts.append("Damage %s" % num(float(data["damage"])))
+	parts.append("Range %s" % num(float(data["range"])))
 	if not aura:
-		parts.append("Cooldown %ss" % _tip_num(float(data["cooldown"])))
+		parts.append("Cooldown %ss" % num(float(data["cooldown"])))
 	if data.has("splash"):
-		parts.append("Splash %s" % _tip_num(float(data["splash"])))
+		parts.append("Splash %s" % num(float(data["splash"])))
 	if data.has("slow"):
 		parts.append("Slow %d%%" % roundi(float(data["slow"]) * 100.0))
 	if data.has("pierce") and not aura:
 		# (a form's own, and Bronze Hand's on every hit; an aura strikes nothing to pierce)
-		parts.append("Pierce %s" % _tip_num(float(data["pierce"])))
+		parts.append("Pierce %s" % num(float(data["pierce"])))
 	if data.has("mark"):
 		parts.append("Mark +%d%%" % roundi(float(data["mark"]) * 100.0))
 	if data.has("stun"):
-		parts.append("Stun %ss" % _tip_num(float(data["stun"])))
+		parts.append("Stun %ss" % num(float(data["stun"])))
 	if data.has("cloud"):
-		parts.append("Cloud %s" % _tip_num(float(data["cloud"])))
+		parts.append("Cloud %s" % num(float(data["cloud"])))
 	if data.has("crack"):
-		parts.append("Crack %s" % _tip_num(float(data["crack"])))
+		parts.append("Crack %s" % num(float(data["crack"])))
 	if data.has("haste"):
 		parts.append("Haste +%d%%" % roundi(float(data["haste"]) * 100.0))
 	if data.has("air_bonus"):
@@ -1326,8 +1654,13 @@ func kit_tip(builder: String, slot: int, bonus_mm := 0, pierce_c := 0) -> String
 	return "\n".join(lines)
 
 
-static func _tip_num(value: float) -> String:
-	return str(roundi(value)) if is_equal_approx(value, roundf(value)) else "%.1f" % value
+## A number as a tooltip, a plate or a line shows it: at most two decimals, none it does
+## not need ("1.43", "0.8", "18"), so a cooldown of 86 ticks never reads 1.43333333333333
+## (playtest halv s2, P10). Every tower and creep number on screen goes through it.
+static func num(value: float) -> String:
+	var text := "%.2f" % value
+	text = text.rstrip("0").rstrip(".")
+	return "0" if text == "-0" else text
 
 
 ## The numbers at a level, as M1 counted them: level 2 is fork branch A.
@@ -1403,13 +1736,34 @@ func wave_checks(index: int) -> Array:
 	return out
 
 
+## How one tower of a patch branch holds its check by itself (TOWERS' "lift", "one" where a
+## form has none), as the sim harness measures it on Wickhollow at every level
+## (patch_lift_words_measured): "one" holds the early waves of its check (those that teach
+## it before the first boss's) from the cell its Builder's plan forks it on, and lets some
+## of every later one through; "bend" (the Sky Toll) does so only inside a bend, where the
+## road passes it on two sides: on the outside of one, the road on one side only, it takes
+## none of wave 5's Duskmoths at any level, and on 7 of the hollow's 206 buildable cells, all
+## inside its bends, it takes all 8 (the other patches hold their first wave on 48 to 143);
+## "slow" holds no wave of its check alone.
+const LIFTS := {
+	"one": "one alone holds the early %s waves; later ones need more",
+	"bend": "one holds the early %s waves only inside a bend; later ones need more",
+	"slow": "its slow gives your other towers time; alone it holds no %s wave",
+}
+
+
 ## What a fork branch that patches `check` does, in the coverage grades' words (design 3.3:
-## strong, passable through a fork branch, weak) with "passable" said in plain words, the
-## same on the in-match card and the Builders screen: "Lifts Armored from weak to passable:
-## enough to hold it alone" (a fork lifts a weakness so far, never to strong; every Builder
-## can win alone with the right forks, a balance gate).
-func lifts_line(check: String) -> String:
-	return "Lifts %s from weak to passable: enough to hold it alone" % CHECKS[check]["name"]
+## strong, passable through a fork branch, weak), with what one of `form` holds by itself
+## (LIFTS), the same on the in-match card and the Builders screen: "Lifts Armored from weak
+## to passable: one alone holds the early armored waves; later ones need more". A fork lifts
+## a weakness so far, never to strong: every Builder alone holds its weak checks with its
+## plan's patches beside its other towers (bot_wins_solo_*: none of them leaks at Normal, at
+## Hard and Very Hard a creep or a few), but one patch tower alone never holds more than a
+## check's early waves, at any level.
+func lifts_line(check: String, form := "") -> String:
+	var name := str(CHECKS[check]["name"])
+	var how := str(TOWERS.get(form, {}).get("lift", "one"))
+	return "Lifts %s from weak to passable: %s" % [name, LIFTS[how] % name.to_lower()]
 
 
 ## The checks creep `kind` tests in itself, as its plate's glyph shows them: the check it
@@ -1596,7 +1950,8 @@ func race_clock_of(team: int) -> String:
 
 ## The resource strip's second line in a race (design 5.7): the rival team's wave, lives
 ## and race clock so far with what its lost lives add ("Rival · Wave 7 · 18 lives · 6:12
-## +20 s"); once its Holdfast went under, what I need to win ("Your rival fell on wave 9.
+## +20 s"; with two or three waves on its road, M8, "Rival · Waves 8–9 · ..."); once its
+## Holdfast went under, what I need to win ("Your rival fell on wave 9.
 ## Clear wave 9 to win"). "" outside a race.
 func rival_line() -> String:
 	var rival := rival_team()
@@ -1607,6 +1962,8 @@ func rival_line() -> String:
 		return "Your rival fell on wave %d. Clear wave %d to win" % [t.fell_wave, t.fell_wave]
 	var h := sim.hollows[t.hollows[0]]
 	var where := "Wave %d" % h.wave
+	if waves_on_road(h.id).size() >= 2:
+		where = road_words(h.id)  # (M8: every wave on the rival's road, "Waves 8–9")
 	if h.phase == SimTypes.PHASE_DONE:
 		where = "Wave %d cleared" % h.wave
 	elif h.wave == 0:
@@ -1616,7 +1973,7 @@ func rival_line() -> String:
 
 
 ## My team's race clock beside the rival line (design 1.3: "the strip shows both teams' race
-## times as they go"): "You · 6:10 +10 s", its clock so far and what its lost lives add. ""
+## times as they go"): "You · 6:10 +60 s", its clock so far and what its lost lives add. ""
 ## outside a race and once a Holdfast fell: then clearing the wave it fell on decides, not
 ## the time.
 func my_race_line() -> String:
@@ -1630,9 +1987,10 @@ func my_race_line() -> String:
 
 
 ## How a race is won, in a few words from mode `mode`'s rules (design 1.3's win order): "the
-## lower time to clear wave 12 wins; each life lost adds 10 s", or `short` for a line with
-## little room, "fastest clear of wave 12 wins, +10 s a life lost"; "" for a mode that is not
-## a race.
+## lower time to clear wave 12 wins; each life lost adds 60 s"; or `short`, its cost of a
+## life alone, "+60 s a life lost", for the hub's mode line, which shares its row with the
+## level's words (M8) and so has room for no more at Very Hard, the whole rule on its
+## tooltip; "" for a mode that is not a race.
 static func race_rule_words(mode: String, short := false) -> String:
 	var rules: Dictionary = SimContent.RULES.get(mode, {})
 	if not rules.has("race"):
@@ -1640,7 +1998,7 @@ static func race_rule_words(mode: String, short := false) -> String:
 	var waves := (SimContent.WAVES[rules["waves"]] as Array).size()
 	var life := _seconds(int(rules["race"]["life_t"]))
 	if short:
-		return "fastest clear of wave %d wins, +%s a life lost" % [waves, life]
+		return "+%s a life lost" % life
 	return "the lower time to clear wave %d wins; each life lost adds %s" % [waves, life]
 
 
@@ -2034,7 +2392,9 @@ func my_bottles() -> Array:
 
 
 ## The rival's bottles still corked, oldest first: {"id", "tier", "window", "due" (its wave
-## runs: it may be uncorked on my road now)}, never a pack (SimMatch.bottles holds none).
+## runs: it may be uncorked on my road now), "candidates" (M8, contract-m8 §4: the CHECK_IDS
+## ids of the packs its window offered at its tier, SimUndertow.candidates)}, never a pack
+## (SimMatch.bottles holds none).
 func rival_bottles() -> Array:
 	var out := []
 	var rival := duel_seat(1 - my_team()) if is_duel() else -1
@@ -2045,8 +2405,65 @@ func rival_bottles() -> Array:
 		due[b.id] = true
 	for b: Dictionary in bottles_of(rival):
 		if not bool(b["uncorked"]) and not bool(b["fizzled"]):
-			out.append({"id": int(b["id"]), "tier": int(b["tier"]), "window": int(b["window"]), "due": due.has(int(b["id"]))})
+			out.append(
+				{
+					"id": int(b["id"]), "tier": int(b["tier"]), "window": int(b["window"]), "due": due.has(int(b["id"])),
+					"candidates": (b.get("candidates", []) as Array).duplicate(),
+				}
+			)
 	return out
+
+
+## (M8, contract-m8 §4) A rival bottle's candidates in words: "14 Gourdlings (Gourd Rush), 5
+## Thornbacks (Thorn Herd) or 5 Duskmoths (Moth Cloud)", each pack's count at the bottle's
+## tier; "" for none.
+func candidates_words(bottle: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for check: Variant in bottle.get("candidates", []):
+		var info := pack_info(str(check), int(bottle.get("tier", 0)))
+		var count := int(info["count"])
+		var creep := str(CREEPS.get(str(info["creep"]), {}).get("name", info["creep"]))
+		parts.append("%d %s%s (%s)" % [count, creep, "s" if count != 1 else "", info["name"]])
+	return _or_list(parts)
+
+
+## A rival bottle `bottle` (one of rival_bottles(), `bottles`) in words, as the Drift tray's
+## and the duel bar's plates explain it: "Tier II, corked for wave 8. It holds one of: 10
+## Gourdlings (Gourd Rush), ... Which one stays hidden until it is uncorked." (M8,
+## contract-m8 §4: the packs its window offered at its tier, never which), and "Both may hold
+## the same pack." beside a twin corked for the same wave.
+func rival_bottle_text(bottle: Dictionary, bottles: Array) -> String:
+	var tier_name: String = TIER_NAMES[clampi(int(bottle["tier"]), 0, 2)]
+	var holds := candidates_words(bottle)
+	if holds == "":
+		return "Tier %s, corked for wave %d. What is in it stays hidden until it is uncorked." % [
+			tier_name, int(bottle["window"])
+		]
+	var text := "Tier %s, corked for wave %d. It holds one of: %s. Which one stays hidden until it is uncorked." % [
+		tier_name, int(bottle["window"]), holds
+	]
+	var twins := bottles.filter(func(o: Dictionary) -> bool: return int(o["window"]) == int(bottle["window"]))
+	if twins.size() > 1:
+		text += " Both may hold the same pack."
+	return text
+
+
+## The checks a rival's corked bottles may hold, by name, in CHECK_IDS order: "Swarm,
+## Armored or Winged" (the duel bar's words, the checks a defender holds gold for).
+func candidate_checks(bottles: Array) -> String:
+	var checks := PackedStringArray()
+	for check: String in SimContent.CHECK_IDS:
+		for b: Dictionary in bottles:
+			if (b.get("candidates", []) as Array).has(check) and not checks.has(str(CHECKS[check]["name"])):
+				checks.append(str(CHECKS[check]["name"]))
+	return _or_list(checks)
+
+
+## "a", "a or b", "a, b or c".
+static func _or_list(words: PackedStringArray) -> String:
+	if words.size() <= 1:
+		return "".join(words)
+	return "%s or %s" % [", ".join(words.slice(0, words.size() - 1)), words[words.size() - 1]]
 
 
 ## Why my hollow's wave stands with its road empty: it waits on the rival alone
@@ -2189,7 +2606,8 @@ func drift_packs() -> Array:
 
 
 ## A pack as the tray shows it at tier `tier`: {"check", "name", "icon", "creep" (the
-## kind it sends), "count"}.
+## kind it sends), "count", "hp_pm" (each creep's health, per mille of the wave's own of
+## its kind: its pack's premium in the duel, SimUndertow.send_hp_pm; 1000 outside a duel)}.
 func pack_info(check: String, tier: int) -> Dictionary:
 	var map := str(sim.rules.get("map", "hollow")) if sim else "hollow"
 	var shown: Dictionary = PACKS.get(map, PACKS["hollow"]).get(check, {})
@@ -2201,7 +2619,18 @@ func pack_info(check: String, tier: int) -> Dictionary:
 		"icon": str(shown.get("icon", "")),
 		"creep": str(rules.get("creep", "")),
 		"count": int(counts[clampi(tier, 0, counts.size() - 1)]),
+		"hp_pm": SimUndertow.send_hp_pm(sim, SimContent.CHECK_IDS.find(check)) if is_duel() else 1000,
 	}
+
+
+## What a sent creep's health premium says in the Drift tray's words, from the rules: the
+## premium of `check`'s pack (the duel's send_hp_pm where it has none of its own, and for
+## ""), "each with 25% more health than the wave's own"; "" without one.
+func send_premium_words(check := "") -> String:
+	var more := (SimUndertow.send_hp_pm(sim, SimContent.CHECK_IDS.find(check)) - 1000) if is_duel() else 0
+	if more <= 0:
+		return ""
+	return "each with %s%% more health than the wave's own" % _tenths(more)
 
 
 # ── Corking, uncorking and the Seawall from this client ──

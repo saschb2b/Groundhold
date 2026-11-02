@@ -1,0 +1,31 @@
+{
+  "name": "stack_ready_names_its_wave",
+  "description": "A READY 1 names the wave it calls in b, and the simulation takes it only for that wave (M8's review; contract-m8 §2, design 2.7): the wave after the hollow's newest, in a window as in a wave, or b 0, which names none (the caretaker's, and every turn log recorded before). Online a press late in a window can land after its horn, where it used to be taken as a call for the wave after it: alone it called two waves, in co-op it stood as a call and carried into the next window. Two present seats, no towers, 200 lives (a setter). At tick 0 seat 1's READY naming wave 2 is refused WRONG_PHASE and its READY naming wave 1 is taken, seat 2's b 0 too: the horn. At tick 30, in wave 1, seat 1's READY naming wave 1 (a window's Ready landing after its horn) is refused WRONG_PHASE and stands as nothing, so seat 2's call for wave 2 at tick 60 sounds no horn and wave 1 clears alone; in window 2 seat 2's call stands (it named wave 2, the window's) and seat 1's does not. Seat 1's READY naming wave 2 sounds the window's horn; in wave 2 seat 1's b 0 and seat 2's naming wave 3 stack wave 3.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2})"},
+    {"eval": "scene.debug(2, 0, 200)"},
+    {"eval": "[scene.cmd(1, 'READY', 1, 2), scene.cmd(1, 'READY', 1, 1), scene.cmd(2, 'READY', 1, 0)]"},
+    {"eval": "scene.run_ticks(30)"},
+    {"assert": "scene.rows('WAVE', ['tick', 'wave'], {'start': true}) == [[0, 1]] and scene.refusal_ticks(1) == [[0, 'WRONG_PHASE']]", "msg": "a window's READY naming another wave is refused; the one naming the window's wave and a b 0 sound its horn"},
+    {"eval": "scene.cmd(1, 'READY', 1, 1)"},
+    {"eval": "scene.run_ticks(30)"},
+    {"assert": "scene.refusal_ticks(1) == [[0, 'WRONG_PHASE'], [30, 'WRONG_PHASE']] and not scene.client(1).seat(1).ready", "msg": "a READY naming wave 1 that lands in wave 1, after its horn, is refused and stands as nothing"},
+    {"eval": "scene.cmd(2, 'READY', 1, 2)"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.rows('WAVE', ['tick', 'wave'], {'start': true}) == [[0, 1]] and scene.client(1).seat(2).ready", "msg": "seat 2's call for wave 2 waits for seat 1: no stale Ready of seat 1's sounds the stacked horn"},
+    {"eval": "scene.run_to(2900)"},
+    {"eval": "scene.rows('WAVE', ['wave', 'phase'], {'cleared': true})", "as": "clear"},
+    {"assert": "clear == [[1, 0]] and scene.client(1).hollows[0].phase == 0", "msg": "wave 1 cleared alone into window 2"},
+    {"assert": "scene.client(1).seat(2).ready and not scene.client(1).seat(1).ready", "msg": "seat 2's call named wave 2 and stands into its window; seat 1 carries no call"},
+    {"eval": "scene.cmd(1, 'READY', 1, 2)"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.rows('WAVE', ['wave', 'stacked'], {'start': true}) == [[1, null], [2, null]]", "msg": "seat 1's READY naming wave 2 sounds window 2's horn"},
+    {"eval": "scene.run_ticks(30)"},
+    {"eval": "[scene.cmd(1, 'READY', 1, 0), scene.cmd(2, 'READY', 1, 3)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.rows('WAVE', ['wave', 'stacked'], {'start': true}) == [[1, null], [2, null], [3, true]] and scene.refusal_ticks(1).size() == 2 and scene.refusal_ticks(2).is_empty()", "msg": "in wave 2 a b 0 and a READY naming wave 3 stack wave 3"}
+  ]
+}

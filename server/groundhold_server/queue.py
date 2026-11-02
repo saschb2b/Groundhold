@@ -10,8 +10,10 @@ up to the mode's most seats (**Find players**). In a two-team mode (Tide
 Race, Undertow) the party is one team of at most half the seats (1 or 2 in
 a race; 1 in Undertow's duel, M7, whose seats are [2, 2]), and the queue
 finds one rival team of the same size (**Find a rival**). Parties
-merge only with the same mode and the same rules hash (the newest build's,
-`Party.reference`). The party's phase is `queued`; every member hears
+merge only with the same mode, the same rules hash (the newest build's,
+`Party.reference`) and the same level (M8, contract-m8.md §3: the level the
+match plays, `Party.level`, so every duellist meets at Normal whatever its
+party chose). The party's phase is `queued`; every member hears
 `QUEUE_STATE queued` with the time since it queued.
 
 **The order.** Tickets wait in the order they came; a ticket requeued after
@@ -52,7 +54,8 @@ covered first, then a Builder not yet on the team, ties in BUILDER_IDS
 order); a Race sets a caretaker rival team against it with the same
 Builders, a mirror, and a duel so one caretaker of the duellist's own
 Builder on team 1 (Duel the caretaker). A caretaker's seat has the `caretaker` flag in
-`MATCH_CONFIG`: nobody plays it, the simulation's caretaker does from tick 0.
+`MATCH_CONFIG`: nobody plays it, the simulation's caretaker does from tick 0. The
+match plays the party's level, as a match the queue found plays its key's.
 
 **Afterwards** each party is its own again on its results plate (lobby.py).
 A strangers' match nobody loaded within the 120 s ceiling is dissolved
@@ -94,6 +97,7 @@ class Ticket:
     party: object
     mode: str                   # the mode's name (protocol.json "modes")
     rules: bytes                # the party's rules hash as it queued: the key, with the mode
+    level: int                  # the level the party's match plays (Party.level): the key's third part
     since: int                  # the server clock's ns it queued; kept when it is requeued
     order: int                  # its place: lower first (a requeue at the front is negative)
     offered: bool = False       # caretaker_offer_ms passed
@@ -111,6 +115,7 @@ class Found:
     id: int                     # the match id MATCH_FOUND and ACCEPT name, and MATCH_CONFIG then
     mode: str
     rules: bytes
+    level: int
     tickets: list               # in seat order: the earliest queued first
     deadline: int               # the server clock's ns accept_ms after it was found
     accepted: set = dataclasses.field(default_factory=set)     # the members (party.Member) who accepted
@@ -212,11 +217,12 @@ class Queue:
             self.lobby.send(player, self.state(party))
             return
         now = self.clock.now()
-        ticket = Ticket(party, MODES[party.mode][0], party.reference(), now, next(self.back))
+        ticket = Ticket(party, MODES[party.mode][0], party.reference(), party.level(), now, next(self.back))
         ticket.timer = self.server.timers.at(now + SPEC["caretaker_offer_ms"] * MS, lambda: self.offer(ticket))
         self.tickets[party] = ticket
         party.phase = QUEUED
-        self.server.event("queue", party=party.code.decode(), mode=ticket.mode, size=ticket.size())
+        self.server.event("queue", party=party.code.decode(), mode=ticket.mode,
+                          level=protocol.DIFFICULTY_NAMES[ticket.level], size=ticket.size())
         self.lobby.broadcast(party)
         self.tell(party)
         self.look()
@@ -253,7 +259,7 @@ class Queue:
         self.lobby.to_loading([party])
         party.match = self.server.form_match(
             ticket.mode, ticket.rules, [member.player for member in members] + [None] * len(builders),
-            seats=seats, party=party)
+            seats=seats, party=party, level=ticket.level)
 
     # -- the queue's own
 
@@ -306,26 +312,27 @@ class Queue:
             self.out(ticket, "queue_out", broadcast=False)
         return True
 
-    def waiting(self, mode, rules):
-        """The tickets waiting for a match of `mode` and `rules`, in the queue's order."""
-        return sorted((t for t in self.tickets.values() if t.found is None and t.mode == mode and t.rules == rules),
+    def waiting(self, mode, rules, level):
+        """The tickets waiting for a match of `mode`, `rules` and `level`, in the queue's order."""
+        return sorted((t for t in self.tickets.values()
+                       if t.found is None and (t.mode, t.rules, t.level) == (mode, rules, level)),
                       key=lambda t: t.order)
 
     def look(self):
         """Matches from the front of the queue, as long as one can be found."""
         while True:
-            keys = sorted({(t.mode, t.rules) for t in self.tickets.values() if t.found is None})
+            keys = sorted({(t.mode, t.rules, t.level) for t in self.tickets.values() if t.found is None})
             group = next((g for g in (self.group(*key) for key in keys) if g), None)
             if group is None:
                 return
             self.found_match(group)
 
-    def group(self, mode, rules):
+    def group(self, mode, rules, level):
         """The first match the waiting tickets of a key make, or None: each
         ticket in the queue's order as the first, with the earliest tickets
         after it that fill the seats (High Water) or the next team of its
         size (a Race)."""
-        waiting = self.waiting(mode, rules)
+        waiting = self.waiting(mode, rules, level)
         spec = SPEC["modes"][mode]
         for index, head in enumerate(waiting):
             later = waiting[index + 1:]
@@ -342,14 +349,14 @@ class Queue:
     def found_match(self, tickets):
         """MATCH_FOUND to everyone in `tickets`; the 15 s begin."""
         tickets = sorted(tickets, key=lambda t: (t.since, t.order))
-        found = Found(self.server.reserve_match_id(), tickets[0].mode, tickets[0].rules, tickets,
+        found = Found(self.server.reserve_match_id(), tickets[0].mode, tickets[0].rules, tickets[0].level, tickets,
                       self.clock.now() + SPEC["accept_ms"] * MS)
         for ticket in tickets:
             ticket.found = found
         found.timer = self.server.timers.at(found.deadline, lambda: self.timeout(found))
         self.found[found.id] = found
-        self.server.event("match_found", match=found.id, mode=found.mode, parties=len(tickets),
-                          seats=len(found.members()))
+        self.server.event("match_found", match=found.id, mode=found.mode, level=protocol.DIFFICULTY_NAMES[found.level],
+                          parties=len(tickets), seats=len(found.members()))
         self.tell_found(found)
 
     def tell_found(self, found):
@@ -433,7 +440,7 @@ class Queue:
         since = {ticket.party: ticket.since for ticket in found.tickets}
         told = {ticket.party for ticket in found.tickets if ticket.told}
         match = self.server.form_match(found.mode, found.rules, [member.player for member in members],
-                                       seats=seats, parties=parties, match_id=found.id)
+                                       seats=seats, parties=parties, match_id=found.id, level=found.level)
         match.queued_since, match.queued_told = since, told
         for party in parties:
             party.match = match
@@ -453,7 +460,8 @@ class Queue:
             if (party in self.tickets or self.lobby.parties.get(party.code) is not party
                     or self.refusal(party, ready=False)):
                 continue
-            ticket = Ticket(party, match.mode, party.reference(), since[party], 0, told=party in match.queued_told)
+            ticket = Ticket(party, match.mode, party.reference(), match.level, since[party], 0,
+                            told=party in match.queued_told)
             elapsed_ok = self.clock.now() - ticket.since >= SPEC["caretaker_offer_ms"] * MS
             ticket.offered = elapsed_ok
             if not elapsed_ok:

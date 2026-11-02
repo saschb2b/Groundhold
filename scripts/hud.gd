@@ -24,6 +24,17 @@
 ## keeps left of the crest's arch and the bar right of the banner. Space is Ready in a build
 ## window and uncorks my next bottle during a duel's wave; the end plate waits for the
 ## duel's decision and says it in the duel's words.
+##
+## Stacked waves (M8, design 2.7 and 5.7): in High Water and Tide Race the horn calls the
+## next wave during a wave too, and it sets out as the call lands, among the creeps on the
+## road. With two or three waves on the road the strip says "Waves 6–7/12" or "Waves
+## 6–8/12", counts every wave's creeps, walking and still to come, and shows the newest's
+## checks, and the waves to come start at the oldest, each on the road marked "now". The
+## horn's slot stays live in a wave while a call would be taken (its cost the gold it pays
+## now), its tooltip names the wave it would call, its checks and its pay ("Call wave 8 now:
+## +10 for the window, +4 for the lives on the road"), or why it cannot; the first press asks
+## "Call wave 8 now? Press again" over the notice line (as a press in a window's last moments
+## does), and with company a call waits on the strip for the partners: "· Ready 1/2".
 class_name Hud
 extends CanvasLayer
 
@@ -121,7 +132,7 @@ var _rival_plate: PanelContainer
 var _rival_tag: Label
 var _rival_text: Label
 var _rival_shown := ""
-## My own race clock at the line's start ("You 1:51 +10 s", then a rule) and what it shows.
+## My own race clock at the line's start ("You 1:51 +60 s", then a rule) and what it shows.
 var _mine_tag: Label
 var _mine_text: Label
 var _mine_rule: ColorRect
@@ -151,6 +162,7 @@ func setup(main: Node) -> void:
 	controller.selection_changed.connect(func(_t: Tower) -> void: _refresh())
 	controller.creep_selected.connect(func(_c: Creep) -> void: _refresh())
 	controller.mode_changed.connect(func(_k2: String) -> void: _refresh())
+	controller.call_asked.connect(_on_call_asked)
 	_refresh()
 
 
@@ -203,6 +215,11 @@ func _process(_delta: float) -> void:
 	elif Game.state == Game.State.WAVE:
 		var left := Game.creeps_left()
 		_countdown.text = "· %d %s left" % [left, "creep" if left == 1 else "creeps"]
+		if Game.stacks():
+			_countdown.text += _call_words(orders)
+			var pay := Game.stack_pay()
+			if Game.can_stack() and orders and int(pay[0]) + int(pay[1]) > 0:
+				ready_cost = "+%d" % (int(pay[0]) + int(pay[1]))  # (what a call pays now)
 	else:
 		_countdown.text = ""
 	_set_cost(_ready_button, ready_cost)
@@ -238,6 +255,41 @@ func show_notice(text: String, hold := NOTICE_HOLD) -> void:
 	_notice_tween.tween_interval(hold)
 	_notice_tween.tween_property(_notice, "modulate:a", 0.0, 0.6)
 	_notice_tween.tween_callback(func() -> void: _notice.visible = false)
+
+
+## (M8) A stacked call's first press asks for the second over the notice line for its two
+## seconds ("Call wave 8 now? Press again"); "" lets the question go once it went out.
+func _on_call_asked(text: String, seconds: float) -> void:
+	if text != "":
+		show_notice(text, maxf(0.1, seconds - 0.6))
+		_notice.set_meta("asked", text)
+	elif _notice.visible and _notice.text == str(_notice.get_meta("asked", "")):
+		if _notice_tween:
+			_notice_tween.kill()
+		_notice.visible = false
+	_refresh()
+
+
+## (M8) What the strip adds in a wave that stacks: with company, once someone has called
+## the next wave, who has ("· Ready 1/2"), since the horn waits for every present partner as
+## in a window; alone nothing, since the horn sounds as the call lands. My own call counts
+## from my press, as the horn shows it.
+func _call_words(orders: bool) -> String:
+	if not Game.has_company() or not orders:
+		return ""
+	var mine := Game.sim.seat(Game.seat)
+	var wanted := controller.wants_ready() if mine.state == SimTypes.SEAT_PRESENT else mine.ready
+	var count := Game.ready_count()
+	if mine.state == SimTypes.SEAT_PRESENT and wanted != mine.ready:
+		count[0] += 1 if wanted else -1
+	var anyone := false
+	for n in Game.sim.hollows[Game.my_hollow()].seats:
+		var s := Game.sim.seat(n)
+		if (s.ready and s.state == SimTypes.SEAT_PRESENT) or (n == Game.seat and wanted):
+			anyone = true
+	if not anyone:
+		return ""
+	return " · Ready %d/%d" % [count[0], count[1]]
 
 
 ## The session's results plate is up (main.gd): what the notice and the banner said goes,
@@ -309,7 +361,7 @@ func rival_line() -> String:
 	return ("Rival · " + _rival_text.text) if _rival_tag.visible else _rival_text.text
 
 
-## My own race clock at the start of that line as shown ("You · 6:10 +10 s"), "" while it
+## My own race clock at the start of that line as shown ("You · 6:10 +60 s"), "" while it
 ## hides, for tests.
 func race_clock_line() -> String:
 	if not _rival_plate.visible or not _mine_tag.visible:
@@ -553,7 +605,7 @@ func _build_rival_line(root: Control) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
 	_rival_plate.add_child(row)
-	# (my own race clock first, "You 1:51 +10 s", then a thin rule: a race is run against it)
+	# (my own race clock first, "You 1:51 +60 s", then a thin rule: a race is run against it)
 	_mine_tag = _label("You", BOLD_FONT, 14, PartyStrip.MINE)
 	_mine_tag.name = "MineTag"
 	row.add_child(_mine_tag)
@@ -577,7 +629,7 @@ func _build_rival_line(root: Control) -> void:
 
 ## Shows `line` (Game.rival_line()) on the rival plate, or hides it for "": "Rival · ..."
 ## as the tag and the rest; any other line (the rival fell) whole, in the notices' gold.
-## `mine` (Game.my_race_line(), "You · 1:51 +10 s") stands before it while it says one.
+## `mine` (Game.my_race_line(), "You · 1:51 +60 s") stands before it while it says one.
 ## The wave list moves down under it while it shows.
 func _show_rival(line: String, mine := "") -> void:
 	if line == _rival_shown and mine == _mine_shown:
@@ -884,6 +936,10 @@ func _refresh() -> void:
 	_lives.text = str(Game.lives)
 	_lives.add_theme_color_override("font_color", _health_tone(Game.lives, Game.max_lives()))
 	_wave.text = "Wave %d/%d" % [Game.wave, Game.total_waves()]
+	var on_road := Game.waves_on_road()
+	if on_road.size() >= 2:
+		# (M8: two or three waves on the road: "Waves 6–7/12", "Waves 6–8/12")
+		_wave.text = "Waves %d–%d/%d" % [on_road[0], on_road[on_road.size() - 1], Game.total_waves()]
 	if Game.is_duel() and Game.surge() > 0:
 		# (a duel's Surge repeats waves 9 to 11: which of its three runs now)
 		_wave.text = "Surge %d/%d" % [Game.surge(), Game.surge_waves()]
@@ -967,6 +1023,10 @@ func _refresh_card() -> void:
 	var can_call := (
 		Game.state == Game.State.PREP and Game.wave < Game.last_wave() and live and Game.ready_refusal() == ""
 	)
+	if Game.state == Game.State.WAVE and Game.stacks() and live and not over:
+		# (M8: in a wave a call for the next while one would be taken, and my call taken
+		# back while it stands)
+		can_call = Game.can_stack() or controller.wants_ready()
 	_command(_ready_button, can_call, true, (_ready_button.get_node("Cost") as Label).text)
 	_set_active(_ready_button, can_call and controller.wants_ready())
 
@@ -1034,16 +1094,20 @@ func _show_wave_list(on: bool) -> void:
 		_fill_wave_list()
 
 
-## Every wave from the strip's on: "5", its checks' glyphs, its creeps' portraits with
-## their counts; the one running now is marked. A duel's list goes on into the Surge, under
+## Every wave from the strip's on (M8: from the oldest on the road): "5", its checks'
+## glyphs, its creeps' portraits with their counts and each one's health and armour at that
+## wave; every wave on the road is marked "now". A duel's list goes on into the Surge, under
 ## a line that says when it is played ("SurgeHead"), each of its waves "S1" to "S3" with the
 ## creeps of the wave it repeats (Game.content_wave) and "wave 9 again" at its end, from the
 ## first window on, so a player can plan for it (playtest halv s1, f136736: "Waves to come"
 ## stood empty after wave 12 while the Surge was coming).
 func _fill_wave_list() -> void:
 	var first := _strip_number()
+	var on_road := Game.waves_on_road()
+	if not on_road.is_empty() and first >= 0:
+		first = mini(first, on_road[0])  # (M8: from the oldest wave on the road)
 	# (a new match, Restart or another begin, may scale its creeps for other seats)
-	var key := [first, Game.state, Game.sim.get_instance_id() if Game.sim else 0]
+	var key := [first, Game.state, on_road.size(), Game.sim.get_instance_id() if Game.sim else 0]
 	if _wave_rows.get_meta("shown", []) == key:
 		return
 	_wave_rows.set_meta("shown", key)
@@ -1061,7 +1125,7 @@ func _fill_wave_list() -> void:
 		row.name = "WaveRow%d" % wave_number
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_theme_constant_override("separation", 4)
-		var now := Game.state == Game.State.WAVE and wave_number == Game.wave
+		var now := Game.state == Game.State.WAVE and (wave_number == Game.wave or on_road.has(wave_number))
 		var shown := "S%d" % surge if surge > 0 else str(wave_number)
 		var number := _label(shown, BOLD_FONT, 14, GOLD if now else TEXT)
 		number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1204,7 +1268,7 @@ func _describe_holdfast() -> void:
 	if Game.state == Game.State.WAVE and Game.surge() > 0:
 		line = "Surge %d of %d" % [Game.surge(), Game.surge_waves()]
 	elif Game.state == Game.State.WAVE:
-		line = "Wave %d of %d" % [Game.wave, Game.total_waves()]
+		line = "%s of %d" % [Game.road_words(), Game.total_waves()]
 	elif Game.state == Game.State.PREP and Game.wave < Game.last_wave():
 		line = "Next: " + _wave_brings(Game.content_wave(Game.wave + 1) - 1)
 	_head("The Holdfast", line)
@@ -1264,13 +1328,15 @@ func _describe_tower(tower: Tower) -> void:
 	_set_stats(_tower_stats(tower.stats))
 
 
-## A creep: its name with the glyph of the check it brings, what holds it (winged,
-## slowed, stunned, marked, cracked) and its numbers.
+## A creep: its name with the glyph of the check it brings, its own wave (M8: with waves on
+## the road together, not the newest), what holds it (winged, slowed, stunned, marked,
+## cracked) and its numbers.
 func _describe_creep(creep: Creep) -> void:
 	_creep_shown = _creep_key(creep)
 	var data: Dictionary = Game.CREEPS[creep.kind]
 	_portrait.show_model(str(data["model"]))
-	var parts := PackedStringArray([Game.wave_name(Game.wave)])
+	var own := creep.rec.wave if creep.rec != null and creep.rec.wave > 0 else Game.wave
+	var parts := PackedStringArray([Game.wave_name(own)])
 	if creep.winged:
 		parts.append("winged")
 	if creep.stunned:
@@ -1286,7 +1352,7 @@ func _describe_creep(creep: Creep) -> void:
 	var fraction := creep.hp / creep.max_hp
 	var cells := [
 		["Health", "%d/%d" % [ceili(creep.hp), ceili(creep.max_hp)], _health_tone(fraction, 1.0)],
-		["Speed", "%.1f" % creep.pace],
+		["Speed", Game.num(creep.pace)],
 	]
 	if creep.armor > 0.0:
 		cells.append(["Armour", _num(creep.armor)])
@@ -1338,12 +1404,12 @@ func _tower_stats(s: Dictionary) -> Array:
 	elif aura:
 		stats.append(["Haste", "+%d%%" % roundi(float(s["haste"]) * 100.0)])
 	else:
-		stats.append(["Damage", str(s["damage"])])
-	stats.append(["Range", str(s["range"])])
+		stats.append(["Damage", Game.num(float(s["damage"]))])
+	stats.append(["Range", Game.num(float(s["range"]))])
 	if marks:
 		stats.append(["Marks", str(s.get("marks", 1))])
 	elif not aura:
-		stats.append(["Cooldown", "%ss" % s["cooldown"]])
+		stats.append(["Cooldown", "%ss" % Game.num(float(s["cooldown"]))])
 	if s.has("stun"):
 		stats.append(["Stun", "%ss" % _num(float(s["stun"]))])
 	if s.has("air_bonus"):
@@ -1354,7 +1420,7 @@ func _tower_stats(s: Dictionary) -> Array:
 	if s.has("cloud"):
 		stats.append(["Cloud", _num(float(s["cloud"]))])
 	if s.has("splash"):
-		stats.append(["Splash", str(s["splash"])])
+		stats.append(["Splash", Game.num(float(s["splash"]))])
 	if s.has("slow"):
 		stats.append(["Slow", "%d%%" % roundi(float(s["slow"]) * 100.0)])
 	if s.has("pierce") and not aura:
@@ -1449,7 +1515,7 @@ func _show_tooltip(what: String) -> void:
 			if helps != "":
 				_tooltip_helps.visible = true
 				_tooltip_glyph.texture = Game.icon(str(Game.CHECKS[helps]["icon"]))
-				_tooltip_helps_text.text = Game.lifts_line(helps)
+				_tooltip_helps_text.text = Game.lifts_line(helps, form)
 		"idle":
 			_tooltip.visible = false
 			return
@@ -1469,6 +1535,12 @@ func _show_tooltip(what: String) -> void:
 				_tooltip_body.text = (
 					"That tower is %s's: only its builder sells it." % Game.seat_name(tower.owner_seat)
 				)
+		_ when Game.state == Game.State.WAVE and (Game.stacks() or Game.is_duel()) and not _over():
+			_tooltip_title.text = "Ready"
+			_tooltip_body.text = _call_tip()
+			var pay := Game.stack_pay()
+			var paid := int(pay[0]) + int(pay[1])
+			_tooltip_cost.text = "+%d" % paid if Game.can_stack() and paid > 0 and not controller.wants_ready() else ""
 		_:
 			_tooltip_title.text = "Ready"
 			var bonus := Game.early_gold()
@@ -1499,7 +1571,50 @@ func _show_tooltip(what: String) -> void:
 	_tooltip_coin.visible = _tooltip_cost.visible
 
 
-## What a fork to `branch` changes, in numbers: "Damage 8.0 to 16.0 · range 3.2 to 3.6",
+## (M8, design 5.7) The horn's tooltip during a wave: the wave a call would bring, its checks
+## and what it pays now ("Call wave 8 now: +10 for the window, +4 for the lives on the
+## road."), that it sets out at once among the creeps on the road or, with company, once
+## every partner has called it, or why no call can go ("Three waves are on the road.", "Wave
+## 12 is the last.", "Waves do not stack in a duel.").
+func _call_tip() -> String:
+	var called := Game.called_wave()
+	if controller.wants_ready():
+		if not Game.has_company():
+			return "%s is called: it sets out as the call lands." % Game.wave_name(called)
+		return (
+			"%s is called: it sets out once every partner has called it. Press again to take the call back."
+			% Game.wave_name(called)
+		)
+	var why := Game.stack_refusal()
+	if why != "":
+		return why + "."
+	var pay := Game.stack_pay()
+	var checks := PackedStringArray()
+	for pair: Array in Game.wave_checks(Game.content_wave(called) - 1):
+		checks.append(str(Game.CHECKS[pair[0]]["name"]))
+	var bosses := Game.wave_bosses(Game.content_wave(called) - 1)
+	if not bosses.is_empty():
+		checks.append(str(Game.CREEPS[bosses[0]]["name"]))
+	var brings := ""
+	if not checks.is_empty():
+		brings = " It brings %s." % _and_list(checks)
+	var sets_out := " It sets out at once, among the creeps on the road."
+	if Game.has_company():
+		sets_out = " It sets out once everyone has called it, among the creeps on the road."
+	return (
+		"Call %s now: +%d for the window, +%d for the lives on the road.%s%s Press twice: D, N or Space."
+		% [Game.wave_name(called).to_lower(), int(pay[0]), int(pay[1]), brings, sets_out]
+	)
+
+
+## "Swarm", "Swarm and Winged", "Swarm, Swift and Winged".
+static func _and_list(words: PackedStringArray) -> String:
+	if words.size() <= 1:
+		return "".join(words)
+	return "%s and %s" % [", ".join(words.slice(0, words.size() - 1)), words[words.size() - 1]]
+
+
+## What a fork to `branch` changes, in numbers: "Damage 8 to 16 · range 3.2 to 3.6",
 ## and "reaches the sky" when it starts to.
 func _fork_gains(tower: Tower, branch: int) -> String:
 	# (with the owner's perks, as its record has them: Keen Sight's reach, Bronze Hand's pierce)
@@ -1530,11 +1645,11 @@ func _fork_gains(tower: Tower, branch: int) -> String:
 			"cloud", "crack":
 				parts.append("%s %s to %s" % [key, _num(before), _num(now)])
 			"cooldown":
-				parts.append("cooldown %ss to %ss" % [was[key], after[key]])
+				parts.append("cooldown %ss to %ss" % [_num(before), _num(now)])
 			"pierce", "bounces", "marks":
 				parts.append("%s %s to %s" % [key, _num(before), _num(now)])
 			_:
-				parts.append("%s %s to %s" % [key, was.get(key, 0.0), after.get(key, 0.0)])
+				parts.append("%s %s to %s" % [key, _num(before), _num(now)])
 	if bool(after["air"]) and not bool(was.get("air", false)):
 		parts.append("reaches the sky")
 	if parts.is_empty():
@@ -1543,9 +1658,10 @@ func _fork_gains(tower: Tower, branch: int) -> String:
 	return text[0].to_upper() + text.substr(1)
 
 
-## A whole number without its ".0", any other with one decimal.
+## A number as every tooltip and plate shows it (Game.num): at most two decimals, none it
+## does not need.
 func _num(value: float) -> String:
-	return str(roundi(value)) if is_equal_approx(value, roundf(value)) else "%.1f" % value
+	return Game.num(value)
 
 
 func _on_state(state: int) -> void:
@@ -1561,7 +1677,8 @@ func _on_state(state: int) -> void:
 			_on_duel()  # (a duel's end plate says its decision: the fall, or the Surge's rule)
 			return
 		var won := state == Game.State.WON
-		var detail := "Fell in wave %d of %d" % [Game.wave, Game.total_waves()]
+		# (M8: on the oldest wave on its road, with more than one there)
+		var detail := "Fell in wave %d of %d" % [Game.fell_wave_number(), Game.total_waves()]
 		if won:
 			detail = "All %d waves held back" % Game.total_waves()
 		elif Game.wave == 0:

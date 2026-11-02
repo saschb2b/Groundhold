@@ -73,7 +73,7 @@ static func _wire(out: Array) -> void:
 		if NetProtocol.message_id(name) != int(IDS[name]):
 			out.append("%s moved off id %d" % [name, IDS[name]])
 	for pair: Array in [
-		["HELLO", Vector2i(38, 54)], ["MATCH_CONFIG", Vector2i(22, 106)], ["RESYNC", Vector2i(24, 24)],
+		["HELLO", Vector2i(38, 54)], ["MATCH_CONFIG", Vector2i(23, 107)], ["RESYNC", Vector2i(24, 24)],
 		["VISIBILITY", Vector2i(2, 2)],
 	]:
 		if NetProtocol.sizes(pair[0]) != pair[1]:

@@ -1,7 +1,7 @@
 {
  "transcript": "m6_caretakers",
  "format": 1,
- "protocol": 1,
+ "protocol": 2,
  "clients": 1,
  "note": "Caretakers from the queue: Tamsin's start_with_caretakers too soon (the state as it is), QUEUE leave and enter again, the offer at 60 s (NOTICE caretakers_offered, caretaker_offer 1), and start_with_caretakers: MATCH_CONFIG with three caretaker seats covering what a Lamplighter lacks (the Lookout, the Bellfounder, the Beekeeper), their LOAD_STATE gone.",
  "records": [
@@ -10,7 +10,7 @@
    "client": 0,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
@@ -51,6 +51,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -87,6 +88,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -122,6 +124,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -195,6 +198,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -230,6 +234,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -294,6 +299,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -321,6 +327,7 @@
    "fields": {
     "match": 1,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",

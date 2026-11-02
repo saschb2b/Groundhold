@@ -1,6 +1,7 @@
 ## Results, the Ebb (design 5.8): an overlay on the finished hollow, on the end plate art
-## widened. The title in the game's words, one line of the match (mode, waves, time, lives
-## left), the lives along the waves, then one row per player: Builder, kills, damage,
+## widened. The title in the game's words, one line of the match (mode, its level where it
+## is not Normal (M8), waves, time, lives left out of the level's own), the lives along the
+## waves, then one row per player: Builder, kills, damage,
 ## help, towers (and how many forked), and one positive line picked from a fixed list by
 ## the player's best stat relative to the team (ties go to the lower seat; no line
 ## repeats; no MVP). Every number comes from the simulation, so every client shows the
@@ -50,6 +51,12 @@ var _rows: VBoxContainer
 static func compute(sim: SimMatch, names: Array, outcome: String, tally: Dictionary, shown_mode: String) -> Dictionary:
 	var rows := []
 	var team := sim.teams[0]
+	# (design 5.8's "9 (4 forked)": the towers standing at the end and how many of them stand
+	# forked; SimSeat.forks counts every fork made, a sold tower's too: playtest halv s2, P10)
+	var forked_standing := {}
+	for t in sim.towers:
+		if t.branch >= 0:
+			forked_standing[t.owner] = int(forked_standing.get(t.owner, 0)) + 1
 	for s in sim.seats:
 		var i := s.seat - 1
 		rows.append(
@@ -62,7 +69,7 @@ static func compute(sim: SimMatch, names: Array, outcome: String, tally: Diction
 				"damage_c": s.damage_c,
 				"help_c": s.help_c,
 				"towers": s.towers,
-				"forks": s.forks,
+				"forks": int(forked_standing.get(s.seat, 0)),
 				"left": s.state == SimTypes.SEAT_LEFT,
 				"line": "",
 			}
@@ -77,14 +84,19 @@ static func compute(sim: SimMatch, names: Array, outcome: String, tally: Diction
 	var reached := sim.hollows[0].wave
 	var minutes := sim.tick / 3600
 	var seconds := (sim.tick / 60) % 60
+	# (M8: the level named where it is not Normal, and the lives out of its own:
+	# "High Water · Very Hard · 12 waves · 13:42 · 4 of 10 lives left")
+	var mode := Game.mode_words(Profile.mode_name(shown_mode), MatchRules.level_played(sim.rules))
 	var detail := "%s · %d waves · %d:%02d · %d of %d lives left" % [
-		Profile.mode_name(shown_mode), waves, minutes, seconds, lives, int(sim.rules["lives"])
+		mode, waves, minutes, seconds, lives, int(sim.rules["lives"])
 	]
 	if outcome == "lost":
-		detail = "%s · fell in wave %d of %d · %d:%02d" % [Profile.mode_name(shown_mode), reached, waves, minutes, seconds]
+		# (on the oldest wave on its road, with two there: M8)
+		var fell := mini(reached, sim.hollows[0].cleared + 1) if reached > 0 else 0
+		detail = "%s · fell in wave %d of %d · %d:%02d" % [mode, fell, waves, minutes, seconds]
 	elif outcome in STOPPED:
 		var where := "stopped in wave %d of %d" % [reached, waves] if reached > 0 else "stopped before the first wave"
-		detail = "%s · %s · %d:%02d" % [Profile.mode_name(shown_mode), where, minutes, seconds]
+		detail = "%s · %s · %d:%02d" % [mode, where, minutes, seconds]
 	return {
 		"outcome": outcome,
 		"title": str(TITLES.get(outcome, "The Ebb")),
@@ -99,8 +111,9 @@ static func compute(sim: SimMatch, names: Array, outcome: String, tally: Diction
 ## A race's results (design 5.8, M6): the title from my team's outcome ("You Outran the
 ## Tide", "Your Rival Outran the Tide", "Two Crews, One Time"; a stopped match keeps its
 ## own), the match in one line, the rule that decided it in one line, and one block per
-## team, mine first: its race time (the tick it cleared its last wave plus 10 s a life
-## lost, "12:41 +20 s"; where it set none, where it fell or how far it got), its lives with
+## team, mine first: its race time (the tick it cleared its last wave plus the rules' life_t
+## a life lost, SimMatch.race_penalty_t, "12:41 +120 s"; where it set none, where it fell or
+## how far it got), its lives with
 ## their line along its own waves, and its players' rows, each with a line picked against
 ## its own team.
 static func _compute_race(
@@ -128,13 +141,15 @@ static func _compute_race(
 	var waves := sim.total_waves()
 	var minutes := sim.tick / 3600
 	var seconds := (sim.tick / 60) % 60
-	var detail := "%s · %d waves · %d:%02d" % [Profile.mode_name(shown_mode), waves, minutes, seconds]
+	# (M8: both crews play one level, named where it is not Normal)
+	var mode := Game.mode_words(Profile.mode_name(shown_mode), MatchRules.level_played(sim.rules))
+	var detail := "%s · %d waves · %d:%02d" % [mode, waves, minutes, seconds]
 	var title := str(Game.RACE_TITLES.get(outcome, TITLES.get(outcome, "The Ebb")))
 	var rule := Game.race_rule_line() if Game.RACE_TITLES.has(outcome) else ""
 	if outcome in STOPPED:
 		var reached := sim.hollows[sim.teams[mine].hollows[0]].wave
 		var where := "stopped in wave %d of %d" % [reached, waves] if reached > 0 else "stopped before the first wave"
-		detail = "%s · %s · %d:%02d" % [Profile.mode_name(shown_mode), where, minutes, seconds]
+		detail = "%s · %s · %d:%02d" % [mode, where, minutes, seconds]
 	return {
 		"outcome": outcome,
 		"race": true,
@@ -206,15 +221,19 @@ static func _compute_duel(sim: SimMatch, rows: Array, outcome: String, tally: Di
 
 ## A team's race time as the results show it: "12:41 +20 s" (the tick it cleared its last
 ## wave, and what its lost lives added); without one, "fell on wave 9", or where its race
-## clock stood when the race was decided ("on wave 12 at 7:20").
+## clock stood when the race was decided ("on wave 12 at 7:20"; M8: "on waves 11–12 at
+## 7:20" with stacked waves on its road, SimMatch.waves_on_road).
 static func race_time_text(sim: SimMatch, team: int) -> String:
 	var rec := sim.teams[team]
 	if sim.race_time(team) >= 0:
 		return Game.race_clock(rec.clear_tick, sim.race_penalty_t(team))
 	if rec.fell_wave > 0:
 		return "fell on wave %d" % rec.fell_wave
-	var wave := maxi(1, sim.hollows[rec.hollows[0]].wave)
-	return "on wave %d at %s" % [wave, Game.race_clock(sim.tick, sim.race_penalty_t(team))]
+	var on := sim.waves_on_road(rec.hollows[0])
+	var where := "wave %d" % maxi(1, sim.hollows[rec.hollows[0]].wave)
+	if on.size() >= 2:
+		where = "waves %d–%d" % [on[0], on[on.size() - 1]]
+	return "on %s at %s" % [where, Game.race_clock(sim.tick, sim.race_penalty_t(team))]
 
 
 ## Fills each row's "line": candidates are the lines a seat truly leads the team in (ties

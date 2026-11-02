@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "subprotocol": "groundhold.v1",
+  "version": 2,
+  "subprotocol": "groundhold.v2",
   "subprotocol_pattern": "groundhold\\.v[0-9]{1,4}",
   "path": "/causeway",
   "port": 8766,
@@ -74,10 +74,11 @@
 
   "modes": {
     "classic": {"id": 0, "teams": 1, "seats": [1, 4]},
-    "high_water": {"id": 1, "teams": 1, "seats": [1, 4]},
-    "tide_race": {"id": 2, "teams": 2, "seats": [2, 4]},
+    "high_water": {"id": 1, "teams": 1, "seats": [1, 4], "levels": true},
+    "tide_race": {"id": 2, "teams": 2, "seats": [2, 4], "levels": true},
     "undertow": {"id": 3, "teams": 2, "seats": [2, 2]}
   },
+  "difficulties": {"normal": 0, "hard": 1, "very_hard": 2},
   "maps": {"hollow": 0},
   "builders": {"lamplighter": 0, "lookout": 1, "bellfounder": 2, "beekeeper": 3},
 
@@ -123,7 +124,7 @@
   "party_phases": {"forming": 0, "countdown": 1, "queued": 2, "loading": 3, "in_match": 4, "results": 5},
   "party_ops": {
     "create": 1, "join": 2, "leave": 3, "remove": 4, "mode": 5, "builders": 6,
-    "ready": 7, "team": 8, "open": 9, "start": 10, "cancel": 11
+    "ready": 7, "team": 8, "open": 9, "start": 10, "cancel": 11, "difficulty": 12
   },
   "queue_ops": {"enter": 1, "leave": 2, "start_with_caretakers": 3},
   "queue_states": {"idle": 0, "entering": 1, "queued": 2, "leaving": 3},
@@ -132,7 +133,7 @@
     "BUILD": {"type": 1, "args": [[0, 2], [0, 255], [0, 255]]},
     "FORK": {"type": 2, "args": [[1, 2147483647], [0, 1], [0, 0]]},
     "SELL": {"type": 3, "args": [[1, 2147483647], [0, 0], [0, 0]]},
-    "READY": {"type": 4, "args": [[0, 1], [0, 0], [0, 0]]},
+    "READY": {"type": 4, "args": [[0, 1], [0, 65535], [0, 0]]},
     "SIGNAL": {"type": 5, "args": [[-262144, 262144], [-262144, 262144], [0, 2147483647]]},
     "CORK": {"type": 6, "args": [[0, 15], [-2147483648, 2147483647], [-2147483648, 2147483647]]},
     "UNCORK": {"type": 7, "args": [[0, 15], [-2147483648, 2147483647], [-2147483648, 2147483647]]},
@@ -170,9 +171,11 @@
         "team": [["member", "u8"], ["team", "u8"]],
         "open": [["on", "u8"]],
         "start": [],
-        "cancel": []}}},
+        "cancel": [],
+        "difficulty": [["difficulty", "u8"]]}}},
     "PARTY_STATE": {"id": 21, "dir": "s2c", "fields": [
-      ["code", "b5"], ["mode", "u8"], ["flags", "u8"], ["leader", "u8"], ["you", "u8"], ["phase", "u8"],
+      ["code", "b5"], ["mode", "u8"], ["difficulty", "u8"], ["flags", "u8"], ["leader", "u8"], ["you", "u8"],
+      ["phase", "u8"],
       ["countdown_ms", "u32"],
       ["members", "l8", [
         ["member", "u8"], ["team", "u8"], ["main", "u8"], ["backup", "u8"], ["state", "u8"], ["rtt_ms", "u16"],
@@ -184,7 +187,8 @@
     "ACCEPT": {"id": 25, "dir": "c2s", "bucket": "hub", "fields": [["match", "u32"], ["yes", "u8"]]},
 
     "MATCH_CONFIG": {"id": 30, "dir": "s2c", "fields": [
-      ["match", "u32"], ["mode", "u8"], ["map", "u8"], ["seed", "u32"], ["rules_hash", "b8"], ["your_seat", "u8"],
+      ["match", "u32"], ["mode", "u8"], ["difficulty", "u8"], ["map", "u8"], ["seed", "u32"], ["rules_hash", "b8"],
+      ["your_seat", "u8"],
       ["seats", "l8", [["seat", "u8"], ["team", "u8"], ["builder", "u8"], ["flags", "u8"], ["name", "s8", 16]], 4],
       ["flags", "u8"]]},
     "LOADING": {"id": 31, "dir": "c2s", "bucket": "net", "fields": [["per_mille", "u16"]]},

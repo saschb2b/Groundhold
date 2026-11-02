@@ -1,6 +1,6 @@
 {
   "name": "queens_guard_patches_armor",
-  "description": "The Beekeeper's patch for Armored does patch it (M6 balance): a Queen's Guard sting of 50 ignores 3 armour, so it does 49 to a Thornback (armour 4) every 1.2 s, 40.8 a second, where the Royal Apiary's 34 does 30 every 0.8 s, 37.5 a second. At the design's 40 with no pierce it did 36, 30 a second: the fork for Armored was the weaker one against armour.",
+  "description": "The Beekeeper's patch for Armored does patch it (M6 balance, then M8's fork pass): a Queen's Guard sting of 54 ignores 4 armour, so it does all 54 to a Thornback (armour 4) every 86 ticks, 37.7 a second, where the Royal Apiary's 24 does 20 every 0.8 s, 25 a second (27 doing 23 at the pass's first numbers, too close at the creep health of Hard and Very Hard). It gets no bonus against fliers and aims at the creep with the most health in its reach. At the design's 40 with no pierce it did 36, 30 a second, under the Royal Apiary's 37.5 then: the fork for Armored was the weaker one against armour; at M6's 50 every 1.2 s ignoring 3 the two forks were within 10% at every job (the playtest's 'not a real choice').",
   "scene": "res://tests/sim/sim_harness.tscn",
   "seed": 1,
   "timeout_frames": 60,
@@ -12,11 +12,11 @@
     {"eval": "scene.tower_at(5, 3)", "as": "guard"},
     {"eval": "scene.cmd(1, 'FORK', guard.id, 1)"},
     {"eval": "scene.run_ticks(6)"},
-    {"assert": "guard.branch == 1 and guard.dmg_c == 5000 and guard.pierce_c == 300 and guard.cd_t == 72", "msg": "the Queen's Guard: 50 every 1.2 s, ignoring 3 armour"},
+    {"assert": "guard.branch == 1 and guard.dmg_c == 5400 and guard.pierce_c == 400 and guard.cd_t == 86 and guard.air_bonus_pm == 0 and guard.aim == 2", "msg": "the Queen's Guard: 54 every 86 ticks, ignoring 4 armour, no flier bonus, at the most health"},
     {"eval": "scene.spawn('thornback', 5000000)", "as": "c"},
     {"eval": "scene.hold(c)"},
     {"eval": "scene.run_ticks(150)"},
-    {"assert": "scene.hit_values('apiary', 'thornback').has([4900, 5000, 100])", "msg": "49 of 50 to a Thornback"},
+    {"assert": "scene.hit_values('apiary', 'thornback').has([5400, 5400, 0])", "msg": "all 54 to a Thornback"},
     {"eval": "scene.start({'mode': 'high_water', 'seats': 1, 'builders': ['beekeeper']})"},
     {"eval": "scene.debug(1, 1, 2000)"},
     {"eval": "scene.cmd(1, 'BUILD', 1, 5, 3)"},
@@ -27,7 +27,7 @@
     {"eval": "scene.spawn('thornback', 5000000)", "as": "d"},
     {"eval": "scene.hold(d)"},
     {"eval": "scene.run_ticks(150)"},
-    {"assert": "scene.hit_values('apiary', 'thornback').has([3000, 3400, 400])", "msg": "the Royal Apiary's 34 does 30 to a Thornback"},
-    {"assert": "4900 * 60 / guard.cd_t > 3000 * 60 / royal.cd_t", "msg": "against armour the patch out-damages the deepening: 40.8 a second against 37.5"}
+    {"assert": "scene.hit_values('apiary', 'thornback').has([2000, 2400, 400])", "msg": "the Royal Apiary's 24 does 20 to a Thornback"},
+    {"assert": "5400 * 60 / guard.cd_t > 2000 * 60 / royal.cd_t * 135 / 100", "msg": "against armour the patch out-damages the deepening by more than a third: 37.7 a second against 25"}
   ]
 }

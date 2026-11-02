@@ -17,7 +17,7 @@ class DatagramTests(unittest.TestCase):
     def test_the_layout(self):
         data = beacon.datagram(8766, 2, "Sascha's server")
         self.assertEqual(data, b"GHB1" + struct.pack("!HHB", SPEC["version"], 8766, 2) + bytes((15,)) + b"Sascha's server")
-        self.assertEqual(beacon.parse(data), {"version": 1, "port": 8766, "open": 2, "name": "Sascha's server"})
+        self.assertEqual(beacon.parse(data), {"version": SPEC["version"], "port": 8766, "open": 2, "name": "Sascha's server"})
         self.assertEqual(SPEC["beacon_port"], 8767)
         # (bounded: at most 255 open parties, a name of at most 64 bytes, UTF-8 kept whole)
         long = beacon.datagram(8766, 900, "Wöhrden " * 20)

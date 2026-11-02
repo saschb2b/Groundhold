@@ -75,7 +75,7 @@ class ContractM4Tests(unittest.TestCase):
         self.assertEqual(fields("VISIBILITY"), [("state", "u8")])
         sizes = {name: message.sizes() for name, message in protocol.MESSAGES.items()}
         self.assertEqual(sizes["HELLO"], (38, 54))
-        self.assertEqual(sizes["MATCH_CONFIG"], (22, 106))
+        self.assertEqual(sizes["MATCH_CONFIG"], (23, 107))      # (M8's level after the mode: one byte more)
         self.assertEqual(sizes["RESYNC"], (24, 24))
         self.assertEqual(sizes["VISIBILITY"], (2, 2))
 

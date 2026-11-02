@@ -1,0 +1,29 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "view_stack_fast_frame_counts_own_wave",
+  "description": "A kill or a leak counts on its creep's own wave even when the creep set out and got through inside one frame of many ticks (M8's review; design 2.7 and 5.7): EV_SPAWN, EV_DIE and EV_LEAK carry the creep's wave, which main.gd's tally (_wave_of, leaks_in) and Game's clear banners read, where they read the creep's view (none yet) or record (gone) and fell back to the hollow's newest wave, or the oldest on the road at the frame's end. Wave 2 called at once in wave 1, its first creep held on the road so wave 2 cannot clear; then 3000 ticks in one frame: wave 1's other nine Gourdlings set out and get through, and wave 1 clears, all in that frame, while wave 2's walk in among them. leaks_in(1) counts wave 1's ten and its banner the ten lives they took, not one; leaks_in(2) wave 2's seventeen.",
+  "seed": 1,
+  "timeout_frames": 3000,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"set": "Game.lives", "value": 200},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.state == 1 and Game.wave == 1", "timeout": 120},
+    {"key": "D"},
+    {"key": "D"},
+    {"wait_until": "Game.wave == 2", "timeout": 30},
+    {"eval": "resource('res://tests/ui/stack_stage.gd').stop_wave(0, 2)", "as": "held"},
+    {"wait": 1},
+    {"assert": "held == 1 and Game.waves_on_road() == PackedInt32Array([1, 2]) and Game.sim.creeps.size() <= 3 and Game.lives == 200", "msg": "both waves on the road, wave 2's first creep held where it set out, nothing through yet"},
+    {"set_ticks_per_frame": 3000},
+    {"wait": 1},
+    {"set_ticks_per_frame": 1},
+    {"wait": 1},
+    {"assert": "Game.waves_on_road() == PackedInt32Array([2]) and Game.sim.creeps.size() == 1 and Game.spawns_left() == 0 and 200 - Game.lives == 27", "msg": "in that one frame every other creep of both waves set out and got through, and wave 1 cleared"},
+    {"assert": "scene.leaks_in(1) == {'kinds': {'gourdling': 10}, 'lives': 10}", "msg": "wave 1's ten counted on wave 1, though nine of them set out and got through in the frame"},
+    {"assert": "scene.leaks_in(2) == {'kinds': {'gourdling': 17}, 'lives': 17}", "msg": "wave 2's seventeen on wave 2"},
+    {"assert": "node('BannerTitle').text == 'Wave 1 cleared · 10 lives lost · +10 gold'", "msg": "wave 1's banner says the ten lives its own creeps took"}
+  ]
+}

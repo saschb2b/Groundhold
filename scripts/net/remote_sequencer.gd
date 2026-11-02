@@ -209,7 +209,15 @@ func ticks_available(sim: SimMatch) -> int:
 	return maxi(0, (complete_upto + 1) * SimTypes.TURN_TICKS - sim.tick)
 
 
-## Everything a replay needs, as LocalSequencer.log_for gives it (the turns received so far).
+## Everything a replay needs, as LocalSequencer.log_for gives it (the turns received so far),
+## the level the match plays among it (M8).
 func log_for(sim: SimMatch, seat_list: Array) -> Dictionary:
 	var done := turns.slice(0, complete_upto + 1)
-	return {"mode": sim.mode, "seed": sim.match_seed, "seats": seat_list, "turns": done, "debug": []}
+	return {
+		"mode": sim.mode,
+		"difficulty": MatchRules.level_played(sim.rules),
+		"seed": sim.match_seed,
+		"seats": seat_list,
+		"turns": done,
+		"debug": [],
+	}

@@ -1,4 +1,4 @@
-# Groundhold's wire protocol, version 1
+# Groundhold's wire protocol, version 2
 
 `protocol.json` is the contract between the game and the server
 (`docs/design/core-loop.md` §6.5). The server loads it as package data
@@ -8,9 +8,13 @@ so a desktop or web export must include `shared/net/*.json` in its include filte
 The byte tables below are written from it by `python3 server/tools/protocol_tables.py`;
 a server test fails when they are stale.
 
+Version 2 (M8, `docs/design/contract-m8.md` §5) adds the party's level and nothing else: `PARTY`'s
+op `difficulty`, and a u8 `difficulty` right after `mode` in `PARTY_STATE` and `MATCH_CONFIG`. A
+game of version 1 hears `ERROR` 2, and a game of version 2 at a version-1 server hears 17.
+
 ## Transport
 
-- One WebSocket port: **8766**, path **`/causeway`**, subprotocol **`groundhold.v1`**.
+- One WebSocket port: **8766**, path **`/causeway`**, subprotocol **`groundhold.v2`**.
   Desktop on a LAN uses `ws://`; online, desktop and browser use `wss://` (TLS at the proxy).
 - **One message per binary frame.** A game's frames are masked, unfragmented and at most
   **1,100 bytes** (`max_message`); a larger one, a fragment, a text frame or an unmasked frame ends
@@ -91,7 +95,15 @@ party's rules do not allow now (a member's start, an op from a former leader, a 
 on) is answered to the asker alone with the party as it is, so a game always shows the truth; an
 op outside its limits (an unknown mode or Builder, `on` or `team` past 1, a member past 3) ends the
 connection with `ERROR` 6. A player in no party (after `leave`, a removal, or an op with no party)
-gets the **no-party state**: a code of five zero bytes, leader and `you` 255, no members.
+gets the **no-party state**: a code of five zero bytes, leader and `you` 255, level 0, no members.
+
+**The level** (M8; design §2.6, `docs/design/contract-m8.md` §3). A party has one, Normal at first,
+in `PARTY_STATE`'s `difficulty`; the leader picks it as the mode, and a change of either clears every
+Ready. A party keeps its level through a mode change, and a mode that takes no level (`modes`
+without `levels`: classic, Undertow's duel) plays Normal: `MATCH_CONFIG`'s `difficulty` is always the
+level the match plays (0 in such a mode), and a rejoin's `MATCH_CONFIG` names the match's own. A game
+whose profile is not at Normal sends `difficulty` after its `create`, so a new party starts at its
+creator's level.
 
 | Op | Who | What |
 |---|---|---|
@@ -99,7 +111,8 @@ gets the **no-party state**: a code of five zero bytes, leader and `you` 255, no
 | `join(code)` | anyone | the party with that code: see Codes below |
 | `leave` | a member | out; the member who joined earliest leads if the leader left |
 | `remove(member)` | the leader | that member out with `NOTICE removed`; its identity cannot rejoin that code |
-| `mode(mode)` | the leader | every Ready cleared; a two-team mode lays the teams out alternately by joining order and turns open seats off |
+| `mode(mode)` | the leader | every Ready cleared; a two-team mode lays the teams out alternately by joining order and turns open seats off; the party's level stays |
+| `difficulty(difficulty)` | the leader | the party's level (M8: `difficulties`, Normal 0, Hard 1, Very Hard 2): every Ready cleared, a countdown stopped; refused while queued, loading or in a match, and the level the party has is no change; past the last level `ERROR` 6 |
 | `builders(main, backup)` | a member, its own | its own Ready cleared; allowed in a match too (for the next one) |
 | `ready(on)` | a member, its own | the leader's Ready is its Start, so the leader needs none |
 | `team(member, team)` | the leader, two-team modes | that member's Ready cleared |
@@ -159,7 +172,10 @@ not queue, `start_with_caretakers` before the offer) is answered to the asker al
 `QUEUE_STATE` as it is: `idle`, or `queued` with its time. The server's states are `idle` and `queued`;
 `entering` and `leaving` are what a game shows while its own request is on its way.
 
-Parties merge only with the same mode and the same rules hash (the newest build's, as at a start).
+Parties merge only with the same mode, the same rules hash (the newest build's, as at a start) and
+the same level, the one the match would play (M8: a Hard party never meets a Normal one, and every
+duellist meets at Normal whatever its party chose); `MATCH_FOUND` names no level, since every party
+in it plays its own.
 Tickets wait in the order they came; one requeued after a match dissolved goes to the **front** and
 keeps its time. Each time one comes, the queue looks from the front: High Water takes each ticket in
 turn as the first and fills the mode's seats (four) with the tickets after it that came earliest
@@ -189,7 +205,7 @@ Lamplighters).
 **Caretakers**: `caretaker_offer_ms` (60,000) after a party queued, every member hears `NOTICE
 caretakers_offered` and `QUEUE_STATE` with `caretaker_offer` 1 (a party in Match Found then hears it
 when it is requeued). The leader's `start_with_caretakers` then forms the party's own match (the
-leader's start without at 30 s, as any party's): in High Water the free seats are caretakers whose
+leader's start without at 30 s, as any party's; at the party's level): in High Water the free seats are caretakers whose
 Builders cover the checks the party lacks (each in turn the one covering most of what is still
 lacking, then one not yet on the team, ties in `builders` order); in a Race a rival team of
 caretakers with the party's Builders, a mirror, on team 1; in a duel one caretaker of the duellist's
@@ -209,8 +225,9 @@ already told of the caretakers is not told again).
 
 ## A match
 
-**Barrier.** `MATCH_CONFIG` names the match, mode, map, seed, rules hash, the recipient's seat and
-every seat (team, Builder, flags, name). Each game reports `LOADING` (per mille) and then
+**Barrier.** `MATCH_CONFIG` names the match, mode, level (M8: the one the match plays, 0 in a mode
+without levels), map, seed, rules hash, the recipient's seat and every seat (team, Builder, flags,
+name); a game builds its simulation's rules from the mode and the level together. Each game reports `LOADING` (per mille) and then
 `LOADED(rules_hash, tick-0 hash)`; every change goes out as `LOAD_STATE`. When every connected seat is
 `LOADED` with equal tick-0 hashes and at least 4 s have passed since `MATCH_CONFIG` (0 s with one
 human), the server sends `START(1500)`: turn 0 opens 1.5 s later. Tick-0 hashes apart: `NOTICE`
@@ -458,8 +475,8 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 | 7 | `PONG` | S→C |  | 9 | u32 client_ms, u32 turn |
 | 14 | `NOTICE` | S→C |  | 6 | u8 code, u32 argument |
 | 15 | `BYE` | both | hub | 1 | nothing |
-| 20 | `PARTY` | C→S | hub | 2 to 7 | u8 op; then by op: create (1): u8 mode; join (2): 5 bytes code; leave (3): nothing; remove (4): u8 member; mode (5): u8 mode; builders (6): u8 main, u8 backup; ready (7): u8 on; team (8): u8 member, u8 team; open (9): u8 on; start (10): nothing; cancel (11): nothing |
-| 21 | `PARTY_STATE` | S→C |  | 16 to 160 | 5 bytes code, u8 mode, u8 flags, u8 leader, u8 you, u8 phase, u32 countdown_ms, u8 n, then n × members [u8 member, u8 team, u8 main, u8 backup, u8 state, u16 rtt_ms, u32 build_seq, 8 bytes rules_hash, u8 + UTF-8 name (≤ 16 bytes)] (n ≤ 4) |
+| 20 | `PARTY` | C→S | hub | 2 to 7 | u8 op; then by op: create (1): u8 mode; join (2): 5 bytes code; leave (3): nothing; remove (4): u8 member; mode (5): u8 mode; builders (6): u8 main, u8 backup; ready (7): u8 on; team (8): u8 member, u8 team; open (9): u8 on; start (10): nothing; cancel (11): nothing; difficulty (12): u8 difficulty |
+| 21 | `PARTY_STATE` | S→C |  | 17 to 161 | 5 bytes code, u8 mode, u8 difficulty, u8 flags, u8 leader, u8 you, u8 phase, u32 countdown_ms, u8 n, then n × members [u8 member, u8 team, u8 main, u8 backup, u8 state, u16 rtt_ms, u32 build_seq, 8 bytes rules_hash, u8 + UTF-8 name (≤ 16 bytes)] (n ≤ 4) |
 | 22 | `QUEUE` | C→S | hub | 2 | u8 op |
 | 23 | `QUEUE_STATE` | S→C |  | 7 | u8 state, u32 elapsed_ms, u8 caretaker_offer |
 | 24 | `MATCH_FOUND` | S→C |  | 12 | u32 match, u8 mode, u8 seats, u8 accepted, u32 ms_left |
@@ -469,7 +486,7 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 
 | Id | Message | Dir | Bucket | Bytes | Payload after the type byte |
 |---|---|---|---|---|---|
-| 30 | `MATCH_CONFIG` | S→C |  | 22 to 106 | u32 match, u8 mode, u8 map, u32 seed, 8 bytes rules_hash, u8 your_seat, u8 n, then n × seats [u8 seat, u8 team, u8 builder, u8 flags, u8 + UTF-8 name (≤ 16 bytes)] (n ≤ 4), u8 flags |
+| 30 | `MATCH_CONFIG` | S→C |  | 23 to 107 | u32 match, u8 mode, u8 difficulty, u8 map, u32 seed, 8 bytes rules_hash, u8 your_seat, u8 n, then n × seats [u8 seat, u8 team, u8 builder, u8 flags, u8 + UTF-8 name (≤ 16 bytes)] (n ≤ 4), u8 flags |
 | 31 | `LOADING` | C→S | net | 3 | u16 per_mille |
 | 32 | `LOAD_STATE` | S→C |  | 4 to 20 | u8 n, then n × seats [u8 seat, u16 per_mille, u8 state] (n ≤ 4), u16 seconds |
 | 33 | `LOADED` | C→S | hub | 17 | 8 bytes rules_hash, 8 bytes tick0_hash |
@@ -499,7 +516,7 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 | 1 | `BUILD` | 0 to 2 | 0 to 255 | 0 to 255 |
 | 2 | `FORK` | 1 to 2147483647 | 0 to 1 | 0 |
 | 3 | `SELL` | 1 to 2147483647 | 0 | 0 |
-| 4 | `READY` | 0 to 1 | 0 | 0 |
+| 4 | `READY` | 0 to 1 | 0 to 65535 | 0 |
 | 5 | `SIGNAL` | -262144 to 262144 | -262144 to 262144 | 0 to 2147483647 |
 | 6 | `CORK` | 0 to 15 | -2147483648 to 2147483647 | -2147483648 to 2147483647 |
 | 7 | `UNCORK` | 0 to 15 | -2147483648 to 2147483647 | -2147483648 to 2147483647 |
@@ -525,7 +542,7 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 | `load_states` | connecting 0, loading 1, checking 2, ready 3, slow 4, gone 5 |
 | `member_states` | here 0, ready 1, away 2, needs_reload 3, in_match 4 |
 | `party_phases` | forming 0, countdown 1, queued 2, loading 3, in_match 4, results 5 |
-| `party_ops` | create 1, join 2, leave 3, remove 4, mode 5, builders 6, ready 7, team 8, open 9, start 10, cancel 11 |
+| `party_ops` | create 1, join 2, leave 3, remove 4, mode 5, builders 6, ready 7, team 8, open 9, start 10, cancel 11, difficulty 12 |
 | `queue_ops` | enter 1, leave 2, start_with_caretakers 3 |
 | `queue_states` | idle 0, entering 1, queued 2, leaving 3 |
 | `hello_flags` | resume 1, web 2 |
@@ -539,7 +556,8 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 | `resync_reasons` | rejoin 0, desync 1, behind 2 |
 | `maps` | hollow 0 |
 | `builders` | lamplighter 0, lookout 1, bellfounder 2, beekeeper 3 |
-| `modes` | classic 0 (1 team, 1 to 4 seats), high_water 1 (1 team, 1 to 4 seats), tide_race 2 (2 teams, 2 to 4 seats), undertow 3 (2 teams, 2 to 2 seats) |
+| `difficulties` | normal 0, hard 1, very_hard 2 |
+| `modes` | classic 0 (1 team, 1 to 4 seats), high_water 1 (1 team, 1 to 4 seats, takes a level), tide_race 2 (2 teams, 2 to 4 seats, takes a level), undertow 3 (2 teams, 2 to 2 seats) |
 
 <!-- protocol.json tables: end -->
 
@@ -548,9 +566,12 @@ it has not heard for 3 s. `server/groundhold_server/beacon.py`'s `parse` and `li
 `transcripts/*.bin` are byte streams recorded from the real server on a hand-moved clock
 (`python3 server/tools/record_transcripts.py`; a server test fails when re-recording would change a
 byte). Each `.json` beside one lists the same records decoded, which is what the GDScript codec must
-produce (`protocol_golden_m1`, `protocol_golden_m3`, `protocol_golden_m4`, `protocol_golden_m6`), and
-encoding those values must give the same bytes back. The `m3_*`, `m4_*` and `m6_*` ones are also the
-server's conversations in order, for testing the game's session against the real server's answers.
+produce (`protocol_golden_m1`, `protocol_golden_m3`, `protocol_golden_m4`, `protocol_golden_m6`,
+`protocol_golden_m7`, `protocol_golden_m8`), and
+encoding those values must give the same bytes back. The `m3_*`, `m4_*`, `m6_*`, `m7_*` and `m8_*` ones
+are also the server's conversations in order, for testing the game's session against the real server's
+answers. Every transcript carries the protocol's version, so a version change re-records them all
+(`protocol_golden_m1` to `_m8`).
 
 | File | What it holds |
 |---|---|
@@ -565,6 +586,7 @@ server's conversations in order, for testing the game's session against the real
 | `m6_caretakers` | `start_with_caretakers` before the offer (the state as it is), `QUEUE leave` and `enter` again, `NOTICE caretakers_offered` and `caretaker_offer` at 60 s, and `start_with_caretakers`: `MATCH_CONFIG` with three caretaker seats covering what a Lamplighter lacks, their `LOAD_STATE` `gone` |
 | `m6_race` | Find a rival in Tide Race: two teams of one, `MATCH_FOUND` with two seats, one accept, the 15 s out (forming for the one who did not; `match_dissolved` and the front for the other), the offer, and Race the caretaker: `MATCH_CONFIG` with a caretaker of her Builder on team 1 |
 | `m7_duel` | Find a rival in Undertow (M7): two Lamplighters alone, `MATCH_FOUND` with two seats, both `ACCEPT`, `MATCH_CONFIG` one a side with both mains kept, the barrier and two turns, `RESULT` with one outcome a side and `MATCH_END` won and lost, the results plates, and Play again: `LEAVE_MATCH`, then `QUEUE enter`, queued again |
+| `m8_difficulty` | the party's level (M8, version 2): a member's `PARTY difficulty` answered to her alone, the leader's Hard to both with the Ready cleared, the Hard party queued with open seats beside a Normal party of the size that would fill its seats and never merged with it, the offer at 60 s and `start_with_caretakers`: `MATCH_CONFIG` at `difficulty` 1 |
 
 The `.bin` layout, big-endian: `"GHTX"`, u8 format (1), u16 protocol version, u8 clients, u32
 records; then per record u8 direction (0 game to server, 1 server to game), u8 client, u16 length and
@@ -582,6 +604,10 @@ lists are arrays of objects and `PARTY`'s `op` is its name.
 - Seats are 0-based; system commands are types 64 to 67 so they can never collide with a game's.
 - The command ranges in `commands` are the server's shape check (cells 0 to 255, signal coordinates
   within ±262,144 mm, slots 0 to 2, branches 0 and 1); the simulation enforces the real rules.
+- M8: `READY`'s `b` names the wave a `READY 1` calls (the wave after the hollow's newest, in a build
+  window as in a wave of stacked waves; 0 names none, as before). The simulation takes it only for that
+  wave, so a press that lands after the horn it was made for is refused `WRONG_PHASE` and calls nothing.
+  The server checks only its range, as for every command.
 - Load states: `connecting` (nothing yet), `loading` (a `LOADING` came), `checking` (`LOADED`, waiting for
   the others), `ready`, `slow` (M3, 15 s), `gone`.
 - Welcome flags: `maintenance` (draining: only resumes are let in; M4) and `dev_match`.
@@ -607,3 +633,8 @@ lists are arrays of objects and `PARTY`'s `op` is its name.
   again); `seats` counts the players, `accepted` those who accepted. A party in Match Found keeps the
   phase `queued`. A caretaker's seat is a `MATCH_CONFIG` seat with the `caretaker` flag and no
   connection; `LOAD_STATE` says `gone` for it.
+- The level (M8): its own op rather than a field of `create`, so `create` keeps its layout and a new
+  party starts at its creator's level with a second message; `PARTY_STATE` says the party's choice even
+  in a mode that takes none (the party keeps it for the next), `MATCH_CONFIG` the level the match plays.
+  `HELLO` carries none (its rules hash covers every level), nor does `MATCH_FOUND` (the queue matches
+  one level, so each party's own is the match's).

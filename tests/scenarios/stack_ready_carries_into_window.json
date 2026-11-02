@@ -1,0 +1,26 @@
+{
+  "name": "stack_ready_carries_into_window",
+  "description": "A Ready said during a wave whose horn never sounded stands into the window that opens (contract-m8 §2, design 2.7: open_window clears no present seat's Ready said in the wave before it). Two present seats, no towers, 200 lives (a setter): seat 1 calls wave 2 during wave 1, seat 2 never does, so no stacked horn sounds and wave 1 clears alone. In the window seat 1 is still Ready and the horn waits only for seat 2; its Ready sounds it at once, paying both seats a gold for each whole second left. Seat 1 pressed nothing in the window.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2})"},
+    {"eval": "scene.debug(2, 0, 200)"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(30)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_to(2900)"},
+    {"eval": "scene.rows('WAVE', ['tick', 'wave', 'phase'], {'cleared': true})", "as": "clear"},
+    {"assert": "clear.size() == 1 and clear[0][1] == 1 and clear[0][2] == 0 and scene.rows('WAVE', ['wave'], {'start': true}) == [[1]]", "msg": "wave 1 cleared alone into a window: the stacked horn waited for seat 2 the whole wave"},
+    {"assert": "scene.client(1).hollows[0].phase == 0 and scene.client(1).seat(1).ready and not scene.client(1).seat(2).ready", "msg": "seat 1's Ready from the wave stands in the window"},
+    {"eval": "scene.run_to(2970)"},
+    {"assert": "scene.client(1).hollows[0].phase == 0 and scene.rows('WAVE', ['wave'], {'start': true}) == [[1]]", "msg": "the window horn waits for seat 2"},
+    {"eval": "scene.client(1).early_gold(0)", "as": "early"},
+    {"eval": "scene.cmd(2, 'READY', 1)"},
+    {"eval": "scene.run_ticks(1)"},
+    {"assert": "scene.rows('WAVE', ['tick', 'wave', 'stacked'], {'start': true}) == [[0, 1, null], [2970, 2, null]]", "msg": "seat 2's Ready sounds the window's horn at once"},
+    {"assert": "early > 0 and scene.rows('GOLD', ['seat', 'change'], {'why': 'ready', 'tick': 2970}) == [[1, early], [2, early]]", "msg": "both seats paid the window's seconds left"},
+    {"assert": "scene.rows('READY', ['tick', 'on'], {'seat': 1}) == [[0, true], [30, true]]", "msg": "seat 1 said Ready twice only, at the first horn and during wave 1"}
+  ]
+}

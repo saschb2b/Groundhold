@@ -1,0 +1,29 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "view_stack_creep_plate_names_its_wave",
+  "description": "A selected creep's plate names the creep's own wave (M8's review; design 2.7 and 5.7): with waves 1 and 2 on the road together, a Gourdling of wave 1 says 'Wave 1' and one of wave 2 'Wave 2', where the plate named the newest wave on the road for every creep. tools/play/describe.gd reads the same plate.",
+  "seed": 1,
+  "timeout_frames": 3000,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"set": "Game.lives", "value": 200},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.state == 1 and Game.wave == 1", "timeout": 120},
+    {"wait": 60},
+    {"key": "D"},
+    {"key": "D"},
+    {"wait_until": "Game.wave == 2", "timeout": 30},
+    {"wait": 2},
+    {"eval": "resource('res://tests/ui/stack_stage.gd').newest_of_wave(0, 1)", "as": "older"},
+    {"eval": "resource('res://tests/ui/stack_stage.gd').newest_of_wave(0, 2)", "as": "younger"},
+    {"assert": "older > 0 and younger > 0 and Game.waves_on_road() == PackedInt32Array([1, 2])", "msg": "a creep of each wave on the road"},
+    {"eval": "node('BuildController').select_creep(scene.creep_views[older])"},
+    {"wait": 1},
+    {"assert": "node('Title').text == 'Gourdling' and node('Subtitle').text.begins_with('Wave 1') and Game.wave == 2", "msg": "wave 1's creep says wave 1, though wave 2 is the newest"},
+    {"eval": "node('BuildController').select_creep(scene.creep_views[younger])"},
+    {"wait": 1},
+    {"assert": "node('Subtitle').text.begins_with('Wave 2')", "msg": "wave 2's creep says wave 2"}
+  ]
+}

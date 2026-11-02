@@ -1,7 +1,7 @@
 {
  "transcript": "m1_handshake",
  "format": 1,
- "protocol": 1,
+ "protocol": 2,
  "clients": 5,
  "note": "One game's HELLO, WELCOME, PING, PONG, VISIBILITY and BYE; then four refused HELLOs: an older game (ERROR 2), a newer one (17), a bad name (5), a zero token (9).",
  "records": [
@@ -10,7 +10,7 @@
    "client": 0,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 7,
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
@@ -72,7 +72,7 @@
    "client": 1,
    "type": "HELLO",
    "fields": {
-    "version": 0,
+    "version": 1,
     "build_seq": 7,
     "rules_hash": "47726f756e646831",
     "token": "01010101010101010101010101010101",
@@ -96,7 +96,7 @@
    "client": 2,
    "type": "HELLO",
    "fields": {
-    "version": 2,
+    "version": 3,
     "build_seq": 7,
     "rules_hash": "47726f756e646831",
     "token": "02020202020202020202020202020202",
@@ -120,7 +120,7 @@
    "client": 3,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 7,
     "rules_hash": "47726f756e646831",
     "token": "03030303030303030303030303030303",
@@ -144,7 +144,7 @@
    "client": 4,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 7,
     "rules_hash": "47726f756e646831",
     "token": "00000000000000000000000000000000",

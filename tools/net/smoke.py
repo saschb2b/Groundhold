@@ -60,6 +60,16 @@ end, and every game came back to a party of N, forming.
     python3 tools/net/smoke.py --flow                         # two games, about two minutes
     python3 tools/net/smoke.py --flow --no-bot --linger 20    # 20 s on the results first
 
+--difficulty LEVEL (M8: normal, hard or very_hard) plays the loop at that level: the
+leader's game boots with --difficulty=LEVEL (Session's boot flag, unsaved), so the party
+it makes starts there (PARTY difficulty after the create), and with --queue every game
+queues at it. The check adds that every game's MATCH_CONFIG named the level the mode plays
+(Normal for a duel) and built its simulation's rules at it (its FLOW level line: the name,
+and the rules' numbers held to the level's table, "numbers ok"), and that the server's
+"match" event says the same.
+
+    python3 tools/net/smoke.py --flow --difficulty hard       # the party's match at Hard
+
 --linger S keeps every game S seconds on the results before Play again: longer
 than the server's silence_ms (15 s), the plate must keep the connection alive.
 
@@ -166,6 +176,7 @@ FLOW_FAILED = re.compile(r"^FLOW failed (.*)$")
 FLOW_QUEUED = re.compile(r"^FLOW queued (\w+)$")
 FLOW_FOUND = re.compile(r"^FLOW found (\d+) seats (\d+)$")
 FLOW_CONFIG = re.compile(r"^FLOW config builders ([\w,]+)$")
+FLOW_LEVEL = re.compile(r"^FLOW level (\w+) rules (\w+) lives (\d+) numbers (.+)$")
 # The steps a game of --flow --queue goes through, in order.
 QUEUE_STEPS = ["party", "queued", "found", "loading", "match", "end", "results", "back"]
 # What a build that lacks a mode's rules says when the server's MATCH_CONFIG names it.
@@ -344,6 +355,40 @@ def queue_problems(games, seats=4, mode="high_water", mains=()):
     if {m[0] for m in matched} - {mode}:
         problems.append(f"the queue's match was not {mode}: " + ", ".join(sorted({m[0] for m in matched})))
     return problems
+
+
+def level_problems(lines_by_client, events, expected):
+    """--difficulty's check: every game's FLOW level line names `expected` for MATCH_CONFIG's
+    level and for its simulation's rules, and says the rules' numbers (lives, creep and boss
+    health, boss armour) are that level's ("numbers ok": the game held them to the rules
+    track's table, not to the name), and every match the server's event log formed is at it
+    (`lines_by_client`: client -> its log's lines; `events`: the event log's text)."""
+    problems = []
+    for k, lines in sorted(lines_by_client.items()):
+        seen = [m.groups() for m in (FLOW_LEVEL.match(line.strip()) for line in lines) if m]
+        if not seen:
+            problems.append(f"client {k} said no FLOW level line")
+        elif any(entry[:2] != (expected, expected) for entry in seen):
+            problems.append(f"client {k} played {[entry[:2] for entry in seen]}, not {expected} (MATCH_CONFIG, rules)")
+        elif any(entry[3] != "ok" for entry in seen):
+            problems.append(f"client {k}'s rules named {expected} but its numbers differ: "
+                            + "; ".join(entry[3] for entry in seen if entry[3] != "ok"))
+    formed = []
+    for line in events.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if entry.get("event") == "match":
+            formed.append(entry.get("level"))
+    if not formed or set(formed) != {expected}:
+        problems.append(f"the server formed its matches at {formed or 'no level'}, not {expected}")
+    return problems
+
+
+def played_level(mode, level):
+    """The level a match of `mode` plays when `level` is asked (protocol.json's `levels`)."""
+    return level if modes()[mode].get("levels") else "normal"
 
 
 def two_teams(mode):
@@ -749,6 +794,8 @@ class Flow(Smoke):
                        f"--server=127.0.0.1:{port}", "--flow-bot", f"--party={self.args.clients}",
                        f"--name=Flow{k}", f"--main={builder}", f"--hash-log={hashes}", "--quit-after-flow",
                        f"--code-out={code_file}" if k == 1 else f"--code-in={code_file}"]
+            if k == 1 and self.args.difficulty:
+                command.append(f"--difficulty={self.args.difficulty}")  # (the leader's level: the party's)
             command += ["--ready-calls"] if self.args.no_bot else ["--ready-calls", "--bot"]
             if self.args.linger:
                 command.append(f"--linger={self.args.linger:g}")
@@ -828,9 +875,15 @@ class Flow(Smoke):
         server_log = (self.out / "server.log").read_text(encoding="utf-8", errors="replace")
         if '"event": "desync"' in server_log or '"event":"desync"' in server_log:
             problems.append("the server logged a desync")
+        if self.args.difficulty:
+            logs = {k: (self.out / f"client{k}.log").read_text(encoding="utf-8", errors="replace").splitlines()
+                    for k, _, _ in clients}
+            problems += level_problems(logs, (self.out / "events.jsonl").read_text(encoding="utf-8", errors="replace"),
+                                       played_level("high_water", self.args.difficulty))
         first = next(iter(matches.values()), ("?", "0", "0", ""))
         return {"ok": not problems, "problems": problems, "party": next(iter(codes.values()), None),
-                "mode": first[0], "builders": first[3], "outcome": next(iter(ends.values()), (None,))[0],
+                "mode": first[0] + (f" at {self.args.difficulty}" if self.args.difficulty else ""),
+                "builders": first[3], "outcome": next(iter(ends.values()), (None,))[0],
                 "final_tick": final, "hashes_compared": len(shared),
                 "result": next(iter(results.values()), None),
                 "clients": {k: {"hashes": len(streams[k]), "end": ends.get(k), "back": backs.get(k)} for k in streams}}
@@ -860,6 +913,8 @@ class QueueFlow(Flow):
                        f"--main={builder}", f"--hash-log={hashes}", "--quit-after-flow"]
             if queue_mode(self.args) != "high_water":
                 command.append(f"--mode={queue_mode(self.args)}")  # (Find a rival, not Find players)
+            if self.args.difficulty:
+                command.append(f"--difficulty={self.args.difficulty}")  # (each party of one queues at it)
             command += ["--ready-calls"] if self.args.no_bot else ["--ready-calls", "--bot"]
             if self.args.linger:
                 command.append(f"--linger={self.args.linger:g}")
@@ -899,6 +954,11 @@ class QueueFlow(Flow):
         server_log = (self.out / "server.log").read_text(encoding="utf-8", errors="replace")
         if '"event": "desync"' in server_log or '"event":"desync"' in server_log:
             problems.append("the server logged a desync")
+        if self.args.difficulty:
+            logs = {k: (self.out / f"client{k}.log").read_text(encoding="utf-8", errors="replace").splitlines()
+                    for k, _, _ in clients}
+            problems += level_problems(logs, (self.out / "events.jsonl").read_text(encoding="utf-8", errors="replace"),
+                                       played_level(queue_mode(self.args), self.args.difficulty))
         first = next(iter(games.values()), {})
         return {"ok": not problems, "problems": problems, "builders": ",".join(first.get("config", ())),
                 "outcome": first.get("end", (None,))[0], "final_tick": final, "hashes_compared": len(shared),
@@ -975,6 +1035,9 @@ def parse_args(argv=None):
     parser.add_argument("--builders", default=None,
                         help="with --flow: the members' mains in order, repeated as needed (default"
                              " lamplighter,lookout; with --queue lamplighter for all, so the server unclashes them)")
+    parser.add_argument("--difficulty", choices=("normal", "hard", "very_hard"), default=None,
+                        help="with --flow: the level the party (or, with --queue, each game) plays at (M8); the"
+                             " check adds that every MATCH_CONFIG and every game's rules named it")
     parser.add_argument("--queue", action="store_true",
                         help="with --flow: four games, each a party of one, meet through the server's queue (Find"
                              " players, Match Found), play, and are queued again by Play again")
@@ -1006,6 +1069,9 @@ def parse_args(argv=None):
         parser.error(mode_problem(args.mode, args.clients))
     if args.linger and not args.flow:
         parser.error("--linger is --flow's: a dev match has no results plate to stay on")
+    if args.difficulty and not args.flow:
+        parser.error("--difficulty is --flow's: the party's level (a dev match takes it as"
+                     " server/main.py --dev-match MODE:SEATS:LEVEL)")
     if args.flow and (args.shaper or args.faults):
         parser.error("--shaper and --faults shape a dev match's client, not --flow's")
     if (args.shaper or args.faults) and args.clients < 2:

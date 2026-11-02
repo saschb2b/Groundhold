@@ -10,7 +10,7 @@ players keep; on Wickhollow, the one map so far, they are the sunken field gate 
 models keep their file names (`models/props/rift_gate.glb`, `hearth.glb`), as do `data/hollow.txt` and
 `palettes/hollow.gpl`. Lanterns, gourds, autumn and night are Wickhollow's and Tamsin Wick's own flavour: keep
 them out of the game's name, the site, the server, the protocol, mode names and anything that runs on every map.
-On the wire the server (`server/groundhold_server`, set from `GROUNDHOLD_SERVER_*`) speaks `groundhold.v1` at
+On the wire the server (`server/groundhold_server`, set from `GROUNDHOLD_SERVER_*`) speaks `groundhold.v2` at
 `/causeway`; the modes are `classic`, `high_water`, `tide_race` and `undertow`, the Builders `lamplighter`,
 `lookout`, `bellfounder` and `beekeeper`, and the boss is `hollowtide_crest`. `python3 tools/names_check.py`
 fails, with file and line, on a retired name anywhere in the tracked tree (CI runs it); its allowlist is short
@@ -83,14 +83,16 @@ the match over, or a race decided while my hollow still played (the rival cleare
 wave); from then `Game.order_refusal()` says "The match is over", so no tower, fork, sell, signal or Ready goes out
 between the decision and `MATCH_END`, the card greys and the party strip hides its Ready marks
 (`race_decided_takes_no_orders`). The strip's second line (`Game.rival_line()`, `Hud.rival_line()`, the
-`RivalLine` plate under the strip) reads the rival team's record: "Rival · Wave 7 · 18 lives · 6:12 +20 s" (its race
+`RivalLine` plate under the strip) reads the rival team's record: "Rival · Wave 7 · 18 lives · 6:12 +120 s" (its race
 clock so far, `SimMatch.race_penalty_t`), or after its `EV_RACE` "fell" "Your rival fell on wave 9. Clear wave 9 to
-win" (`race_strip_rival_line`); my own clock leads it, "You 6:10 +10 s" (`Game.my_race_line()`,
-`Hud.race_clock_line()`, gone once a Holdfast fell), and the hub's Tide Race tooltip and mode line say the win order
-from the rules (`Game.race_rule_words(mode, short)`; `race_strip_my_clock_and_the_rule`). `EV_RACE` is
-`Game.race_changed`: banners for a clear or a fall, and the decision's
-title; a race's end plate waits for the decision, not for my hollow. The loading screen lays a race out in two rows
-(`LoadingScreen.rows()`, `is_race()`; `Cards` and `CardsB`, `TeamRule`, `CoverageRow` and `CoverageB`), the results
+win" (`race_strip_rival_line`); my own clock leads it, "You 6:10 +60 s" (`Game.my_race_line()`,
+`Hud.race_clock_line()`, gone once a Holdfast fell), and the hub's Tide Race tooltip and the mode line's own tooltip
+say the win order from the rules (`Game.race_rule_words(mode)`), the line itself, beside the level's words, the cost of
+a life ("+60 s a life lost", `race_rule_words(mode, true)`: at Very Hard the row has room for no more;
+`race_strip_my_clock_and_the_rule`; with waves stacked on both roads, M8, "Waves 1–2/12" above and the rival's "Waves
+1–3" after my clock: `race_strip_both_clocks_with_stacked_waves`). `EV_RACE` is `Game.race_changed`: banners for a
+clear or a fall, and the decision's title; a race's end plate waits for the decision, not for my hollow. The loading
+screen lays a race out in two rows (`LoadingScreen.rows()`, `is_race()`; `Cards` and `CardsB`, `TeamRule`, `CoverageRow` and `CoverageB`), the results
 one block per team, mine first (`ResultsPanel.team_lines()`, `race_time_text`; titles `Game.RACE_TITLES`, the rule
 `Game.race_rule_line()` from `decided_by()`: "cleared first" only for a strictly earlier clear tick, else "Fewer lives
 lost" (`race_offline_outcome_same_tick_lives`), and a draw names the rule that tied from the records,
@@ -104,6 +106,14 @@ make them.
 `undertow` (mode 3), the Drift's packs keyed by check (`SimContent.PACKS[map][check]`, names in `Game.PACKS`),
 `EV_DRIFT` 21 to `EV_SURGE` 27, the commitment's exact bytes (`SimUndertow.commit`), the `undertow` preset's
 `duel` keys, and who owns which files. `contract_m7_tables` checks it.
+
+`docs/design/contract-m8.md` fixes what M8's tracks (rules, views and hub, server and protocol, the fork pass)
+share: the levels (`SimContent.DIFFICULTY_IDS`, append only, each its id in `protocol.json`'s `difficulties`;
+`DIFFICULTIES`, Normal's `{}`), which modes take one (`protocol.json`'s `levels` on `high_water` and `tide_race`),
+the presets' `stack_max`, `stake_pm` and `levels`, `REFUSE_NO_STACK` 16 and no new event number,
+`CARETAKER_VERSION` 5 and a plan's `stack` list, the protocol's version 2 (the `PARTY` op `difficulty` 12, the level
+after `mode` in `PARTY_STATE` and `MATCH_CONFIG`), and who owns which files. `contract_m8_tables` checks what is
+written and skips what a track has not written yet.
 
 The duel on screen (M7, track B; contract-m7 §3). `Game` is a duel's client side and reads the duel's rules directly:
 `is_duel()` (`SimMatch.duel`), `duel_rules()` (`SimUndertow.rules_of`), `horn_tick()` (`SimMatch.horn_tick`), the
@@ -195,6 +205,76 @@ duel's loading barrier. B's duel scenarios are `view_duel_*` and `hud_duel*` (tr
 renders and lays the bottle over each creep's framed portrait for the pack icons (`pack_hollow_<check>.png`), and
 `sfx.py`'s sweeps and washes make `cork`, `uncork`, `breach` and `seawall`.
 
+M8 on screen (track B; contract-m8 §2 to §4, design 1.4, 2.6, 2.7 and 5.2 to 5.8). Stacked waves, as the waves truly
+overlap (the called wave sets out as the call lands, among the creeps on the road; up to three on it): `Game` reads the
+rules directly, `stacks()` (`SimMatch.stack_max` above 1: High Water, Tide Race), `waves_on_road(hollow)`,
+`can_stack()`, `stack_pay()` (the window's and the stake's gold), `called_wave()` and `stack_refusal()`, the words for
+why no call goes now ("Three waves are on the road", the count in words by `waves_word`, "Wave 12 is the last", "Seat 2
+takes the seat back at the next window", "Waves do not stack in a duel"), which a `NO_STACK` refusal says too
+(`refusal_text(16)`); `road_words(hollow)` is "Waves 6–7" or "Waves 6–8". In a wave that stacks the horn
+(`BuildController.toggle_ready`: D, N, Space, the slot) takes a second press within `Game.CALL_PRESS_FRAMES` (120
+physics frames): the first asks over the notice line ("Call wave 7 now? Press again", the `call_asked` signal,
+`call_armed()`) and sends nothing, the second sends `READY 1`; a call the simulation would not take is refused before it
+goes out with why, and taking a call back is one press. A `READY 1` names the wave it calls (`b`, `Game.called_wave()`,
+sent by `BuildController._send_ready`), which the simulation takes only for that wave, so one that lands after another
+horn is `WRONG_PHASE`, unsaid. A press in a build window's last moments asks for the second press too
+(`Game.late_in_window()`: at most `TurnSource.order_lead`, the trip there and back, `Game.order_trip()` from
+`MatchClient.rtt_ms` in whole turns, and one turn of the countdown left, the wave after the window's not past the last):
+its READY would land after the window's horn ("Call wave 2 now? Press again"), and the second press waits for that horn
+(`_wanted_at` [WAVE, the window's wave]) and then names the wave after it; a Ready still to be sent when a horn sounds is
+let go (`hud_stack_late_window_press`, `_online`, and over `loopback_main.gd` at 2 to 4 turns of latency
+`hud_stack_late_press_race_latency_2` to `_4` and `hud_stack_late_press_partner_latency_2` to `_4`). The strip says "Waves 6–7/12" or "Waves 6–8/12", counts every
+wave's creeps, walking and still to come, and shows the newest's checks; with company (`Game.has_company()`, another
+present seat of my hollow, so a race against one rival is alone, `hud_stack_race_call_alone`, and so is a hollow beside
+caretaken seats only, `hud_stack_call_alone_beside_caretakers`) a call waits for the partners and the strip
+adds "· Ready 1/2" (alone the horn sounds as the call lands, nothing waits); the horn's slot stays live while a
+call would be taken, its cost what a call pays now and its tooltip "Call wave 7 now: +10 for the window, +N for the lives
+on the road." with the wave's checks and that it sets out at once among the creeps on the road, or why not; the waves to
+come start at the oldest on the road, each on it marked now; a selected creep's plate names its own wave (`rec.wave`,
+`view_stack_creep_plate_names_its_wave`); the party strip shows a mark in such a wave while a call may
+be made or stands, a caretaker's lit only beside a present player (on a hollow nobody is present at, a rival crew's, only
+once it said Ready: `hud_stack_rival_caretaker_mark`). The horn's banner is `Game.called_title` ("Wave 2 called early ·
++14 gold", the gold it paid); each wave clears on its own banner with its own bonus and the lives its own creeps took
+(`wave_lives_lost(wave)`: `EV_LEAK` and the `EV_LIVES` after it, by the creep's `SimCreep.wave`, which `EV_SPAWN`,
+`EV_DIE` and `EV_LEAK` carry as `wave` (a frame of many ticks may read a creep that set out and was gone before it had a
+view or a record: `view_stack_fast_frame_counts_own_wave`), by creep id so a resync's turns run again count once), and waves that clear on one tick, or in one frame, share one banner
+("Waves 1–2 cleared · 28 lives lost · +22 gold", `_say_clears`, said before any later banner of the frame:
+`view_stack_banners_same_tick`), each clear keeping the Tithe and the stipend its own `EV_GOLD`s paid
+(`_clear_pays`, summed on a shared banner: `clear_title(number, bonus, lost, pays, through)`); `main.gd`'s tally counts a kill or a leak on the creep's own wave (`_wave_of`, the event's `wave`, so
+"Most kills in wave N" and `leaks_in`, which the banners agree with), the end plate and the results say a fall on the oldest
+wave on the road, and the race's rival line names the waves on the rival's road ("Rival · Waves 1–3 · ...").
+`hud_stack_ready_in_a_wave`, `hud_stack_refusals_said`, `hud_stack_party_strip_marks`,
+`hud_stack_rival_line_names_both_waves`, `view_stack_banners` and the scenarios above hold it (`tests/ui/stack_stage.gd`
+holds creeps at the Welling and sends one or all to the Holdfast through the logged setters). The plan bot stacks its
+plan's list when asked (`bot.stacking`, `--bot-stacks`): where `Caretaker.wants_stack` says the caretaker would, two
+presses of the controller's horn, `stacks_sent`, a `BOT stack wave <k> seq <seq>` line (`bot_stacks_through_its_orders`);
+off, it never says Ready, so `bot_wins_classic` and the smokes play as before. The levels: `Game.DIFFICULTIES` holds each level's word and its tooltip's words, whose numbers
+`difficulty_tip(id, mode)` fills in from `SimContent.rules(mode, id)` ("Hard: creeps have 10% more health, the bosses
+50% more and 1 more armour; 15 lives"), `DUEL_LEVEL` why a duel's grey; `level()` is my match's (`MatchRules`),
+`mode_words(mode name, level)` the mode with a level other than Normal ("High Water · Hard"), which the hub's mode
+line, Match Found (`Session.difficulty_id()`), the loading title (`client.difficulty`), the results' subtitle (the
+rules' level, the lives out of its own), the Esc menu (`MatchMenu.match_line()`, `MenuMatch`) and Try's tooltip
+(`BuildersScreen.try_tip()`) say. The hub's three words stand beside the mode line (`HubPanel`'s `Level_<id>`
+buttons in `ModeRow`, `level_words()` for tests): the shown level lit, the leader's click `Session.set_difficulty`, a
+member's answering nothing, grey and unlit in a mode without levels (`view_difficulty_hub_words`,
+`view_difficulty_named`); they pick only while the party forms (`Session.picks_difficulty()`; queued, loading or playing
+the server keeps the party's level, and `set_difficulty` then leaves the profile's alone too), and a Try plays the level
+the hub lights (`Session.try_level()`: Normal in Undertow, where it lights none; `view_difficulty_level_shown_is_played`). A rival's corked bottle's candidates (contract-m8 §4): `Game.rival_bottles()` carries
+`candidates` (`SimMatch.bottles`), `candidates_words(bottle)` and `candidate_checks(bottles)` say them; the Drift
+tray shows them as small dim pack icons under each rival bottle beside its tier (`Rival<n>/Candidates`,
+`rivals_shown()`'s `candidates`), its tooltip "Tier I, corked for wave 2. It holds one of: 6 Gourdlings (Gourd Rush),
+... Which one stays hidden until it is uncorked." ("Both may hold the same pack." with two in a window), and the duel
+bar's rival row ends with them by check ("corked I: Swarm, Swift or Armored", its `Corked` cell's glyphs;
+`view_duel_bottle_candidates`, on both games of a networked duel alike). The `Corked` cell stands inside the rival's
+Seawall cell but explains itself: hovering it the bar's plate says the bottles in the tray's words
+(`Game.rival_bottle_text(bottle, bottles)`, "Your rival's corked bottle"), not the Seawall
+(`hud_duel_corked_cell_explains_the_bottles`). `tools/play/describe.gd` says the level's
+words, the match's level, the horn's call and its question, and a rival bottle's candidates
+(`play_describe_says_m8_words`), marks every wave on the road "(now)" in the wave list and counts what got through
+over all of them ("got through waves 1–2: ...", `play_describe_says_every_wave_on_the_road`); the race results name an
+undecided team's waves on its road ("on waves 2–3 at 0:08", `ResultsPanel.race_time_text`,
+`race_results_name_the_waves_on_the_road`).
+
 Multiplayer is server-sequenced lockstep (design §6): the Python server in `server/` never simulates, it closes a
 turn every 50 ms and sends every game the commands that arrived. The wire contract is `shared/net/protocol.json`;
 `NetProtocol` (`scripts/net/protocol.gd`) and the server's codec are both built from it. A networked game
@@ -283,8 +363,9 @@ no_held_seat`), holds `BACK` for a connection catching up until its `shown`, and
   from `SimMatch.crack_posts`; haste is worked out again on every build, fork and sell
   (`SimEffects.recompute_haste`), the strongest of each applying, and `helpers()` names haste last, for the tower
   that dealt the hit. Bronze Hand is in `SimTower.pierce_c`, Hive Tithe pays in stage 7. `air_bonus_pm` works on
-  any form that has it: the Apiary's, and since the balance pass the Sky Toll's (80%, so its 9 is 16.2 to a
-  flier), so a view shows a form's numbers from the table's keys, not from its name. The codec's M6 block
+  any form that has it: the Apiary's (and the Royal Apiary's own 135% since the fork pass), and since the balance
+  pass the Sky Toll's (160% since the fork pass, so its 9 is 23.4 to a flier), so a view shows a form's numbers from
+  the table's keys, not from its name. The codec's M6 block
   (`cloud_creep`, an Apiary bolt's `air_bonus_pm`, the race) follows M2's and is written only when one is set
   (`sim_checkpoint_roundtrip_m6`, which also fells a team mid-wave and plays the decided race on:
   `busy_match.gd`'s `fall`, and `roundtrip_chain` compares the race's state across every trip).
@@ -292,7 +373,7 @@ no_held_seat`), holds `BACK` for a connection catching up until its `shown`, and
   Ready and health scaling (`race_same_waves_both_hollows`, `race_independent_clocks`). `SimMatch._decide_race` takes
   design 1.3's win order at the end of a tick, once, as soon as the outcome is certain: `outcomes()` (one per team,
   `SimTypes.OUTCOME_*`, empty until decided; High Water's too, which `match_client.gd`'s RESULT sends),
-  `race_time(team)`, `race_penalty_t(team)` (the rival line's "+20 s"), `decided_by()` and `EV_RACE`; the 20-minute
+  `race_time(team)`, `race_penalty_t(team)` (the rival line's "+120 s"), `decided_by()` and `EV_RACE`; the 20-minute
   `cap_t` ends any mode that sets one (`race_time_penalty_per_life`, `race_rival_fell_clear_to_win`,
   `race_cap_20_minutes`). In a race the caretaker calls its waves once its window's builds are done, unless the step
   it waits on says `"ready": false` (`sim_caretaker_calls_waves_in_a_race`). The sim harness takes `"teams"` and
@@ -319,30 +400,106 @@ no_held_seat`), holds `BACK` for a connection catching up until its `shown`, and
   only once both have cleared, the sender's bottle holds back both hollows' next window that long
   (`fizzle_without_reveal`; `SimMatch.wave_held(hollow)` tells a view; contract-m7 §2). Stipends grow at the uncorking (not in the Surge) and pay at each clear;
   breaches pay the sender `breach_pay` bounties (`EV_BREACH`, `breach_dealt(team)`); the Seawall charges from
-  `set_lives` and bursts on SEAWALL (`seawall_charges(seat)`, `seawall_ready_tick(seat)`); the decision (a fall at
+  `set_lives` and bursts on SEAWALL (`seawall_charges(seat)`, `seawall_ready_tick(seat)`); an uncorked creep comes
+  with its pack's premium per mille of the wave's own health, `pack_hp_pm` by check (the Gourd Rush 1500, the Scuttle
+  1400) or else `send_hp_pm` (1250) (`SimUndertow.send_hp_pm(m, check)`, `send_health_c`, in `SimWaves.spawn`;
+  `sent_creeps_come_stronger`; the caretaker's `pack_threat` counts it), its creeps `pack_gap_t` by check apart (the
+  Gourd Rush 15 ticks, the Thorn Herd 60) or else `pack_interval_t` (`SimUndertow.pack_gap_t`), which the Drift tray
+  says from the rules (`Game.send_premium_words(check)`); the decision (a fall at
   once, both on one tick a draw; after the Surge lives, then breach, then a draw) is `SimUndertow.decide`, in the
   race's record (`outcomes()`, `decided_by()` adds "lives" and "breach") and `EV_RACE` "decided". `bottles(seat)`
   never shows a corked pack. The codec's M7 block follows M6's (written empty then) only in a duel. The caretaker
   corks in the shared window, before its plan spends, while its corks stay within `Caretaker.CORK_SHARE_PM` of what
   it holds (contract-m7 §2's "while keeping its plan's next build", read as keeping that step's gold, never corks:
-  the budget stands in for it until the tracks agree a wording), the pack the rival's towers take longest to kill
-  (`SimUndertow.weakest_pack`), salt 0, uncorks at `uncork_after_t` (`SimMatch.uncork_tick`) and raises the Seawall
+  the budget stands in for it until the tracks agree a wording), the pack the rival's defence has shown it should
+  send, all of it public and never a rival's bottle (`SimUndertow.pick_pack`, `CARETAKER_VERSION` 6: the offered
+  check of which the most creeps have reached the rival's Holdfast so far, `SimTeam.leaked`, counted by
+  `note_leak` in a duel's every leak and kept in the codec's M7 block, from `LEAK_PICK_MIN` 2; else the Moth Cloud
+  where the rival's `sky_pm` is under `SKY_WEAK_PM`; else `weakest_pack`'s longest kill;
+  `duel_caretaker_sends_what_leaked`), salt 0, uncorks at `uncork_after_t` (`SimMatch.uncork_tick`) and raises the Seawall
   when the creeps in its ring carry 3 lives or a boss (`Caretaker.wants_seawall`). Its plan waits while its hollow
   stands in its window and the rival's still plays the wave (`Caretaker.holds_plan`: a tower built on an empty road
   defends nothing sooner), so on the shared window's first tick it corks with the gold it kept and builds after
-  (`duel_caretaker_corks_before_its_plan_spends`: 8 corks where it spent in the wait and corked 5; the plan bot waits
-  alike). The sim harness plays duels by command in the gates' styles (`duel_out(styles, options)`: turtle,
+  (`duel_caretaker_corks_before_its_plan_spends`: on m8 8 corks where it spent in the wait and corked 5; since the
+  sends' pass its budget decides first and it corks 5 either way; the plan bot waits alike). The sim harness plays duels by command in the gates' styles (`duel_out(styles, options)`: turtle,
   balanced, reckless, counter_cork, random, the three on the caretaker's budget holding their plan as it does,
   `CARETAKER_BUDGET_STYLES`, while the reckless one builds in the wait: holding too, it beat the turtle in 3 of 5;
   `duel_series(cfg, styles, seeds)` with cfg `builders_by_seed`, counting `distinct` matches and each seat's
-  `leading_picks`; `duel_line()`; `horns_before_ready(seat)`; `builds_while_held(seat)`) and drives one by hand:
+  `leading_picks`; `duel_line()`; `horns_before_ready(seat)`; `builds_while_held(seat)`; options `packs` has a
+  seat cork one pack wherever it is offered; `sends_table(styles, builders, seeds)` plays each Builder's mirror in
+  each style and counts every uncorked pack's fate, `sends` the last duel's, by tier, window, mirror and pick;
+  `pack_matrix(defenders, builders, seeds, packs)` plays each Builder's mirror with seat 1 in the balanced style
+  corking one pack wherever it is offered and seat 2 defending in each style, and counts seat 1's uncorkings of it
+  by Builder, pack and tier, and over the Builders weak to its check and those that cover it) and
+  drives one by hand:
   `duel_to_window(w)`, `run_to_horn()`, `run_to_window()`, `cork(seat, pack, salt_hi, salt_lo)`, `uncork(...)`, `sent_fates(seat)`,
   `ring_ids(hollow)`, `drift_draws(seed, n)`; a scenario setter that moves a hollow's wave (`DBG_WAVE`, which now
   reaches the Surge's) parts a corked bottle from its wave, so set it after the uncorking (`surge_freezes_stipend`,
   `tiebreak_lives_then_breach`). `sim_checkpoint_roundtrip_undertow` round-trips a whole busy duel (`busy_match.gd`'s
   `duel_log`; `roundtrip_chain` compares `duel_state`), decided by a fall in the Surge's second wave and played on
   (`play_on`), so the decision is round-tripped too.
-- Boot flags after `--`: `--seed=N`, `--bot`, `--hash-log[=file]`, `--quit-after-match`, `--ticks-per-frame=N`;
+- Stacked waves (M8, contract-m8 §2, design 2.7; track A): a preset's `stack_max` above 1 (`high_water` and
+  `tide_race`: 3; `undertow` 1, classic none) takes a present seat's Ready during a wave too, while
+  `SimMatch.can_stack(hollow)` (fewer than `stack_max` waves on the road, the newest not the last, no seat returning,
+  the match not over), else `REFUSE_NO_STACK`; READY 0 is always taken, and a preset that never stacks refuses a
+  Ready in its waves `WRONG_PHASE` as before. The waves truly overlap (the owner's decision of 2 November 2026,
+  design 10 item 18): the stacked horn (`SimWaves.stack_wave`, stage 2) sounds on the tick every present seat is
+  Ready (caretaken ones count, `_all_ready`), whatever the newest wave has still to send. The called wave's first
+  creep sets out on that tick (its queue's first wait 0, as at a window's horn) and `hold_back` moves the older
+  wave's spawns still to come into `SimHollow.behind` (`[kind, wave, tick]`, each on the tick its queue had), so
+  both schedules run: `_spawns` sends `behind`'s due entries first (the older wave's creep first on a shared tick),
+  then the newest's queue (`queue`, `cursor`, `spawn_wait_t` stay the newest wave's), and `SimWaves.spawn(..., wave)`
+  gives each creep its own wave and that wave's health. It pays each seat the window it skips and `stake_pm` (400,
+  tuned) per mille of the stake: `road_tolls(hollow)`, the tolls of the creeps on the road and, in a wave, of every
+  creep still to come (`stack_pay(hollow)` gives both parts in gold; one `EV_GOLD` "stack"; `EV_WAVE` `stacked`,
+  `stake` the lives, `early` the pay); `spawns_left` counts every wave's still to come. A `READY 1` names the wave
+  it calls in `b` (`h.wave + 1`, in a window as in a wave; 0 names none: the caretaker's, the harness's `cmd`, every
+  turn log recorded before) and is taken only for that wave, else `WRONG_PHASE` (`SimMatch._set_ready`; M8's review,
+  `SimContent.ORDERS_VERSION` 2 in the rules hash, `stack_ready_names_its_wave`): a window's Ready that lands after
+  its horn calls nothing, so it never calls the wave after it, nor stands as a call and carries into the next window.
+  `SimHollow.wave` is the newest called, `cleared` the waves cleared, `SimCreep.wave` the wave a
+  creep came with (a debug spawn in a window the coming one; `DBG_WAVE` moves the whole road to its wave, `behind`'s
+  spawns too); waves clear in order in stage 7 (`check_clear`: wave k once none of waves 1 to k has a creep on the
+  road or still to come, `to_come_up_to`), each paying its own bonus and Tithe, and no window opens until the last
+  on the road clears; `open_window` keeps a present seat's Ready
+  said in the wave before (a caretaken one's it clears, so the caretaker builds first). `waves_on_road(hollow)`,
+  `cleared_waves(team)` (the hollow's `cleared`). In a race kills count by wave (`SimTeam.wave_kills` the oldest on
+  the road's, `stack_kills` the younger's), and a fall is on the oldest wave on the road with its own creeps' kills
+  (`race_stacked_fall_wave`). The caretaker (`CARETAKER_VERSION` 5) stacks where it calls waves itself, a race: during
+  wave k - 1 for each wave k of its plan's `stack` (`SimContent.plan_stack`, `SimMatch.stacks`), at Normal only, its
+  builds paid and its step not holding Ready (`Caretaker.wants_stack`); a crew of caretakers alone on a hollow says it
+  for each wave one of its plans lists (`Caretaker.stacks_wave`: the Lamplighter and the Lookout stack 2, 3 and 5),
+  beside a present seat only that seat's list counts (`sim_caretaker_crew_stacks_every_list`; `race_results_two_teams`
+  therefore races the Bellfounder's crew against the Lamplighter's, which clears first). The codec's M8 block follows
+  M7's in a duel, M6's (written empty then) otherwise, and only when the M1 to M7 records cannot say it
+  (`SimCodec._m8_needed`: a level other than Normal, `cleared` other than `SimWaves.default_cleared`, a `behind`, a
+  creep whose wave is not `default_wave`, a race's `stack_kills`), so every Normal match nobody stacked in keeps its bytes
+  (`difficulty_normal_changes_nothing` holds High Water to hashes recorded on the seam). The sim harness:
+  `play_out(seats, every, limit, ready_at_once, stacking)` with `stacking` {seat: "plan" (the caretaker's rule) or
+  "all" (every wave it may)}, cfg `"difficulty"`, `"stacks"` ({Builder: [waves]}) and `"rules"` (keys laid over the
+  rules, for a balance pass's sweep; every client takes them and `"plans"`, `"never_patch"` and `"play_on"`, a client
+  `join_from` a checkpoint too, `sim_join_keeps_cfg_plans`, but no record carries them, and `LocalSequencer.replay`
+  builds Normal until track C's record change reads the level, so `replay_matches` holds only at Normal without
+  them), `stack_summary(hollow)`, `stacked_waves(hollow)`, `report()` (one row a run, its
+  `standing` ordering a fall below any lives), `race_series(cfg, stacking, crews)` (one race a crew, each a mirror,
+  team 0 stacking as `stacking[0]` says and team 1 as `[1]`: a race plays alike under every seed, so the crews are
+  what varies), `creep_wave(id)`, `kills_of_wave(hollow, wave)`, `wave_spawns(hollow, wave)` (on client 1 by each
+  creep's own wave), `decodes(bytes, mode, difficulty)`; `busy_match.gd`'s `busy_log` takes a `difficulty`, and
+  `roundtrip_chain` compares `m8_state` (`behind` too) and counts `stacked_trips` and `spawning_trips`
+  (`sim_checkpoint_roundtrip_m8`). The `stack_*` scenarios and `sim_stacked_waves_spawn_together` hold each rule.
+- The levels (M8, contract-m8 §3, design 2.6; track A): `SimContent.rules(mode, difficulty)` sets `"difficulty"` to
+  `level_of(mode, difficulty)` (the level where the preset has `levels`, else "normal") and lays `DIFFICULTIES[level]`
+  over the preset: `lives` replaced, `hp_pm`, `boss_hp_pm`, `boss_armor_c` added. `SimWaves.spawn` takes a creep's
+  health as before, then `x hp_pm / 1000` (a boss's `boss_hp_pm`), and a boss's armour `+ boss_armor_c` where armour
+  is on (`difficulty_rules_apply`); `SimMatch.level` is the `DIFFICULTY_IDS` index, which the M8 block stores and
+  decode holds to the rules'. `rules_hash()` covers `DIFFICULTIES` and every plan's `stack` list. A view reads the
+  level's lives from `sim.rules["lives"]`. The numbers are tuned against the bots (content.gd says why): Hard 1100
+  creep health and the design's boss health, armour and lives; Very Hard 1150 creep health, its bosses 1550 and +1
+  (Hard's armour, since the Very Hard pass that read its bar on the Crest) and 10 lives.
+  `SimUndertow.candidates(m, bottle)` (contract-m8 §4) is a corked bottle's window's offer at its tier from
+  `drift_packs`, never the commitment, and `bottles(seat)` gives a corked one's `candidates` as CHECK_IDS ids (`bottle_candidates_are_its_window_offer`).
+- Boot flags after `--`: `--seed=N`, `--bot` (with `--bot-stacks` it stacks its plan's waves, M8),
+  `--hash-log[=file]`, `--quit-after-match`, `--ticks-per-frame=N`;
   networked: `--join=ADDRESS` (`127.0.0.1`, `192.168.1.20`, `host:port` or a `ws://` URL), `--name=NAME`;
   `--shot-at=T1,T2 --shot-dir=DIR` saves the window at those ticks.
 - `tests/net/loopback_match.tscn` runs N `MatchClient`s against `tests/net/fake_sequencer.gd` (the server's match
@@ -422,6 +579,37 @@ turns, and `bot_duel_refused_orders` its refused orders (`step_until_cork`, `spo
 refused or sent nowhere is no played window and goes again, an UNCORK the simulation refused is sent again after
 Game's retry wait, and one the client's own uncorking at 24 s made is said to be the client's. `m7_duel` is the
 server's duel recorded; `protocol_golden_m7` decodes it.
+The level around the match (M8, track C; contract-m8 §3 and §5) is protocol version 2 (`groundhold.v2`: a game of
+version 1 hears `ERROR` 2): `PARTY difficulty` (op 12) and a u8 `difficulty` right after `mode` in `PARTY_STATE` and
+`MATCH_CONFIG`, the levels' wire ids those of `protocol.json`'s `difficulties` and the modes that take one its
+`levels` (High Water, Tide Race). The server's party (`party.py`) has one, Normal at first: the leader's pick, like
+the mode, clears every Ready and stops a countdown; a member's, one while queued, loading or in a match and the
+level the party has are answered to the asker alone (one past 2 is `ERROR` 6); a mode change keeps it, and
+`Party.level()` is the level its match plays (`protocol.level_of`: Normal in classic and a duel). The queue's tickets
+are keyed on mode, rules hash and that level (`Queue.waiting(mode, rules, level)`), so a Hard party never meets a
+Normal one and every duellist meets at Normal; start_with_caretakers, a requeue, `--dev-match MODE:SEATS[:LEVEL]`
+(`high_water:2:hard`) and a rejoin's `MATCH_CONFIG` carry the match's level, and `/stats` counts a match at Hard or
+Very Hard as `mode:level`. On the client the level becomes rules in one place, `MatchRules` (`scripts/net/
+match_rules.gd`): `of(mode, difficulty)` is the rules track's `SimContent.rules(mode, level)` at the level the
+mode plays (`laid_over` lays a level's keys over a preset as the contract says, for `level_problem`'s checks),
+`level_of`, `takes_level`, `level_id`, `level_name`, `level_played(rules)` and `level_problem(rules)`, which holds
+built rules to the table by their numbers (lives, creep and boss health, boss armour), not by their name
+(`net_match_rules_lay_the_level`; `tests/net/level_checks.gd` sweeps every mode and level). `MatchClient.difficulty` is `MATCH_CONFIG`'s (a level the mode does not take
+fails the link, and so does a rejoin naming another level than the world it kept, by `MATCH_CONFIG(rejoin)` or by the
+plain one a link lost while the match loaded hears), and every simulation it builds,
+its tick-0 hash and a RESYNC's checkpoint are at it; the replay record (`LocalSequencer.log_for`, `RemoteSequencer`'s)
+says `"difficulty"`, and the desync dump is format 2 (a u8 level after the mode; `DesyncDump.read` takes format 1 as
+Normal and refuses a level byte that names none, and `replay` takes no level outside the wire's). The session's side, for the hub's screens: `Profile.difficulty` (saved beside the mode),
+`Session.difficulty_id()` (the party's in one, else the profile's), `set_difficulty(id)` (the profile's always, the
+party's when the leader) and `offers_difficulty(mode)`; a party this game makes starts at its profile's level (`PARTY
+difficulty` after the `create`), `offline_match` carries `"difficulty"` (Play, Try and Race the caretaker at the
+hub's level, Duel the caretaker at Normal), and a networked `match_spec` says `MATCH_CONFIG`'s. The match scene
+builds its offline match from `match_spec["difficulty"]` (`main.begin(mode, seats, seed, turns, seat, existing,
+difficulty)`, `MatchRules.of`; `view_difficulty_offline_match_plays_it`: Play, Restart, a Try and Race the caretaker at
+Hard, Duel the caretaker at Normal). `flow_difficulty_party_and_queue`, `flow_difficulty_member_follows_the_leader`,
+`flow_difficulty_offline_spec_names_the_hub_level` (the session's spec only), `net_rejoin_keeps_level`
+and `net_desync_dump_keeps_level` hold it through the fakes, `m8_difficulty` is the server's side recorded and
+`protocol_golden_m8` decodes it.
 
 - The main scene is the hub, so a scenario of the match names it: `"scene": "res://scenes/main.tscn"`.
 - `tests/net/loopback_hub.gd` runs the session against the fake sequencer in lobby mode (`flow_*` scenarios): add
@@ -446,6 +634,14 @@ server's duel recorded; `protocol_golden_m7` decodes it.
   queued again (`smoke.py --flow --queue`). `--mode=undertow` (a mode the hub offers, unsaved like `--main`) makes
   the party in that mode; with `--queue` the bot finds a rival instead (`smoke.py --flow --queue --mode undertow`).
   `loopback_hub.gd`'s `finish(outcome, per_team)` ends a race or a duel one outcome a team (`["won", "lost"]`).
+  `--difficulty=hard` (M8, unsaved like `--mode`) makes the party at that level, or queues at it, and the bot prints
+  `FLOW level <MATCH_CONFIG's> rules <the rules'> lives <n> numbers ok` (`numbers` is `level_problem`'s word on the
+  rules' numbers; `smoke.py --flow --difficulty hard` wants `ok`). The lobby fake keeps the
+  party's level as `party.py` does (`seq.party['difficulty']`; `party_difficulty(level)` is a scripted leader's `PARTY
+  difficulty`, refused by the op's own rules; `seq.party_states_sent[name]` counts the PARTY_STATEs each connection
+  heard, so a reply to the asker alone shows), and a
+  stranger queues at a level of its own (`stranger(name, main, backup, accepts, level)`), filling the party's seats
+  only at the level its match plays; `loopback_match.gd`'s `start` takes `"difficulty"` for its dev match.
 
 Verify changes with godot-agent ([godot-agent-kit](https://github.com/saschb2b/godot-agent-kit): clone it and run
 its `install.sh` for the CLI, the MCP server and the skill, which explains each command):
@@ -464,8 +660,15 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
 - Balance changes: `bot_wins` must still win with half the lives left, `idle_player_loses` must still lose
   (both play High Water solo in the sim harness; `bot_wins_classic` and `idle_player_loses_classic` keep the
   classic match through the game's input route). Then `godot-agent scenario . tests/balance --headless`: every
-  `bot_wins*` wins with half the lives, every `idle_*` and `*_loses` loses, every `coverage_*` holds and
-  `high_water_length_2p` lasts 11 to 15 minutes. The gates are written by `python3 tools/gen_balance_scenarios.py`
+  `bot_wins*` wins with half the lives (Hard's with a third), every `bot_kills_bristlesow_*` kills wave 6's boss at
+  Normal (each Builder's plan alone), every `idle_*` and `*_loses` loses, every `coverage_*`
+  holds, every `race_*`, `duel_*`, `stacking_*` and `difficulty_*` gate holds, every `bot_reaches_crest_*` ends close
+  (wave 12's Crest dies or reaches the Holdfast with at most a quarter of its health, the harness's `boss_left_pm`,
+  and a win keeps at most half the lives) and at least half of them win (`difficulty_very_hard_half_win`),
+  `fork_pairs_apart` holds and `high_water_length_2p` lasts 11 to 15 minutes: design 4.4's whole matrix (the
+  generator's `HELD`, which keeps a gate that cannot stand yet out of tests/balance with why, is empty since the fork
+  pass; `--held DIR` writes what it holds). The
+  gates are written by `python3 tools/gen_balance_scenarios.py`
   (edit its `CASES`, not the files; `--check` says whether they are current), and each keeps the match summary,
   its bosses and its leak table per wave in the watches. M6 adds every Builder alone, three and four seats, the
   Bellfounder with the Beekeeper (`coverage_holds_complementary_bb`), each M2 Builder beside each M6 one, whose
@@ -474,7 +677,7 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   same plan on both hollows draws) and `race_bots_both_finish` (a bot calling every wave against one waiting out
   every window, played on past the decision: both finish, the lower race time won). A tuned number says why beside
   it in `content.gd`; balance is the plans' first, then the M6 kits' numbers (they are the contract's *tunable*).
-  M7 adds the duel's six, each a mirror of Builders: over a series each seed puts the next Builder of the
+  M7 adds the duel's seven, each a mirror of Builders: over a series each seed puts the next Builder of the
   generator's `DUEL_ROSTER` (Lamplighter, Lookout, Bellfounder, Beekeeper, Lamplighter) on both seats, since the
   match's `SimRng` feeds only the Drift and two Lamplighter duels of two seeds often played one match
   (`duel_mirror_is_draw`: four seeds of caretakers, every one a draw with both records equal; `duel_turtle_holds`:
@@ -482,11 +685,108 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   `duel_counter_cork_beats_random`: at least 3 of seeds 1 to 5, the counter-corker's most-uncorked pack not the same
   in every match; `duel_seawall_saves`: the defender raising its Seawall beats a reckless corker in at least 3 of 5
   and in more than without it), each a `duel_series` keeping one line per match and holding its matches to being
-  all different. The duel's numbers are the `duel` block's (all *tunable*) and the caretaker's `CORK_SHARE_PM`;
-  measured (the same counts since the styles on the caretaker's budget hold their plan in the wait): balanced 3 of
-  5 (the Lamplighters and the Lookouts win, the Bellfounders and the Beekeepers lose to the turtle on lives),
-  reckless loses 4 of 5, counter_cork 4 of 5 and a draw, the Seawall turns 1 of 5 into 4 of 5. A
-  duel through the Surge lasts 13.2 to 15.2 minutes; one a Holdfast's fall ends may be over by wave 7, in 6.5.
+  all different; and the sends' (the owner's decision of 2 November 2026, "Stronger packs, fairer stipend"):
+  `duel_sends_breach`, the four mirrors played by the caretaker and by the balanced style over seeds 1 to 5
+  (`sends_table`), a third to a half of the uncorked packs breaching (one of their creeps takes a life), more than a
+  fifth of each tier's, at most four in five of tier I's, some in every mirror (measured 41.5%; tier I 60%, II 62%,
+  III 30%; the Lamplighter's mirrors 67%, the Lookout's 13 and 17%, the Beekeeper's 25 and 29%, the Bellfounder's
+  100%, where both fall by wave 12, in 4 of 10 by wave 8: her sky holds no Moth Cloud before her Sky Toll; on m8
+  23%, tier III 11%, the Beekeeper's 0 and 3%; after the packs' matrix 48.1%, tier I 60%, II 73%, III 39%); and the
+  packs' matrix's (the Veteran's third session: only the Moth Cloud breached) one a pack,
+  `duel_<check>_pack_breaches_the_weak` (`pack_matrix` against the caretaker over seeds 1 to 5): the pack breaches
+  the two Builders weak to its check in at least 40% of its uncorkings together and each in at least 30%, and those
+  that cover it less often (measured the Gourd Rush 44% against 21%, the Scuttle 48% against 15%, the Thorn Herd 52%
+  against 17%, the Moth Cloud 83% against none; before it 0%, 4.5%, 30% and 78%; the Lamplighter holds every tier
+  III Thorn Herd once her Iron Mortar stands). The duel's numbers are the `duel` block's and `PACKS` (all
+  *tunable*) and the caretaker's `CORK_SHARE_PM`; measured: balanced 4 of 5, and the turtle against the reckless
+  corker, counter_cork and the Seawall (3 against 2) each 3 of 5, their bars (before the packs' matrix the turtle 4,
+  counter_cork 5, the Seawall 4 against 3). The Lookout's mirror caps the packs: a Gourd Rush or Scuttle that
+  breaches her much more than half the time hands the reckless corker her mirror (seed 2) and lifts
+  `duel_sends_breach` past a half. The five-seed duel gates turn on one or two seeds whose result tips on small
+  things (tier I at 40 gold rather than 45 hands the reckless corker 4 of 5; a tier III Thorn Herd of 9 rather than
+  8 hands it the Beekeeper's seed 4), so re-run them after any duel number. A duel through the Surge
+  lasts 13.7 to 15.6 minutes (13.9 to 15.7 before the packs' matrix); one a Holdfast's fall ends may be over by wave 6, in 5.9.
+  M8 adds stacking's and the levels' (design 4.4): `bot_wins_stacking_<builder>` (the plan bot by command, Ready at
+  once, stacking its plan's list, wins with half the lives), `stacking_pays` (the solo Lamplighter stacking its list
+  clears wave 12 at least 30 s sooner than calling at once, its calls paying on average the window's 10 and 3:
+  measured 47.5 s and 17.5), `stacking_every_wave_costs_lives` and its `_lookout`, `_bellfounder`, `_beekeeper` (each
+  Builder alone stacking every wave it may, the moment its hollow can take it, loses at least 5 lives more than with
+  its list, or falls: measured after the fork pass and its review the Lamplighter 5 lives against 15, the Beekeeper
+  9 against 20, the Bellfounder 3 against 20 and the Lookout falls on wave 8; before the pass 6 against 15, 15
+  against 20, and the Bellfounder fell on wave 4; with `stack_max` 2 the Lamplighter lost 1 life and the Beekeeper
+  none),
+  `race_stacking_every_wave_not_dominant` (a `race_series` over the four Builders' mirrors: the crew of one stacking
+  every wave wins at most two of four; at a minute a life it wins none, the Lamplighter's 82,736 against 28,976, the
+  Bellfounder's 76,676 against 27,566 and the Beekeeper's 53,563 against 25,685 race time while the Lookout's falls;
+  at M6's 10 s a life the Lamplighter's and the Beekeeper's won), `race_stacking_beats_calling`,
+  `bot_wins_hard_solo_lamplighter`, `_beekeeper` and
+  `bot_wins_hard_2p` (a third of the 15 lives), `bot_reaches_crest_very_hard_solo_lamplighter`, `_beekeeper`, `_2p_lo`
+  and `_2p_bb` (a close wave 12: standing at its horn, then at most 5 of 10 lives or a fall to it; read on the Crest
+  since the Very Hard pass, above),
+  `idle_player_loses_hard`, `_very_hard`, `difficulty_orders_the_levels` (runs compared by `report()`) and
+  `race_mirror_is_fair_hard`. No High Water or duel gate calls a wave during a wave or plays a level, so all keep the
+  summaries they had (all 36, summaries and leak tables, as under the first stacking); the two race gates' caretakers
+  now stack their lists (re-measured, their bars held: the mirror draws on tick 30,170, 2,749 sooner than without
+  stacking; on tick 29,947 since the fork pass and its review). The fork pass (M8 track D,
+  contract-m8 §6, design 3.8): the fork bench, `tests/sim/fork_bench.gd` (`measure(form, what)`, `pairs()`,
+  `lines()`, `table()`, `problems()`; bare SimMatches on the bench cell (8, 11), High Water at Normal, one seat of the
+  form's Builder with its perk; health removed from the HIT events less the killing hit's overkill), measures
+  `single:<creep>` (a held creep at wave 12's health, a fresh one after each death, over 60 s), `crowd:<creep>` (12
+  creeps of three times wave 7's health, 24 ticks apart: at wave 7's own a lone Great Cannon removed all of it),
+  `control:<creep>` (the same line at fifty times its health, the seconds each spends in the reach beyond its
+  unslowed time) and `lift:<lane>` (a Lamplighter's battery around the bench cell with the form and without:
+  `boss` a held Bristlesow, `line` 12 Thornbacks at fifty times their health, a hum's `tight` and `wide`), each
+  pair's jobs in `JOBS` and `JOB_MEASURES` (an armour job is both Thornback and Bristlesow, the Sky Toll's a
+  flier's damage and its hold on fliers), each with its variants (`job_keys()`): a `single` at every creep health
+  the game plays (`health_levels()`, one to four seats at every level, `single:thornback@1100`), since what the
+  killing hit wastes moves with the health, and a crowd or a hold on every cell the base's Builder's plan builds it
+  on (`cells()`, `crowd:gourdling@12,8`); `fork_pairs_apart` holds each branch `JOB_MARGIN_PM` (250) ahead at its
+  own job at every one (or its sibling unable to do it), none `BOTH_JOBS_PM` (100) ahead at both, and every patch at
+  most `PATCH_CEILING_PM` (900) of a strong Builder's best form at the same health or cell, one `FORK_BENCH` line a
+  pair in its watches, with each measure's range, each branch's least lead and a patch's largest share (about 30
+  s). The pass and its review set the
+  Iron Mortar's shell, the Kestrel Flock's bounces, Twin Gaze's mark, the Bellfounder's Clapper Tower,
+  Great Clapper, Ringing Clapper, Sky Toll and Long Chime, the Beekeeper's Great and Drowsy Clay Hives, Royal Apiary,
+  Queen's Guard (`"aim": "most_hp"`, held by `queens_guard_aims_at_most_health`) and Long Hum, each with its reason
+  in `content.gd`, and design 3.8 tables every pair before and after with the least leads; the Royal Apiary is the
+  Apiary's anti-air (the Queen's Guard leads it on unarmoured ground too) and the Sky Toll's damage to a flock is
+  not held (on its bends it does what the Royal Apiary does, her one tower for the sky), both stated there;
+  `fork_branch_stats` pins the Lamplighter's and the Lookout's forms, and `difficulty_normal_changes_nothing` High
+  Water at Normal to hashes re-recorded after the review. The four gates track
+  A held (the Bellfounder's and the Lookout's alone at Hard and Very Hard, whose openings leaked wave 2 at any health
+  above Normal's) stand (measured: the Bellfounder wins Hard on 8 lives, the Lookout on 10, and both fall to the
+  Crest at Very Hard): the Clapper Tower deals 35, the Great Clapper 80 every 1.4 s and the Sky Toll +160% to fliers
+  with its slow a third (her Hard still fell to the Crest and to wave 5's and 11's Duskmoths), her plan builds her fourth Clapper before
+  her third Toll Tower, and the Lookout's plan forks her first Kestrel Flock before her second Hawk Roost and her
+  first Siege Perch before the Owl's Eye, while her `undertow` block keeps M7's order for the duel (Normal only, its
+  gates tuned on it: with the new order a Lookout turtle drew the balanced corker, and two duel gates fell to 2 of
+  5). The Beekeeper's plan forks her first Queen's Guard before her first Royal Apiary (the playtest's wave-4 armour
+  hole). At Normal every Builder's plan alone kills wave 6's Bristlesow (the owner's decision of 2 November 2026,
+  "Yes, at Normal"; `bot_kills_bristlesow_solo_*`; its numbers unchanged): the Lamplighter's High Water plan forks
+  her Skyward Loft on (11, 11) and her Iron Mortar before her third arrow (it dies 71 s into a walk of 77) and the
+  Lookout's builds her Siege Perch on (12, 9) before her second Kestrel Flock and her Perch Ballista on (11, 9) (51
+  s of 71); the Lamplighter's new `undertow` block keeps her old order for the duel, as the Lookout's keeps M7's, so
+  no duel gate moved. `high_water_length_2p` is closer to its floor (39,690 ticks against 39,600; 39,810 before:
+  the openings clear waves 4 to 6 of that match sooner), and the Lamplighter stacking every wave now loses 19 lives
+  more than her list (1 against 20). Tide Race's `race.life_t` is 3,600, a minute a life (the owner's decision of
+  2 November 2026, "Raise the cost of a life"; M6's 600): `race_pair_stacking_every_wave_not_dominant` plays the complementary pairs and each M2
+  Builder beside each M6 one, every wave against their lists (beside a present partner each seat calls only its own
+  list, so most crews of two never stack), and the crew stacking every wave wins at most three of the six: it wins with the
+  Lamplighter beside the Lookout, the Beekeeper or the Bellfounder (wave 12 cleared at 13,220, 13,406 and 14,784
+  against 26,357, 26,428 and 31,978, losing as many lives as their lists: none, none and the Bristlesow's 5) and
+  loses the others (the Bellfounder and the Beekeeper 14,269 + 5 lives against 26,903 + 0, which needs at least
+  2,527 ticks a life; the Lookout and the Beekeeper 14,342 + 5 against 23,915 + 0; the Lookout and the Bellfounder
+  14,270 + 17 against 25,479 + 0). A minute a life is more than a list's whole gain (the Lamplighter's list clears
+  wave 12 2,850 ticks sooner than calling at once), so a crew that loses one life more to stacking its list loses
+  the race to the same crew calling. Margins after the review: the Lamplighter stacking
+  every wave loses 10 lives more than her list (5 against 15; the bar 5; 19 since her opening kills the Bristlesow),
+  `duel_balanced_beats_turtle` wins 3 of 5 (the bar) and
+  `duel_counter_cork_beats_random` 4 and a draw (3 at the pass's Sky Toll, whose pulses held the winged packs a
+  counter-corker sends the Bellfounder); the solo Bellfounder wins Hard on 8 lives (the bar 5), but the Crest's toll
+  is 10 and it dies 80 s into its walk, about 8 s before it would reach the Holdfast (at Very Hard it does, at 88 s;
+  the Lookout's dies at 72 s), and at Very Hard she reaches wave 12's horn on 2 of 10 lives (the Lookout on 5). On
+  the bench the Ringing Clapper leads its crowd by 25.4% at worst (394 against 314 on (5, 12)) and takes 87% of the
+  Great Cannon on (6, 12), and the Great Hum leads a tight battery by 26.6% (224 against 177).
 - `godot-agent run . --renderer gl_compatibility` shows the scene as the browser build draws it.
 - The server: `python3 -m unittest discover -s server/tests -t server/tests` (Python 3.11+).
 - Networking against the real server: `godot-agent scenario . tests/net/live --headless -j 1` (nine topology
@@ -497,7 +797,7 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   `content.gd` has the `tide_race` preset; `--mode undertow --turn-ms 10` (two clients, seat 1 against seat 2,
   about three minutes) checks a duel the same way and as a duel: the plan bot (`tests/bot.gd`) duels as the
   caretaker would through `Game.cork`, `uncork` and `seawall` (Caretaker's `cork_tier` budget,
-  `SimUndertow.weakest_pack`, uncorked from `uncork_after_t`, `Caretaker.wants_seawall`), so its `CORK`, `UNCORK`
+  `SimUndertow.pick_pack`, uncorked from `uncork_after_t`, `Caretaker.wants_seawall`), so its `CORK`, `UNCORK`
   and `SEAWALL` cross the real server, and the smoke reads each game's `BOT` lines (`bottle ... corked`, `uncorked
   ... by bot` when Game settled the bot's own `UNCORK` as the one that ran, `walking`; `duel_game`,
   `duel_problems`): both games corked and their bots uncorked, an uncorked pack
@@ -515,7 +815,9 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   loading, a High Water match with a Lamplighter and a Lookout played by the plan bots (about eight minutes; the
   hub's matches keep the protocol's 50 ms turns), the results, and both back in the party; `--no-bot` only calls
   the waves, so the Tide wins in about a minute and a half; `--linger 20` keeps both on the results for 20 s, past
-  the server's 15 s of silence, before Play again. `smoke.py --flow --queue --no-bot` plays the queue (M6) against
+  the server's 15 s of silence, before Play again; `--difficulty hard` (M8) makes the leader's party at Hard (with
+  `--queue`, every game queues at it) and checks every game's `MATCH_CONFIG` and rules and the server's `match` event
+  named it. `smoke.py --flow --queue --no-bot` plays the queue (M6) against
   the real server in about 100 s: four games, each a party of one with open seats, Find players, the server merges
   them, Match Found to all four and every Accept, a High Water match of strangers whose Builders the server
   unclashed (all mains Lamplighters: four different Builders in `MATCH_CONFIG`), the results, and Play again
@@ -534,15 +836,17 @@ its `install.sh` for the CLI, the MCP server and the skill, which explains each 
   `end`), which the steps read with `live_checks.gd`'s `file_has`. Then
   `smoke.py --faults --turn-ms 10` and `smoke.py --shaper --turn-ms 10`, about 85 s each.
 - A desync dump, `user://desync/<match>-<seat>.bin` (on Linux `~/.local/share/godot/app_userdata/Groundhold/desync/`;
-  its layout is `scripts/net/desync_dump.gd`'s header): `DesyncDump.read(path)` gives its fields (the bad tick, the
-  last checkpoint kept before it, every turn since, the state at the bad tick, the seat's hash stream), and
+  its layout is `scripts/net/desync_dump.gd`'s header, format 2 since M8: the level after the mode):
+  `DesyncDump.read(path)` gives its fields (the bad tick, the last checkpoint kept before it, every turn since, the state at the bad tick, the seat's hash stream), and
   `DesyncDump.replay(dump, tick)` runs the checkpoint through the turns to any tick. Both seats' dumps name the
   same bad tick (the first hash tick they disagreed on); to see what parted, load each dump's `state` with
-  `SimMatch.deserialize(state, SimContent.rules(mode))` and compare the records (seats' gold, towers, creeps), or replay each from its checkpoint
+  `SimMatch.deserialize(state, MatchRules.of(mode, level))` (the dump's `mode` and `difficulty`, by name) and
+  compare the records (seats' gold, towers, creeps), or replay each from its checkpoint
   to a tick before the bad one and step both a tick at a time until their `state_hash()` differs. `tests/net/live_checks.gd`'s `dump_summary(path)` does the
   self-check (the checkpoint replays every hash the seat sent up to the bad tick) from a step:
   `{"eval": "resource('res://tests/net/live_checks.gd').dump_summary('user://desync/1-2.bin')"}`.
-- By hand, a dev match: `python3 server/main.py --dev-match classic:2 --host 127.0.0.1`, then two windows of
+- By hand, a dev match: `python3 server/main.py --dev-match classic:2 --host 127.0.0.1` (`high_water:2:hard` at a
+  level, M8), then two windows of
   `godot --path . -- --join=127.0.0.1 --name=Tamsin` (add `--bot` to let the plan bot play a seat; seat 2's bot
   follows `tests/plans/lamplighter_seat2.json`).
 - By hand, the hub: `python3 server/main.py --host 127.0.0.1 --state-dir /tmp/groundhold-state` (no `--dev-match`:
@@ -662,8 +966,10 @@ middle, a Clay Hive's middle row of pipe mouths, an Apiary's top ring of bee hol
 sounds sit level with the M2 towers' as played (the file's loudest tenth of a second plus the gain in `Game.TOWERS`). The
 command card's slots are `CardQ`, `CardW`, `CardE`, `Signal`, `Sell` and `Ready`; `Hud.card()` says what each holds
 and `Hud.checks_shown()` what the strip shows, `Hud.wave_list_lines()` the waves to come (each creep's count, its
-health at that wave, `Game.wave_health` from the very sum its spawn takes, `SimWaves.health_c`, and its armour,
-`hud_wave_list_health_and_armour`), for `hud_*` scenarios; `view_*` scenarios cover the views.
+health at that wave, `Game.wave_health` from the very sum its spawn takes, `SimWaves.health_c`, with the level's
+`hp_pm` or `boss_hp_pm` (M8), and its armour, `SimWaves.armor_c`, a boss's with `boss_armor_c`;
+`hud_wave_list_health_and_armour`, and with waves stacked at Hard `hud_stack_wave_list_numbers_at_hard`), for `hud_*`
+scenarios; `view_*` scenarios cover the views.
 The screens outside a match draw with the console's own pieces (`panel`, whose stone tile-fits, with
 `panel_jewel` on its top edge; `card_frame` and `card_frame_lit`; `portrait_plate` over `portrait_plate_bg`;
 `field`, `field_focus`; `bar_trough`, `bar_fill`; `divider`), each `.tres` through `HdStyleBox` at the layout's

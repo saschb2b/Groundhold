@@ -1,0 +1,20 @@
+{
+  "name": "sim_caretaker_crew_stacks_every_list",
+  "description": "A crew of two caretakers on a race hollow (contract-m8 §2; Race the caretaker for a party of two, the queue's caretaker mirror) stacks every wave one of its plans lists, each caretaker saying Ready during the wave before once its own builds are paid, as each of them alone would: the Lamplighter and the Lookout waves 2, 3 and 5, the Bellfounder and the Beekeeper waves 2 and 4. The stacked horn waits for every caretaker's Ready, so while each said Ready only for its own plan's list the crew stacked only the waves both list (review of M8's rules: Lamplighter and Lookout none, Bellfounder and Beekeeper none). Beside a present player only the player's own list counts: a Lamplighter played by command stacking its plan's list beside a caretaken Lookout stacks waves 2 and 3, never the Lookout's 5, while the rival crew of the same two stacks 2, 3 and 5.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "steps": [
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 4, 'teams': [0, 0, 1, 1], 'builders': ['lamplighter', 'lookout', 'bellfounder', 'beekeeper'], 'caretakers': [1, 2, 3, 4], 'events': false})"},
+    {"assert": "scene.client(1).stacks['lamplighter'] == PackedInt32Array([2, 3]) and scene.client(1).stacks['lookout'] == PackedInt32Array([5]) and scene.client(1).stacks['bellfounder'] == PackedInt32Array([4]) and scene.client(1).stacks['beekeeper'] == PackedInt32Array([2])", "msg": "the plans' lists: no two alike"},
+    {"eval": "scene.play_out([])"},
+    {"eval": "[scene.stacked_waves(0), scene.stacked_waves(1), scene.client(1).hollows[0].phase, scene.client(1).hollows[1].wave]", "as": "crews"},
+    {"assert": "crews[0] == [2, 3, 5] and crews[1] == [2, 4]", "msg": "each crew of caretakers stacked every wave one of its plans lists"},
+    {"assert": "crews[2] == 2 and crews[3] == 12", "msg": "and raced to the end: the Lamplighter's crew cleared wave 12 while the other was on it"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 4, 'teams': [0, 0, 1, 1], 'builders': ['lamplighter', 'lookout', 'lamplighter', 'lookout'], 'caretakers': [2, 3, 4], 'events': false})"},
+    {"eval": "scene.play_out([1], 30, 120000, [1], {1: 'plan'})"},
+    {"eval": "[scene.stacked_waves(0), scene.stacked_waves(1)]", "as": "beside"},
+    {"assert": "beside[0] == [2, 3]", "msg": "beside the present Lamplighter, only her own list: never the caretaken Lookout's wave 5"},
+    {"assert": "beside[1] == [2, 3, 5]", "msg": "the rival crew of caretakers, the same two Builders, stacked both lists"}
+  ]
+}

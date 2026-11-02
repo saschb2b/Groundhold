@@ -75,14 +75,16 @@ var _latency: Array = []
 var _jitter := 0
 
 
-## {"mode": "classic", "clients": 2, "seed": 1, "latency_turns": 0 or [per client],
-##  "jitter_turns": 0, "names": [...], "builders": [...], "caretakers": false,
-##  "late": [client numbers], "resilience": true, "inbound_bytes": 1048576}
+## {"mode": "classic", "difficulty": "normal" (M8: the dev match's level), "clients": 2,
+##  "seed": 1, "latency_turns": 0 or [per client], "jitter_turns": 0, "names": [...],
+##  "builders": [...], "caretakers": false, "late": [client numbers], "resilience": true,
+##  "inbound_bytes": 1048576}
 func start(cfg := {}) -> void:
 	config = cfg
 	var count := int(cfg.get("clients", 2))
 	seq = FakeSequencer.new(self, count, str(cfg.get("mode", "classic")), int(cfg.get("seed", 1)))
 	seq.resilience = bool(cfg.get("resilience", true))
+	seq.difficulty = str(cfg.get("difficulty", MatchRules.NORMAL))
 	seq.seat_builders = cfg.get("builders", [])
 	if bool(cfg.get("caretakers", false)):
 		seq.seat_override = {"flags": NetProtocol.enum_value("seat_flags", "caretaker")}
@@ -394,6 +396,37 @@ func dump(k: int) -> Dictionary:
 	return DesyncDump.read(path) if path != "" else {}
 
 
+## A copy of client k's dump as a game of format 1 (before M8) wrote it, without the level's
+## byte after the mode, beside it; its path ("" without a dump).
+func format1_dump(k: int) -> String:
+	var path := clients[k - 1].dump_path
+	if path == "":
+		return ""
+	var bytes := FileAccess.get_file_as_bytes(path)
+	var old := bytes.slice(0, DesyncDump.LEVEL_AT) + bytes.slice(DesyncDump.LEVEL_AT + 1)
+	old[4] = 1
+	var out := path.get_basename() + "-format1.bin"
+	var file := FileAccess.open(out, FileAccess.WRITE)
+	file.store_buffer(old)
+	file.close()
+	return out
+
+
+## A copy of client k's dump with its level byte (format 2's, DesyncDump.LEVEL_AT) set to
+## `level`, beside it; its path ("" without a dump).
+func level_dump(k: int, level: int) -> String:
+	var path := clients[k - 1].dump_path
+	if path == "":
+		return ""
+	var bytes := FileAccess.get_file_as_bytes(path)
+	bytes[DesyncDump.LEVEL_AT] = level
+	var out := path.get_basename() + "-level%d.bin" % level
+	var file := FileAccess.open(out, FileAccess.WRITE)
+	file.store_buffer(bytes)
+	file.close()
+	return out
+
+
 ## A checkpoint's digest in hex (Checkpointing.digest).
 func digest_hex(bytes: PackedByteArray) -> String:
 	return Checkpointing.digest(bytes).hex_encode()
@@ -535,7 +568,7 @@ func client_digests_match(k: int) -> bool:
 ## fresh simulation run through the sequencer's turn log, asked at every hash tick.
 func flagged_ticks_ok() -> bool:
 	var c := clients[0]
-	var sim := SimMatch.new(SimContent.rules(c.mode), c.seat_list, c.match_seed)
+	var sim := SimMatch.new(MatchRules.of(c.mode, c.difficulty), c.seat_list, c.match_seed)
 	var last := 0
 	for tick: int in seq.flagged:
 		last = maxi(last, tick)

@@ -1,0 +1,27 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_stack_race_call_alone",
+  "description": "Racing the caretaker I play my hollow alone, though the match has two seats (M8, design 2.7 and 5.7): a call in my wave needs no partner, so the horn's tooltip says the called wave sets out at once among the creeps on the road, not that everyone must call it, and two presses bring wave 2 onto my road at once, the strip counting no Ready (company is my hollow's seats, Game.has_company, not the match's).",
+  "seed": 1,
+  "timeout_frames": 3000,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('tide_race', [{'team': 0, 'builder': 'lamplighter'}, {'team': 1, 'builder': 'lamplighter', 'caretaker': true}], 1, resource('res://scripts/net/local_sequencer.gd').new(2, 1), 1)"},
+    {"wait": 2},
+    {"set": "Game.lives", "value": 200},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.state == 1 and Game.wave == 1", "timeout": 120},
+    {"wait": 2},
+    {"assert": "Game.seat_count() == 2 and not Game.has_company() and Game.can_stack()", "msg": "two seats in the match, one on my hollow, and a call would be taken"},
+    {"hover": "node('Ready')"},
+    {"wait": 2},
+    {"eval": "node('TooltipBody').text", "as": "tip"},
+    {"assert": "tip.begins_with('Call wave 2 now: ') and tip.contains('It sets out at once, among the creeps on the road.') and not tip.contains('everyone')", "msg": "the tooltip says it sets out at once: nobody else must call it"},
+    {"hover": [640, 300]},
+    {"key": "D"},
+    {"key": "D"},
+    {"wait_until": "Game.wave == 2", "timeout": 30},
+    {"wait": 1},
+    {"assert": "Game.waves_on_road() == PackedInt32Array([1, 2]) and not node('Countdown').text.contains('Ready')", "msg": "two presses brought wave 2 at once, and the strip counts no Ready"}
+  ]
+}

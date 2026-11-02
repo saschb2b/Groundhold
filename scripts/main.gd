@@ -9,6 +9,7 @@
 ## Boot flags, after `--`:
 ##   --seed=N             the match seed (default 1)
 ##   --bot                the plan bot (tests/bot.gd) plays my seat through commands
+##   --bot-stacks         and stacks its plan's waves through the horn, two presses each (M8)
 ##   --hash-log[=FILE]    print "HASH <tick> <hex>" every 60 ticks; also write them to FILE
 ##   --quit-after-match   print "RESULT <tick> <hex> <won|lost>" and quit when the match ends
 ##   --ticks-per-frame=N  fast-forward: N ticks per physics frame (offline)
@@ -157,7 +158,9 @@ func _ready() -> void:
 			_on_net_configured()
 	elif _spec.has("offline"):
 		var seats: Array = _spec["seats"]
-		begin(str(_spec["mode"]), seats, int(_spec["seed"]), LocalSequencer.new(seats.size(), 1), 1)
+		# (at the level the hub showed: Play, Try and Race the caretaker; M8)
+		var level := str(_spec.get("difficulty", MatchRules.NORMAL))
+		begin(str(_spec["mode"]), seats, int(_spec["seed"]), LocalSequencer.new(seats.size(), 1), 1, null, level)
 	elif options.has("join"):
 		_join_server(str(options["join"]))
 	else:
@@ -200,17 +203,20 @@ func _exit_tree() -> void:
 	BlobShadow.clear_cache()
 
 
-## Starts a match: `mode`'s rules, one entry per seat ({"team", "builder", "caretaker"}),
-## the seed, where the turns come from, and which seat this client plays. `existing` is a
-## simulation already built from those (the MatchClient's, whose tick-0 hash it sent). The
-## world follows the simulation: as many hollows as it plays, the camera over mine.
+## Starts a match: `mode`'s rules at `difficulty` (M8: the level it plays, MatchRules.of;
+## Normal in a mode without levels), one entry per seat ({"team", "builder",
+## "caretaker"}), the seed, where the turns come from, and which seat this client plays.
+## `existing` is a simulation already built from those (the MatchClient's, whose tick-0
+## hash it sent, at MATCH_CONFIG's level). The world follows the simulation: as many hollows
+## as it plays, the camera over mine.
 func begin(
 	mode: String,
 	seats: Array,
 	match_seed: int,
 	turns: TurnSource,
 	my_seat: int,
-	existing: SimMatch = null
+	existing: SimMatch = null,
+	difficulty := MatchRules.NORMAL
 ) -> void:
 	for view: Node in creep_views.values() + tower_views.values():
 		view.queue_free()
@@ -218,7 +224,7 @@ func begin(
 	tower_views.clear()
 	seat_list = seats
 	seat = my_seat
-	sim = existing if existing else SimMatch.new(SimContent.rules(mode), seat_list, match_seed)
+	sim = existing if existing else SimMatch.new(MatchRules.of(mode, difficulty), seat_list, match_seed)
 	source = turns
 	source.seat = my_seat
 	if client == null:
@@ -239,6 +245,7 @@ func begin(
 	_record_hash()
 	if options.has("bot"):
 		_bot = load("res://tests/bot.gd").new()
+		_bot.set("stacking", options.has("bot-stacks"))
 
 
 # ── Stepping ──
@@ -588,12 +595,12 @@ func _count(events: Array) -> void:
 				var kinds: Dictionary = _tally["kind_kills"].get_or_add(by, {})
 				kinds[str(e["kind"])] = int(kinds.get(str(e["kind"]), 0)) + 1
 				var waves: Dictionary = _tally["wave_kills"].get_or_add(by, {})
-				var wave := sim.hollows[int(e.get("hollow", 0))].wave
+				var wave := _wave_of(e)
 				waves[wave] = int(waves.get(wave, 0)) + 1
 			SimTypes.EV_LEAK:
 				if int(e.get("hollow", 0)) != Game.my_hollow():
 					continue
-				var wave := sim.hollows[int(e.get("hollow", 0))].wave
+				var wave := _wave_of(e)
 				var leaks: Dictionary = _tally["leaks"].get_or_add(wave, {"kinds": {}, "lives": 0})
 				var kinds: Dictionary = leaks["kinds"]
 				kinds[str(e["kind"])] = int(kinds.get(str(e["kind"]), 0)) + 1
@@ -610,6 +617,15 @@ func _count(events: Array) -> void:
 				(by_team.get_or_add(h.team, []) as Array).append(sim.teams[h.team].lives)
 				if h.id == Game.my_hollow():
 					(_tally["lives"] as Array).append(sim.teams[Game.my_team()].lives)
+
+
+## The wave a dying or leaking creep (EV_DIE, EV_LEAK) came with: the event's own (M8: with
+## two waves on the road, the older's creeps are the older's, and a frame of many ticks may
+## read a creep that set out and was gone before it had a view), else its hollow's newest.
+func _wave_of(e: Dictionary) -> int:
+	if int(e.get("wave", 0)) > 0:
+		return int(e["wave"])
+	return sim.hollows[int(e.get("hollow", 0))].wave
 
 
 static func _new_tally() -> Dictionary:

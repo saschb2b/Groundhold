@@ -105,14 +105,21 @@ class Bucket:
 
 
 def dev_match_spec(text):
-    """--dev-match's MODE:SEATS (classic:2): a mode of protocol.json's and a seat count it allows."""
-    mode, _, seats = (text or "").partition(":")
+    """--dev-match's MODE:SEATS[:LEVEL] (classic:2, high_water:2:hard): a mode of
+    protocol.json's, a seat count it allows and, for a mode that takes levels (M8), one of
+    `difficulties` (Normal where left out): (mode, seats, level's wire id)."""
+    mode, _, rest = (text or "").partition(":")
+    seats, _, level = rest.partition(":")
     if mode not in SPEC["modes"] or not seats.isdigit():
-        raise ValueError("--dev-match is MODE:SEATS, MODE one of " + ", ".join(SPEC["modes"]))
+        raise ValueError("--dev-match is MODE:SEATS[:LEVEL], MODE one of " + ", ".join(SPEC["modes"]))
     low, high = SPEC["modes"][mode]["seats"]
     if not low <= int(seats) <= high:
         raise ValueError(f"--dev-match {mode} takes {low} to {high} seats")
-    return mode, int(seats)
+    if level and level not in protocol.DIFFICULTIES:
+        raise ValueError("--dev-match's LEVEL is one of " + ", ".join(protocol.DIFFICULTIES))
+    if level and protocol.level_of(mode, protocol.DIFFICULTIES[level]) != protocol.DIFFICULTIES[level]:
+        raise ValueError(f"--dev-match {mode} plays Normal only: it takes no level")
+    return mode, int(seats), protocol.DIFFICULTIES[level] if level else protocol.NORMAL
 
 
 class Server:
@@ -276,7 +283,10 @@ class Server:
             await self.listener.wait_closed()
 
     def dev_match_text(self):
-        return f"{self.dev_match[0]}:{self.dev_match[1]}" if self.dev_match else None
+        if not self.dev_match:
+            return None
+        mode, seats, level = self.dev_match
+        return f"{mode}:{seats}" + (f":{protocol.DIFFICULTY_NAMES[level]}" if level != protocol.NORMAL else "")
 
     async def handle(self, reader, writer):
         task = asyncio.current_task()
@@ -429,7 +439,7 @@ class Server:
     def dev_join(self, player):
         """--dev-match: the first HELLOs with one rules hash form a match
         once there are as many as its seats; another hash waits for its own."""
-        mode, seats = self.dev_match
+        mode, seats, level = self.dev_match
         pool = self.waiting.setdefault(player.rules_hash, [])
         pool.append(player)
         if len(pool) < seats:
@@ -438,7 +448,7 @@ class Server:
         del pool[:seats]
         if not pool:
             del self.waiting[player.rules_hash]
-        self.form_match(mode, player.rules_hash, chosen)
+        self.form_match(mode, player.rules_hash, chosen, level=level)
 
     def reserve_match_id(self):
         """The next match id (Match Found names it before the match forms)."""
@@ -446,16 +456,18 @@ class Server:
         self.next_match = self.next_match % 0xffffffff + 1
         return match_id
 
-    def form_match(self, mode, rules_hash, players, seats=None, party=None, parties=None, match_id=None):
+    def form_match(self, mode, rules_hash, players, seats=None, party=None, parties=None, match_id=None,
+                   level=protocol.NORMAL):
         """A match of `players` (a party's, the queue's, or a dev match's),
-        configured at once. A None in `players` is a caretaker's seat (its
-        `seats` entry has the caretaker flag and a name). `parties`: the
-        parties of a match of strangers from the queue."""
+        configured at once, at `level` (the party's, the queue key's or the
+        dev match's; Normal in a mode without levels). A None in `players`
+        is a caretaker's seat (its `seats` entry has the caretaker flag and a
+        name). `parties`: the parties of a match of strangers from the queue."""
         assert not any(player and player.match for player in players), "a player already in a match"
         match_id = match_id or self.reserve_match_id()
         seed = self.seed if self.seed is not None else secrets.randbits(32)
         match = Match(self, match_id, mode, seed, rules_hash, players, self.clock, seats=seats, party=party,
-                      parties=parties, **self.match_options)
+                      parties=parties, level=level, **self.match_options)
         self.matches[match_id] = match
         match.begin()
         return match

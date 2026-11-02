@@ -1,0 +1,25 @@
+{
+  "name": "stack_no_window_between",
+  "description": "No window comes between stacked waves (contract-m8 §2, design 2.7): solo, no towers, 200 lives (a setter), wave 2 called on tick 480 of wave 1, as its last Gourdling is about to set out. Wave 1's Gourdlings, ahead on the road, all reach the Holdfast while wave 2's still walk: wave 1 clears, the hollow stays in its wave with wave 2 alone on the road, no countdown runs and no build window opens (no EV_WAVE in phase 0). When wave 2's last creep is gone the window before wave 3 opens with the rules' window_t, 10 s solo, and counts down from the next tick.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.debug(2, 0, 200)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_to(480)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_to(2400)"},
+    {"assert": "scene.rows('WAVE', ['tick', 'wave', 'stacked'], {'start': true}) == [[0, 1, null], [480, 2, true]] and scene.client(1).waves_on_road(0) == PackedInt32Array([1, 2])", "msg": "wave 2 called on tick 480; both waves walk"},
+    {"eval": "scene.run_to(2810)"},
+    {"eval": "scene.rows('WAVE', ['tick', 'wave', 'phase'], {'cleared': true})", "as": "first"},
+    {"assert": "first.size() == 1 and first[0][1] == 1 and first[0][2] == 1", "msg": "wave 1 cleared, the hollow still in its wave"},
+    {"assert": "scene.client(1).hollows[0].phase == 1 and scene.client(1).hollows[0].countdown_t == 0 and scene.client(1).waves_on_road(0) == PackedInt32Array([2]) and scene.client(1).creeps_on(0) > 0", "msg": "wave 2 alone on the road, no countdown"},
+    {"assert": "scene.rows('WAVE', ['phase'], {'phase': 0}) == []", "msg": "no window opened between the waves"},
+    {"eval": "scene.run_to(3400)"},
+    {"eval": "scene.rows('WAVE', ['tick', 'wave', 'phase'], {'cleared': true})", "as": "both"},
+    {"assert": "both.size() == 2 and both[1][1] == 2 and both[1][2] == 0 and both[1][0] > first[0][0]", "msg": "wave 2 cleared later, and only then the window opened"},
+    {"assert": "scene.client(1).hollows[0].phase == 0 and scene.client(1).hollows[0].countdown_t == scene.preset('high_water')['window_t'][0] - (3400 - both[1][0] - 1)", "msg": "the window is the rules' 10 s, counted from the tick after the clear"}
+  ]
+}

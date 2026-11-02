@@ -1,0 +1,92 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_stack_late_press_race_latency_4",
+  "description": "A press late in a build window online, at 4 turns of latency each way (200 ms), racing a rival on its own hollow (M8's review; design 2.7 and 5.7). An order lands later than offline: after the turns the game holds and has not run yet (TurnSource.order_lead) by its trip there and back (MatchClient.rtt_ms in whole turns: Game.order_trip), and the horn's question counted only the first, so a press with more of the countdown left than the order's lead and a turn went out at once, landed after the window's horn and was taken as a call for wave 2, so one press called waves 1 and 2. Now the press asks for a second and sends nothing; a second press still in the window is the call for wave 2, which waits for the window's horn here and goes out after it naming wave 2 (a READY sent at once would name wave 1 and be refused): the horn brings wave 1, the call brings wave 2 onto the road with it, and only that one READY went out.",
+  "seed": 1,
+  "timeout_frames": 6000,
+  "steps": [
+    {
+      "wait": 2
+    },
+    {
+      "eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"
+    },
+    {
+      "eval": "node('LoopbackMain').start({'seed': 3, 'latency_turns': 4})"
+    },
+    {
+      "set": "node('LoopbackMain').seq.mode",
+      "value": "tide_race"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'IN_MATCH'",
+      "timeout": 900
+    },
+    {
+      "set_ticks_per_frame": 1
+    },
+    {
+      "wait_until": "Game.state == 0 and Game.sim.hollows[0].countdown_t <= scene.source.order_lead(Game.sim) + 9",
+      "timeout": 3000
+    },
+    {
+      "eval": "scene.source.order_lead(Game.sim)",
+      "as": "lead"
+    },
+    {
+      "eval": "Game.sim.hollows[0].countdown_t",
+      "as": "countdown"
+    },
+    {
+      "eval": "scene.client.rtt_ms",
+      "as": "rtt"
+    },
+    {
+      "assert": "Game.sim.hollows[0].countdown_t > lead + 3 and Game.order_trip() == 24 and Game.late_in_window()",
+      "msg": "more of the window left than the order's lead and a turn, less than those and the 24-tick trip"
+    },
+    {
+      "key": "N"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "scene.controller.call_armed() and node('Notice').text == 'Call wave 2 now? Press again' and scene.settled() and node('LoopbackMain').sealed('READY') == 0",
+      "msg": "the press asks for a second and sends nothing"
+    },
+    {
+      "key": "N"
+    },
+    {
+      "wait": 1
+    },
+    {
+      "assert": "Game.state == 0 and scene.controller.wants_ready() and not scene.settled() and node('LoopbackMain').sealed('READY') == 0",
+      "msg": "the second press in the window waits for its horn"
+    },
+    {
+      "wait_until": "Game.state == 1",
+      "timeout": 120
+    },
+    {
+      "eval": "Game.sim.tick",
+      "as": "horn"
+    },
+    {
+      "wait_until": "Game.wave == 2",
+      "timeout": 180
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "Game.waves_on_road() == PackedInt32Array([1, 2]) and node('LoopbackMain').sealed('READY') == 1 and node('LoopbackMain').sealed_turns('READY')[0] * 3 > horn",
+      "msg": "it went out after the horn, named wave 2 and called it"
+    },
+    {
+      "assert": "not Game.is_ready() and scene.settled() and not scene.controller.call_armed()",
+      "msg": "alone its horn sounded as it landed: nothing waits"
+    }
+  ]
+}

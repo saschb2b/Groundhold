@@ -1,0 +1,26 @@
+{
+  "name": "net_match_rules_lay_the_level",
+  "description": "MatchRules builds a match's rules at its level by the numbers, not by the name alone (M8, contract-m8 §3): rules named Hard that keep Normal's lives, health and armour are no Hard match (level_problem says which keys differ), and so is a duel named Hard; a level's keys laid over a preset replace its lives and add the creep and boss health and the boss's armour, the level named under difficulty; every level of protocol.json, in every mode, builds rules that carry the rules track's table (SimContent.DIFFICULTIES) exactly, through MatchRules.of and through the lay-over alike; and of() is SimContent.rules(mode, level) itself (M8's finishing pass: the guarded call is gone).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "resource('res://scripts/net/match_rules.gd')", "as": "MR"},
+    {"eval": "resource('res://scripts/sim/content.gd')", "as": "SC"},
+    {"eval": "{'normal': {}, 'hard': {'lives': 15, 'hp_pm': 1300, 'boss_hp_pm': 1500, 'boss_armor_c': 100}, 'very_hard': {'lives': 10, 'hp_pm': 1600, 'boss_hp_pm': 2000, 'boss_armor_c': 200}}", "as": "table"},
+    {"eval": "SC.rules('high_water').merged({'difficulty': 'hard'}, true)", "as": "named_only"},
+    {"assert": "MR.level_problem(named_only, table) != '' and MR.level_problem(named_only, table).contains('lives 20, not 15')", "msg": "rules named Hard with Normal's numbers are no Hard match: the check reads the lives, not the name"},
+    {"eval": "MR.laid_over(SC.rules('high_water'), 'hard', table)", "as": "hard"},
+    {"assert": "hard['difficulty'] == 'hard' and hard['lives'] == 15 and hard['hp_pm'] == 1300 and hard['boss_hp_pm'] == 1500 and hard['boss_armor_c'] == 100 and hard['mode'] == 'high_water'", "msg": "the level's keys over the preset: lives replaced, creep and boss health and the boss's armour added, the level named"},
+    {"assert": "MR.level_problem(hard, table) == '' and MR.level_problem(MR.laid_over(SC.rules('tide_race'), 'very_hard', table), table) == ''", "msg": "rules laid at their level carry its numbers"},
+    {"assert": "MR.level_problem(hard.merged({'lives': 10}, true), table).contains('lives 10, not 15')", "msg": "a key at another level's value is named"},
+    {"assert": "MR.level_problem(SC.rules('undertow').merged({'difficulty': 'hard'}, true), table).contains('difficulty hard, not normal')", "msg": "a duel named Hard is no match the game plays: a mode without levels plays Normal"},
+    {"assert": "MR.level_problem(MR.laid_over(SC.rules('high_water'), 'normal', table), table) == '' and not MR.laid_over(SC.rules('high_water'), 'normal', table).has('hp_pm')", "msg": "Normal lays nothing"},
+    {"eval": "resource('res://tests/net/level_checks.gd').problems()", "as": "built"},
+    {"assert": "built == []", "msg": "every level in every mode builds rules that carry the rules track's table"},
+    {"eval": "resource('res://tests/net/level_checks.gd').problems(true)", "as": "fallback"},
+    {"assert": "fallback == []", "msg": "the lay-over the fallback takes carries the same table"},
+    {"assert": "MR.of('high_water', 'very_hard')['difficulty'] == 'very_hard' and MR.of('undertow', 'hard')['difficulty'] == 'normal'", "msg": "the rules name the level the mode plays"},
+    {"assert": "MR.of('high_water', 'hard') == SC.rules('high_water', 'hard') and MR.of('tide_race', 'very_hard') == SC.rules('tide_race', 'very_hard') and MR.of('undertow', 'hard') == SC.rules('undertow')", "msg": "of() is the rules track's SimContent.rules(mode, level), at the level the mode plays"}
+  ]
+}

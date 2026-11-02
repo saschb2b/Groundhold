@@ -83,6 +83,13 @@
 ## A duel (Undertow, M7) is a two-team mode of one seat a side, served by the race's rules: a
 ## party of one queues, one stranger is its rival, start_with_caretakers sets a caretaker of
 ## its Builder on team 1, and finish(result, per_team) ends it with one outcome a side.
+## The level (M8, as party.py and queue.py): the party has one, Normal at first, in its
+## PARTY_STATE; the leader's PARTY difficulty sets it (every Ready cleared, a countdown
+## stopped), a member's, one while queued or in a match and the level it has are answered to
+## the asker alone, one past the last is ERROR 6; a mode change keeps it. MATCH_CONFIG says the
+## level the match plays (MatchRules.level_of: Normal in a mode without levels), a dev match's
+## `difficulty` outside lobby mode. A stranger queues at a level of its own (add_stranger) and
+## fills the party's seats or its rival team only at the level the party's match plays.
 @warning_ignore_start("integer_division")
 extends RefCounted
 
@@ -109,6 +116,8 @@ const FRAMES_PER_SECOND := 60
 var world
 var seats := 2
 var mode := "classic"
+## A dev match's level (by name; it plays MatchRules.level_of(mode, difficulty)).
+var difficulty := MatchRules.NORMAL
 var match_seed := 1
 var phase := "waiting"
 ## The open turn: the next to seal.
@@ -213,6 +222,9 @@ var build_base := 0
 var reload_notices: Array = []
 ## Every PARTY op received, as [member, op name], for assertions.
 var party_log: Array = []
+## PARTY_STATEs sent, by the connection's name: a broadcast counts one to each member, an
+## answer to the asker alone (_send_party: an op the party's rules refuse) one to it.
+var party_states_sent := {}
 var _next_load_state := 0
 ## The queue (lobby mode, M6): the party's ticket {"since" (frame), "offered", "told"} while
 ## it is queued, {} otherwise; the strangers queued beside it (scripted conns) in the order
@@ -538,6 +550,7 @@ func _begin(players: Array, extra := []) -> void:
 		var config := {
 			"match": match_number,
 			"mode": int(party["mode"]) if lobby else int(NetProtocol.spec()["modes"][mode]["id"]),
+			"difficulty": _match_level(),
 			"map": 0,
 			"seed": match_seed,
 			"rules_hash": _rules_of(players),
@@ -1344,6 +1357,23 @@ func _party_op(conn: Dictionary, fields: Dictionary) -> void:
 		"cancel":
 			if party.get("phase", "") == "countdown" and members.has(conn):
 				party["phase"] = "forming"
+		"difficulty":
+			var level := int(fields["difficulty"])
+			if MatchRules.level_name(level) == "":
+				_refuse(conn, NetProtocol.enum_value("errors", "out_of_limits"), "PARTY difficulty outside its limits")
+				return
+			if (
+				not leads
+				or not str(party["phase"]) in ["forming", "countdown", "results"]
+				or level == int(party.get("difficulty", 0))
+			):
+				_send_party(conn)  # (the party as it is, to the asker alone, as lobby.py's refuse)
+				return
+			party["difficulty"] = level
+			if party["phase"] == "countdown":
+				party["phase"] = "forming"
+			for m: Dictionary in members:
+				m["ready"] = false
 		_:
 			return
 	_broadcast_party()
@@ -1376,7 +1406,9 @@ func _close_silent() -> void:
 ## A stranger in the queue, named `who`: a scripted party of one of its own with `main` and
 ## `backup`, queued now, after the strangers before it. `accepts`: it accepts a match found
 ## at once (else it waits for stranger_answer). Returns its record.
-func add_stranger(who: String, main := "lamplighter", backup := "lookout", accepts := true) -> Dictionary:
+func add_stranger(
+	who: String, main := "lamplighter", backup := "lookout", accepts := true, level := MatchRules.NORMAL
+) -> Dictionary:
 	var link := QuietLink.new()
 	accept(link)
 	var conn: Dictionary = link.conn
@@ -1387,6 +1419,7 @@ func add_stranger(who: String, main := "lamplighter", backup := "lookout", accep
 	conn["main"] = NetProtocol.enum_value("builders", main)
 	conn["backup"] = NetProtocol.enum_value("builders", backup)
 	conn["accepts"] = accepts
+	conn["difficulty"] = maxi(0, MatchRules.level_id(level))
 	conn["build_seq"] = build_base
 	conn["rules_hash"] = rules_hash_of(0)
 	strangers.append(conn)
@@ -1555,15 +1588,18 @@ func _look() -> void:
 	var members: Array = party["members"]
 	var most := int(NetProtocol.spec()["modes"][NetProtocol.enum_name("modes", int(party["mode"]))]["seats"][1])
 	var need := members.size() if _teams() > 1 else most - members.size()
-	if strangers.size() < need:
+	# (the level is the queue's key with the mode and the rules hash: a stranger at another
+	# level than the party's match plays waits for its own)
+	var fitting := strangers.filter(func(c: Dictionary) -> bool: return _level_for(int(c["difficulty"])) == _match_level())
+	if fitting.size() < need:
 		return
 	found_ids += 1
 	found = {
-		"id": found_ids, "players": members + strangers.slice(0, need), "accepted": [],
+		"id": found_ids, "players": members + fitting.slice(0, need), "accepted": [],
 		"deadline": world.frame + accept_frames,
 	}
 	_tell_found()
-	for c: Dictionary in strangers.slice(0, need):
+	for c: Dictionary in fitting.slice(0, need):
 		if c["accepts"]:
 			_accept(c, found_ids, true)
 
@@ -1740,8 +1776,8 @@ func _create_party(conn: Dictionary, wire_mode: int) -> void:
 	conn["member"] = 0
 	conn["team"] = 0
 	party = {
-		"mode": wire_mode, "leader": conn["member"], "phase": "forming", "countdown_at": 0, "members": [conn],
-		"open": false,
+		"mode": wire_mode, "difficulty": MatchRules.level_id(MatchRules.NORMAL), "leader": conn["member"],
+		"phase": "forming", "countdown_at": 0, "members": [conn], "open": false,
 	}
 	conn["ready"] = false
 
@@ -1759,6 +1795,33 @@ func set_party_mode(mode_name: String) -> void:
 		members[i]["ready"] = false
 		members[i]["team"] = i % 2 if _teams() > 1 else 0
 	_broadcast_party()
+
+
+## The party's level by name, sent as its leader's PARTY difficulty (a scripted leader's):
+## the op's own rules, as lobby.py's, so every Ready is cleared and a countdown stopped, and
+## while queued, loading or in a match, or at the level the party has, nothing changes and
+## the leader alone hears the party as it is.
+func set_party_difficulty(level: String) -> void:
+	if party.is_empty() or not MatchRules.known(level):
+		return
+	for conn: Dictionary in party["members"]:
+		if int(conn["member"]) == int(party["leader"]):
+			_party_op(conn, {"op": "difficulty", "difficulty": MatchRules.level_id(level)})
+			return
+
+
+## The level (wire id) the match plays: the party's where its mode takes one (lobby mode),
+## the dev match's otherwise; Normal in a mode without levels.
+func _match_level() -> int:
+	if lobby and not party.is_empty():
+		return _level_for(int(party.get("difficulty", 0)))
+	return MatchRules.level_id(MatchRules.level_of(mode, difficulty))
+
+
+## The level (wire id) a match of the party's mode plays when `wire` is asked.
+func _level_for(wire: int) -> int:
+	var mode_name := NetProtocol.enum_name("modes", int(party.get("mode", 0)))
+	return MatchRules.level_id(MatchRules.level_of(mode_name, MatchRules.level_name(wire)))
 
 
 func _teams() -> int:
@@ -1866,6 +1929,40 @@ func _reset_seat(conn: Dictionary) -> void:
 func _broadcast_party() -> void:
 	if party.is_empty():
 		return
+	var fields := _party_fields()
+	for conn: Dictionary in party["members"]:
+		fields["you"] = conn["member"]  # (each member told its own row, as the server does)
+		_send_bytes(conn, NetProtocol.encode("PARTY_STATE", fields))
+		_count_party_state(conn)
+	# NOTICE needs_reload (its member number) to each member that needs it now and did not
+	# at the last change, as lobby.py's tell_reload
+	for conn: Dictionary in party["members"]:
+		var needs := _needs_reload(conn)
+		if needs and not conn["told_reload"]:
+			reload_notices.append(str(conn["name"]))
+			var code := NetProtocol.enum_value("notices", "needs_reload")
+			_send(conn, "NOTICE", {"code": code, "argument": int(conn["member"])})
+		conn["told_reload"] = needs
+
+
+## The party as it is, to `conn` alone (an op the party's rules refuse now, as lobby.py's refuse).
+func _send_party(conn: Dictionary) -> void:
+	if party.is_empty() or not (party["members"] as Array).has(conn):
+		_send_no_party(conn)
+		return
+	var fields := _party_fields()
+	fields["you"] = conn["member"]
+	_send_bytes(conn, NetProtocol.encode("PARTY_STATE", fields))
+	_count_party_state(conn)
+
+
+func _count_party_state(conn: Dictionary) -> void:
+	var who := str(conn["name"])
+	party_states_sent[who] = int(party_states_sent.get(who, 0)) + 1
+
+
+## PARTY_STATE's fields for the party as it is, `you` left for each member.
+func _party_fields() -> Dictionary:
 	var listed := []
 	for conn: Dictionary in party["members"]:
 		var state := "here"
@@ -1892,34 +1989,24 @@ func _broadcast_party() -> void:
 			}
 		)
 	var left := maxi(0, int(party["countdown_at"]) - world.frame) * 1000 / FRAMES_PER_SECOND
-	var fields := {
+	return {
 		"code": party_code.to_ascii_buffer(),
 		"mode": party["mode"],
+		"difficulty": int(party.get("difficulty", 0)),
 		"flags": NetProtocol.enum_value("party_flags", "open") if bool(party.get("open", false)) else 0,
 		"leader": party["leader"],
+		"you": 255,
 		"phase": NetProtocol.enum_value("party_phases", party["phase"]),
 		"countdown_ms": left if party["phase"] == "countdown" else 0,
 		"members": listed,
 	}
-	for conn: Dictionary in party["members"]:
-		fields["you"] = conn["member"]  # (each member told its own row, as the server does)
-		_send_bytes(conn, NetProtocol.encode("PARTY_STATE", fields))
-	# NOTICE needs_reload (its member number) to each member that needs it now and did not
-	# at the last change, as lobby.py's tell_reload
-	for conn: Dictionary in party["members"]:
-		var needs := _needs_reload(conn)
-		if needs and not conn["told_reload"]:
-			reload_notices.append(str(conn["name"]))
-			var code := NetProtocol.enum_value("notices", "needs_reload")
-			_send(conn, "NOTICE", {"code": code, "argument": int(conn["member"])})
-		conn["told_reload"] = needs
 
 
 ## The no-party state the server sends after a leave: five zero bytes, leader 255, nobody.
 func _send_no_party(conn: Dictionary) -> void:
 	conn["member"] = -1
 	var fields := {
-		"code": PackedByteArray([0, 0, 0, 0, 0]), "mode": 0, "flags": 0, "leader": 255, "you": 255,
+		"code": PackedByteArray([0, 0, 0, 0, 0]), "mode": 0, "difficulty": 0, "flags": 0, "leader": 255, "you": 255,
 		"phase": 0, "countdown_ms": 0, "members": [],
 	}
 	_send_bytes(conn, NetProtocol.encode("PARTY_STATE", fields))

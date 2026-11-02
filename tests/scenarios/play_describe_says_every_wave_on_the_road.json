@@ -1,0 +1,33 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "play_describe_says_every_wave_on_the_road",
+  "description": "The play harness's words (tools/play/describe.gd) speak of every wave on the road, as the screen does (M8's review; design 2.7 and 5.7): with waves 1 and 2 on the road together the wave list marks both '(now)', as the HUD's list marks each wave on the road, not only the newest, each creep with its own wave's health ('Gourdling ×10 24 hp', '×18 30 hp'); and what got through counts every wave on the road ('got through waves 1–2: 2 Gourdlings (-2 lives)'), where it read only the newest wave's leaks and so missed a creep of wave 1 that got through.",
+  "seed": 1,
+  "timeout_frames": 3000,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"set": "Game.lives", "value": 200},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.state == 1 and Game.wave == 1", "timeout": 120},
+    {"wait": 60},
+    {"key": "D"},
+    {"key": "D"},
+    {"wait_until": "Game.wave == 2", "timeout": 30},
+    {"wait": 2},
+    {"hover": "node('WaveArea')"},
+    {"wait": 2},
+    {"eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))", "as": "waves"},
+    {"assert": "waves.contains('waves to come (hovering the wave): 1 Swarm: Gourdling ×10 24 hp (now) | 2 Swarm: Gourdling ×18 30 hp (now) | 3 Swift: Scuttler ×12 24 hp | 4 ')", "msg": "both waves on the road marked now, each with its own wave's health (0.8.0's numbers), the next not"},
+    {"hover": [640, 300]},
+    {"eval": "resource('res://tests/ui/stack_stage.gd').send_home(resource('res://tests/ui/stack_stage.gd').newest_of_wave(0, 1))"},
+    {"wait": 4},
+    {"eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))", "as": "said"},
+    {"assert": "Game.lives == 199 and Game.waves_on_road() == PackedInt32Array([1, 2]) and said.contains('got through waves 1–2: 1 Gourdling (-1 lives)')", "msg": "a creep of wave 1, the older, got through: counted while both walk"},
+    {"eval": "resource('res://tests/ui/stack_stage.gd').send_home(resource('res://tests/ui/stack_stage.gd').newest_of_wave(0, 2))"},
+    {"wait": 4},
+    {"eval": "' | '.join(resource('res://tools/play/describe.gd').describe(scene.get_tree()))", "as": "said_both"},
+    {"assert": "Game.lives == 198 and said_both.contains('got through waves 1–2: 2 Gourdlings (-2 lives)')", "msg": "and one of wave 2: both waves' leaks"}
+  ]
+}

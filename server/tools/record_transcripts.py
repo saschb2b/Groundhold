@@ -40,6 +40,10 @@ values back into the same bytes.
   m7_duel        Find a rival in Undertow: two duellists alone, MATCH_FOUND, both ACCEPT, MATCH_CONFIG
                  one a side (no Builder clash across the sides), RESULT with one outcome a side,
                  MATCH_END won and lost, and Play again: LEAVE_MATCH and QUEUE enter, queued again
+  m8_difficulty  the party's level (M8, protocol version 2): a member's PARTY difficulty refused, the
+                 leader's Hard (every Ready cleared), the Hard party queued beside a Normal one of the
+                 size that would fill the seats and never merged with it, the offer at 60 s and
+                 start_with_caretakers: MATCH_CONFIG at level 1
 
 The .bin format (all big-endian): "GHTX", u8 format (1), u16 protocol version,
 u8 clients, u32 records; then each record: u8 direction (0 game to server,
@@ -96,8 +100,9 @@ async def handshake(record):
         await tamsin.until("PONG")
         await tamsin.send_message("VISIBILITY", state=1)
         await tamsin.bye()
-        refusals = ((dict(name="Old", version=0, subprotocol="groundhold.v0"), 1),
-                    (dict(name="New", version=2, subprotocol="groundhold.v2"), 2),
+        older, newer = SPEC["version"] - 1, SPEC["version"] + 1
+        refusals = ((dict(name="Old", version=older, subprotocol=f"groundhold.v{older}"), 1),
+                    (dict(name="New", version=newer, subprotocol=f"groundhold.v{newer}"), 2),
                     (dict(name="bad<name>"), 3),
                     (dict(name="Zero", token=bytes(16)), 4))
         for hello, index in refusals:
@@ -433,6 +438,62 @@ async def duel(record):
     finally:
         await game.close()
     return 2
+
+
+async def difficulty(record):
+    clock = ManualClock()
+    game = server(clock=clock, **queue_options())
+    port = await game.start("127.0.0.1", 0)
+    tamsin, edda, ottilie, sefa = Client(record, 0), Client(record, 1), Client(record, 2), Client(record, 3)
+    hard, normal = (tamsin, edda), (ottilie, sefa)
+    levels, ops = SPEC["difficulties"], SPEC["queue_ops"]
+
+    async def pair(leader, member, names, tokens):
+        await leader.hello(port, names[0], token=tokens[0], build_seq=8, rules_hash=RULES)
+        await leader.send_message("PARTY", op="create", mode=MODE["high_water"])
+        code = (await leader.until("PARTY_STATE"))["code"]
+        await member.hello(port, names[1], token=tokens[1], build_seq=8, rules_hash=RULES)
+        await member.send_message("PARTY", op="join", code=code)
+        await each("PARTY_STATE", (leader, member))
+        await member.send_message("PARTY", op="ready", on=1)
+        await each("PARTY_STATE", (leader, member))
+
+    async def queued(leader, member):
+        await leader.send_message("PARTY", op="open", on=1)
+        await each("PARTY_STATE", (leader, member))
+        await leader.send_message("QUEUE", op=ops["enter"])
+        await each("PARTY_STATE", (leader, member))
+        await each("QUEUE_STATE", (leader, member))
+
+    try:
+        await pair(tamsin, edda, ("Tamsin", "Edda"), (TAMSIN, EDDA))
+        # (a member's level: refused, the party as it is to her alone)
+        await edda.send_message("PARTY", op="difficulty", difficulty=levels["hard"])
+        await edda.until("PARTY_STATE")
+        # (the leader's Hard: to both, Edda's Ready cleared; she says it again)
+        await tamsin.send_message("PARTY", op="difficulty", difficulty=levels["hard"])
+        await each("PARTY_STATE", hard)
+        await edda.send_message("PARTY", op="ready", on=1)
+        await each("PARTY_STATE", hard)
+        await queued(tamsin, edda)
+        await clock.advance(2000)
+        # (Ottilie and Sefa at Normal: two more would fill the four seats, but the level is the
+        # queue's key with the mode and the rules hash, so no Match Found comes)
+        await pair(ottilie, sefa, ("Ottilie", "Sefa"), (OTTILIE, SEFA))
+        await queued(ottilie, sefa)
+        await clock.advance(SPEC["caretaker_offer_ms"] - 2000)
+        # (the Hard party's offer at 60 s, and its caretakers: the match at Hard, level 1)
+        await each("NOTICE", hard)
+        await each("QUEUE_STATE", hard)
+        await tamsin.send_message("QUEUE", op=ops["start_with_caretakers"])
+        await each("PARTY_STATE", hard)
+        await each("MATCH_CONFIG", hard)
+        await each("LOAD_STATE", hard)
+        for client in hard + normal:
+            await client.bye()
+    finally:
+        await game.close()
+    return 4
 
 
 async def each(name, clients, skip=()):
@@ -774,7 +835,8 @@ def codec_records():
                 for seq, spec in enumerate(SPEC["commands"].values(), start=1)]
     party = [dict(op="create", mode=1), dict(op="join", code=b"K7Q4M"), dict(op="leave"), dict(op="remove", member=2),
              dict(op="mode", mode=2), dict(op="builders", main=0, backup=1), dict(op="ready", on=1),
-             dict(op="team", member=3, team=1), dict(op="open", on=1), dict(op="start"), dict(op="cancel")]
+             dict(op="team", member=3, team=1), dict(op="open", on=1), dict(op="start"), dict(op="cancel"),
+             dict(op="difficulty", difficulty=2)]
     member = dict(member=0, team=0, main=0, backup=1, state=1, rtt_ms=38, build_seq=7, rules_hash=rules, name="Tamsin")
     seats = [dict(seat=i, team=i // 2, builder=i, flags=1 if i == 3 else 0, name=name)
              for i, name in enumerate(("Tamsin", "Edda", "Ottilie", "Sefa"))]
@@ -782,7 +844,7 @@ def codec_records():
               for i, (name, spec) in enumerate(SPEC["system_commands"].items())]
     stamped = [dict(seat=1, seq=c["seq"], type=c["type"], a=c["a"], b=c["b"], c=c["c"]) for c in commands]
     records = [
-        ("HELLO", dict(version=1, build_seq=0xffffffff, rules_hash=rules, token=token, flags=3, name="Tamsin Wick",
+        ("HELLO", dict(version=SPEC["version"], build_seq=0xffffffff, rules_hash=rules, token=token, flags=3, name="Tamsin Wick",
                        match=9, seat=2)),
         ("WELCOME", dict(session=1, identity=identity, turn_ms=50, turn_ticks=3, hash_every=60, flags=2,
                          server_name="Groundhold", motd="Hüte den Grund bis zur Ebbe")),
@@ -792,15 +854,15 @@ def codec_records():
         ("NOTICE", dict(code=7, argument=255)),
         ("BYE", {}),
         *[("PARTY", op) for op in party],
-        ("PARTY_STATE", dict(code=b"K7Q4M", mode=1, flags=1, leader=0, you=1, phase=1, countdown_ms=3000,
+        ("PARTY_STATE", dict(code=b"K7Q4M", mode=1, difficulty=1, flags=1, leader=0, you=1, phase=1, countdown_ms=3000,
                              members=[member, dict(member, member=1, team=0, main=1, backup=0, state=3, rtt_ms=0,
                                                    build_seq=6, rules_hash=bytes(8), name="Edda")])),
         *[("QUEUE", dict(op=value)) for value in SPEC["queue_ops"].values()],
         ("QUEUE_STATE", dict(state=2, elapsed_ms=61000, caretaker_offer=1)),
         ("MATCH_FOUND", dict(match=9, mode=2, seats=4, accepted=3, ms_left=15000)),
         ("ACCEPT", dict(match=9, yes=1)),
-        ("MATCH_CONFIG", dict(match=9, mode=2, map=0, seed=0xdeadbeef, rules_hash=rules, your_seat=2, seats=seats,
-                              flags=1)),
+        ("MATCH_CONFIG", dict(match=9, mode=2, difficulty=2, map=0, seed=0xdeadbeef, rules_hash=rules, your_seat=2,
+                              seats=seats, flags=1)),
         ("LOADING", dict(per_mille=750)),
         ("LOAD_STATE", dict(seats=[dict(seat=i, per_mille=pm, state=state) for i, (pm, state) in
                                    enumerate(((1000, 3), (1000, 2), (420, 1), (0, 4)))], seconds=16)),
@@ -926,7 +988,13 @@ async def record_all(directory):
              "Find a rival in Undertow (M7): Tamsin and Edda, two Lamplighters alone, MATCH_FOUND (two seats), "
              "both ACCEPT, MATCH_CONFIG one a side with both mains kept (a duel's sides never clash), the "
              "barrier, two turns, RESULT with one outcome a side and MATCH_END won to Tamsin and lost to Edda, "
-             "the results plates, and Tamsin's Play again: LEAVE_MATCH, then QUEUE enter, queued again.")):
+             "the results plates, and Tamsin's Play again: LEAVE_MATCH, then QUEUE enter, queued again."),
+            ("m8_difficulty", difficulty,
+             "The party's level (M8, protocol version 2): Tamsin's party, Edda Ready; Edda's PARTY difficulty "
+             "refused (the party as it is, to her alone); Tamsin's Hard to both, Edda's Ready cleared and said "
+             "again; open seats and QUEUE enter at Hard; Ottilie and Sefa's party queued at Normal, two that "
+             "would fill the four seats, never merged with it (the level is the queue's key); the Hard party's "
+             "offer at 60 s and start_with_caretakers: MATCH_CONFIG at difficulty 1 with two caretakers.")):
         records = Listed() if name == "m4_resilience" else []
         clients = await script(records)
         write(directory, name, records, clients, note)

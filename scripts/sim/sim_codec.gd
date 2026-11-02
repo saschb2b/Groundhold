@@ -111,15 +111,105 @@ static func encode(m: SimMatch) -> PackedByteArray:
 		b.put_32(s.slow_pm)
 		b.put_32(s.slow_t)
 		b.put_32(s.pierce_c)
+	var m8 := _m8_needed(m)
 	var m6 := _m6_parts(m)
-	if m.duel and m6.is_empty():
-		m6 = [PackedInt32Array(), PackedInt32Array()]  # (M6's block, empty, before M7's)
+	if (m.duel or m8) and m6.is_empty():
+		m6 = [PackedInt32Array(), PackedInt32Array()]  # (M6's block, empty, before M7's or M8's)
 	_encode_m2(b, m, not m6.is_empty())
 	if not m6.is_empty():
 		_encode_m6(b, m, m6)
 	if m.duel:
 		_encode_m7(b, m)
+	if m8:
+		_encode_m8(b, m)
 	return b.data_array
+
+
+## (M8, contract-m8 §2) Whether the match holds what the M1 to M7 records cannot say: a level
+## other than Normal, a hollow whose waves cleared are not what its phase and wave say
+## (SimWaves.default_cleared: two waves on its road, say), a creep of another wave than its
+## hollow's newest (SimWaves.default_wave), an older wave's spawns still to come beside the
+## newest's (SimHollow.behind), or a race's kills of a stacked wave. Only then does the M8
+## block follow, so classic, and every Normal match nobody stacked in, keeps its bytes and
+## its state hashes.
+static func _m8_needed(m: SimMatch) -> bool:
+	if m.level != 0:
+		return true
+	for h in m.hollows:
+		if h.cleared != SimWaves.default_cleared(m, h) or not h.behind.is_empty():
+			return true
+	for c in m.creeps:
+		if c.wave != SimWaves.default_wave(m.hollows[c.hollow]):
+			return true
+	for t in m.teams:
+		if not t.stack_kills.is_empty():
+			return true
+	return false
+
+
+## M8's fields follow M7's block in a duel and M6's in any other match (written then even
+## when it holds nothing): the level (its DIFFICULTY_IDS index), each hollow's waves
+## cleared and the older waves' spawns it has still to send ([kind, wave, tick] each), the
+## creeps whose wave is not their hollow's newest (by index in `creeps`, with their wave),
+## and each team's kills of the younger waves on its road.
+static func _encode_m8(b: StreamPeerBuffer, m: SimMatch) -> void:
+	b.put_u8(m.level)
+	for h in m.hollows:
+		b.put_u16(h.cleared)
+		b.put_u16(h.behind.size() / 3)
+		var k := 0
+		while k < h.behind.size():
+			b.put_u8(h.behind[k])
+			b.put_u16(h.behind[k + 1])
+			b.put_u32(h.behind[k + 2])
+			k += 3
+	var odd := PackedInt32Array()
+	for i in m.creeps.size():
+		var c := m.creeps[i]
+		if c.wave != SimWaves.default_wave(m.hollows[c.hollow]):
+			odd.append(i)
+	b.put_u16(odd.size())
+	for i in odd:
+		b.put_u16(i)
+		b.put_u16(m.creeps[i].wave)
+	for t in m.teams:
+		b.put_u8(t.stack_kills.size())
+		for v in t.stack_kills:
+			b.put_u32(v)
+
+
+## Reads the M8 block where one follows, else gives every hollow and creep the waves the
+## records before it say; then holds the level the bytes were made at to the rules' (an M8
+## block's, or Normal without one). False when they differ.
+static func _decode_m8(b: StreamPeerBuffer, m: SimMatch) -> bool:
+	for h in m.hollows:
+		h.cleared = SimWaves.default_cleared(m, h)
+		h.behind = PackedInt32Array()
+	for c in m.creeps:
+		c.wave = SimWaves.default_wave(m.hollows[c.hollow])
+	var stored := 0
+	if b.get_position() < b.get_size():
+		stored = b.get_u8()
+		for h in m.hollows:
+			h.cleared = b.get_u16()
+			for k in b.get_u16():
+				h.behind.append(b.get_u8())
+				h.behind.append(b.get_u16())
+				h.behind.append(b.get_u32())
+		var odd_count := b.get_u16()
+		for k in odd_count:
+			var c := m.creeps[b.get_u16()]
+			c.wave = b.get_u16()
+		for t in m.teams:
+			var n := b.get_u8()
+			t.stack_kills = PackedInt32Array()
+			for k in n:
+				t.stack_kills.append(b.get_u32())
+	if stored != m.level:
+		var asked: String = m.rules.get("difficulty", "normal")
+		push_error("checkpoint is of level %d, the rules' %d (%s)" % [stored, m.level, asked])
+		return false
+	return true
 
 
 ## M2's fields (an Owl's Eye's marked creeps, a bouncing strike's chain, the slows
@@ -225,7 +315,8 @@ static func _encode_m6(b: StreamPeerBuffer, m: SimMatch, parts: Array) -> void:
 ## teams' breach dealt and the decision; the Drift's window, the packs it left out and
 ## those it offers; the latest horn; each seat's stipend and Seawall; each hollow's
 ## uncorked creeps still to come; every bottle, by id, with its commitment (never a pack
-## before its reveal: a corked bottle's pack is -1).
+## before its reveal: a corked bottle's pack is -1); (the sends' pass) each team's creeps
+## through by check.
 static func _encode_m7(b: StreamPeerBuffer, m: SimMatch) -> void:
 	for t in m.teams:
 		b.put_u32(t.breach_dealt)
@@ -264,6 +355,10 @@ static func _encode_m7(b: StreamPeerBuffer, m: SimMatch) -> void:
 		b.put_u32(bottle.price)
 		b.put_8(bottle.pack)
 		b.put_u8((1 if bottle.uncorked else 0) | (2 if bottle.fizzled else 0))
+	for t in m.teams:
+		b.put_u8(t.leaked.size())
+		for v in t.leaked:
+			b.put_u16(v)
 
 
 static func _decode_m7(b: StreamPeerBuffer, m: SimMatch) -> void:
@@ -310,6 +405,11 @@ static func _decode_m7(b: StreamPeerBuffer, m: SimMatch) -> void:
 		bottle.uncorked = (flags & 1) != 0
 		bottle.fizzled = (flags & 2) != 0
 		m.bottle_list.append(bottle)
+	for t in m.teams:
+		var leak_count := b.get_u8()
+		t.leaked = PackedInt32Array()
+		for k in leak_count:
+			t.leaked.append(b.get_u16())
 
 
 static func _decode_m6(b: StreamPeerBuffer, m: SimMatch) -> void:
@@ -492,5 +592,7 @@ static func decode(bytes: PackedByteArray, rules: Dictionary, text := "") -> Sim
 	_decode_m2(b, m)
 	_decode_m6(b, m)
 	_decode_m7(b, m)
+	if not _decode_m8(b, m):
+		return null
 	m.reindex()
 	return m

@@ -1,6 +1,6 @@
 {
   "name": "toll_pulse_hits_all_ground",
-  "description": "A pulse has no shot (contract-m6 3): every 2.4 s the Toll Tower strikes every ground creep within its 2.2 tiles at once, through the armour rule, and stuns each; a Duskmoth inside its reach and a Gourdling beyond it are untouched. Its patch branch, the Sky Toll, reaches 2.4 tiles and fliers too: a Duskmoth takes its 9 with the branch's air bonus and is slowed 50% for 2 s instead of stunned, while the ground creeps are stunned as before. Each ring is one EV_PULSE at the tower's cell centre; the creeps it struck come as EV_HIT from no shot (0).",
+  "description": "A pulse has no shot (contract-m6 3): every 2.4 s the Toll Tower strikes every ground creep within its 2.2 tiles at once, through the armour rule, and stuns each; a Duskmoth inside its reach and a Gourdling beyond it are untouched. Its patch branch, the Sky Toll, reaches 2.4 tiles and fliers too: a Duskmoth takes its 9 with the branch's air bonus and is slowed 33% for 2 s instead of stunned, while the ground creeps are stunned as before. Each ring is one EV_PULSE at the tower's cell centre; the creeps it struck come as EV_HIT from no shot (0).",
   "scene": "res://tests/sim/sim_harness.tscn",
   "seed": 1,
   "timeout_frames": 60,
@@ -21,13 +21,13 @@
     {"assert": "scene.events_where('HIT', {'creep': c[3]}).is_empty() and scene.events_where('HIT', {'creep': c[4]}).is_empty() and scene.creep(c[3]).slow_pm == 0", "msg": "the Duskmoth in reach and the Gourdling beyond it are untouched"},
     {"eval": "scene.cmd(1, 'FORK', toll.id, 1)"},
     {"eval": "scene.run_ticks(6)"},
-    {"assert": "toll.branch == 1 and toll.air and toll.range_mm == 2400 and toll.air_slow_pm == 500 and toll.air_slow_t == 120 and toll.air_bonus_pm == 800", "msg": "the Sky Toll reaches 2.4 tiles and the sky"},
+    {"assert": "toll.branch == 1 and toll.air and toll.range_mm == 2400 and toll.air_slow_pm == 330 and toll.air_slow_t == 120 and toll.air_bonus_pm == 1600", "msg": "the Sky Toll reaches 2.4 tiles and the sky"},
     {"eval": "scene.run_to(p[0]['tick'] + 145)"},
     {"eval": "scene.pulses(toll.id)", "as": "p2"},
     {"assert": "p2.size() == 2 and p2[1]['tick'] == p[0]['tick'] + 144 and p2[1]['form'] == 'sky_toll'", "msg": "it rings again 2.4 s after the first"},
     {"eval": "scene.rows('HIT', ['creep', 'dmg', 'raw'], {'tower': toll.id, 'tick': p2[1]['tick']})", "as": "struck2"},
-    {"assert": "struck2.has([c[3], 1620, 1620]) and struck2.size() == 4", "msg": "now the Duskmoth is struck too, its 9 grown by the 80% air bonus"},
-    {"assert": "scene.creep(c[3]).slow_pm == 500 and scene.creep(c[3]).slow_until == p2[1]['tick'] + 120 and scene.creep(c[3]).stun_until == 0", "msg": "the flier is slowed 50% for 2 s, not stunned"},
+    {"assert": "struck2.has([c[3], 2340, 2340]) and struck2.size() == 4", "msg": "now the Duskmoth is struck too, its 9 grown by the 160% air bonus (80% before M8's fork pass): 23.4"},
+    {"assert": "scene.creep(c[3]).slow_pm == 330 and scene.creep(c[3]).slow_until == p2[1]['tick'] + 120 and scene.creep(c[3]).stun_until == 0", "msg": "the flier is slowed 33% for 2 s (50% before M8's fork pass), not stunned"},
     {"assert": "scene.creep(c[1]).stun_until == p2[1]['tick'] + 36 and scene.status_amounts(c[1], 2) == [1000]", "msg": "the ground creeps are stunned again"},
     {"assert": "scene.events_where('HIT', {'creep': c[4]}).is_empty()", "msg": "and the far Gourdling is still out of reach"}
   ]

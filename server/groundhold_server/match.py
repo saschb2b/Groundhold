@@ -216,10 +216,12 @@ class Match:
     def __init__(self, server, match_id, mode, seed, rules_hash, players, clock,
                  start_delay_ms=SPEC["start_delay_ms"], loading_min_ms=SPEC["loading_min_ms"],
                  match_cap_ms=SPEC["match_cap_ms"], output_cap=SPEC["output_cap"], observer=None,
-                 turn_ms=SPEC["turn_ms"], seats=None, party=None, parties=None):
+                 turn_ms=SPEC["turn_ms"], seats=None, party=None, parties=None, level=protocol.NORMAL):
         from .lobby import Barrier     # (lobby.py forms matches: imported here, not at the top)
         self.server, self.id, self.mode, self.seed, self.rules_hash = server, match_id, mode, seed, rules_hash
         self.spec = SPEC["modes"][mode]
+        # (M8: the level it plays, MATCH_CONFIG's difficulty; Normal in a mode without levels)
+        self.level = protocol.level_of(mode, level)
         self.clock = clock
         self.start_delay_ms, self.loading_min_ms, self.output_cap = start_delay_ms, loading_min_ms, output_cap
         # (turn_ms differs from the protocol's only in a dev match: --turn-ms)
@@ -283,13 +285,14 @@ class Match:
             self.write(seat, self.config(seat, 0))
         self.broadcast(self.load_state())
         self.task = asyncio.create_task(self.run())
-        self.server.event("match", match=self.id, mode=self.mode, seats=len(self.seats), seed=self.seed)
+        self.server.event("match", match=self.id, mode=self.mode, level=protocol.DIFFICULTY_NAMES[self.level],
+                          seats=len(self.seats), seed=self.seed)
 
     def config(self, seat, flags):
-        """MATCH_CONFIG for `seat`, the match as it began."""
-        return protocol.encode("MATCH_CONFIG", match=self.id, mode=self.spec["id"], map=SPEC["maps"]["hollow"],
-                               seed=self.seed, rules_hash=self.rules_hash, your_seat=seat.index,
-                               seats=self.config_seats, flags=flags)
+        """MATCH_CONFIG for `seat`, the match as it began (a rejoin's too: its own level)."""
+        return protocol.encode("MATCH_CONFIG", match=self.id, mode=self.spec["id"], difficulty=self.level,
+                               map=SPEC["maps"]["hollow"], seed=self.seed, rules_hash=self.rules_hash,
+                               your_seat=seat.index, seats=self.config_seats, flags=flags)
 
     def current_turn(self):
         """The open turn, as PONG says it (0 before turn 0 opens)."""
@@ -548,8 +551,16 @@ class Match:
                 self.cared(seat)
         self.broadcast(protocol.encode("START", ms_until_turn0=self.start_delay_ms))
         self.server.event("start", match=self.id, mode=self.mode)
-        self.server.daily.tally("started", self.mode)
+        self.server.daily.tally("started", self.tallied())
         self.server.lobby.started(self)
+
+    def tallied(self):
+        """The match's key in /stats' started and finished: its mode, and at a level other
+        than Normal the mode and the level ("high_water:hard"), so a Normal match counts
+        as every match did before M8."""
+        if self.level == protocol.NORMAL:
+            return self.mode
+        return f"{self.mode}:{protocol.DIFFICULTY_NAMES[self.level]}"
 
     def cared(self, seat):
         """The caretaker took `seat`: counted once a match (/stats)."""
@@ -1036,7 +1047,7 @@ class Match:
             player.match, player.after_match = None, True
             self.finishers.append(player)
         if reason == "result":
-            self.server.daily.tally("finished", self.mode)
+            self.server.daily.tally("finished", self.tallied())
         elif reason == "desync":
             self.server.daily.count("desyncs")
         self.server.ended(self)

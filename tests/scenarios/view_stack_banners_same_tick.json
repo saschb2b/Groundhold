@@ -1,0 +1,30 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "view_stack_banners_same_tick",
+  "description": "Waves that clear on one tick share one banner (M8, design 2.7 and 5.7): wave 2 called at once in wave 1 walks with it, every creep of both held at the Welling until both have set out, then every one sent to the Holdfast together, so stage 7 clears wave 1 and wave 2 back to back. The banner says both, their bonuses summed and the lives both waves' creeps took ('Waves 1–2 cleared · 28 lives lost · +22 gold'), not only the younger's with none lost; the gold went up by both bonuses, and the window opens.",
+  "seed": 1,
+  "timeout_frames": 3000,
+  "watch": {"hash": "scene.state_hash_hex()"},
+  "steps": [
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"set": "Game.lives", "value": 200},
+    {"set": "Game.countdown", "value": 0.1},
+    {"wait_until": "Game.state == 1 and Game.wave == 1", "timeout": 120},
+    {"key": "D"},
+    {"key": "D"},
+    {"wait_until": "Game.wave == 2", "timeout": 30},
+    {"repeat": 400, "steps": [{"eval": "resource('res://tests/ui/stack_stage.gd').stop_all(0)"}, {"wait": 4}], "until": "Game.spawns_left() == 0"},
+    {"eval": "resource('res://tests/ui/stack_stage.gd').stop_all(0)"},
+    {"wait": 2},
+    {"assert": "Game.waves_on_road() == PackedInt32Array([1, 2]) and Game.spawns_left() == 0 and Game.lives == 200", "msg": "both waves have set out, every creep held on the road"},
+    {"eval": "Game.gold", "as": "gold_before"},
+    {"eval": "resource('res://tests/ui/stack_stage.gd').leak_all(0)", "as": "sent"},
+    {"wait_until": "Game.state == 0", "timeout": 10},
+    {"wait": 1},
+    {"assert": "sent > 10 and Game.wave == 2 and Game.gold - gold_before == 22", "msg": "both cleared on one tick, each paying its own bonus (10 and 12)"},
+    {"assert": "scene.leaks_in(1).get('lives', 0) > 0 and scene.leaks_in(2).get('lives', 0) > 0 and 200 - Game.lives == scene.leaks_in(1)['lives'] + scene.leaks_in(2)['lives']", "msg": "every creep of both waves got through"},
+    {"assert": "node('BannerTitle').text == 'Waves 1–2 cleared · %d lives lost · +22 gold' % (200 - Game.lives)", "msg": "one banner says both waves, both bonuses and the lives both took"},
+    {"capture": "stack_both_cleared_banner"}
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "sent_creeps_come_stronger",
+  "description": "A sent creep is stronger than the wave's own (the owner's decision of 2 November 2026, as a mercenary is; the duel's send_hp_pm, contract-m7 §2): seat 1 uncorks the Gourd Rush in wave 2, and each of its Gourdlings on seat 2's road has its pack's premium (the duel's pack_hp_pm for the swarm pack, send_hp_pm where a pack has none of its own, the packs' matrix) per mille of the health wave 2's own Gourdlings have there, which is a Gourdling's at wave 2's growth. The pack is the tier's count from PACKS.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1})"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"eval": "int(m.rules['duel'].get('pack_hp_pm', {}).get('swarm', m.rules['duel']['send_hp_pm']))", "as": "premium"},
+    {"assert": "premium > 1000", "msg": "the preset names a premium"},
+    {"eval": "[scene.debug(1, 1, 1000), scene.debug(1, 2, 3000)]"},
+    {"eval": "scene.duel_to_window(2)"},
+    {"eval": "scene.cork(1, 0, 40, 41)"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_to_horn()", "as": "horn"},
+    {"eval": "scene.first_spawn_hp('gourdling', horn, 1)", "as": "own"},
+    {"eval": "scene.run_to(horn + 180)"},
+    {"eval": "scene.uncork(1, 0, 40, 41)"},
+    {"eval": "scene.run_ticks(4)"},
+    {"eval": "scene.sent_by(1)", "as": "sent"},
+    {"assert": "own == 2400 * 1250 / 1000", "msg": "wave 2's own Gourdling: 24 health, a quarter grown"},
+    {"assert": "sent.size() >= 1 and int(scene.spawned_hp[int(sent[0]['id'])]) == own * premium / 1000", "msg": "the sent one has the premium on top"},
+    {"eval": "scene.run_to_window()"},
+    {"assert": "scene.sent_by(1).size() == int(resource('res://scripts/sim/content.gd').PACKS['hollow']['swarm']['counts'][0])", "msg": "the pack is the tier's count"}
+  ]
+}

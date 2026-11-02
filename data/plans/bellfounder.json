@@ -1,6 +1,7 @@
 {
   "builder": "bellfounder",
-  "about": "The Bellfounder on Wickhollow (High Water and Tide Race): Clapper Towers where the road turns back on itself, on the right-hand bend and the lower-left turn, Toll Towers beside them to stun what walks into their reach, then Great Clappers along the band between the two lower stretches; Sky Tolls for the sky and a Ringing Clapper for swarms while the team lacks them (patch), Great Tolls and Great Clappers otherwise; a Chime Post by the lower-left Clappers. Her towers stand clear of the Beekeeper's, her complementary partner. She shares five build cells with the Lamplighter's plan on the lower stretches and two with the Lookout's: beside either, whoever builds a shared cell first keeps it, and the other takes the step's alt cell or skips the step (bot_wins_lamplighter_bellfounder, bot_wins_lookout_bellfounder). Alt cells let a second Bellfounder play the same plan beside the first.",
+  "about": "The Bellfounder on Wickhollow (High Water and Tide Race): Clapper Towers where the road turns back on itself, on the right-hand bend and the lower-left turn, Toll Towers beside them to stun what walks into their reach, then Great Clappers along the band between the two lower stretches; Sky Tolls for the sky and a Ringing Clapper for swarms while the team lacks them (patch), Great Tolls and Great Clappers otherwise; a Chime Post by the lower-left Clappers. Her towers stand clear of the Beekeeper's, her complementary partner. She shares five build cells with the Lamplighter's plan on the lower stretches and two with the Lookout's: beside either, whoever builds a shared cell first keeps it, and the other takes the step's alt cell or skips the step (bot_wins_lamplighter_bellfounder, bot_wins_lookout_bellfounder). Alt cells let a second Bellfounder play the same plan beside the first. Since M8's fork pass her fourth Clapper and its Great Clapper come before her third Toll Tower, which Hard's Crest needs.",
+  "stack": [4],
   "steps": [
     {"build": "clapper_tower", "cell": [13, 8], "alt": [[14, 7]]},
     {"build": "clapper_tower", "cell": [5, 12], "alt": [[5, 11]]},
@@ -12,10 +13,10 @@
     {"fork": "a", "cell": [5, 12], "alt": [[5, 11]]},
     {"build": "clapper_tower", "cell": [12, 11], "alt": [[12, 12]]},
     {"fork": "a", "cell": [12, 11], "alt": [[12, 12]]},
-    {"build": "toll_tower", "cell": [13, 12], "alt": [[14, 11]]},
-    {"fork": "b", "cell": [13, 12], "alt": [[14, 11]], "patch": "winged"},
     {"build": "clapper_tower", "cell": [8, 11], "alt": [[8, 12]]},
     {"fork": "a", "cell": [8, 11], "alt": [[8, 12]]},
+    {"build": "toll_tower", "cell": [13, 12], "alt": [[14, 11]]},
+    {"fork": "b", "cell": [13, 12], "alt": [[14, 11]], "patch": "winged"},
     {"build": "clapper_tower", "cell": [6, 12], "alt": [[7, 12]]},
     {"fork": "b", "cell": [6, 12], "alt": [[7, 12]], "patch": "swarm"},
     {"build": "clapper_tower", "cell": [10, 12], "alt": [[11, 12]]},

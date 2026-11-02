@@ -1,7 +1,7 @@
 {
  "transcript": "m1_codec",
  "format": 1,
- "protocol": 1,
+ "protocol": 2,
  "clients": 1,
  "note": "Every message once with canonical values, as server/groundhold_server/protocol.py encodes it.",
  "records": [
@@ -10,7 +10,7 @@
    "client": 0,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 4294967295,
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
@@ -182,12 +182,22 @@
    }
   },
   {
+   "dir": "c2s",
+   "client": 0,
+   "type": "PARTY",
+   "fields": {
+    "op": "difficulty",
+    "difficulty": 2
+   }
+  },
+  {
    "dir": "s2c",
    "client": 0,
    "type": "PARTY_STATE",
    "fields": {
     "code": "4b3751344d",
     "mode": 1,
+    "difficulty": 1,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -281,6 +291,7 @@
    "fields": {
     "match": 9,
     "mode": 2,
+    "difficulty": 2,
     "map": 0,
     "seed": 3735928559,
     "rules_hash": "47726f756e646831",

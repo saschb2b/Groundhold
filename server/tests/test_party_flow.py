@@ -1,14 +1,18 @@
 """A party's rules on the real server (docs/design/core-loop.md §5.2, §6.10,
 §7.3 test_party_flow): create and join, Ready, the 3 s countdown and its
 cancel, leader handover, a mode change clears Ready, removal, a full party,
-"needs to reload", teams in a Race, the refusals and the limits."""
+"needs to reload", teams in a Race, the refusals and the limits; and the
+party's level (M8, contract-m8.md §3 and §5): the leader's PARTY difficulty,
+every Ready cleared and a countdown stopped, a member's and a queued party's
+refused, the level kept through a mode change and played in MATCH_CONFIG."""
 
 import unittest
 
-from support import (BUILDERS, MEMBER, MODES, NOTICES, PHASES, RULES, HubTest, party, state, states)
+from support import (BUILDERS, MEMBER, MODES, NOTICES, PHASES, RULES, HubTest, party, state, states, until)
 from groundhold_server.protocol import SPEC
 
 ERRORS = SPEC["errors"]
+LEVELS = SPEC["difficulties"]
 
 
 class PartyFlowTests(HubTest, unittest.IsolatedAsyncioTestCase):
@@ -241,7 +245,8 @@ class PartyFlowTests(HubTest, unittest.IsolatedAsyncioTestCase):
     async def test_a_party_op_outside_its_limits_ends_the_connection(self):
         await self.start()
         for op, fields in (("create", dict(mode=9)), ("builders", dict(main=4, backup=0)), ("ready", dict(on=2)),
-                           ("team", dict(member=0, team=2)), ("remove", dict(member=4)), ("open", dict(on=7))):
+                           ("team", dict(member=0, team=2)), ("remove", dict(member=4)), ("open", dict(on=7)),
+                           ("difficulty", dict(difficulty=len(SPEC["difficulties"])))):
             client = await self.join("Tamsin", 1)
             await party(client, "create", mode=MODES["classic"])
             await state(client)
@@ -252,10 +257,11 @@ class PartyFlowTests(HubTest, unittest.IsolatedAsyncioTestCase):
     async def test_ops_without_a_party_answer_with_no_party(self):
         await self.start()
         client = await self.join("Tamsin", 1)
-        for op, fields in (("leave", {}), ("ready", dict(on=1)), ("start", {}), ("cancel", {})):
+        for op, fields in (("leave", {}), ("ready", dict(on=1)), ("start", {}), ("cancel", {}),
+                           ("difficulty", dict(difficulty=LEVELS["hard"]))):
             await party(client, op, **fields)
             alone = await state(client)
-            self.assertEqual((alone["code"], alone["members"]), (bytes(5), []), op)
+            self.assertEqual((alone["code"], alone["members"], alone["difficulty"]), (bytes(5), [], 0), op)
 
     async def test_create_while_in_a_party_moves_to_the_new_one(self):
         await self.start()
@@ -271,6 +277,106 @@ class PartyFlowTests(HubTest, unittest.IsolatedAsyncioTestCase):
         client = await self.join("Tamsin", 1)
         await party(client, "create", mode=MODES["classic"])
         self.assertEqual((await client.until("ERROR"))["code"], ERRORS["protocol"])
+
+
+class DifficultyTests(HubTest, unittest.IsolatedAsyncioTestCase):
+    """The party's level (M8): Normal, Hard or Very Hard, the leader's to pick like the mode."""
+
+    async def test_a_new_party_is_at_normal_and_the_leaders_pick_reaches_everyone(self):
+        await self.start()
+        (tamsin, edda, ottilie), _ = await self.party_of("Tamsin", "Edda", "Ottilie")
+        self.assertEqual(self.server.lobby.parties[next(iter(self.server.lobby.parties))].difficulty, LEVELS["normal"])
+        await self.ready_all((tamsin, edda, ottilie))
+        await party(tamsin, "difficulty", difficulty=LEVELS["hard"])
+        seen = await self.everyone((tamsin, edda, ottilie))
+        self.assertEqual({s["difficulty"] for s in seen}, {LEVELS["hard"]})
+        # (a change clears every Ready, as a mode change does)
+        self.assertEqual(set(states(seen[0]).values()), {MEMBER["here"]})
+        await party(tamsin, "difficulty", difficulty=LEVELS["very_hard"])
+        self.assertEqual((await self.everyone((tamsin, edda, ottilie)))[2]["difficulty"], LEVELS["very_hard"])
+
+    async def test_a_members_pick_or_the_level_it_has_is_answered_to_the_asker_alone(self):
+        await self.start()
+        (tamsin, edda), _ = await self.party_of("Tamsin", "Edda")
+        await self.ready_all((tamsin, edda))
+        await party(edda, "difficulty", difficulty=LEVELS["hard"])
+        refused = await state(edda)
+        self.assertEqual((refused["difficulty"], states(refused)["Edda"]), (LEVELS["normal"], MEMBER["ready"]))
+        self.assertTrue(await tamsin.quiet())
+        # (the level the party already has is no change: nothing cleared, nobody else told)
+        await party(tamsin, "difficulty", difficulty=LEVELS["normal"])
+        same = await state(tamsin)
+        self.assertEqual((same["difficulty"], states(same)["Edda"]), (LEVELS["normal"], MEMBER["ready"]))
+        self.assertTrue(await edda.quiet())
+
+    async def test_a_level_change_stops_the_countdown(self):
+        await self.start()
+        (tamsin, edda), _ = await self.party_of("Tamsin", "Edda")
+        await self.ready_all((tamsin, edda))
+        await party(tamsin, "start")
+        self.assertEqual((await self.everyone((tamsin, edda)))[0]["phase"], PHASES["countdown"])
+        await self.clock.advance(1000)
+        await party(tamsin, "difficulty", difficulty=LEVELS["hard"])
+        stopped = await self.everyone((tamsin, edda))
+        self.assertEqual((stopped[0]["phase"], stopped[0]["countdown_ms"], stopped[0]["difficulty"]),
+                         (PHASES["forming"], 0, LEVELS["hard"]))
+        await self.clock.advance(5000)
+        self.assertFalse(self.server.matches)
+
+    async def test_the_party_keeps_its_level_through_a_mode_change_and_plays_it(self):
+        await self.start()
+        (tamsin, edda), _ = await self.party_of("Tamsin", "Edda")
+        await party(tamsin, "difficulty", difficulty=LEVELS["hard"])
+        await self.everyone((tamsin, edda))
+        # (a duel plays Normal: the party keeps Hard for the next mode that takes a level)
+        await party(tamsin, "mode", mode=MODES["undertow"])
+        duel = await self.everyone((tamsin, edda))
+        self.assertEqual((duel[0]["mode"], duel[0]["difficulty"]), (MODES["undertow"], LEVELS["hard"]))
+        await self.ready_all((tamsin, edda))
+        configs = await self.to_loading((tamsin, edda))
+        self.assertEqual({(c["mode"], c["difficulty"]) for c in configs}, {(MODES["undertow"], LEVELS["normal"])})
+
+    async def test_match_config_carries_the_partys_level(self):
+        await self.start()
+        for mode, level, played in (("high_water", "hard", "hard"), ("tide_race", "very_hard", "very_hard"),
+                                    ("classic", "very_hard", "normal")):
+            clients, _ = await self.party_of("Tamsin", "Edda", mode=mode)
+            if mode == "tide_race":
+                await party(clients[0], "team", member=1, team=1)
+                await self.everyone(clients)
+            await party(clients[0], "difficulty", difficulty=LEVELS[level])
+            await self.everyone(clients)
+            await self.ready_all(clients)
+            configs = await self.to_loading(clients)
+            self.assertEqual({c["difficulty"] for c in configs}, {LEVELS[played]}, mode)
+            self.assertEqual(self.match().level, LEVELS[played])
+            for client in clients:
+                await client.bye()
+            await until(lambda: not self.server.matches)
+
+    async def test_refused_while_queued_loading_or_in_a_match(self):
+        await self.start()
+        (tamsin, edda), code = await self.party_of("Tamsin", "Edda")
+        await party(tamsin, "open", on=1)
+        await self.everyone((tamsin, edda))
+        await self.ready_all((tamsin, edda))
+        await tamsin.send_message("QUEUE", op=SPEC["queue_ops"]["enter"])
+        await tamsin.until("QUEUE_STATE", skip=("PARTY_STATE",))
+        await edda.until("QUEUE_STATE", skip=("PARTY_STATE",))
+        await party(tamsin, "difficulty", difficulty=LEVELS["hard"])
+        queued = await state(tamsin)
+        self.assertEqual((queued["phase"], queued["difficulty"]), (PHASES["queued"], LEVELS["normal"]))
+        self.assertTrue(await edda.quiet())
+        await tamsin.send_message("QUEUE", op=SPEC["queue_ops"]["leave"])
+        await tamsin.until("PARTY_STATE", skip=("QUEUE_STATE",))
+        await edda.until("PARTY_STATE", skip=("QUEUE_STATE",))
+        await self.ready_all((tamsin, edda))
+        await self.to_loading((tamsin, edda))
+        await party(tamsin, "difficulty", difficulty=LEVELS["hard"])
+        loading = await tamsin.until("PARTY_STATE", skip=("LOAD_STATE",))
+        self.assertEqual((loading["phase"], loading["difficulty"]), (PHASES["loading"], LEVELS["normal"]))
+        party_now = self.server.lobby.parties[code]
+        self.assertEqual((party_now.difficulty, self.match().level), (LEVELS["normal"], LEVELS["normal"]))
 
 
 if __name__ == "__main__":

@@ -26,11 +26,14 @@ class VersionTests(MatchTest, unittest.IsolatedAsyncioTestCase):
 
     async def test_an_older_game_hears_2_and_a_newer_one_17_resuming_too(self):
         await self.start("classic:2")
-        for version, code in ((0, ERRORS["game_older"]), (2, ERRORS["server_older"])):
+        # (M8 is version 2, for the level's fields: a game of version 1, the release before,
+        # hears that it is older, and one of version 3 that the server is)
+        self.assertEqual((SPEC["version"], SPEC["subprotocol"]), (2, "groundhold.v2"))
+        for version, code in ((0, ERRORS["game_older"]), (1, ERRORS["game_older"]), (3, ERRORS["server_older"])):
             for held in (dict(), dict(flags=RESUME, match=1, seat=0)):
                 game = await self.join("Tamsin", 1, version=version, subprotocol=f"groundhold.v{version}", **held)
                 self.assertEqual((game.answer[0], game.answer[1]["code"]), ("ERROR", code), held)
-        self.assertEqual(self.server.daily.today["versions"], {"0": 2, "2": 2})
+        self.assertEqual(self.server.daily.today["versions"], {"0": 2, "1": 2, "3": 2})
         self.assertFalse(self.server.players)
 
     async def test_a_game_of_another_rules_hash_cannot_take_its_seat_back(self):

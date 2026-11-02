@@ -21,7 +21,7 @@
     {"eval": "resource('res://tests/ui/duel_stage.gd').partner_cork(node('LoopbackMain'), Game.sim.drift_offer()[1])"},
     {"wait_until": "Game.rival_bottles().size() == 1", "timeout": 120},
     {"wait": 2},
-    {"assert": "not Game.bottles_of(2)[0].has('pack') and Game.bottles_of(2)[0]['tier'] == 0 and node('DriftTray').rivals_shown() == [{'tier': 'I', 'pack': ''}] and Game.team_notices.has('Your rival corked a tier I bottle')", "msg": "the rival's cork arrives as a tier I bottle: no pack in the record, on the tray or in the notice"},
+    {"assert": "not Game.bottles_of(2)[0].has('pack') and Game.bottles_of(2)[0]['tier'] == 0 and node('DriftTray').rivals_shown() == [{'tier': 'I', 'pack': '', 'candidates': Game.bottles_of(2)[0]['candidates']}] and Game.team_notices.has('Your rival corked a tier I bottle')", "msg": "the rival's cork arrives as a tier I bottle: no pack in the record, on the tray or in the notice"},
     {"key": "1"},
     {"wait_until": "scene.settled()", "timeout": 120},
     {"assert": "node('LoopbackMain').sealed('CORK') == 1 and Game.my_bottles().size() == 1 and Game.my_bottles()[0]['known']", "msg": "my cork went out through the server's turns, its salt kept here"},

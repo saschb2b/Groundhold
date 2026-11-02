@@ -1,5 +1,6 @@
 ## The player's own choices, kept between launches in user://profile.cfg: the name the
-## others see, the main and backup Builder, and the mode last chosen (design 5.2, 5.4).
+## others see, the main and backup Builder, the mode last chosen and the level (M8: Normal,
+## Hard or Very Hard, the one offline matches and a new party take; design 2.6, 5.2, 5.4).
 ## Everything is unlocked (design 10, adopted), so any Builder may be main or backup.
 ##
 ## Also the two rules every client applies the same way, so they live here as statics:
@@ -32,6 +33,9 @@ var player_name := ""
 var main := "lamplighter"
 var backup := "lookout"
 var mode := "high_water"
+## The level (protocol.json's `difficulties`): offline matches and a party of one play it
+## where the mode takes one, and a party made here starts at it (contract-m8 §3).
+var difficulty := MatchRules.NORMAL
 ## False until the player has confirmed a name (the first-launch prompt).
 var named := false
 
@@ -51,6 +55,8 @@ static func load_saved() -> Profile:
 	profile.backup = saved_backup if SimContent.BUILDERS.has(saved_backup) else profile.main
 	var saved_mode := str(cfg.get_value("profile", "mode", "high_water"))
 	profile.mode = saved_mode if HUB_MODES.has(saved_mode) else "high_water"
+	var saved_level := str(cfg.get_value("profile", "difficulty", MatchRules.NORMAL))
+	profile.difficulty = saved_level if MatchRules.known(saved_level) else MatchRules.NORMAL
 	return profile
 
 
@@ -61,6 +67,7 @@ func save() -> void:
 	cfg.set_value("profile", "main", main)
 	cfg.set_value("profile", "backup", backup)
 	cfg.set_value("profile", "mode", mode)
+	cfg.set_value("profile", "difficulty", difficulty)
 	cfg.save(PATH)
 
 
@@ -101,6 +108,16 @@ func set_mode(id: String) -> void:
 	if not HUB_MODES.has(id) or id == mode:
 		return
 	mode = id
+	save()
+	changed.emit()
+
+
+## The level, saved beside the mode (any of the wire's; a mode without levels still plays
+## Normal, MatchRules.level_of).
+func set_difficulty(id: String) -> void:
+	if not MatchRules.known(id) or id == difficulty:
+		return
+	difficulty = id
 	save()
 	changed.emit()
 

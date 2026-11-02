@@ -89,6 +89,20 @@ class RejoinTests(MatchTest, unittest.IsolatedAsyncioTestCase):
         await self.play(540, 540, (games[0], again, games[2]), digest=lambda game, tick: b"z" * 8 if game is again else GOOD)
         self.assertEqual((self.match().seats[1].resyncs, self.match().seats[1].muted), (1, True))
 
+    async def test_a_rejoins_match_config_names_the_matchs_own_level(self):
+        # (M8: a resume HELLO carries no level; the server's MATCH_CONFIG(rejoin) says the
+        # level the match plays, so the game builds the same rules again)
+        await self.start("high_water:2:very_hard")
+        games = [await self.join("Tamsin", 1), await self.join("Edda", 2)]
+        configs = await start_match(self.clock, games)
+        await self.play(60, 120, games)
+        await games[1].drop()
+        await until(lambda: self.match().seats[1].player is None)
+        again = await self.join("Edda", 2, flags=RESUME, match=self.match().id, seat=1)
+        config = await again.until("MATCH_CONFIG")
+        self.assertEqual((config["flags"], config["difficulty"]), (REJOIN, SPEC["difficulties"]["very_hard"]))
+        self.assertEqual(dict(config, flags=0, your_seat=0), dict(configs[0], flags=0, your_seat=0))
+
     async def test_a_rejoin_while_loading_loads_as_at_the_start(self):
         await self.start("classic:2")
         tamsin, edda = await self.join("Tamsin", 1), await self.join("Edda", 2)

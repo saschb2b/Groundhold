@@ -1,0 +1,28 @@
+{
+  "name": "stack_waits_for_returning",
+  "description": "A seat coming back from the caretaker needs a window to be handed back (design 6.7), so a hollow does not stack while one of its seats is returning (contract-m8 §2). Two present seats, no towers, 200 lives (a setter). Seat 1 calls wave 2 during wave 1 and its Ready waits for seat 2, who is present and has not said it. Then seat 2 goes AWAY and comes BACK in one turn: it is returning, and although every present seat is Ready (seat 1, and seat 2 counts while the caretaker holds it), the stacked horn does not sound, as it would for a seat only away; a fresh Ready from seat 1 is refused NO_STACK (its Un-Ready taken). Wave 1 clears alone into a window, which hands seat 2 back (present) on its first tick.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2})"},
+    {"eval": "scene.debug(2, 0, 200)"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(30)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.client(1).seat(1).ready and scene.refusals(1) == [] and scene.rows('WAVE', ['wave'], {'start': true}) == [[1]]", "msg": "seat 1's call is taken and waits for seat 2"},
+    {"eval": "[scene.system('AWAY', 2), scene.system('BACK', 2)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.seat_state(2) == 'returning' and not scene.client(1).can_stack(0) and scene.client(1).seat(1).ready", "msg": "seat 2 is returning: no stacking until its window, seat 1 still Ready"},
+    {"eval": "scene.run_to(600)"},
+    {"assert": "scene.rows('WAVE', ['wave'], {'start': true}) == [[1]] and scene.client(1).spawns_left(0) == 0", "msg": "past wave 1's last creep, no stacked horn: it waits for the hand-back"},
+    {"eval": "[scene.cmd(1, 'READY', 0), scene.cmd(1, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.refusals(1) == ['NO_STACK'] and not scene.client(1).seat(1).ready", "msg": "a Ready while a seat returns is refused NO_STACK, the Un-Ready taken"},
+    {"eval": "scene.run_to(2900)"},
+    {"eval": "scene.rows('WAVE', ['tick', 'wave', 'phase'], {'cleared': true})", "as": "clear"},
+    {"assert": "clear.size() == 1 and clear[0][1] == 1 and clear[0][2] == 0 and scene.seat_state(2) == 'present'", "msg": "wave 1 cleared alone into a window, which handed seat 2 back"},
+    {"assert": "scene.seat_moves(2) == [[33, 'away'], [33, 'returning'], [clear[0][0], 'present']]", "msg": "away and returning in one turn, present in the window's opening stage"}
+  ]
+}

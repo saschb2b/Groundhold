@@ -66,6 +66,15 @@ var play_on := false
 ## rules' "clock": "shared"): set from the rules, never state of their own.
 var duel := false
 var shared_clock := false
+## (M8) From the rules, never state of their own: how many waves a hollow's road holds at
+## once (stack_max; 1, none stack, in classic and the duel), what a stacked horn pays a life
+## on the road (stake_pm), and the level played, its DIFFICULTY_IDS index (the codec's M8
+## block holds it and decode refuses another). `stacks` is each Builder's plan's stack list
+## for this mode (SimContent.plan_stack), which the caretaker calls.
+var stack_max := 1
+var stake_pm := 0
+var level := 0
+var stacks := {}
 ## (M7) The duel's state (the codec's M7 block): every bottle corked, in id order; the
 ## Drift's latest window (the wave it precedes, 0 before the first), its packs (CHECK_IDS
 ## indexes) and the packs it left out (a bit per CHECK_IDS index); the tick of the latest
@@ -143,8 +152,13 @@ func setup(match_rules: Dictionary, start_seed: int, text: String) -> void:
 	life_t = int((rules.get("race", {}) as Dictionary).get("life_t", 0)) if race else 0
 	duel = rules.get("duel") is Dictionary
 	shared_clock = str(rules.get("clock", "hollow")) == "shared"
+	stack_max = maxi(1, int(rules.get("stack_max", 1)))
+	stake_pm = maxi(0, int(rules.get("stake_pm", 0)))
+	level = maxi(0, SimContent.DIFFICULTY_IDS.find(str(rules.get("difficulty", "normal"))))
 	for builder: String in SimContent.BUILDER_IDS:
-		plans[builder] = SimContent.plan_steps(builder, mode)
+		var file := SimContent.plan_file(builder)
+		plans[builder] = SimContent.plan_steps_of(builder, SimContent.plan_of(file, mode))
+		stacks[builder] = SimContent.plan_stack_of(file, mode)
 	for t in int(rules["teams"]):
 		var team := SimRecords.SimTeam.new()
 		team.id = t
@@ -260,12 +274,13 @@ func last_wave() -> int:
 	return SimUndertow.last_wave(self)
 
 
-## Spawns of the current wave still to come on a hollow.
+## Spawns of the current wave still to come on a hollow; (M8) of every wave on its road, the
+## older ones' held back at a stacked horn too.
 func spawns_left(hollow: int) -> int:
 	var h := hollows[hollow]
 	if h.phase != SimTypes.PHASE_WAVE:
 		return 0
-	return h.queue.size() / 2 - h.cursor
+	return h.queue.size() / 2 - h.cursor + h.behind.size() / 3
 
 
 func creeps_on(hollow: int) -> int:
@@ -330,16 +345,81 @@ func decided_by() -> String:
 
 
 ## (M6) How many waves a team has cleared: its hollow's wave in a build window or once done,
-## the one before it during a wave, and the one before the wave it fell on.
+## the one before it during a wave, and the one before the wave it fell on; (M8) with waves
+## stacked, those before the oldest on its road (SimHollow.cleared).
 func cleared_waves(team: int) -> int:
-	var t := teams[team]
-	var h := hollows[t.hollows[0]]
-	match h.phase:
-		SimTypes.PHASE_PREP, SimTypes.PHASE_DONE:
-			return h.wave
-		SimTypes.PHASE_FALLEN:
-			return maxi(0, (t.fell_wave if t.fell_wave > 0 else h.wave) - 1)
-	return maxi(0, h.wave - 1)
+	return hollows[teams[team].hollows[0]].cleared
+
+
+## (M8) The waves on hollow `hollow`'s road, oldest first: from its horn until it clears, so
+## one in an ordinary wave and up to stack_max once waves stack; none in a window, once done
+## or fallen.
+func waves_on_road(hollow: int) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	if hollow < 0 or hollow >= hollows.size():
+		return out
+	var h := hollows[hollow]
+	if h.phase != SimTypes.PHASE_WAVE:
+		return out
+	for w in range(h.cleared + 1, h.wave + 1):
+		out.append(w)
+	return out
+
+
+## (M8) Whether a present seat's READY 1 during hollow `hollow`'s wave would be taken now
+## (contract-m8 §2): the preset stacks, the hollow plays a wave with fewer than stack_max on
+## its road, the newest is not the last, no seat of the hollow is returning from the
+## caretaker (its hand-back needs a window) and the match is not over. Otherwise the Ready is
+## refused NO_STACK (in a preset that never stacks, WRONG_PHASE, as before).
+func can_stack(hollow: int) -> bool:
+	if stack_max < 2 or over or hollow < 0 or hollow >= hollows.size():
+		return false
+	var h := hollows[hollow]
+	if h.phase != SimTypes.PHASE_WAVE or h.wave - h.cleared >= stack_max:
+		return false
+	if h.wave >= last_wave():
+		return false
+	for n in h.seats:
+		if seats[n - 1].state == SimTypes.SEAT_RETURNING:
+			return false
+	return true
+
+
+## (M8) What the stacked horn would pay each seat of hollow `hollow` were it to sound now,
+## both parts in gold: [the window it skips (window_t for the hollow's seats, in whole
+## seconds), the stake's part (stake_pm per mille of the stake, road_tolls(), which is
+## lives, rounded down)]; [0, 0] outside a wave and in a preset that never stacks. EV_WAVE's
+## `stake` is the lives and its `early` the gold paid.
+func stack_pay(hollow: int) -> Array:
+	if stack_max < 2 or hollow < 0 or hollow >= hollows.size():
+		return [0, 0]
+	var h := hollows[hollow]
+	if h.phase != SimTypes.PHASE_WAVE or not bool(rules.get("ready_pays", true)):
+		return [0, 0]
+	var table: Array = rules["window_t"]
+	var window := int(table[clampi(h.seats.size(), 1, table.size()) - 1]) / SimTypes.TICKS_PER_SECOND
+	return [window, stake_pm * road_tolls(hollow) / 1000]
+
+
+## (M8) The lives the waves on hollow `hollow`'s road could still take, the stake of a
+## stacked horn: the tolls of every creep walking it and, in a wave, of every creep the
+## Welling has still to send (the newest wave's queue and the older waves' held back), so a
+## call made while the wave is still setting out stakes the whole of it.
+func road_tolls(hollow: int) -> int:
+	var total := 0
+	for c in creeps:
+		if c.hollow == hollow:
+			total += c.toll
+	if hollow < 0 or hollow >= hollows.size() or hollows[hollow].phase != SimTypes.PHASE_WAVE:
+		return total
+	var h := hollows[hollow]
+	for i in range(h.cursor, h.queue.size() / 2):
+		total += int(SimContent.CREEPS[SimContent.CREEP_IDS[h.queue[2 * i]]]["toll"])
+	var k := 0
+	while k < h.behind.size():
+		total += int(SimContent.CREEPS[SimContent.CREEP_IDS[h.behind[k]]]["toll"])
+		k += 3
+	return total
 
 
 ## (M7) The Drift's packs for the window that is open, or for the wave it precedes,
@@ -369,7 +449,8 @@ func stipend(seat_no: int) -> int:
 
 ## (M7) Seat `seat_no`'s bottles, oldest first: {id, tier, window, price, uncorked,
 ## fizzled}, and "pack" (a CHECK_IDS id) only once uncorked, so a view never holds the
-## pack of a rival's corked bottle.
+## pack of a rival's corked bottle; (M8) a corked one's "candidates" instead, the CHECK_IDS
+## ids of the packs its window offered at its tier (SimUndertow.candidates).
 func bottles(seat_no: int) -> Array:
 	return SimUndertow.bottles_of(self, seat_no)
 
@@ -659,11 +740,30 @@ func _sell(s: SimRecords.SimSeat, cmd: Dictionary) -> void:
 	add_gold(s, refund, "sell")
 
 
+## READY in a build window, as before; (M8) in a wave of a preset that stacks, READY 1 is
+## taken while the hollow can take another wave (can_stack), else refused NO_STACK, and
+## READY 0 always: the stacked horn (SimWaves.stack_wave) sounds in this tick's stage 2 once
+## every present seat is Ready. Any other phase, and a wave of a preset that never stacks, is
+## WRONG_PHASE. A READY 1 names the wave it calls in `b` (the wave after the hollow's newest,
+## h.wave + 1, in a window as in a wave; 0 names none, as the caretaker's and the turn logs
+## recorded before it do): one whose wave is not that one any more is a Ready too late for
+## the horn it was said for, WRONG_PHASE, so a window's press that lands after its horn never
+## calls the wave after it, nor stands as a call for it.
 func _set_ready(s: SimRecords.SimSeat, cmd: Dictionary) -> void:
-	if hollows[s.hollow].phase != SimTypes.PHASE_PREP:
+	var h := hollows[s.hollow]
+	var on := int(cmd["a"]) != 0
+	var named := int(cmd["b"])
+	if on and named != 0 and named != h.wave + 1:
 		_reject(s, cmd, SimTypes.REFUSE_WRONG_PHASE)
 		return
-	s.ready = int(cmd["a"]) != 0
+	if h.phase == SimTypes.PHASE_WAVE and stack_max > 1:
+		if on and not can_stack(h.id):
+			_reject(s, cmd, SimTypes.REFUSE_NO_STACK)
+			return
+	elif h.phase != SimTypes.PHASE_PREP:
+		_reject(s, cmd, SimTypes.REFUSE_WRONG_PHASE)
+		return
+	s.ready = on
 	_emit({"type": SimTypes.EV_READY, "seat": s.seat, "seq": cmd["seq"], "on": s.ready})
 
 
@@ -747,6 +847,16 @@ func debug(op: int, a: int, b := 0, c := 0) -> void:
 		SimTypes.DBG_WAVE:
 			var h := hollows[a]
 			h.wave = clampi(b, 0, last_wave())  # (a duel's Surge too, M7)
+			# (M8: the whole road moves to that wave, one wave on it, as the records
+			# before M8 would say; an older wave's spawns still to come too)
+			h.cleared = SimWaves.default_cleared(self, h)
+			for cr in creeps:
+				if cr.hollow == h.id:
+					cr.wave = SimWaves.default_wave(h)
+			for k in range(1, h.behind.size(), 3):
+				h.behind[k] = SimWaves.default_wave(h)
+			if race:
+				teams[h.team].stack_kills = PackedInt32Array()
 			_emit(
 				{
 					"type": SimTypes.EV_WAVE,
@@ -937,7 +1047,8 @@ func _leak(c: SimRecords.SimCreep) -> void:
 			"kind": c.kind,
 			"hollow": h.id,
 			"team": team.id,
-			"toll": c.toll
+			"toll": c.toll,
+			"wave": c.wave
 		}
 	)
 	if team.lives > 0:
@@ -945,6 +1056,8 @@ func _leak(c: SimRecords.SimCreep) -> void:
 		set_lives(team, team.lives - taken)
 		if duel and c.sent_by != 0:
 			SimUndertow.breach(self, c, team, taken)
+	if duel:
+		SimUndertow.note_leak(self, team, c)
 
 
 func _fall(team: SimRecords.SimTeam) -> void:
@@ -953,12 +1066,14 @@ func _fall(team: SimRecords.SimTeam) -> void:
 		if h.phase == SimTypes.PHASE_DONE or h.phase == SimTypes.PHASE_FALLEN:
 			continue
 		if race and team.fell_wave == 0:
-			# (in a window it falls facing the next wave, of which it has killed nothing)
-			team.fell_wave = h.wave + 1 if h.phase == SimTypes.PHASE_PREP else maxi(1, h.wave)
+			# (in a window it falls facing the next wave, of which it has killed nothing;
+			# M8: in a wave, on the oldest on its road, with that wave's creeps' kills)
+			team.fell_wave = h.cleared + 1
 			team.fell_kills = team.wave_kills if h.phase == SimTypes.PHASE_WAVE else 0
 			race_event("fell", team.id, team.fell_wave)
 		h.phase = SimTypes.PHASE_FALLEN
 		h.cursor = h.queue.size() / 2
+		h.behind = PackedInt32Array()
 		_emit(
 			{
 				"type": SimTypes.EV_WAVE,
@@ -1338,7 +1453,14 @@ func _die(c: SimRecords.SimCreep, shot: SimRecords.SimShot) -> void:
 	var h := hollows[c.hollow]
 	teams[h.team].kills += 1
 	if race:
-		teams[h.team].wave_kills += 1
+		# (M8: a kill counts for the wave its creep came with, the oldest on the road's
+		# or a younger stacked one's)
+		var team := teams[h.team]
+		var younger := c.wave - h.cleared - 2
+		if younger >= 0 and younger < team.stack_kills.size():
+			team.stack_kills[younger] += 1
+		else:
+			team.wave_kills += 1
 	var t := tower(shot.tower)
 	if t:
 		t.kills += 1
@@ -1353,7 +1475,8 @@ func _die(c: SimRecords.SimCreep, shot: SimRecords.SimShot) -> void:
 			"hollow": h.id,
 			"tower": shot.tower,
 			"seat": shot.seat,
-			"bounty": c.bounty
+			"bounty": c.bounty,
+			"wave": c.wave
 		}
 	)
 	for payee in team_seats(h.team):

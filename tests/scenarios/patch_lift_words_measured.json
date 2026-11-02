@@ -1,0 +1,21 @@
+{
+  "name": "patch_lift_words_measured",
+  "description": "A patch branch's glyph says what one tower of it holds alone, and the words are held to the simulation (playtest halv s2, P2, f5419 and f10438: 'Lifts Winged from weak to passable: enough to hold it alone', and one Sky Toll at Hard took none of wave 5's 8 Duskmoths). Measured in bare High Water matches of the form's Builder alone (tests/sim/patch_lifts.gd), one tower on the cell its plan forks it on: every patch that deals the damage holds the early waves of its check (those that teach it before wave 6's boss) at Normal, Hard and Very Hard and lets some of every later one through at Normal ('one alone holds the early armored waves; later ones need more'); the two that slow (the Rime Spire, the Drowsy Clay Hive) hold no wave of their check alone ('its slow gives your other towers time'). The Sky Toll holds them only inside a bend: on (14, 8), inside the bend, it takes all 8 of wave 5's Duskmoths at every level, and on (16, 8), outside it, where the playtester stood it, none, at every level (the level was not why). Without the fix every glyph said 'enough to hold it alone' and nothing in Game.TOWERS said which patches only slow, so the table and the words fail.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 120,
+  "steps": [
+    {"eval": "resource('res://tests/sim/patch_lifts.gd')", "as": "P"},
+    {"eval": "P.rows(scene)", "as": "table"},
+    {"assert": "table.size() == 9", "msg": "every Builder's patch branches: the Lamplighter's three, two each for the others"},
+    {"assert": "P.mismatches(table) == []", "msg": "each glyph's words are what one of it was measured to do alone"},
+    {"assert": "P.measured_as(table, 'slow') == ['rime_spire', 'drowsy_clay_hive'] and P.measured_as(table, 'one').size() == 7", "msg": "the two slows hold no wave of their check alone, the seven others their early waves"},
+    {"eval": "P.bend_holds(scene)", "as": "bend"},
+    {"assert": "bend['inside'] == [[0, 8], [0, 8], [0, 8]]", "msg": "one Sky Toll inside the bend takes all of wave 5's Duskmoths at Normal, Hard and Very Hard"},
+    {"assert": "bend['outside'] == [[8, 8], [8, 8], [8, 8]]", "msg": "outside it, the playtester's cell, it takes none at any level"},
+    {"assert": "bend['road_inside_mm'] > 8000 and bend['road_outside_mm'] < 5000", "msg": "inside the bend its reach takes in more than 8 tiles of road, outside it under 5"},
+    {"assert": "Game.lifts_line('winged', 'sky_toll') == 'Lifts Winged from weak to passable: one holds the early winged waves only inside a bend; later ones need more'", "msg": "the Sky Toll's words"},
+    {"assert": "Game.lifts_line('armored', 'iron_mortar') == 'Lifts Armored from weak to passable: one alone holds the early armored waves; later ones need more'", "msg": "a patch that deals the damage"},
+    {"assert": "Game.lifts_line('swift', 'drowsy_clay_hive') == 'Lifts Swift from weak to passable: its slow gives your other towers time; alone it holds no swift wave'", "msg": "a patch that slows"}
+  ]
+}

@@ -29,11 +29,22 @@ KIT_READY = r"listening.*port\D*(?P<port>\d+)"
 
 class DevMatchSpecTests(unittest.TestCase):
     def test_mode_and_seats(self):
-        self.assertEqual(dev_match_spec("classic:2"), ("classic", 2))
-        self.assertEqual(dev_match_spec("tide_race:4"), ("tide_race", 4))
+        self.assertEqual(dev_match_spec("classic:2"), ("classic", 2, 0))
+        self.assertEqual(dev_match_spec("tide_race:4"), ("tide_race", 4, 0))
         for text in ("classic", "classic:", "nope:2", "classic:5", "classic:0", "tide_race:1", "undertow:3", ":2", "classic:x",
                      "race:2", "duel:2"):
             with self.assertRaises(ValueError):
+                dev_match_spec(text)
+
+    def test_a_level_for_a_mode_that_takes_one(self):
+        # (M8: MODE:SEATS:LEVEL, the level's name from protocol.json's difficulties)
+        levels = SPEC["difficulties"]
+        self.assertEqual(dev_match_spec("high_water:2:hard"), ("high_water", 2, levels["hard"]))
+        self.assertEqual(dev_match_spec("tide_race:2:very_hard"), ("tide_race", 2, levels["very_hard"]))
+        self.assertEqual(dev_match_spec("high_water:1:normal"), ("high_water", 1, levels["normal"]))
+        # (classic and the duel play Normal only; an unknown level is no level)
+        for text in ("classic:2:hard", "undertow:2:hard", "high_water:2:brutal", "high_water:2:1"):
+            with self.assertRaises(ValueError, msg=text):
                 dev_match_spec(text)
 
 
@@ -82,8 +93,8 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
         configs = [await client.until("MATCH_CONFIG") for client in (one, two)]
         seats = [dict(seat=0, team=0, builder=0, flags=0, name="Tamsin"), dict(seat=1, team=0, builder=0, flags=0, name="Edda")]
         for seat, config in enumerate(configs):
-            self.assertEqual(config, dict(match=1, mode=SPEC["modes"]["classic"]["id"], map=0, seed=20261029,
-                                          rules_hash=RULES, your_seat=seat, seats=seats, flags=0))
+            self.assertEqual(config, dict(match=1, mode=SPEC["modes"]["classic"]["id"], difficulty=0, map=0,
+                                          seed=20261029, rules_hash=RULES, your_seat=seat, seats=seats, flags=0))
         three = await self.join("Ottilie", 3)
         self.assertTrue(await three.quiet())
         four = await self.join("Sefa", 4)
@@ -93,6 +104,15 @@ class DevMatchTests(unittest.IsolatedAsyncioTestCase):
                              (2, seat, ["Ottilie", "Sefa"]))
         self.assertEqual(sorted(self.server.matches), [1, 2])
         self.assertEqual(self.server.health()["matches"], 2)
+
+    async def test_a_dev_match_at_a_level_says_it_in_match_config(self):
+        # (M8: --dev-match high_water:2:hard; /health names it as given)
+        await self.start("high_water:2:hard")
+        games = [await self.join("Tamsin", 1), await self.join("Edda", 2)]
+        configs = [await game.until("MATCH_CONFIG") for game in games]
+        self.assertEqual({(c["mode"], c["difficulty"]) for c in configs},
+                         {(SPEC["modes"]["high_water"]["id"], SPEC["difficulties"]["hard"])})
+        self.assertEqual(self.server.health()["dev_match"], "high_water:2:hard")
 
     async def test_only_one_rules_hash_plays_together(self):
         await self.start()
@@ -508,7 +528,8 @@ class GoldenTranscriptTests(unittest.TestCase):
                                      "m3_barrier.bin", "m3_barrier.json", "m3_party.bin", "m3_party.json",
                                      "m4_resilience.bin", "m4_resilience.json", "m6_caretakers.bin",
                                      "m6_caretakers.json", "m6_queue.bin", "m6_queue.json", "m6_race.bin",
-                                     "m6_race.json", "m7_duel.bin", "m7_duel.json"])
+                                     "m6_race.json", "m7_duel.bin", "m7_duel.json", "m8_difficulty.bin",
+                                     "m8_difficulty.json"])
             for name in names:
                 committed = record_transcripts.TRANSCRIPTS / name
                 self.assertEqual(committed.read_bytes(), (fresh / name).read_bytes(), name + " changed: re-record it")
@@ -579,7 +600,7 @@ class ProgramTests(unittest.TestCase):
                                  ("listening", port, "classic:2"))
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5) as response:
                     health = json.loads(response.read())
-                self.assertEqual((health["status"], health["dev_match"], health["protocol"]), ("ok", "classic:2", 1))
+                self.assertEqual((health["status"], health["dev_match"], health["protocol"]), ("ok", "classic:2", SPEC["version"]))
                 self.assertEqual(asyncio.run(self.two_players(port)), [0, 1])
                 banner = "".join(process.stdout.readline() for _ in range(3))
                 self.assertIn('The Groundhold server "Groundhold" is open on port', banner)

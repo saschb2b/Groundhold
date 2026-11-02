@@ -1,0 +1,27 @@
+{
+  "name": "stack_not_in_classic_or_duel",
+  "description": "classic (M1's game, untouched) and Undertow (the duel's shared clock needs a window between waves) never stack (contract-m8 §1 and §2): a Ready during a wave is refused WRONG_PHASE in both, as before M8, never NO_STACK; their rules hold one wave a road (stack_max absent in classic, 1 in Undertow, no stake), can_stack is false and stack_pay [0, 0]. Neither takes a level: asked for Hard, both play Normal's lives. contract_ids_keep_state_hashes holds the classic match to its recorded hashes besides.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'classic', 'seats': 1, 'difficulty': 'hard'})"},
+    {"assert": "not scene.preset('classic').has('stack_max') and not scene.preset('classic').has('stake_pm') and scene.client(1).stack_max == 1", "msg": "classic holds one wave a road"},
+    {"assert": "scene.client(1).rules['difficulty'] == 'normal' and scene.client(1).teams[0].lives == 20 and scene.client(1).level == 0", "msg": "classic asked for Hard plays Normal"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(30)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.client(1).hollows[0].phase == 1 and scene.refusals(1) == ['WRONG_PHASE'] and not scene.client(1).can_stack(0) and scene.client(1).stack_pay(0) == [0, 0]", "msg": "classic refuses a Ready in its wave WRONG_PHASE"},
+    {"eval": "scene.run_to(900)"},
+    {"assert": "scene.rows('WAVE', ['wave'], {'start': true}) == [[1]]", "msg": "and no wave was called behind it"},
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'difficulty': 'very_hard'})"},
+    {"assert": "scene.client(1).stack_max == 1 and scene.preset('undertow')['stack_max'] == 1 and not scene.preset('undertow').has('stake_pm') and scene.client(1).level == 0 and scene.client(1).teams[0].lives == 20 and scene.client(1).teams[1].lives == 20", "msg": "the duel holds one wave a road and plays Normal"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(30)"},
+    {"assert": "scene.client(1).hollows[0].phase == 1 and scene.client(1).hollows[1].phase == 1", "msg": "both hollows play wave 1"},
+    {"eval": "[scene.cmd(1, 'READY', 1), scene.cmd(2, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.refusals(1) == ['WRONG_PHASE'] and scene.refusals(2) == ['WRONG_PHASE'] and not scene.client(1).can_stack(0) and not scene.client(1).can_stack(1) and scene.client(1).stack_pay(1) == [0, 0]", "msg": "the duel refuses a Ready in its wave WRONG_PHASE"}
+  ]
+}

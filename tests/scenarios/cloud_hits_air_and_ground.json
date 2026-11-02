@@ -1,6 +1,6 @@
 {
   "name": "cloud_hits_air_and_ground",
-  "description": "The Beekeeper's Clay Hive (contract-m6 3): no shot; every 0.3 s a bee cloud over the creep it aims at (the foremost in its 3.0 tiles) stings every creep within 0.9 tiles of that one, ground or air: the Gourdling it aims at, a Duskmoth half a tile behind it and a Gourdling 0.7 behind take 3 each, a Gourdling two tiles back none. SimTower.cloud_creep says where the cloud hangs, 0 once nothing is in reach. The Drowsy Clay Hive's stings slow 25% for 1 s, the flier's too.",
+  "description": "The Beekeeper's Clay Hive (contract-m6 3): no shot; every 0.3 s a bee cloud over the creep it aims at (the foremost in its 3.0 tiles) stings every creep within 0.9 tiles of that one, ground or air: the Gourdling it aims at, a Duskmoth half a tile behind it and a Gourdling 0.7 behind take 3 each, a Gourdling two tiles back none. SimTower.cloud_creep says where the cloud hangs, 0 once nothing is in reach. The Drowsy Clay Hive's stings slow 35% for 1 s (25% before M8's fork pass), the flier's too.",
   "scene": "res://tests/sim/sim_harness.tscn",
   "seed": 1,
   "timeout_frames": 60,
@@ -22,8 +22,8 @@
     {"assert": "scene.events_where('HIT', {'tower': hive.id}).size() == 6 and scene.events_where('FIRE', {'tower': hive.id}).is_empty()", "msg": "again 0.3 s later, with no shot fired"},
     {"eval": "scene.cmd(1, 'FORK', hive.id, 1)"},
     {"eval": "scene.run_ticks(24)"},
-    {"assert": "hive.branch == 1 and scene.creep(c[1]).slow_pm == 250 and scene.creep(c[0]).slow_pm == 250 and scene.creep(c[2]).slow_pm == 250 and scene.creep(c[3]).slow_pm == 0", "msg": "the Drowsy Clay Hive's stings slow every creep in the cloud 25%, the flier too"},
-    {"assert": "scene.status_amounts(c[1], 1) == [250] and scene.creep(c[1]).slow_until - scene.events_where('STATUS', {'creep': c[1], 'effect': 1})[-1]['tick'] == 60", "msg": "for 1 s from each sting"},
+    {"assert": "hive.branch == 1 and scene.creep(c[1]).slow_pm == 350 and scene.creep(c[0]).slow_pm == 350 and scene.creep(c[2]).slow_pm == 350 and scene.creep(c[3]).slow_pm == 0", "msg": "the Drowsy Clay Hive's stings slow every creep in the cloud 35%, the flier too"},
+    {"assert": "scene.status_amounts(c[1], 1) == [350] and scene.creep(c[1]).slow_until - scene.events_where('STATUS', {'creep': c[1], 'effect': 1})[-1]['tick'] == 60", "msg": "for 1 s from each sting"},
     {"eval": "[scene.debug(5, c[0], 45000000), scene.debug(5, c[1], 45000000), scene.debug(5, c[2], 45000000), scene.debug(5, c[3], 45000000)]"},
     {"eval": "scene.run_ticks(1)"},
     {"assert": "hive.target == 0 and hive.cloud_creep == 0", "msg": "with nothing in reach the cloud is gone"}

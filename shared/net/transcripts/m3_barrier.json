@@ -1,7 +1,7 @@
 {
  "transcript": "m3_barrier",
  "format": 1,
- "protocol": 1,
+ "protocol": 2,
  "clients": 2,
  "note": "A party's loading barrier: Tamsin loads, Edda is Slow at 15 s, the leader starts without her at 30 s; turn 0 has AWAY for her seat, and her LOADED brings BACK.",
  "records": [
@@ -10,7 +10,7 @@
    "client": 0,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
@@ -51,6 +51,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -76,7 +77,7 @@
    "client": 1,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "1112131415161718191a1b1c1d1e1f20",
@@ -117,6 +118,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -155,6 +157,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -203,6 +206,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -241,6 +245,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -288,6 +293,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -326,6 +332,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -372,6 +379,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -410,6 +418,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -448,6 +457,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -486,6 +496,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -524,6 +535,7 @@
    "fields": {
     "match": 1,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -554,6 +566,7 @@
    "fields": {
     "match": 1,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -961,6 +974,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -999,6 +1013,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,

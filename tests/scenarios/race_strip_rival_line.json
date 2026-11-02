@@ -1,6 +1,6 @@
 {
   "name": "race_strip_rival_line",
-  "description": "The resource strip's second line in a race (design 5.7, contract-m6.md §5): 'Rival · Wave 7 · 18 lives · 6:12 +20 s', the rival team's current wave, its lives and its race clock so far with what its lost lives add (SimMatch.race_penalty_t: 10 s a life). It hangs under the strip on a slim plate, from the first window on, and follows the rival as it plays: its wave, a life lost, its clock. Once the rival's Holdfast goes under (EV_RACE fell) the line says what wins the race: 'Your rival fell on wave 7. Clear wave 7 to win'. No such line outside a race.",
+  "description": "The resource strip's second line in a race (design 5.7, contract-m6.md §5): 'Rival · Wave 7 · 18 lives · 6:12 +120 s', the rival team's current wave, its lives and its race clock so far with what its lost lives add (SimMatch.race_penalty_t: a minute a life since M8). It hangs under the strip on a slim plate, from the first window on, and follows the rival as it plays: its wave, a life lost, its clock. Once the rival's Holdfast goes under (EV_RACE fell) the line says what wins the race: 'Your rival fell on wave 7. Clear wave 7 to win'. No such line outside a race.",
   "seed": 1,
   "timeout_frames": 2400,
   "steps": [
@@ -28,13 +28,13 @@
     {"assert": "node('Hud').rival_line() == 'Rival · Wave %d · %d lives · %s' % [rival_wave, Game.sim.teams[1].lives, Game.race_clock(Game.sim.tick)]", "msg": "its wave, its lives and its race clock so far"},
     {"eval": "Game.debug(2, 1, 18)"},
     {"wait": 2},
-    {"assert": "Game.sim.race_penalty_t(1) == 1200 and node('Hud').rival_line() == 'Rival · Wave %d · 18 lives · %s +20 s' % [rival_wave, Game.race_clock(Game.sim.tick)]", "msg": "two lives lost add 20 s to its race clock"},
+    {"assert": "Game.sim.race_penalty_t(1) == 7200 and node('Hud').rival_line() == 'Rival · Wave %d · 18 lives · %s +120 s' % [rival_wave, Game.race_clock(Game.sim.tick)]", "msg": "two lives lost add 120 s (a minute each, M8) to its race clock"},
     {"eval": "scene.camera.look_from(Vector3(10.5, 0, 9.0), 17.0)"},
     {"wait": 4},
     {"capture": "race_in_progress"},
     {"eval": "Game.debug(3, 1, 7)"},
     {"wait": 2},
-    {"assert": "node('Hud').rival_line() == 'Rival · Wave 7 · 18 lives · %s +20 s' % Game.race_clock(Game.sim.tick)", "msg": "Rival · Wave 7 · 18 lives · m:ss +20 s"},
+    {"assert": "node('Hud').rival_line() == 'Rival · Wave 7 · 18 lives · %s +120 s' % Game.race_clock(Game.sim.tick)", "msg": "Rival · Wave 7 · 18 lives · m:ss +120 s"},
     {"eval": "Game.debug(2, 1, 0)"},
     {"wait": 2},
     {"eval": "Game.sim.teams[1].fell_wave", "as": "fell"},

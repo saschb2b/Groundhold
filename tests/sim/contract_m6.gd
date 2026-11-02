@@ -172,5 +172,7 @@ static func _race(out: Array) -> void:
 		out.append("RULES.tide_race does not play hollow12 on the hollow")
 	if int(r.get("cap_t", 0)) != 72000:
 		out.append("RULES.tide_race's cap is not 20 minutes (72000 ticks)")
-	if int(r.get("race", {}).get("life_t", 0)) != 600:
-		out.append("RULES.tide_race does not cost 600 ticks a life")
+	# (contract-m6 §4's 600 ticks a life, raised to 3600 in M8 by the owner's decision of
+	# 2 November 2026, "Raise the cost of a life": design 1.3, content.gd)
+	if int(r.get("race", {}).get("life_t", 0)) != 3600:
+		out.append("RULES.tide_race does not cost 3600 ticks (a minute) a life")

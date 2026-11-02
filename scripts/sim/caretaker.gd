@@ -12,6 +12,12 @@
 ## a window's build steps are done (the next step waits for gold, or the plan is done) it
 ## says Ready, unless the step it waits on holds Ready (a plan step's "ready": false,
 ## SimContent.STEP_HOLDS_READY), so a hollow it plays alone races as a player would.
+## (M8) It stacks there too: during wave k - 1 it says Ready for each wave k of its plan's
+## `stack` list (SimContent.plan_stack), and in a crew of caretakers for each wave one of
+## the crew's plans lists (stacks_wave), on the same terms, at Normal only (wants_stack),
+## and the stacked horn sounds at the next tick's clock (stage 2; it thinks in stage 3), the
+## called wave setting out at once among what the older still sends (SimWaves). Beside a
+## present player in High Water it never calls a wave: it only counts as Ready.
 ##
 ## In a duel (M7, Undertow) it builds from its plan (a plan's "undertow" block where one is
 ## written) and says Ready in the window both hollows share once it has corked and built
@@ -22,8 +28,10 @@
 ## while its corks stay within CORK_SHARE_PM of everything it holds, so the plan keeps the
 ## rest (cork_tier), and before its plan spends: while its hollow stands in its window and
 ## the rival's still plays the wave, its plan waits (holds_plan), so on the shared window's
-## first tick it corks first and builds after, the offered pack the rival's standing towers take longest to kill
-## (SimUndertow.weakest_pack), with salt 0, so its corks are not hidden; it uncorks them at
+## first tick it corks first and builds after, the offered pack the rival's defence has
+## shown it should (SimUndertow.pick_pack: the check that has leaked most, else fliers
+## against a weak sky, else the pack its towers take longest to kill; never the rival's
+## bottles), with salt 0, so its corks are not hidden; it uncorks them at
 ## uncork_after_t after the horn. In a wave it raises the
 ## Seawall once the creeps near its Holdfast would take CARETAKER_SEAWALL_TOLL lives or a
 ## boss stands there (wants_seawall). A bottle its player corked with a salt of their own
@@ -79,6 +87,9 @@ static func think(m: SimMatch, s: SimRecords.SimSeat) -> void:
 	if m.race and not s.ready and m.hollows[s.hollow].phase == SimTypes.PHASE_PREP:
 		if not holds_ready(steps, s.plan_cursor):
 			m.execute_as(s.seat, SimTypes.CMD_READY, 1)
+	# (M8) in a race's wave, the next wave where its plan stacks it
+	if m.race and not s.ready and wants_stack(m, s, steps, s.plan_cursor):
+		m.execute_as(s.seat, SimTypes.CMD_READY, 1)
 	# (M7) in the window both hollows share, once it has corked and built: the horn waits
 	# for this, and still for the player (SimUndertow._all_ready)
 	if m.duel and not s.ready and SimUndertow.window_open(m):
@@ -92,7 +103,7 @@ static func _duel(m: SimMatch, s: SimRecords.SimSeat) -> void:
 	if SimUndertow.window_open(m) and m.drift_window == window:
 		while SimUndertow.corks_of(m, s.seat, window) < SimUndertow.corks_allowed(m, window):
 			var tier := cork_tier(m, s)
-			var pack := SimUndertow.weakest_pack(m, s.seat)
+			var pack := SimUndertow.pick_pack(m, s.seat)
 			if tier < 0 or pack < 0:
 				break
 			var made := SimUndertow.corks_of(m, s.seat, window)
@@ -170,6 +181,45 @@ static func wants_seawall(m: SimMatch, s: SimRecords.SimSeat) -> bool:
 			return true
 		toll += c.toll
 	return toll >= SimUndertow.CARETAKER_SEAWALL_TOLL
+
+
+## (M8, contract-m8 §2) Whether seat `s` stacks now, its plan's builds it can pay for done
+## and `cursor` the step it waits on: during wave k - 1 of a wave k it stacks
+## (stacks_wave), at Normal only, while the hollow can take another wave
+## (SimMatch.can_stack) and that step does not hold Ready ("ready": false). The caretaker
+## asks it where it calls waves itself (a race); the sim harness's seats played by command
+## that stack their plan's list ask it too.
+static func wants_stack(m: SimMatch, s: SimRecords.SimSeat, steps: Array, cursor: int) -> bool:
+	if m.level != 0:
+		return false  # (it never stacks at Hard or Very Hard)
+	var h := m.hollows[s.hollow]
+	if h.phase != SimTypes.PHASE_WAVE or not m.can_stack(h.id):
+		return false
+	if not stacks_wave(m, s, h.wave + 1):
+		return false
+	return not holds_ready(steps, cursor)
+
+
+## (M8, contract-m8 §2) Whether seat `s` stacks wave `wave`: its own plan's stack list has
+## it, or, on a hollow nobody is present at (its caretakers call the waves, a race's crew of
+## two), one of the hollow's seats' plans lists it. The stacked horn waits for every
+## caretaker's Ready, each said once its own builds are paid as for a window's horn, so a
+## crew of caretakers stacks every wave one of its plans lists, as each of them alone would,
+## and not only the waves both list (Lamplighter and Lookout list none alike). Beside a
+## present seat only its own list counts: there the players call.
+static func stacks_wave(m: SimMatch, s: SimRecords.SimSeat, wave: int) -> bool:
+	var own: PackedInt32Array = m.stacks.get(s.builder, PackedInt32Array())
+	if own.has(wave):
+		return true
+	var h := m.hollows[s.hollow]
+	for n in h.seats:
+		if m.seat(n).state == SimTypes.SEAT_PRESENT:
+			return false
+	for n in h.seats:
+		var list: PackedInt32Array = m.stacks.get(m.seat(n).builder, PackedInt32Array())
+		if list.has(wave):
+			return true
+	return false
 
 
 ## Whether the step at `cursor` (the one the caretaker waits on) holds its Ready in a race.

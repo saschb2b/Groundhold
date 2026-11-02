@@ -1,7 +1,7 @@
 {
  "transcript": "m4_resilience",
  "format": 1,
- "protocol": 1,
+ "protocol": 2,
  "clients": 5,
  "note": "A --dev-match classic:3's resilience on a hand-moved clock (empty TURNs read but not listed): tick 60 a checkpoint, Ottilie's odd hash resynced from tick 0 (RESYNC desync) while Tamsin uploads it; Ottilie's tab hides and Edda's game freezes, AWAY after 5 s; Tamsin's tick 360 uploaded; Edda's new window resumes her seat (ERROR 12 to the old link, MATCH_CONFIG rejoin, RESYNC rejoin with the parts, paced) and shown brings her BACK; Ottilie's tab comes back catching_up (RESYNC behind, LINKS) and shown brings her BACK; apart again at tick 420 she is out (MATCH_END desynced_twice, LEFT), and her resume hears no_held_seat.",
  "records": [
@@ -10,7 +10,7 @@
    "client": 0,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
@@ -40,7 +40,7 @@
    "client": 1,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "1112131415161718191a1b1c1d1e1f20",
@@ -70,7 +70,7 @@
    "client": 2,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "2122232425262728292a2b2c2d2e2f30",
@@ -102,6 +102,7 @@
    "fields": {
     "match": 1,
     "mode": 0,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -139,6 +140,7 @@
    "fields": {
     "match": 1,
     "mode": 0,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -176,6 +178,7 @@
    "fields": {
     "match": 1,
     "mode": 0,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -860,7 +863,7 @@
    "client": 3,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "1112131415161718191a1b1c1d1e1f20",
@@ -892,6 +895,7 @@
    "fields": {
     "match": 1,
     "mode": 0,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -1530,7 +1534,7 @@
    "client": 4,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "2122232425262728292a2b2c2d2e2f30",

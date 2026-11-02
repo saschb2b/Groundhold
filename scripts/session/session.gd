@@ -41,6 +41,15 @@
 ## so a member's Try waits for it (try_refusal). Offline, a party of one in a race races the
 ## caretaker: a rival team of caretakers with the same Builders (offline_match).
 ##
+## The level (M8, contract-m8.md §3; design 2.6, 5.2): the party's, which its leader picks as
+## the mode (PARTY difficulty; a change clears every Ready), or the profile's in a party of one
+## and offline. difficulty_id() is the level the hub shows, set_difficulty() the hub's click
+## (the profile's always, the party's when the leader), offers_difficulty(mode) whether a mode
+## takes one. A party this game makes starts at the profile's level (PARTY difficulty after the
+## create), and every match the hub starts plays the level it shows where the mode takes one:
+## Play, Try and Race the caretaker (offline_match's "difficulty"); Duel the caretaker plays
+## Normal. A networked match plays MATCH_CONFIG's (match_spec "difficulty", the client's).
+##
 ## Undertow (M7, contract-m7.md §4; design 1.4, 1.5): a duel is a two-team mode of one seat a
 ## side (is_duel). A party of one finds a rival through the queue (Find a rival), or, offline
 ## or after the queue's offer, duels the caretaker: a caretaker of the same Builder on team 1
@@ -124,7 +133,7 @@ var clock := Callable()
 ## What Join's Online row and a bare code connect to: data/net.json's official URL.
 var official_address := official_url()
 
-## The party as the last PARTY_STATE told it: {"code", "mode", "flags", "leader", "phase",
+## The party as the last PARTY_STATE told it: {"code", "mode", "difficulty", "flags", "leader", "phase",
 ## "countdown_ms", "at", "members": [{"member", "team", "main", "backup", "state", "rtt",
 ## "build_seq", "rules_hash", "name"}]}; {} without one.
 var party := {}
@@ -140,8 +149,9 @@ var last_notice := ""
 ## link went in a match (LINK_LOST_NOTICE). "" for none.
 var hub_notice := ""
 
-## The match the next scenes/main.tscn plays: {"offline": true, "mode", "seats", "seed"}
-## or {"networked": true}; {} when the match scene was booted on its own.
+## The match the next scenes/main.tscn plays: {"offline": true, "mode", "difficulty",
+## "seats", "seed", ...} or {"networked": true, "difficulty"}; {} when the match scene was
+## booted on its own. "difficulty" is the level the match plays (MatchRules.level_of).
 var match_spec := {}
 ## The finished match as the results panel shows it (ResultsPanel.compute()).
 var results := {}
@@ -263,6 +273,9 @@ func _boot_hub(flags: Dictionary) -> void:
 	var mode := str(flags.get("mode", ""))
 	if Profile.HUB_MODES.has(mode) and Profile.offers(mode):
 		profile.mode = mode  # (the mode the party is made in, for this run: M7's --mode=undertow)
+	var level := str(flags.get("difficulty", ""))
+	if MatchRules.known(level):
+		profile.difficulty = level  # (the level the party is made at, for this run: M8's --difficulty=hard)
 	if flags.has("flow-bot") and ResourceLoader.exists(FLOW_BOT):
 		var bot: Node = load(FLOW_BOT).new()
 		bot.call("setup", flags)
@@ -403,7 +416,8 @@ func play_offline(builder: String, try := false, company := 0, company_builder :
 	_go(MATCH_SCENE)
 
 
-## The offline match play_offline plays ({"offline", "mode" (the rules played), "shown_mode",
+## The offline match play_offline plays ({"offline", "mode" (the rules played), "difficulty"
+## (the level it plays: the hub's where the mode takes one, else Normal), "shown_mode",
 ## "seats", "names", "chosen", "seed", "try"}): `mode` with `builder` and `company` caretaker
 ## partners playing `company_builder` (as many as a team's seats hold: none in a duel); in a
 ## race the rival team mirrors them, its chosen Builders the same (racing the caretaker); in a
@@ -419,6 +433,7 @@ func offline_match(
 	return {
 		"offline": true,
 		"mode": Profile.played_mode(mode),
+		"difficulty": try_level() if try else MatchRules.level_of(Profile.played_mode(mode), difficulty_id()),
 		"shown_mode": mode,
 		"seats": seats,
 		"names": [profile.player_name] + _caretaker_names(seats.size() - 1),
@@ -626,14 +641,23 @@ func join_code(typed: String) -> bool:
 	return connect_to(official_address, code)
 
 
-## A party of my own on the server we are on (or the official one).
+## A party of my own on the server we are on (or the official one), at my level.
 func create_party() -> void:
 	if _connected():
 		if not party.is_empty():
 			_party("leave")
-		_party("create", {"mode": Profile.wire_mode(profile.mode)})
+		_create()
 	else:
 		connect_to(official_address)
+
+
+## PARTY create in my mode, then (M8) PARTY difficulty when my level is not Normal: a new
+## party starts at its creator's level. The server takes them in order, so the creator leads
+## when the second comes.
+func _create() -> void:
+	_party("create", {"mode": Profile.wire_mode(profile.mode)})
+	if profile.difficulty != MatchRules.NORMAL:
+		_party("difficulty", {"difficulty": MatchRules.level_id(profile.difficulty)})
 
 
 ## Leaves the party and the server: back to offline, a party of one.
@@ -670,6 +694,52 @@ func set_mode(id: String) -> void:
 	profile.set_mode(id)
 	if is_leader() and party_size() > 0:
 		_party("mode", {"mode": Profile.wire_mode(id)})
+
+
+## The level (M8; design 2.6, 5.2): the profile's always, and the party's too when I lead it
+## (PARTY difficulty: every Ready cleared). A member's click changes only the profile; the
+## hub shows the party's. Not an unknown level. While the party is out of forming (queued,
+## loading, in a match) the server answers the pick with the party's level, so the profile
+## keeps its own too: the level shown and the level played stay one.
+func set_difficulty(id: String) -> void:
+	if not MatchRules.known(id):
+		return
+	if party.is_empty() or str(party.get("phase", "forming")) == "forming":
+		profile.set_difficulty(id)
+	if is_leader() and not party.is_empty() and str(party.get("difficulty", "")) != id:
+		_party("difficulty", {"difficulty": MatchRules.level_id(id)})
+
+
+## Whether my click on the hub's level words picks a level now: the mode takes one, and I
+## play alone or lead a party still forming (the server keeps a queued, loading or playing
+## party's level, as it does its open seats while it loads).
+func picks_difficulty() -> bool:
+	if not offers_difficulty(mode_id()) or not is_leader():
+		return false
+	return party.is_empty() or str(party.get("phase", "forming")) == "forming"
+
+
+## The level a Try plays (a solo High Water): the hub's where the hub's mode takes one, so a
+## Try plays the level the hub lights; Normal where the hub lights none (a duel), as every
+## match the hub starts plays the level it shows (design 2.6).
+func try_level() -> String:
+	if not offers_difficulty(mode_id()):
+		return MatchRules.NORMAL
+	return MatchRules.level_of("high_water", difficulty_id())
+
+
+## The level the hub shows and its matches play where the mode takes one: the party's in a
+## party, else the profile's (contract-m8 §3).
+func difficulty_id() -> String:
+	if not party.is_empty() and MatchRules.known(str(party.get("difficulty", ""))):
+		return str(party["difficulty"])
+	return profile.difficulty
+
+
+## Whether `mode` takes a level (protocol.json's `levels`: High Water and Tide Race; a duel and
+## classic play Normal).
+static func offers_difficulty(mode: String) -> bool:
+	return MatchRules.takes_level(mode)
 
 
 ## Open seats (design 5.2), the leader's: the queue fills them with strangers.
@@ -1076,7 +1146,7 @@ func _on_welcomed() -> void:
 		_party("join", {"code": pending_code.to_ascii_buffer()})
 		pending_code = ""
 	else:
-		_party("create", {"mode": Profile.wire_mode(profile.mode)})
+		_create()
 
 
 func _on_hub_message(type: String, fields: Dictionary) -> void:
@@ -1129,6 +1199,7 @@ func _on_party_state(fields: Dictionary) -> void:
 	party = {
 		"code": (fields["code"] as PackedByteArray).get_string_from_ascii(),
 		"mode": NetProtocol.enum_name("modes", int(fields["mode"])),
+		"difficulty": MatchRules.level_name(int(fields["difficulty"])),
 		"flags": int(fields["flags"]),
 		"leader": int(fields["leader"]),
 		"phase": NetProtocol.enum_name("party_phases", int(fields["phase"])),
@@ -1213,7 +1284,7 @@ func _on_configured() -> void:
 	queue = {}
 	queue_request = ""
 	_hide_match_found()
-	match_spec = {"networked": true}
+	match_spec = {"networked": true, "difficulty": client.difficulty}
 	matches_played += 1
 	return_screen = "hub"
 	results = {}

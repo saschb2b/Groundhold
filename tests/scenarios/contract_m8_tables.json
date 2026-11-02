@@ -1,0 +1,9 @@
+{
+  "name": "contract_m8_tables",
+  "description": "The M8 contract (docs/design/contract-m8.md) holds: the levels are normal, hard and very_hard, append only, each its protocol.json difficulties id; DIFFICULTIES.normal lays nothing, and each harder level, once added, lays exactly lives, hp_pm, boss_hp_pm and boss_armor_c as ints, with fewer lives and more creep and boss health than the level before; NO_STACK is refusal 16 and M8 adds no event number past 27 and leaves the commands as they are; protocol.json says High Water and Tide Race take a level and classic and Undertow do not, and changes no layout while it is version 1 (at version 2, the PARTY op 12 and PARTY_STATE's and MATCH_CONFIG's difficulty after mode, and nothing in HELLO, LOADED, MATCH_FOUND, the queue's messages, RESULT or MATCH_END); and, as the rules track writes them, the presets' stack_max, stake_pm and levels are §1's table and agree with the wire, every plan has a stack list of distinct waves 2 to 12 none behind a boss, a stacking caretaker is version 5, and the rules hash reaches DIFFICULTIES and the plans' stack lists.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "steps": [
+    {"eval": "resource('res://tests/sim/contract_m8.gd').problems()", "as": "found"},
+    {"assert": "found == []", "msg": "the code keeps the M8 contract"}
+  ]
+}

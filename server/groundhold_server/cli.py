@@ -167,8 +167,9 @@ def main(argv=None):
     parser.add_argument("--event-log", help="Optional JSONL of connections and matches; contains display names")
     parser.add_argument("--state-dir", help=f"Private directory for the identity key and moderation (default {STATE_DIR}; "
                                             "keep it across upgrades)")
-    parser.add_argument("--dev-match", metavar="MODE:SEATS",
-                        help="Form a match from the first SEATS players to connect (classic:2), for development")
+    parser.add_argument("--dev-match", metavar="MODE:SEATS[:LEVEL]",
+                        help="Form a match from the first SEATS players to connect (classic:2; high_water:2:hard"
+                             " at a level), for development")
     parser.add_argument("--seed", type=int, help="With --dev-match: every match's seed (default: a random one each)")
     parser.add_argument("--turn-ms", type=int, help=f"With --dev-match: the turn length in ms (default {SPEC['turn_ms']}); "
                                                     "games pace by it, so 10 plays a match five times faster")

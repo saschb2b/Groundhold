@@ -15,10 +15,11 @@ nanoseconds), so a test moves it by hand and nothing waits on the wall:
 
 **The loop.** A party's leader presses Start with every other member
 Ready: `PARTY_STATE` says `countdown` with 3,000 ms; anyone's cancel, a
-member's un-Ready, a Builder change, a drop, a join or a mode change stops
-it. At its end the party's match forms: `PARTY_STATE` phase `loading`,
-then `MATCH_CONFIG` to each member, one seat each in seat order (by team,
-then by row), each seat's Builder its member's main. When the match starts
+member's un-Ready, a Builder change, a drop, a join, a mode change or a
+level change stops it. At its end the party's match forms: `PARTY_STATE`
+phase `loading`, then `MATCH_CONFIG` to each member, one seat each in seat
+order (by team, then by row), each seat's Builder its member's main, at the
+party's level (Normal in a mode without levels). When the match starts
 the phase is `in_match`; when it ends, `results`: each member who was in
 it at the end stays `in_match` (on the results plate) until it sends
 `LEAVE_MATCH` (Play again, or Hub), which brings it back to the party with
@@ -371,6 +372,24 @@ class Lobby:
         party.set_mode(mode)
         self.broadcast(party)
 
+    def op_difficulty(self, player, member, party, fields):
+        """The leader's level (M8, contract-m8 §5), picked like the mode: every Ready
+        cleared and a countdown stopped. A member's, or one while queued, loading or in a
+        match, is answered to the asker alone with the party as it is, and so is the level
+        the party already has; past the last level the connection ends (ERROR 6). Any mode
+        keeps the party's level, a mode without levels playing Normal (Party.level)."""
+        level = fields["difficulty"]
+        if level not in protocol.DIFFICULTY_NAMES:
+            raise ProtocolError("PARTY difficulty outside its limits", protocol.ERRORS["out_of_limits"])
+        if (not party or party.leader is not member or party.phase not in (FORMING, COUNTDOWN, RESULTS)
+                or level == party.difficulty):
+            self.refuse(player, party)
+            return
+        self.stop_countdown(party)
+        party.set_difficulty(level)
+        self.server.event("party_difficulty", party=party.code.decode(), level=protocol.DIFFICULTY_NAMES[level])
+        self.broadcast(party)
+
     def op_builders(self, player, member, party, fields):
         main, backup = fields["main"], fields["backup"]
         if main not in BUILDERS or backup not in BUILDERS:
@@ -555,7 +574,8 @@ class Lobby:
         self.to_loading([party])
         party.match = self.server.form_match(
             MODES[party.mode][0], party.reference(), [member.player for member in members],
-            seats=[dict(team=member.team, builder=member.main, flags=0) for member in members], party=party)
+            seats=[dict(team=member.team, builder=member.main, flags=0) for member in members], party=party,
+            level=party.level())
 
     def to_loading(self, parties):
         """Their match forms: each party `loading`, its members in it, Ready cleared."""

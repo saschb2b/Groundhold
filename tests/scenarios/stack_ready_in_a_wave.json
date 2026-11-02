@@ -1,0 +1,30 @@
+{
+  "name": "stack_ready_in_a_wave",
+  "description": "Waves stack in High Water and truly overlap (contract-m8 §2, design 2.7, the owner's decision of 2 November 2026): a present seat's Ready during wave 1 is taken (EV_READY, no refusal), and the stacked horn sounds on the tick it lands, with nine of wave 1's ten Gourdlings still to come (EV_WAVE start with stacked), every Ready cleared and both waves on the road. Wave 2's first Gourdling sets out on the horn's tick, as at a window's horn, and the rest at its 27-tick interval, while wave 1 keeps its own 54-tick schedule from its own horn, untouched: the Welling sends both. Solo, no towers, so every creep is still on the road.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(30)"},
+    {"eval": "scene.rows('WAVE', ['tick'], {'start': true, 'wave': 1})[0][0]", "as": "horn1"},
+    {"assert": "scene.client(1).hollows[0].phase == 1 and scene.client(1).waves_on_road(0) == PackedInt32Array([1]) and scene.client(1).can_stack(0)", "msg": "wave 1 walks alone and the hollow can take another"},
+    {"assert": "scene.client(1).spawns_left(0) == 9", "msg": "nine of wave 1's Gourdlings are still to come"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(1)"},
+    {"assert": "scene.refusals(1) == [] and scene.rows('READY', ['tick', 'on'], {'seat': 1}) == [[0, true], [30, true]]", "msg": "the Ready during the wave is taken, on tick 30"},
+    {"eval": "scene.rows('WAVE', ['tick', 'wave', 'stacked'], {'start': true})", "as": "horns"},
+    {"assert": "horns == [[horn1, 1, null], [30, 2, true]]", "msg": "the stacked horn calls wave 2 on the tick the Ready lands, with wave 1 still setting out"},
+    {"assert": "scene.client(1).waves_on_road(0) == PackedInt32Array([1, 2]) and not scene.client(1).seat(1).ready and scene.client(1).hollows[0].wave == 2 and scene.client(1).hollows[0].cleared == 0", "msg": "both waves on the road, the Ready cleared, wave 2 the newest called"},
+    {"assert": "scene.wave_spawns(0, 2) == [[0, 'gourdling']] and scene.creep_wave(scene.events_of('SPAWN')[-1]['id']) == 2", "msg": "wave 2's first Gourdling sets out on the horn's tick, of wave 2"},
+    {"assert": "scene.client(1).spawns_left(0) == 9 + 17 and scene.client(1).hollows[0].behind.size() == 3 * 9", "msg": "wave 1's nine still to come wait beside wave 2's seventeen"},
+    {"eval": "scene.run_to(1000)"},
+    {"eval": "[int(scene.client(1).waves[0][0]['interval_t']), int(scene.client(1).waves[1][0]['interval_t'])]", "as": "gaps"},
+    {"eval": "scene.wave_spawns(0, 1)", "as": "w1"},
+    {"eval": "scene.wave_spawns(0, 2)", "as": "w2"},
+    {"assert": "gaps == [54, 27] and w1.size() == 10 and w1[9] == [9 * gaps[0], 'gourdling'] and w1[5] == [5 * gaps[0], 'gourdling']", "msg": "wave 1 set out on its own schedule from its own horn, as if nothing were stacked"},
+    {"assert": "w2.size() == 18 and w2[17] == [17 * gaps[1], 'gourdling'] and w2[8] == [8 * gaps[1], 'gourdling']", "msg": "wave 2 on its own, from the stacked horn"},
+    {"assert": "scene.client(1).spawns_left(0) == 0 and scene.client(1).hollows[0].behind.is_empty() and scene.client(1).creeps_on(0) == 28", "msg": "all 28 walk the road together"}
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "bot_stacks_through_its_orders",
+  "description": "The plan bot (tests/bot.gd) can stack its plan's waves through the game's own input route (M8, contract-m8 §7 and §9): with `stacking` on, in High Water alone the Lamplighter calls the waves its plan's stack list names (2 and 3) during the wave before, as the caretaker would (Caretaker.wants_stack: its builds it can pay for done), by two presses of the build controller's horn, the second sending it; each call goes out as a READY 1 of seat 1 during a wave through the turns, the stacked horn sounds as it lands and the waves walk the road together, and the bot says each call (`stack wave 2 seq N`). Off unless asked: a bot without it never says Ready, so bot_wins_classic and the smokes play as before.",
+  "seed": 1,
+  "ticks_per_frame": 4,
+  "timeout_frames": 12000,
+  "watch": {
+    "wave": "Game.wave",
+    "on_road": "Game.waves_on_road()",
+    "gold": "Game.gold",
+    "hash": "scene.state_hash_hex()"
+  },
+  "steps": [
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"eval": "resource('res://tests/bot.gd').new()", "as": "idle"},
+    {"eval": "resource('res://tests/bot.gd').new()", "as": "bot"},
+    {"set": "bot.stacking", "value": true},
+    {"set": "Game.countdown", "value": 0.1},
+    {
+      "repeat": 400,
+      "steps": [{"eval": "bot.step(scene)"}, {"wait": 5}],
+      "until": "Game.waves_on_road().size() == 2 or Game.state >= 2"
+    },
+    {"assert": "Game.waves_on_road() == PackedInt32Array([1, 2]) and bot.stacks_sent == [2]", "msg": "it called wave 2 during wave 1: two waves on the road"},
+    {"eval": "resource('res://tests/net/duel_checks.gd').sent(1, 4)", "as": "readies"},
+    {"assert": "readies.size() == 1 and readies[0][1] == 1", "msg": "one READY 1 of seat 1 went through the turns: the first press sent nothing, the second the call"},
+    {"assert": "' | '.join(bot.log).contains('stack wave 2 seq ') and not ' | '.join(bot.log).contains('stack wave 2 seq -1')", "msg": "the bot says the call with its seq"},
+    {
+      "repeat": 600,
+      "steps": [{"eval": "bot.step(scene)"}, {"wait": 5}],
+      "until": "Game.waves_on_road() == PackedInt32Array([2, 3]) or Game.state >= 2"
+    },
+    {"assert": "bot.stacks_sent == [2, 3] and resource('res://tests/net/duel_checks.gd').sent(1, 4).size() == 2", "msg": "and wave 3 during wave 2, the plan's whole list"},
+    {
+      "repeat": 600,
+      "steps": [{"eval": "bot.step(scene)"}, {"wait": 5}],
+      "until": "Game.wave >= 5 or Game.state >= 2"
+    },
+    {"assert": "bot.stacks_sent == [2, 3] and resource('res://tests/net/duel_checks.gd').sent(1, 4).size() == 2 and Game.state != 3", "msg": "no wave its list does not name: wave 4 and 5 came from their windows"},
+    {"assert": "not idle.stacking", "msg": "stacking is off unless asked"}
+  ]
+}

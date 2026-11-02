@@ -1,6 +1,8 @@
 ## fork_branch_stats: every tower form of the Lamplighter's and the Lookout's kits, built
 ## and forked by command in a High Water match, stands with the numbers of design 3.4
-## (as content.gd tunes them; the Lookout's reach includes Keen Sight's 0.4 tiles).
+## (as content.gd tunes them, the M8 fork pass included: the Iron Mortar's 52 a shell, the
+## Kestrel Flock's third bounce, Twin Gaze's +25%; the Lookout's reach includes Keen Sight's 0.4
+## tiles).
 ##   {"eval": "resource('res://tests/sim/fork_branch_stats.gd').problems(scene)", "as": "found"}
 ##   {"assert": "found == []"}
 extends RefCounted
@@ -13,7 +15,7 @@ const EXPECTED := {
 	"skyward_loft": {"dmg_c": 1200, "cd_t": 27, "range_mm": 3600, "air": true},
 	"cannon": {"dmg_c": 2000, "cd_t": 90, "range_mm": 3000, "splash_mm": 1100},
 	"great_cannon": {"dmg_c": 4000, "cd_t": 78, "range_mm": 3300, "splash_mm": 1350},
-	"iron_mortar": {"dmg_c": 4500, "cd_t": 84, "range_mm": 3300, "splash_mm": 600, "pierce_c": 400},
+	"iron_mortar": {"dmg_c": 5200, "cd_t": 84, "range_mm": 3300, "splash_mm": 600, "pierce_c": 400},
 	"frost": {"dmg_c": 400, "cd_t": 54, "range_mm": 2800, "slow_pm": 450, "slow_t": 120, "team": 1},
 	"deep_frost": {"dmg_c": 800, "cd_t": 54, "range_mm": 3200, "slow_pm": 600, "slow_t": 120, "team": 1},
 	"rime_spire":
@@ -25,13 +27,13 @@ const EXPECTED := {
 	"hawk_roost": {"dmg_c": 1000, "cd_t": 42, "range_mm": 3800, "air": true, "aim": 1},
 	"falcon_roost": {"dmg_c": 1800, "cd_t": 33, "range_mm": 3800, "air": true, "aim": 1},
 	"kestrel_flock":
-	{"dmg_c": 900, "cd_t": 42, "range_mm": 3800, "air": true, "aim": 1, "bounces": 2, "bounce_mm": 1200},
+	{"dmg_c": 900, "cd_t": 42, "range_mm": 3800, "air": true, "aim": 1, "bounces": 3, "bounce_mm": 1200},
 	"owls_eye":
 	{"cd_t": 30, "range_mm": 4000, "air": true, "aim": 2, "team": 3, "mark_pm": 200, "marks": 1, "mark_t": 60},
 	"owls_glare":
 	{"cd_t": 30, "range_mm": 4000, "air": true, "aim": 2, "team": 3, "mark_pm": 350, "marks": 1, "mark_t": 60},
 	"twin_gaze":
-	{"cd_t": 30, "range_mm": 4000, "air": true, "aim": 2, "team": 3, "mark_pm": 200, "marks": 2, "mark_t": 60},
+	{"cd_t": 30, "range_mm": 4000, "air": true, "aim": 2, "team": 3, "mark_pm": 250, "marks": 2, "mark_t": 60},
 }
 const KEYS := [
 	"dmg_c", "cd_t", "range_mm", "air", "splash_mm", "pierce_c", "slow_pm", "slow_t", "aim",

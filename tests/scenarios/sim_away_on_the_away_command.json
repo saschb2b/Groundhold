@@ -9,7 +9,7 @@
     {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'builders': ['lamplighter', 'lookout'], 'clients': 2, 'seed': 2})"},
     {"eval": "[scene.plan_step(1), scene.plan_step(2)]"},
     {"eval": "scene.run_to(601)"},
-    {"assert": "scene.towers_of(2).size() == 2 and scene.client(1).hollows[0].wave == 0", "msg": "in the first window the Lookout stands her first two towers by her own orders"},
+    {"assert": "scene.towers_of(2).size() == 1 and scene.client(1).hollows[0].wave == 0", "msg": "in the first window the Lookout stands her first tower by her own orders (her plan's next step, since M8's fork pass, forks it into a Kestrel Flock, which she cannot pay for yet)"},
     {"eval": "scene.client(1).seat(2).gold", "as": "gold_before"},
     {"eval": "scene.system('AWAY', 2)"},
     {"eval": "scene.cmd(2, 'BUILD', 0, 11, 9)"},

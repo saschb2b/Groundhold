@@ -10,6 +10,7 @@ what it cost, and one change to the loop. The persona's own files are in
 | Session | Persona | Score | What it met |
 | --- | --- | --- | --- |
 | 1 | halv | 6 (the audit: a 5 fits too) | High Water three times (Lamplighter twice, Beekeeper), Tide Race and Undertow against the caretaker; m7 at 622a3eb |
+| 2 | halv | 6 (the audit: a 7 held at 6 by two open severity-3s) | High Water at Hard three times (Bellfounder lost, Lamplighter 3/15, Beekeeper 9/15) and Undertow against the caretaker; m8 at 624512b |
 
 The four are in `personas/`, written from online research only (`research/`), on the owner's
 brief that long years of Warcraft III custom-map tower defense are the crucial base: `halv` the
@@ -220,3 +221,70 @@ pinned). The audit (`audit-s1.md`) struck three claims and downgraded four; the 
 - A persona given "your choice" took every mode in one evening: good coverage, but each got one
   match; the next session's goals name the mode to go deep in.
 
+## Session 2: halv, 6 (2 November 2026)
+
+Pinned at m8 624512b; 183 batches, 29 minutes of the agent's time, about 360k tokens. Hard gave him the close wave 12
+he asked for (the Crest dead at 78 of 3,938 with 3 lives left), and the fork pass a real choice in the Beekeeper's
+last pair; two severity-3s held the score: the duel's D-Ready still took his window, and the Sky Toll's tip promised
+one tower held the fliers alone. The audit struck a cost the report blamed on P1, a "one tower short" that was a
+road's length, and a "do what they say" with no frame, and downgraded P2, P4 and the score's reading (6 to 7).
+
+- **The pin missed a release's fixes.** m8 was branched from m7 before 0.8.0's last fix round, so five of the patch
+  notes' promises (health and armour in the wave list, the Surge listed, the Seawall's tip, the duel's Ready held,
+  the Tithe named) were not in his build; he reported each as "not as played". The audit caught that they existed
+  on m7-rc. Merged main into m8 the same day (keeping both sides: health on every row with several waves on the
+  road, banners with the Tithe and the lives per wave).
+- **Fixed from it**: what one patch tower holds alone, measured per level and cell (a Sky Toll holds wave 5 only
+  inside a bend: 7 of 206 cells), the hub's level words standing still, numbers to two decimals, the results'
+  forks counted as they stand. Measured for the owner: an uncorked pack breaches 25% of the time (none in a
+  Beekeeper mirror); the owner chose stronger packs and a fairer stipend.
+- **AGENTS.md reached the persona**: the session put the repository's AGENTS.md into its context unasked; it said
+  it did not use it, and the audit found one word ("stake") that only the design and AGENTS.md use. A persona's
+  agent inherits the project's instructions.
+
+**Loop changes from it:**
+- After a release, merge main into the next milestone's branch at once, and pin only a build that holds every fix
+  the patch notes name; write the patch notes from `git log <last pin>..<pin>`, never from memory of what was done.
+- Run personas so the project's instructions do not reach them (a session or agent outside the repository's
+  instruction files, or say in the prompt that they are a developer's and must be ignored), and let the auditor
+  keep checking for the design's words.
+- A persona's wait slept through a Surge window again: the harness's duel words now watch "Surge" lines and say
+  "waiting for the window" while the rival's wave runs (merged from main).
+
+
+## Session 3: halv, 6 (2 November 2026)
+
+Pinned at m8 705155c (the sends pass merged, every fix the patch notes named in the build); 150 batches, 29 minutes of the
+agent's time, about 357k tokens. Three Undertow duels against the caretaker (lost on wave 12, lost on wave 7, won on wave
+10 by a send: the session's own goal) and two High Water at Very Hard (fell in wave 8; left at 5/10 after wave 6). Every
+patch-note item held as played, the five session 2 missed among them; the duel "now plays as a duel", which alone would
+have been a 7. The score stayed 6 on one severity 3: Very Hard alone is a wall at wave 6, not a close wave 12. The audit
+(`audit-s3.md`) upheld H3-01's twelve sends, struck "the caretaker's sends that hurt me were only Moth Clouds" (one was
+the wave's own creeps, one a Thorn Herd) and a cork "that read my juggle" (corked before it), and read H3-02 down to 2:
+both Very Hard builds left the bottom leg bare with gold unspent.
+
+- **The persona found a gate that passed what the owner's words rule out.** Read from the gates' own `summary.bosses`
+  the same hour: at Very Hard every solo plan leaks the Bristlesow (−5 of 10) and falls to a Crest it has worn to 6 to
+  26% of its health (one of the six crews won), and `bot_reaches_crest_very_hard_*` passed, reading "a close wave 12" as "stands until wave 12's horn".
+  Hard is the close wave 12 (the Crest dies at 72 to 80 s, just before its leak). So the audit's downgrade of the
+  persona's build does not touch the finding: the plans, which know the map, lose the same way. A pass retunes Very
+  Hard and tightens the gate to the boss's health left. (I first read the summary's "3868/5250" as health left; it is
+  damage dealt. Say which a number is before quoting it to the owner.)
+- **The Bristlesow leaked in all 8 of his matches' sides this session** (his five, the caretaker's three duels) and in
+  every session before: the plans leak it at Normal with the Lamplighter and the Lookout and at Hard with every
+  Builder. A wave-6 boss that a −5 is the expected price of at every level is a design question for the owner, not a
+  number to tune quietly.
+- **Only the Moth Cloud breached** in his sends (6 of 7; the Gourd Rush, the Scuttle and the Thorn Herd 0 of 5, a tier
+  III Thorn Herd among them at a Lamplighter on 4 lives, "weak against Armored"): ten of the twelve in one Lamplighter
+  mirror, so a pass measures every pack against every Builder before changing anything.
+- AGENTS.md reached him again; the prompt's new rule made him say so in the card, and the audit found no word or
+  number taken from it.
+
+**Loop changes from it:**
+- A gate's pass condition must put the design's words in numbers that can fail: a "close" wave read from how much of
+  the boss is left, not from the wave reached. When a persona calls a level a wall, read the gates' summaries for that
+  level before judging the persona's build: the plans are the best play the project has.
+- A persona's report can be right about the game and wrong about its own play at once; the audit reads the play, the
+  gates read the game. Triage needs both.
+- GOALS no longer ends with "would you play it on your own time": `persona.md` adds that line (session 3's prompt said
+  it twice).

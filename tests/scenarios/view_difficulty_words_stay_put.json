@@ -1,0 +1,35 @@
+{
+  "name": "view_difficulty_words_stay_put",
+  "description": "The level's words stand still under the pointer (playtest halv s2, P9, f343 to f407, shot 0177: a click on Hard lengthened the mode line to 'High Water · Hard · ...', the words beside it slid right, and the pointer ended on Normal, whose tooltip showed, so a second click would have undone the pick). The mode line is now as wide as the widest line it can say (HubPanel._widest_mode_text, every mode at every level), so a click on any of the three words, or on another mode, leaves every word where it stood, and the pointer that clicked Hard still hovers Hard. Without the fix Hard moved 36 px right and the pointer hovered Normal.",
+  "seed": 1,
+  "timeout_frames": 3000,
+  "user_files": {
+    "net.cfg": "[identity]\ntoken=\"00200000000000000000000000000000\"\n"
+  },
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 2},
+    {"assert": "node('HubPanel').level_words() == 'Normal (lit) | Hard | Very Hard' and node('ModeLine').text == 'High Water · 1–4 players · 12 waves'", "msg": "offline at Normal: the mode line names no level"},
+    {"eval": "[node('Level_normal').get_global_rect(), node('Level_hard').get_global_rect(), node('Level_very_hard').get_global_rect()]", "as": "before"},
+    {"eval": "node('Level_hard').get_global_rect().get_center()", "as": "at"},
+    {"click": "node('Level_hard')"},
+    {"wait": 2},
+    {"assert": "Session.difficulty_id() == 'hard' and node('ModeLine').text == 'High Water · Hard · 1–4 players · 12 waves'", "msg": "the click picks Hard, and the mode line names it"},
+    {"assert": "[node('Level_normal').get_global_rect(), node('Level_hard').get_global_rect(), node('Level_very_hard').get_global_rect()] == before", "msg": "every level's word stands where it stood"},
+    {"assert": "node('Level_hard').get_global_rect().has_point(at) and node('HubPanel').get_viewport().gui_get_hovered_control() == node('Level_hard')", "msg": "the pointer that clicked Hard still hovers Hard, not Normal"},
+    {"capture": "hub_hard_clicked"},
+    {"click": "node('Level_very_hard')"},
+    {"wait": 2},
+    {"assert": "Session.difficulty_id() == 'very_hard' and node('ModeLine').text == 'High Water · Very Hard · 1–4 players · 12 waves' and [node('Level_normal').get_global_rect(), node('Level_hard').get_global_rect(), node('Level_very_hard').get_global_rect()] == before", "msg": "Very Hard, the longest word in the line, moves nothing either"},
+    {"click": "node('Mode_tide_race')"},
+    {"wait": 2},
+    {"assert": "node('ModeLine').text == 'Tide Race · Very Hard · 2–4 players · 12 waves' and [node('Level_normal').get_global_rect(), node('Level_hard').get_global_rect(), node('Level_very_hard').get_global_rect()] == before", "msg": "nor does another mode's line"},
+    {"assert": "node('ModeLine').get_global_rect().end.x < node('Level_normal').get_global_rect().position.x and node('Level_very_hard').get_global_rect().end.x <= node('CardWing').get_global_rect().position.x", "msg": "the line and the words stand apart, clear of the card wing"},
+    {"click": "node('Level_normal')"},
+    {"wait": 2},
+    {"assert": "Session.difficulty_id() == 'normal' and [node('Level_normal').get_global_rect(), node('Level_hard').get_global_rect(), node('Level_very_hard').get_global_rect()] == before", "msg": "and back to Normal, the words still where they stood"},
+    {"capture": "hub_tide_race_normal"}
+  ]
+}

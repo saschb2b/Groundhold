@@ -1,0 +1,82 @@
+{
+  "scene": "res://scenes/main.tscn",
+  "name": "hud_stack_late_press_partner_latency_4",
+  "description": "A press late in a build window online, at 4 turns of latency each way (200 ms), in High Water with a partner who never calls (M8's review; design 2.7 and 5.7). An order lands later than offline: after the turns the game holds and has not run yet (TurnSource.order_lead) by its trip there and back (MatchClient.rtt_ms in whole turns: Game.order_trip), and the horn's question counted only the first, so a press with more of the countdown left than the order's lead and a turn went out at once, landed after the window's horn and was taken as a call for wave 2: beside a partner it stood as a call ('Ready 1/2') and carried into the next window. Now the press asks for a second and sends nothing. And a READY no question held back (as when the trip lengthens after it was measured) names the window's wave, wave 1, so landing in wave 1 it is refused WRONG_PHASE, unsaid: wave 1 walks alone and no call stands, so none carries into window 2.",
+  "seed": 1,
+  "timeout_frames": 6000,
+  "steps": [
+    {
+      "wait": 2
+    },
+    {
+      "eval": "scene.add_child(resource('res://tests/net/loopback_main.gd').new())"
+    },
+    {
+      "eval": "node('LoopbackMain').start({'seed': 3, 'latency_turns': 4})"
+    },
+    {
+      "set": "node('LoopbackMain').seq.mode",
+      "value": "high_water"
+    },
+    {
+      "wait_until": "scene.client.phase_name() == 'IN_MATCH'",
+      "timeout": 900
+    },
+    {
+      "set_ticks_per_frame": 1
+    },
+    {
+      "wait_until": "Game.state == 0 and Game.sim.hollows[0].countdown_t <= scene.source.order_lead(Game.sim) + 9",
+      "timeout": 3000
+    },
+    {
+      "eval": "scene.source.order_lead(Game.sim)",
+      "as": "lead"
+    },
+    {
+      "eval": "Game.sim.hollows[0].countdown_t",
+      "as": "countdown"
+    },
+    {
+      "eval": "scene.client.rtt_ms",
+      "as": "rtt"
+    },
+    {
+      "assert": "Game.sim.hollows[0].countdown_t > lead + 3 and Game.order_trip() == 24 and Game.late_in_window()",
+      "msg": "more of the window left than the order's lead and a turn, less than those and the 24-tick trip"
+    },
+    {
+      "key": "N"
+    },
+    {
+      "wait": 2
+    },
+    {
+      "assert": "scene.controller.call_armed() and node('Notice').text == 'Call wave 2 now? Press again' and scene.settled() and node('LoopbackMain').sealed('READY') == 0",
+      "msg": "the press asks for a second and sends nothing"
+    },
+    {
+      "eval": "Game.command(4, 1, Game.called_wave())",
+      "as": "stray"
+    },
+    {
+      "wait_until": "Game.state == 1",
+      "timeout": 120
+    },
+    {
+      "wait": 60
+    },
+    {
+      "assert": "node('LoopbackMain').sealed('READY') == 1 and node('LoopbackMain').sealed_turns('READY')[0] * 3 >= Game.sim.tick - 60",
+      "msg": "the READY no question held back went out and was sealed after the window's horn"
+    },
+    {
+      "assert": "Game.wave == 1 and Game.waves_on_road() == PackedInt32Array([1]) and not Game.is_ready() and not Game.sim.seat(1).ready",
+      "msg": "it named wave 1 and landed in wave 1: refused, it called nothing and stands as no call"
+    },
+    {
+      "assert": "not node('Countdown').text.contains('Ready') and not node('PartyStrip').lines()[0].ends_with('ready') and not node('Ready').get_node('Ring').visible and (not node('Notice').visible or node('Notice').text == 'Call wave 2 now? Press again')",
+      "msg": "the strip counts no call, my bead and the horn are unlit, and the refusal is not said (the notice still asks only the question)"
+    }
+  ]
+}

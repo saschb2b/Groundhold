@@ -40,7 +40,7 @@
     {"hover": "node('CardW')"},
     {"wait": 1},
     {
-      "assert": "node('Tooltip').visible and screen_has('Pinning Ballista') and screen_has('(W)') and screen_has('Damage 32.0 to 36.0 · slow 0% to 50%') and node('TooltipHelps').visible and screen_has('Lifts Swift from weak to passable: enough to hold it alone')",
+      "assert": "node('Tooltip').visible and screen_has('Pinning Ballista') and screen_has('(W)') and screen_has('Damage 32 to 36 · slow 0% to 50%') and node('TooltipHelps').visible and screen_has('Lifts Swift from weak to passable: one alone holds the early swift waves; later ones need more')",
       "msg": "the branch's tooltip: its name and key, what changes in numbers, and the check it lifts"
     },
     {"capture": "branch_tooltip"},

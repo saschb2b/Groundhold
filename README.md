@@ -57,7 +57,7 @@ one button. Alone, Play starts a match at once. The first launch asks for the na
 
 Every tower forks once, for good, into one of two branches: one does more of what the tower does, the other
 covers something its Builder lacks. Tamsin's Skyward Loft and Rime Spire reach the sky and her Iron Mortar
-pierces armour; Edda's Kestrel Flock strikes bounce on to two more creeps and her Pinning Ballista slows;
+pierces armour; Edda's Kestrel Flock strikes bounce on to three more creeps and her Pinning Ballista slows;
 Ottilie's Ringing Clapper strikes a whole crowd and her Sky Toll reaches the sky; Sefa's Drowsy Clay Hive slows
 what it stings and her Queen's Guard stings through armour. Each Builder also brings one tower for the whole
 team: the Frost Spire's slow, the Owl's Eye's mark (every tower hits the marked creep 20% harder), the Toll
@@ -114,10 +114,10 @@ hastens, counts as that teammate's Help.
 
 Two crews of one or two, each on its own copy of Wickhollow, the same waves on both, and nothing crossing
 between them. Each hollow keeps its own clock, so calling a wave early is how you get ahead. Your race time is
-the moment you clear wave 12 plus 10 seconds for every life lost; the lower one wins. If a crew's Holdfast goes
-under, the other wins as soon as it clears that wave. <kbd>V</kbd> looks across at the rival's hollow, and the
-strip's second line follows their wave, lives and clock. Alone, Play races the caretaker, who plays a mirror of
-your crew.
+the moment you clear wave 12 plus a minute for every life lost; the lower one wins, so calling waves early, or
+stacking them, pays only while your defence holds. If a crew's Holdfast goes under, the other wins as soon as it
+clears that wave. <kbd>V</kbd> looks across at the rival's hollow, and the strip's second line follows their
+wave, lives and clock. Alone, Play races the caretaker, who plays a mirror of your crew.
 
 ## Undertow
 
@@ -126,8 +126,9 @@ shared. From the second window the Drift offers three of the four packs, the sam
 Rush, Scuttle, Thorn Herd or Moth Cloud, each testing one check. Cork one (keys <kbd>1</kbd> to <kbd>3</kbd> or a
 click on the tray) and its gold goes at once; your rival sees a bottle and its price, never the pack. During the
 next wave, from 3 s after the horn, <kbd>Space</kbd> uncorks it onto your rival's road (it uncorks by itself at
-24 s), and every pack you send raises the stipend you are paid at each wave clear. A sent creep that breaks
-through takes its lives and pays you twice its bounty. Every 4 lives you lose charge the Seawall, up to two:
+24 s), and every pack you send raises the stipend you are paid at each wave clear. A sent creep comes stronger
+than the wave's own (a quarter; a Gourdling half again, a Scuttler two fifths), and each pack is a threat to the
+Builders weak to its check; one that breaks through takes its lives and pays you twice its bounty. Every 4 lives you lose charge the Seawall, up to two:
 <kbd>F</kbd> bursts a ring of surf round your Holdfast that stuns and wounds every creep near it.
 
 A Holdfast that falls loses at once. If both stand after wave 12, the Surge plays three harder waves with short

@@ -1,15 +1,16 @@
 {
   "builder": "beekeeper",
-  "about": "The Beekeeper on Wickhollow (High Water and Tide Race): Apiaries in the middle of the hollow, where their 4.2 tiles reach most of the road, three of them before the Bristlesow, Clay Hives in the band between the two lower stretches, and Hive Hums among the Apiaries; a Drowsy Clay Hive for swift creeps and Queen's Guards for armour while the team lacks them (patch), Royal Apiaries and Great Clay Hives otherwise. Her towers stand clear of the Bellfounder's, her complementary partner (they share one alt cell). She shares six build cells with the Lookout's plan in the middle of the hollow (her opening Apiary stands on the Lookout's eighth step, her first Hive Hum on the Lookout's opening Hawk Roost) and three with the Lamplighter's: beside either, whoever builds a shared cell first keeps it, and the other takes the step's alt cell or skips the step (bot_wins_lookout_beekeeper, bot_wins_lamplighter_beekeeper). Alt cells let a second Beekeeper play the same plan beside the first.",
+  "about": "The Beekeeper on Wickhollow (High Water and Tide Race): Apiaries in the middle of the hollow, where their 4.2 tiles reach most of the road, three of them before the Bristlesow, Clay Hives in the band between the two lower stretches, and Hive Hums among the Apiaries; a Drowsy Clay Hive for swift creeps and Queen's Guards for armour while the team lacks them (patch), Royal Apiaries and Great Clay Hives otherwise. Her towers stand clear of the Bellfounder's, her complementary partner (they share one alt cell). She shares six build cells with the Lookout's plan in the middle of the hollow (her opening Apiary stands on the Lookout's eighth step, her first Hive Hum on the Lookout's opening Hawk Roost) and three with the Lamplighter's: beside either, whoever builds a shared cell first keeps it, and the other takes the step's alt cell or skips the step (bot_wins_lookout_beekeeper, bot_wins_lamplighter_beekeeper). Alt cells let a second Beekeeper play the same plan beside the first. Since M8's fork pass her first fork is a Queen's Guard, before her first Royal Apiary, so wave 4's Thornbacks meet one.",
+  "stack": [2],
   "steps": [
     {"build": "apiary", "cell": [12, 9], "alt": [[12, 7]]},
     {"build": "clay_hive", "cell": [11, 11], "alt": [[10, 9]]},
     {"build": "apiary", "cell": [7, 11], "alt": [[11, 7]]},
     {"build": "apiary", "cell": [11, 9], "alt": [[10, 8]]},
+    {"fork": "b", "cell": [7, 11], "alt": [[11, 7]], "patch": "armored"},
     {"fork": "a", "cell": [12, 9], "alt": [[12, 7]]},
     {"build": "clay_hive", "cell": [9, 11], "alt": [[9, 9]]},
     {"build": "hive_hum", "cell": [12, 8], "alt": [[11, 8]]},
-    {"fork": "b", "cell": [7, 11], "alt": [[11, 7]], "patch": "armored"},
     {"fork": "a", "cell": [11, 9], "alt": [[10, 8]]},
     {"fork": "b", "cell": [11, 11], "alt": [[10, 9]], "patch": "swift"},
     {"fork": "a", "cell": [9, 11], "alt": [[9, 9]]},

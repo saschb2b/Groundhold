@@ -13,7 +13,7 @@
     {"repeat": 400, "steps": [{"eval": "scene.plan_step(1)"}, {"eval": "scene.plan_step(2)"}, {"eval": "scene.run_ticks(30)"}], "until": "scene.client(1).hollows[0].wave == 2 and scene.client(1).hollows[0].phase == 1"},
     {"eval": "scene.client(1).tick", "as": "away_at"},
     {"eval": "scene.system('AWAY', 2)"},
-    {"eval": "scene.debug(1, 2, 260)"},
+    {"eval": "scene.debug(1, 2, 300)"},
     {"eval": "scene.run_turns(20)"},
     {"eval": "scene.system('BACK', 2)"},
     {"eval": "scene.run_turns(1)"},

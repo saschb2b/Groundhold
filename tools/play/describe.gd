@@ -12,7 +12,10 @@
 ## line, the waves to come while their list shows, and the duel's tray and bar where a build
 ## has them. In a duel the wave line says "build window" only while my window is open for
 ## both hollows, "waiting for the window" while mine has cleared and the rival's wave still
-## runs, so a `wait until build window` waits for the window.
+## runs, so a `wait until build window` waits for the window. (M8) The hub's level words and
+## the match's level beside its mode, a wave's call for the next on the horn (two presses,
+## the question between them, as for a press in a window's last moments), and a rival
+## bottle's candidates.
 ##
 ## It reads the views' nodes and the Game facade, as the screen shows them: nothing a player
 ## cannot see (no cell numbers, no ids, no exact health, no hidden state). `watch` is the few
@@ -141,6 +144,7 @@ static func _hub_panel(tree: SceneTree, hub: Control, out: PackedStringArray) ->
 		)
 		out.append("team covers: %s" % _coverage(arch))
 		out.append("mode: %s" % _text(arch.find_child("ModeLine", true, false)))
+		_levels(tree, arch, out)
 	var modes := []
 	for id: String in Profile.HUB_MODES:
 		var button := hub.find_child("Mode_" + id, true, false) as Button
@@ -172,6 +176,31 @@ static func _hub_panel(tree: SceneTree, hub: Control, out: PackedStringArray) ->
 	var second := hub.find_child("QueueCancel", true, false) as Button
 	if second and second.is_visible_in_tree():
 		out.append("%s @%s" % [second.text, _at(tree, second)])
+
+
+## (M8) The level's three words beside the mode line, each where it is: the one lit
+## "(chosen)", all greyed with why in a mode without levels, "(the leader picks)" where my
+## click picks nothing (a member's), and "(kept while the party is out of forming)" for a
+## leader whose party is queued or playing.
+static func _levels(tree: SceneTree, arch: Node, out: PackedStringArray) -> void:
+	var words := []
+	for id: String in SimContent.DIFFICULTY_IDS:
+		var button := arch.find_child("Level_" + id, true, false) as Button
+		if button == null or not button.is_visible_in_tree():
+			continue
+		var said := "%s @%s" % [button.text, _at(tree, button)]
+		if bool(button.get_meta("lit", false)):
+			said += " (chosen)"
+		words.append(said)
+	if words.is_empty():
+		return
+	var hub := arch.get_parent()
+	var why := ""
+	if not Session.offers_difficulty(Session.mode_id()):
+		why = " (greyed: %s)" % Game.DUEL_LEVEL
+	elif hub and hub.find_child("Level_normal", true, false) and (hub.find_child("Level_normal", true, false) as Button).disabled:
+		why = " (the leader picks)" if not Session.is_leader() else " (kept while the party is out of forming)"
+	out.append("level: " + " | ".join(words) + why)
 
 
 ## The party well's rows as they look: the seat's mark, the name, the Builder's face (the
@@ -338,6 +367,8 @@ static func _match(tree: SceneTree, scene: Node, out: PackedStringArray) -> void
 		return
 	var sim: SimMatch = Game.sim
 	var shown_mode := Profile.mode_name(str(Session.match_spec.get("shown_mode", sim.mode if sim else "")))
+	# (M8: the level where it is not Normal, as the screens name it: "High Water · Hard")
+	shown_mode = Game.mode_words(shown_mode, Game.level())
 	var map_name := str((scene.get_script() as Script).get_script_constant_map().get("MAP_NAME", ""))
 	var where := "offline" if scene.get("client") == null else "online"
 	out.append("screen: match · %s on %s · %s" % [shown_mode, map_name, where])
@@ -430,8 +461,8 @@ static func _match(tree: SceneTree, scene: Node, out: PackedStringArray) -> void
 
 ## The wave list's rows as drawn: the wave (a duel's Surge's "S1", under the Surge's own
 ## line), its checks' glyphs, each creep's face and count ("boss" for a boss) with its health
-## and armour where this build shows them, "wave 9 again" on a Surge's, and "now" on the wave
-## running.
+## and armour where this build shows them, "wave 9 again" on a Surge's, and "now" on each
+## wave on the road (M8: two or three when stacked).
 static func _wave_rows(list: Node) -> Array:
 	var said := []
 	var rows := list.find_child("WaveRows", true, false)
@@ -464,7 +495,7 @@ static func _wave_rows(list: Node) -> Array:
 				creep += " (%s)" % "/".join(names)
 			creeps.append(creep)
 		var again := row.get_node_or_null("Again") as Label
-		var now := Game.state == Game.State.WAVE and number == Game.wave
+		var now := Game.state == Game.State.WAVE and (number == Game.wave or Game.waves_on_road().has(number))
 		said.append(
 			"%s %s: %s%s%s"
 			% [
@@ -530,7 +561,20 @@ static func _card(tree: SceneTree, scene: Node, hud: Node, out: PackedStringArra
 			"lit":
 				words += " (lit: the branch this tower took)"
 		if bool(slot["active"]) and str(slot["state"]) != "lit":
-			words += " (lit: %s)" % {"ready": "you are Ready", "signal": "signalling: click where"}.get(what, "placing it")
+			var ready_words := "you are Ready"
+			if Game.state == Game.State.WAVE:
+				ready_words = "you called %s" % Game.wave_name(Game.called_wave()).to_lower()
+			words += " (lit: %s)" % {"ready": ready_words, "signal": "signalling: click where"}.get(what, "placing it")
+		elif what == "ready" and str(slot["state"]) == "ok" and Game.state == Game.State.WAVE:
+			# (M8: in a wave the horn calls the next, which sets out at once, by two presses)
+			words += " (calls %s now: press twice)" % Game.wave_name(Game.called_wave()).to_lower()
+			if controller.call_armed():
+				words += " (asking: press again)"
+		elif what == "ready" and str(slot["state"]) == "ok" and Game.late_in_window():
+			# (M8: in a window's last moments a press may land after the horn: two presses)
+			words += " (the horn is about to sound: press twice to call %s)" % Game.wave_name(Game.wave + 2).to_lower()
+			if controller.call_armed():
+				words += " (asking: press again)"
 		rows[i / 3].append(words)
 	out.append("card: " + " | ".join(rows[0]))
 	out.append("card: " + " | ".join(rows[1]))
@@ -548,7 +592,8 @@ static func _idle_why(slot: int, what: String, controller: BuildController) -> S
 			return "select a tower of yours"
 		"ready":
 			if Game.state == Game.State.WAVE:
-				return "a wave is running"
+				# (M8: why no call can stack, in the screen's words)
+				return Game.stack_refusal().to_lower() if Game.stack_refusal() != "" else "a wave is running"
 			if Game.has_method("ready_refusal") and Game.ready_refusal() != "":
 				return Game.ready_refusal().to_lower()  # (a duel's window not open for both yet)
 			return "no wave left"
@@ -622,12 +667,15 @@ static func _hover_words(hovered: Control) -> String:
 
 
 ## A part of a duel's tray or bar as a player names it ("" for anything else): a pack of the
-## Drift by its key and name, my bottle, the rival's, a side's Seawall.
+## Drift by its key and name, my bottle, the rival's, a side's Seawall, (M8) the rival's
+## corked bottles at the end of its Seawall's cell.
 static func _duel_part(n: Node) -> String:
 	var parent := n.get_parent()
 	if parent == null:
 		return ""
 	var where := str(n.name)
+	if where == "Corked" and n.find_parent("DuelBar"):
+		return "your rival's corked bottles on the duel bar"
 	if where in ["Seawall0", "SeawallHead"] and n.find_parent("DuelBar"):
 		return "your Seawall on the duel bar"
 	if where == "Seawall1" and n.find_parent("DuelBar"):
@@ -723,25 +771,35 @@ static func _bar_words(creep: Creep) -> String:
 	return "its health bar almost empty" if tenths == 0 else "its health bar about %d%% full" % (tenths * 10)
 
 
-## What reached the Holdfast in the wave the strip speaks of, as a player saw it walk in: the
-## creeps and the lives they cost.
+## What reached the Holdfast in the waves the strip speaks of, as a player saw it walk in: the
+## creeps and the lives they cost, of every wave on the road (M8: "got through waves 6–7"
+## with two stacked), or in a window of the wave just cleared.
 static func _got_through(scene: Node, out: PackedStringArray) -> void:
 	if not scene.has_method("leaks_in") or Game.wave <= 0:
 		return
-	var leaks: Dictionary = scene.call("leaks_in", Game.wave)
-	if leaks.is_empty():
+	var on := Array(Game.waves_on_road()) if Game.state == Game.State.WAVE else []
+	var waves := on if not on.is_empty() else [Game.wave]
+	var kinds := {}
+	var lives := 0
+	for wave: int in waves:
+		var leaks: Dictionary = scene.call("leaks_in", wave)
+		if leaks.is_empty():
+			continue
+		for kind: String in leaks["kinds"]:
+			kinds[kind] = int(kinds.get(kind, 0)) + int(leaks["kinds"][kind])
+		lives += int(leaks["lives"])
+	if kinds.is_empty():
 		return
-	var kinds: Dictionary = leaks["kinds"]
 	var names := []
 	for kind: String in kinds:
 		var count := int(kinds[kind])
 		# (plural as the plate says it: "Next: 18 Gourdlings")
 		names.append("%d %s%s" % [count, Game.CREEPS[kind]["name"], "s" if count > 1 else ""])
 	names.sort()
-	out.append(
-		"got through %s: %s (-%d lives)"
-		% ["this wave" if Game.state == Game.State.WAVE else "in wave %d" % Game.wave, ", ".join(names), int(leaks["lives"])]
-	)
+	var where := "in wave %d" % Game.wave
+	if not on.is_empty():
+		where = "this wave" if on.size() == 1 else Game.road_words().to_lower()
+	out.append("got through %s: %s (-%d lives)" % [where, ", ".join(names), lives])
 
 
 static func _tower_words(tower: Tower) -> String:
@@ -811,10 +869,28 @@ static func _duel(tree: SceneTree, hud: Node, out: PackedStringArray) -> void:
 		out.append("your bottles: " + " | ".join(bottles))
 	var rivals: Array = tray.call("rivals_shown")
 	if not rivals.is_empty():
-		out.append("rival's bottles: " + ", ".join(rivals.map(func(r: Dictionary) -> String: return "tier " + str(r.get("tier", "")))))
+		# (M8: each with the packs it may hold, as the icons under it show them)
+		var said := PackedStringArray()
+		for r: Dictionary in rivals:
+			said.append(_rival_words(r))
+		out.append("rival's bottles: " + ", ".join(said))
 	var tip: Array = tray.call("tip_shown")
 	if str(tip[0]) != "":
 		out.append("tray tip: %s · %s" % [tip[0], str(tip[1]).replace("\n", " ")])
+
+
+## A rival's bottle as the tray shows it: "tier I (one of Gourd Rush, Scuttle or Thorn
+## Herd)", its candidates by their packs' names (M8).
+static func _rival_words(r: Dictionary) -> String:
+	var names := PackedStringArray()
+	for check: Variant in r.get("candidates", []):
+		names.append(str(Game.pack_info(str(check), 0)["name"]))
+	var said := "tier " + str(r.get("tier", ""))
+	if names.size() == 1:
+		return said + " (holds %s)" % names[0]
+	if names.size() > 1:
+		said += " (one of %s or %s)" % [", ".join(names.slice(0, names.size() - 1)), names[names.size() - 1]]
+	return said
 
 
 static func _results(tree: SceneTree, results: Node, out: PackedStringArray) -> void:

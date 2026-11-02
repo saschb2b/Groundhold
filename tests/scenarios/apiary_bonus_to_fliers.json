@@ -1,6 +1,6 @@
 {
   "name": "apiary_bonus_to_fliers",
-  "description": "The Beekeeper's Apiary (design 3.4, contract-m6 3): it prefers winged creeps, as the Hawk Roost does, and its bolts deal 50% more to them (air_bonus_pm): 18 to a Gourdling, 27 to a Duskmoth; a Royal Apiary 34 and 51.",
+  "description": "The Beekeeper's Apiary (design 3.4, contract-m6 3): it prefers winged creeps, as the Hawk Roost does, and its bolts deal 50% more to them (air_bonus_pm): 18 to a Gourdling, 27 to a Duskmoth; a Royal Apiary, whose own bonus is 135% since M8's fork pass, 24 and 56.4 (34 and 51 before).",
   "scene": "res://tests/sim/sim_harness.tscn",
   "seed": 1,
   "timeout_frames": 60,
@@ -24,6 +24,6 @@
     {"eval": "scene.spawn('duskmoth', 16000000)", "as": "moth2"},
     {"eval": "scene.hold(moth2)"},
     {"eval": "scene.run_ticks(150)"},
-    {"assert": "apiary.branch == 0 and scene.hit_values('apiary', 'duskmoth').has([5100, 5100, 0])", "msg": "a Royal Apiary's 34 is 51 to a flier"}
+    {"assert": "apiary.branch == 0 and scene.hit_values('apiary', 'duskmoth').has([5640, 5640, 0])", "msg": "a Royal Apiary's 24 is 56.4 to a flier"}
   ]
 }

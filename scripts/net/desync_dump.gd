@@ -5,8 +5,9 @@
 ##
 ## Path: user://desync/<match>-<seat>.bin, the match id from MATCH_CONFIG in decimal and
 ## the seat as the game shows it (1 to 4): path_for(). Big-endian, in order:
-##   "GHDD", u8 format (1), u16 protocol version, u32 build_seq, 8 bytes rules hash,
-##   u32 match, u8 seat (1 to 4), u8 mode (wire id), u32 seed,
+##   "GHDD", u8 format (2), u16 protocol version, u32 build_seq, 8 bytes rules hash,
+##   u32 match, u8 seat (1 to 4), u8 mode (wire id), u8 level (the wire id of the level the
+##   match plays, M8; format 1 has no such byte and reads as Normal), u32 seed,
 ##   u8 n, then per seat: u8 team, u8 builder (wire id), u8 flags (no names: a dump may be
 ##   attached to a bug report),
 ##   u32 bad tick (MATCH_END's final_tick: the first hash tick the seats disagreed on),
@@ -28,7 +29,12 @@ extends RefCounted
 
 const DIR := "user://desync/"
 const MAGIC := "GHDD"
-const FORMAT := 1
+## Format 2 (M8) adds the level after the mode; read() still takes format 1 (as Normal).
+const FORMAT := 2
+const FORMATS := [1, 2]
+## Where format 2's level byte sits: after "GHDD", the format, the version, build_seq, the
+## rules hash, the match, the seat and the mode.
+const LEVEL_AT := 25
 
 
 ## Where the dump of `match_id`'s seat `seat` (1 to 4) goes.
@@ -53,7 +59,7 @@ static func write(client: MatchClient, checkpoints: Checkpointing, bad_tick: int
 		for cmd: Dictionary in client.source.turns[k]:
 			wire.append(RemoteSequencer.to_wire(cmd))
 		turns.append(NetProtocol.encode("TURN", {"turn": k, "commands": wire}))
-	var rules := SimContent.rules(client.mode)
+	var rules := MatchRules.of(client.mode, client.difficulty)
 	var state := PackedByteArray()
 	var start: SimMatch = (
 		SimMatch.new(rules, client.seat_list, client.match_seed)
@@ -74,6 +80,7 @@ static func write(client: MatchClient, checkpoints: Checkpointing, bad_tick: int
 	b.put_u32(client.match_id)
 	b.put_u8(client.seat)
 	b.put_u8(int(client.config.get("mode", 0)))
+	b.put_u8(maxi(0, MatchRules.level_id(client.difficulty)))
 	b.put_u32(client.match_seed & 0xFFFFFFFF)
 	var listed: Array = client.config.get("seats", [])
 	b.put_u8(listed.size())
@@ -108,8 +115,10 @@ static func write(client: MatchClient, checkpoints: Checkpointing, bad_tick: int
 	return path
 
 
-## A dump read back as a Dictionary of the fields above ({} when `path` is not a dump):
-## "format", "version", "build_seq", "rules_hash", "match", "seat", "mode", "seed", "seats"
+## A dump read back as a Dictionary of the fields above ({} when `path` is not a dump, or
+## names a format or a level this game does not know):
+## "format", "version", "build_seq", "rules_hash", "match", "seat", "mode", "difficulty" (the
+## level's wire id; 0, Normal, in a format-1 dump), "seed", "seats"
 ## ([{"team", "builder", "flags"}]), "bad_tick", "checkpoint_tick", "checkpoint",
 ## "turns" (decoded TURN fields), "state", "hashes" (tick -> hex).
 static func read(path: String) -> Dictionary:
@@ -121,12 +130,15 @@ static func read(path: String) -> Dictionary:
 	if b.get_size() < 4 or b.get_data(4)[1].get_string_from_ascii() != MAGIC:
 		return {}
 	var out := {"format": b.get_u8(), "version": b.get_u16(), "build_seq": b.get_u32()}
-	if int(out["format"]) != FORMAT:
+	if not FORMATS.has(int(out["format"])):
 		return {}
 	out["rules_hash"] = _bytes(b, 8)
 	out["match"] = b.get_u32()
 	out["seat"] = b.get_u8()
 	out["mode"] = b.get_u8()
+	out["difficulty"] = b.get_u8() if int(out["format"]) >= 2 else 0
+	if MatchRules.level_name(int(out["difficulty"])) == "":
+		return {}  # (a level byte naming none of the wire's: no dump this game can replay)
 	out["seed"] = b.get_u32()
 	var seats := []
 	for i in b.get_u8():
@@ -154,10 +166,14 @@ static func read(path: String) -> Dictionary:
 
 
 ## The dump's simulation at `tick`: its checkpoint (or tick 0) run through its turns; null
-## when the turns end first.
+## when the turns end first, or when its level is none of the wire's (it would replay at
+## another level than the match played).
 static func replay(dump: Dictionary, tick: int) -> SimMatch:
 	var mode := NetProtocol.enum_name("modes", int(dump["mode"]))
-	var rules := SimContent.rules(mode)
+	var level := MatchRules.level_name(int(dump.get("difficulty", 0)))
+	if level == "":
+		return null
+	var rules := MatchRules.of(mode, level)
 	var sim: SimMatch
 	if (dump["checkpoint"] as PackedByteArray).is_empty():
 		var seats := []

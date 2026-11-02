@@ -241,8 +241,8 @@
       "as": "said"
     },
     {
-      "assert": "said.contains('Wave 1/12 · wave running · ') and said.contains('D Ready @') and said.contains('(greyed: a wave is running)')",
-      "msg": "a running wave, and why Ready greys"
+      "assert": "said.contains('Wave 1/12 · wave running · ') and said.contains('D Ready ') and said.contains('(calls wave 2 now: press twice)')",
+      "msg": "a running wave, and the horn that calls the next one in it (M8: High Water stacks)"
     },
     {
       "wait_until": "count('creeps') > 0",

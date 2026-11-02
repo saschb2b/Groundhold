@@ -63,8 +63,10 @@ class SequencerTests(unittest.TestCase):
     def test_shapes(self):
         protocol.check_command(BUILD, 2, 255, 0)
         protocol.check_command(SIGNAL, -262144, 262144, 0)
+        protocol.check_command(READY, 1, 7, 0)  # (M8: b names the wave a READY 1 calls)
         for kind, a, b, c in ((BUILD, 3, 0, 0), (BUILD, 0, -1, 0), (BUILD, 0, 0, 256), (FORK, 0, 0, 0),
-                              (FORK, 1, 2, 0), (SELL, 1, 1, 0), (READY, 2, 0, 0), (SIGNAL, 262145, 0, 0),
+                              (FORK, 1, 2, 0), (SELL, 1, 1, 0), (READY, 2, 0, 0), (READY, 1, -1, 0),
+                              (READY, 1, 65536, 0), (READY, 1, 0, 1), (SIGNAL, 262145, 0, 0),
                               (SIGNAL, 0, 0, -1), (AWAY, 0, 0, 0), (TIMEOUT, 0, 0, 0), (0, 0, 0, 0), (200, 0, 0, 0)):
             with self.assertRaises(protocol.ProtocolError) as caught:
                 protocol.check_command(kind, a, b, c)
@@ -133,6 +135,15 @@ class StampingTests(unittest.IsolatedAsyncioTestCase):
             turns = [await self.turn(client) for _ in range(3)]
             self.assertEqual([t["turn"] for t in turns], [2, 3, 4])
             self.assertEqual([stamped(t) for t in turns], [[], [], [(0, 3, FORK, 1, 1, 0)]])
+
+    async def test_a_ready_naming_its_wave_is_stamped_as_sent(self):
+        # (M8's review: READY's b names the wave a READY 1 calls; the server checks only its range)
+        await self.start_match()
+        await self.one.send_message("CMD", seq=1, type=READY, a=1, b=7, c=0)
+        await self.arrived(1)
+        await self.clock.turns(1)
+        for client in (self.one, self.two):
+            self.assertEqual(stamped(await self.turn(client)), [(0, 1, READY, 1, 7, 0)])
 
     async def test_a_sequence_that_does_not_increase_closes_that_connection_only(self):
         await self.start_match()

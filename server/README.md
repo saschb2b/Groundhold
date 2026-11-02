@@ -155,8 +155,10 @@ start: there is no chat, only names and in-game signals.
 
 ### A dev match (M1)
 
-`--dev-match MODE:SEATS` forms a match from the first `SEATS` games that connect with the same rules
-hash, with no hub (the hub's messages are refused), for development and the smoke test:
+`--dev-match MODE:SEATS[:LEVEL]` forms a match from the first `SEATS` games that connect with the
+same rules hash, with no hub (the hub's messages are refused), for development and the smoke test; a
+mode that takes a level (High Water, Tide Race) plays `LEVEL` (`normal`, `hard`, `very_hard`; Normal
+when left out), so `--dev-match high_water:2:hard` plays High Water at Hard:
 
 ```text
 python3 server/main.py --dev-match classic:2
@@ -232,7 +234,7 @@ access log either.
 | The players' log, `logs/` | when you came, under which name and public identity | a host who takes reports can match a name with its identity | not kept on the official server (`log_days = 0`) |
 | Moderation, `moderation.json` | public identity, when, and the moderator's note, for each ban, mute and kick | the server enforces them | a ban or a mute until lifted, a kick until it ends |
 | The server's console log | when the server started, its events without names or public identities: connections by number, parties and matches starting and ending, refusals; no IP addresses | running the server | 3 files of 5 MB, the oldest written over |
-| The daily totals, `stats.jsonl` | a line a UTC day: joins, how many different players (a count: the day's public identities are held in memory and dropped at its end), the most online at once, matches started and finished per mode, desyncs, reconnects, resyncs, rejoins, seats the caretaker played, and joins by protocol version; no names, public identities or IPs. Anyone can read today's and the last 30 days' at `/stats` | how many play and when, so the server and the game are sized and tuned for them | 365 days (`stats_days = 365`) |
+| The daily totals, `stats.jsonl` | a line a UTC day: joins, how many different players (a count: the day's public identities are held in memory and dropped at its end), the most online at once, matches started and finished per mode and level, desyncs, reconnects, resyncs, rejoins, seats the caretaker played, and joins by protocol version; no names, public identities or IPs. Anyone can read today's and the last 30 days' at `/stats` | how many play and when, so the server and the game are sized and tuned for them | 365 days (`stats_days = 365`) |
 | Backups | the server's secret and moderation | to bring the server back after a fault | 14 days (`backup_days = 14`) |
 
 Everything else stays in memory and goes when you leave, when the match ends or when the server
@@ -272,10 +274,12 @@ memory. Its rules (design §5.2, §6.6; `shared/net/README.md`, The hub, has the
 - **Codes** are five symbols from `23456789BCDFGHJKMNPQRSTVWXYZ`, read leniently (`k7q-4m`). Each
   connection may look up five codes at once and one more every 5 s. A party whose last member left
   keeps its code 15 minutes.
-- **The leader** (the creator; then whoever joined earliest) picks the mode, open seats and teams and
-  can remove a member, who cannot rejoin that code. Members change their own Builders (main and
-  backup) and Ready. A member on another rules hash than the newest build "needs to reload", and the
-  party cannot start.
+- **The leader** (the creator; then whoever joined earliest) picks the mode, the level (M8: Normal,
+  Hard or Very Hard; a change clears every Ready and stops a countdown, as a mode change does), open
+  seats and teams and can remove a member, who cannot rejoin that code. Members change their own
+  Builders (main and backup) and Ready. A member on another rules hash than the newest build "needs
+  to reload", and the party cannot start. A party keeps its level through a mode change; a mode
+  without levels (classic, Undertow) plays Normal.
 - **Start** with every other member Ready counts 3 s down; anyone can cancel. The match's seats take
   their teams and their members' main Builders from the party.
 - **The loading barrier**: at least 4 s; a seat not loaded at 15 s is slow; from 30 s the leader may
@@ -288,13 +292,15 @@ memory. Its rules (design §5.2, §6.6; `shared/net/README.md`, The hub, has the
 - **The queue** (`groundhold_server/queue.py`, M6; `shared/net/README.md`, The queue): a forming
   party's leader, everyone Ready, queues for strangers. High Water fills the open seats up to four;
   Tide Race finds one rival team of the same size (1 or 2), and Undertow (M7) a rival for a duel, one
-  player a side. Parties merge only by mode and rules
-  hash, earliest first; Match Found gives everyone 15 s to accept; a decline or the time running out
+  player a side. Parties merge only by mode, rules hash and level (the level the match plays: a
+  Hard party never meets a Normal one, and a duel is always at Normal), earliest first; Match Found
+  gives everyone 15 s to accept; a decline or the time running out
   sends the decliner's party back to forming and the others to the front of the queue. Strangers on
   one team never share a Builder (the first queued keeps the main, the next takes the backup, then a
   free one is drawn); the two sides of a race or a duel never clash. After 60 s queued the leader may
   start with caretakers in the free seats (High Water: Builders covering what the party lacks; a
-  Race: a mirror of the party; a duel: a caretaker of the duellist's own Builder).
+  Race: a mirror of the party; a duel: a caretaker of the duellist's own Builder), at the party's
+  level.
 
 ## Resilience (M4)
 
@@ -391,7 +397,7 @@ Each UTC day the server counts, with no personal data (`stats.py`), and serves a
 | `joins` | sessions that joined |
 | `identities` | different public identities among them, a number only: the set is in memory for the day and never written or served (a restart the same day starts it afresh) |
 | `peak` | the most players online at once |
-| `started`, `finished` | matches begun, and those ended by an agreed result, per mode |
+| `started`, `finished` | matches begun, and those ended by an agreed result, per mode and level: a match at Normal (or of a mode without levels) under its mode, `high_water`, one at Hard or Very Hard under its mode and level, `high_water:hard` (M8) |
 | `desyncs` | disagreements the hash and result referee found (a minority of three, or a match ended desynced): the health gauge of lockstep |
 | `reconnects` | party rows taken back after a drop |
 | `resyncs` | `RESYNC`s sent: a rejoin's, a minority's after a desync, a game's catching up from further back than the latest checkpoint |
@@ -447,6 +453,7 @@ of the `groundhold-backups` volume to another machine); then `rsync` or any copy
 | M5 (this) | the image and its build context, the Coolify and self-host Compose files, the zipapp's and five native release archives smoke-tested outside the checkout, the release workflows, the deploy on a release tag, the official server's policy |
 | M6 | the public queue (open seats and a rival found by mode and rules hash), Match Found and its requeue at the front, Builder clashes between strangers, caretakers offered at 60 s and caretaker seats |
 | M7 | the queue serves Undertow's duel: a rival found one player a side, the duel's caretaker of the duellist's own Builder, a duel's `RESULT` judged one outcome a side; no new message, mode or field (`undertow` was in `protocol.json` from M1) |
+| M8 | protocol version 2 (`groundhold.v2`): the party's level (`PARTY difficulty`, `PARTY_STATE` and `MATCH_CONFIG`'s `difficulty`), the queue keyed on mode, rules hash and level, the caretakers and a rejoin at the match's level, `--dev-match MODE:SEATS:LEVEL`, `/stats` by mode and level |
 
 ## Tests
 
@@ -466,27 +473,28 @@ condition stops after a bound and fails. Run new tests against the code before a
 |---|---|
 | `test_turn_clock.py` | deadlines in integer nanoseconds; no drift over ten minutes of late wake-ups (and that Cyberworld's relative sleep drifts under the same clock); a stalled loop seals the missed turns in a burst; a real server keeps pace with the wall clock |
 | `test_turn_stamping.py` | the seat comes from the connection; the open turn lists the command; rotation from `turn mod seats`; system commands first; increasing sequence numbers; command shapes; a full turn carries over |
-| `test_dev_match.py` | matches from the first `HELLO`s, pooled by rules hash; the barrier and its 4 s minimum; tick-0 mismatch; hashes agreed or apart; the result referee; a race's and an undertow duel's teams, a duel's outcome one a side; silence, `AWAY` and `BACK`; leaving; the hard cap; the golden transcripts are current and round-trip; the real program on `--port 0` |
+| `test_dev_match.py` | matches from the first `HELLO`s, pooled by rules hash; a dev match at a level (`MODE:SEATS:LEVEL`); the barrier and its 4 s minimum; tick-0 mismatch; hashes agreed or apart; the result referee; a race's and an undertow duel's teams, a duel's outcome one a side; silence, `AWAY` and `BACK`; leaving; the hard cap; the golden transcripts are current and round-trip; the real program on `--port 0` |
 | `test_hardening.py` | `WELCOME` and identities; version refusals; `HELLO`'s checks; full and maintenance; malformed frames; path, subprotocol, origin and Godot's native handshake; `/health`; idle sockets; silence; each rate bucket; refusals read before the close; `TURN_REQUEST` bursts; `HASH` flags; the output cap; NUL and BOM strings; the contract's sizes and the README's tables |
 | `test_party_codes.py` | 10,000 codes keep to the alphabet; lenient input; a lower-case code joins; unknown codes; rate-limited lookups; an empty party's code expires after 15 minutes |
-| `test_party_flow.py` | create and join; Ready, the 3 s countdown and its cancel; what stops it; Builders per member reach the match; a mode change clears Ready; leader handover; removal; four at most; needs to reload; Race teams; open seats and a queue request the party cannot make; limits; no party; a dev server has no hub |
-| `test_queue.py` | who may queue and what is refused; the leader's leave; a join, a leave, a drop or open seats off taking a party out, a Builder change keeping it in; open seats a one-team mode's (off on a switch to a race, refused in one); merging open parties up to four, the earliest fill, a party too large waiting; keying on the mode and the rules hash; a race team and its rival of one size, 1v1 and 2v2; Match Found and every accept, a decline and a leave or a drop requeueing the others at the front, the 15 s timeout; Builder clashes between strangers, never in a race; the caretakers offered at 60 s, High Water's covering the party, a race's mirror; a strangers' match and each party its own after it, Play again queueing again; nobody loaded at the ceiling requeueing, the caretakers' offer not told twice; the m6 transcripts; Undertow's duel (M7): a duellist alone queues and two in a party start, two duellists meet one a side with their mains kept, never with a race's ticket, the duel's caretaker of the duellist's Builder, a RESULT of one outcome a side (one outcome alone is out of limits) and Play again queueing again; the m7 transcript |
+| `test_party_flow.py` | create and join; Ready, the 3 s countdown and its cancel; what stops it; Builders per member reach the match; a mode change clears Ready; leader handover; removal; four at most; needs to reload; Race teams; open seats and a queue request the party cannot make; limits; no party; a dev server has no hub; the level (M8): Normal at first, the leader's pick to everyone with every Ready cleared, a member's or the same level answered to the asker alone, a countdown stopped, kept through a mode change, `MATCH_CONFIG` at the level the mode plays, refused while queued or loading |
+| `test_queue.py` | who may queue and what is refused; the leader's leave; a join, a leave, a drop or open seats off taking a party out, a Builder change keeping it in; open seats a one-team mode's (off on a switch to a race, refused in one); merging open parties up to four, the earliest fill, a party too large waiting; keying on the mode and the rules hash; a race team and its rival of one size, 1v1 and 2v2; Match Found and every accept, a decline and a leave or a drop requeueing the others at the front, the 15 s timeout; Builder clashes between strangers, never in a race; the caretakers offered at 60 s, High Water's covering the party, a race's mirror; a strangers' match and each party its own after it, Play again queueing again; nobody loaded at the ceiling requeueing, the caretakers' offer not told twice; the m6 transcripts; Undertow's duel (M7): a duellist alone queues and two in a party start, two duellists meet one a side with their mains kept, never with a race's ticket, the duel's caretaker of the duellist's Builder, a RESULT of one outcome a side (one outcome alone is out of limits) and Play again queueing again; the m7 transcript; the level (M8): a Hard party never meets a Normal one (nor a Very Hard one), a race pairs teams of one level, a duel at Normal whatever its party chose, the caretakers at the party's level, a requeue at its level; the m8 transcript |
 | `test_barrier.py` | the 4 s minimum (none alone); Slow at 15 s; the leader's start without at 30 s, `AWAY` and `BACK` on the late `LOADED`; a late seat with another hash is out; strangers start at 45 s; the 120 s ceiling (seats out, nobody loaded, strangers dissolved, after a start without); tick-0 apart back to the party naming the seat |
 | `test_holds.py` | a dropped row held 40 s; a resume `HELLO` takes it back; a join by code does too; a goodbye frees it; a drop stops the countdown; a row whose match runs waits for the match |
 | `test_back_to_party.py` | the results plate, Play again, the party as it was and the next match; a member who left mid-match; a match that never started; the mode kept |
 | `test_identity.py` | origins normalised; a token stable per origin, unlinkable across; the public identity stable per server and across a restart, unlinkable across servers; bans, the allowlist and kicks refuse; a ban drops a connected player; a bad moderation file; a mute drops signals |
 | `test_beacon.py` | the datagram's layout; a mismatched version is not listed; no beacon in a container, on 127.0.0.1 or behind TLS; a real server once a second of its clock, with its open parties |
 | `test_retention.py` | the policy; the pass at the start and hourly; ended kicks go, bans stay; the players' log (none by default); forget; the admin CLI; backups and restores, a backup folder made when there is none; the real program keeping its state, `--admin`, `--backup`, `--restore`; an empty path refused, never a server started |
-| `test_stats.py` | every count at `/stats`, with no identity, name or address; desyncs; the day written at its end and at the stop, taken up after a restart; no state, no file; reconnects; resyncs and rejoins |
+| `test_stats.py` | every count at `/stats`, with no identity, name or address; matches by mode and level; desyncs; the day written at its end and at the stop, taken up after a restart; no state, no file; reconnects; resyncs and rejoins |
 | `test_hash_referee.py` | all equal or a strict majority of three; the 2 s window; a minority resynced from tick 0; its hashes on their way not compared; apart again is `desynced_twice`; two seats apart and no majority end `desynced` |
 | `test_checkpoint_accept.py` | an agreed checkpoint asked of one seat and kept by its digest; another digest, 5 s, or the link gone ask the next; rotation and the last two kept; who may be asked; tick 0 never; the parts' rules (`ERROR` 1 and 6) |
 | `test_catchup_budget.py` | the pacer: whole messages, 2 KB a share, a large message alone, never over 4 KB unsent; a rejoin's catch-up on the wire with the live turns behind; a dev match's shorter turns paced alike; nothing while 4 KB wait, and the output cap only after |
 | `test_away_back.py` | silence and `AWAY`, the next word `BACK`; `catching_up` holding `BACK` until `shown`; a dropped seat held and resumed from a checkpoint; a seat that left not held; a tab behind resynced once; a seat started without catching up from the latest checkpoint |
-| `test_rejoin.py` | two windows of one identity; a rejoin from tick 0; hashes counted again from the checkpoint; a rejoin while loading; a party member's row then its seat; a resume after the end |
+| `test_rejoin.py` | two windows of one identity; a rejoin from tick 0; hashes counted again from the checkpoint; a rejoin's `MATCH_CONFIG` at the match's own level; a rejoin while loading; a party member's row then its seat; a resume after the end |
 | `test_resync.py` | a minority from the latest checkpoint before its last hash, or tick 0; a member apart twice back in the hub |
-| `test_versions.py` | older and newer games resuming (2, 17); another rules hash cannot take its seat back; maintenance and a full server let in only a resume for a held seat; a member on another rules hash needs to reload |
+| `test_versions.py` | older and newer games resuming (2, 17: a version-1 game at this version-2 server hears 2); another rules hash cannot take its seat back; maintenance and a full server let in only a resume for a held seat; a member on another rules hash needs to reload |
 | `test_support_bounds.py` | the harness's own bounds: the 4 GB cap, and `until`, `drain` and `sync` failing after `MOST_MESSAGES` rather than reading for ever |
 | `test_contract_m4.py` | the M4 contract: numbers appended, the new layouts, the digest and parts, a resume's seat, `VISIBILITY` and `LINKS`, `CatchUp`'s interface, the rejoin naming its seat |
+| `test_contract_m8.py` | the M8 contract's wire: version 2, the levels' ids and which modes take one, `PARTY difficulty` 12 and the level after `mode` in `PARTY_STATE` and `MATCH_CONFIG`, every other layout and command as M7 left them, the party's level, the queue's three-part key and `--dev-match`'s level |
 | `test_packaging.py` | the zipapp reproducible and its allowlist alone; a release archive's files in one folder (the smoke refuses one without), its README for each system (the macOS quarantine steps, TCP 8766 and UDP 8767), BUILD.json; the zipapp's archive smoke-tested outside the checkout, a package that needs the checkout failed, a failed smoke leaving no archive; another computer's target refused, the pinned PyInstaller, the hashes; the notices from the build host, a system's Python counting its standard library alone |
 | `test_deploy.py` | the Dockerfile's stages, user, port and health check; the ignore file's allowlist enough to build; the health checks run against a real server and real archives (the backup's unhealthy past 26 hours); both Compose files as Compose resolves them (hardening, no host port, the volumes, the read-only `server.ini`, the image, Caddy without an access log, a `DOMAIN` required); the official settings, which the real program starts with; `.env.example` naming every setting; the README's commands for each stack's container; Caddy's error log not said to hold no address; the server's state and archives ignored by git |
 | `test_release.py` | the server's workflows' shape (with PyYAML): a server change runs the unit tests, the release tools' tests, the zipapp's archive and `deploy/check.sh`; the native builds are the five targets, the zipapp's archive once, uploaded as `server-<target>`; the image for both architectures, tagged by version, `X.Y` and `latest` only for the newest release, pushed only when told, one push at a time; every action pinned and every local workflow there |
@@ -593,7 +601,8 @@ Python 3.11 and the zipapp's archive on every change to `server/`, `shared/net/`
 `origins` in `server.ini` is the allowlist of browser pages (the game's web build). Only a request
 that carries an `Origin` header is checked against it. Godot 4.7.1's native WebSocket client sends
 none: its upgrade is exactly `Host`, `Upgrade`, `Connection`, `Sec-WebSocket-Key`,
-`Sec-WebSocket-Version` and `Sec-WebSocket-Protocol: groundhold.v1` (recorded for design §6.2;
+`Sec-WebSocket-Version` and `Sec-WebSocket-Protocol: groundhold.v2` (recorded for design §6.2 with
+`groundhold.v1`, the version before M8's;
 `test_godot_native_handshake_is_accepted_with_origins_set` replays it). So desktop games are never
 refused by the allowlist, and the allowlist is no player authentication.
 

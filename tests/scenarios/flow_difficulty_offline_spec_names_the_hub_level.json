@@ -1,0 +1,26 @@
+{
+  "name": "flow_difficulty_offline_spec_names_the_hub_level",
+  "description": "Offline the level is the profile's (M8, contract-m8 §3; design 2.6): saved in user://profile.cfg beside the mode and read back at the next launch; every match the hub starts asks for it where the mode takes one: the spec of Play in High Water, a Try (solo High Water) and Race the caretaker names Hard, Duel the caretaker's and classic's Normal; Play from the hub hands the match scene the level in match_spec, and an unknown level is no level. This holds the session's side only: the match scene building its offline match from match_spec's level is main.gd's (track B), for the finishing pass after both merge to hold (MatchRules.of(mode, difficulty), and main's sim.rules at Hard).",
+  "seed": 1,
+  "timeout_frames": 600,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"wait": 1},
+    {"assert": "Session.difficulty_id() == 'normal'", "msg": "a first launch is at Normal"},
+    {"eval": "Session.set_difficulty('hard')"},
+    {"eval": "Session.set_difficulty('brutal')"},
+    {"assert": "Session.difficulty_id() == 'hard' and Session.profile.difficulty == 'hard'", "msg": "offline, the profile's level; an unknown one changes nothing"},
+    {"eval": "resource('res://scripts/session/profile.gd').load_saved()", "as": "again"},
+    {"assert": "again.difficulty == 'hard' and again.mode == Session.profile.mode", "msg": "saved beside the mode, read back at the next launch"},
+    {"assert": "Session.offline_match('high_water', 'lamplighter')['difficulty'] == 'hard'", "msg": "Play in High Water asks for Hard"},
+    {"assert": "Session.offline_match('high_water', 'lookout', true)['difficulty'] == 'hard'", "msg": "a Try, a solo High Water, asks for Hard"},
+    {"assert": "Session.offline_match('tide_race', 'lamplighter')['difficulty'] == 'hard'", "msg": "Race the caretaker asks for Hard: both hollows at one level"},
+    {"assert": "Session.offline_match('undertow', 'lamplighter')['difficulty'] == 'normal'", "msg": "Duel the caretaker asks for Normal"},
+    {"assert": "Session.offline_match('classic', 'lamplighter')['difficulty'] == 'normal'", "msg": "classic asks for Normal: M1's game"},
+    {"eval": "Session.play_offline(Session.profile.main)"},
+    {"wait": 2},
+    {"assert": "Session.match_spec['offline'] and Session.match_spec['shown_mode'] == 'high_water' and Session.match_spec['difficulty'] == 'hard'", "msg": "Play from the hub names High Water at Hard in the match scene's match_spec (main.gd builds from it: track B's)"}
+  ]
+}

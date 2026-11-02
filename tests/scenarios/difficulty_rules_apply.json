@@ -1,0 +1,33 @@
+{
+  "name": "difficulty_rules_apply",
+  "description": "A level lays its numbers over a preset that takes levels, exactly as contract-m8 §3 says: SimContent.rules(mode, difficulty) sets the level played and replaces the lives; at spawn a creep's health is hp_c x (1000 + growth) x seats_pm / 1000000, as before, then x hp_pm / 1000, a boss's x boss_hp_pm / 1000 instead, and a boss's armour gains boss_armor_c (where armour is on). Checked against creeps put on the road by the logged setter, from the tables' own numbers: solo at Hard before wave 1 (no growth) and with its wave set to 6 (growth 5 x 250), and two seats at Very Hard after wave 11. Bounties and tolls are Normal's at every level, and Normal lays nothing. Tide Race takes the level on both teams; Undertow and classic, and a level no table names, play Normal.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.level_keys('hard')", "as": "H"},
+    {"eval": "scene.level_keys('very_hard')", "as": "V"},
+    {"assert": "scene.level_keys('normal') == {} and scene.preset('high_water', 'normal').get('hp_pm', 1000) == 1000 and not scene.preset('high_water').has('boss_armor_c')", "msg": "Normal lays nothing"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1, 'difficulty': 'hard'})"},
+    {"assert": "scene.client(1).rules['difficulty'] == 'hard' and scene.client(1).level == 1 and scene.client(1).teams[0].lives == H['lives'] and H['lives'] < 20", "msg": "Hard's lives replace the preset's"},
+    {"eval": "[scene.spawn('gourdling'), scene.spawn('thornback'), scene.spawn('bristlesow'), scene.spawn('hollowtide_crest')]", "as": "ids"},
+    {"eval": "[scene.creep(ids[0]).max_hp_c, scene.creep(ids[1]).max_hp_c, scene.creep(ids[2]).max_hp_c, scene.creep(ids[3]).max_hp_c]", "as": "hp"},
+    {"assert": "hp == [2400 * H['hp_pm'] / 1000, 8000 * H['hp_pm'] / 1000, 50000 * H['boss_hp_pm'] / 1000, 70000 * H['boss_hp_pm'] / 1000]", "msg": "creep health by hp_pm, a boss's by boss_hp_pm"},
+    {"assert": "[scene.creep(ids[0]).armor_c, scene.creep(ids[1]).armor_c, scene.creep(ids[2]).armor_c, scene.creep(ids[3]).armor_c] == [0, 400, 600 + H['boss_armor_c'], 400 + H['boss_armor_c']]", "msg": "a boss's armour gains boss_armor_c, a Thornback's does not"},
+    {"assert": "[scene.creep(ids[2]).bounty, scene.creep(ids[2]).toll, scene.creep(ids[3]).bounty, scene.creep(ids[3]).toll] == [50, 5, 60, 10] and scene.creep(ids[2]).hp_c == hp[2]", "msg": "bounties and tolls are Normal's"},
+    {"eval": "scene.debug(3, 0, 6)"},
+    {"eval": "scene.spawn('bristlesow')", "as": "sow6"},
+    {"assert": "scene.creep(sow6).max_hp_c == 50000 * (1000 + 5 * 250) * 1000 / 1000000 * H['boss_hp_pm'] / 1000", "msg": "after wave 6 (a setter) the growth (5 x 250) comes first, then the level"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 2, 'difficulty': 'very_hard'})"},
+    {"eval": "scene.debug(3, 0, 11)"},
+    {"eval": "[scene.spawn('hollowtide_crest'), scene.spawn('duskmoth')]", "as": "vh"},
+    {"assert": "scene.client(1).teams[0].lives == V['lives'] and scene.creep(vh[0]).max_hp_c == 70000 * (1000 + 10 * 250) * 2000 / 1000000 * V['boss_hp_pm'] / 1000 and scene.creep(vh[1]).max_hp_c == 3000 * (1000 + 10 * 250) * 2000 / 1000000 * V['hp_pm'] / 1000", "msg": "two seats at Very Hard after wave 11 (growth 10 x 250): the seat scaling, then the level"},
+    {"assert": "scene.creep(vh[0]).armor_c == 400 + V['boss_armor_c'] and scene.creep(vh[1]).armor_c == 0", "msg": "the Crest's armour at Very Hard"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.spawn('hollowtide_crest')", "as": "normal_crest"},
+    {"assert": "scene.client(1).level == 0 and scene.client(1).teams[0].lives == 20 and scene.creep(normal_crest).max_hp_c == 70000 and scene.creep(normal_crest).armor_c == 400", "msg": "at Normal the Crest is the table's"},
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'difficulty': 'hard'})"},
+    {"assert": "scene.client(1).teams[0].lives == H['lives'] and scene.client(1).teams[1].lives == H['lives'] and scene.client(1).race_penalty_t(0) == 0", "msg": "a race plays the level on both teams, its lost lives counted from the level's"},
+    {"assert": "scene.preset('undertow', 'hard')['difficulty'] == 'normal' and scene.preset('undertow', 'hard')['lives'] == 20 and scene.preset('classic', 'very_hard')['difficulty'] == 'normal' and not scene.preset('classic', 'very_hard').has('hp_pm') and scene.preset('high_water', 'deadly')['difficulty'] == 'normal'", "msg": "Undertow, classic and an unknown level play Normal"}
+  ]
+}

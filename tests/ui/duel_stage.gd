@@ -53,6 +53,14 @@ static func to_window(window: int, lives := 200) -> bool:
 	return Game.command(SimTypes.CMD_READY, 1) >= 0
 
 
+## Seat `seat`'s gold set to `gold`, a logged write (Game.debug's DBG_GOLD), so replays
+## reproduce it. In window 2 a caretaker rival given gold so corks within the half second
+## it next thinks: since the sends' pass tier I costs 45 and its fifth of what it holds
+## (Caretaker.CORK_SHARE_PM) first pays for one in window 3, where at 30 it did in window 2.
+static func gold_for(seat: int, gold: int) -> bool:
+	return Game.debug(SimTypes.DBG_GOLD, seat, gold)
+
+
 ## Whether window `window` is open for both hollows and the Drift has drawn its packs.
 static func in_window(window: int) -> bool:
 	return Game.duel_window() == window and Game.cork_window()

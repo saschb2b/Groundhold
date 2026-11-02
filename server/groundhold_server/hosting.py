@@ -19,6 +19,7 @@ from pathlib import Path
 import socket
 import sys
 
+from . import protocol
 from .protocol import SPEC
 
 CONFIG = "server.ini"
@@ -129,8 +130,9 @@ def banner(name, host, port, secure, addresses, config=None, container=False, wi
     if beacon:
         lines.append(f"The LAN beacon is on: games on this network list it under Nearby (UDP port {SPEC['beacon_port']}).")
     if dev_match:
-        mode, seats = dev_match
-        lines.append(f"Dev match: the first {seats} players to connect play {mode} together"
+        mode, seats, level = dev_match
+        at = f" at {protocol.DIFFICULTY_NAMES[level]}" if level != protocol.NORMAL else ""
+        lines.append(f"Dev match: the first {seats} players to connect play {mode}{at} together"
                      f" (start each game with -- --join=ADDRESS).")
     lines.append(f"Settings: {config}" if config else "Settings: the defaults (server.ini beside the server changes them).")
     if state_dir:

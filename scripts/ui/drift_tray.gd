@@ -11,7 +11,9 @@
 ## does by itself (24 s after the horn); from 3 s after the horn the next one carries the
 ## Space key and lights, and a click or Space uncorks it sooner.
 ##
-## The rival's: their bottles as corked shapes, each showing only its tier.
+## The rival's: their bottles as corked shapes, each showing only its tier and, under it,
+## its candidates (M8, contract-m8 §4): the packs its window offered at that tier, small and
+## dim, never which one it holds.
 ##
 ## Hovering a pack or a bottle explains it in a small plate above the tray. The tray reads
 ## Game (the duel's records) and decides nothing; the build controller sends the orders.
@@ -20,6 +22,10 @@ extends PanelContainer
 
 const PACK_SIZE := Vector2(52, 52)
 const BOTTLE_SIZE := Vector2(36, 50)
+## (M8) A rival bottle's candidates: three small pack icons under it, dimmed, as wide as the
+## socket together (the tray keeps left of the crest's arch at 1280 x 720).
+const CANDIDATE_SIZE := 12.0
+const CANDIDATE_TINT := Color(0.72, 0.68, 0.62, 0.8)
 ## Bottles shown per side: two corks a window from window 9 is the most a side can hold.
 const BOTTLES := 2
 ## Where a bottle's pack face sits while the Space key's tab takes the socket's top.
@@ -135,7 +141,9 @@ func mine_shown() -> Array:
 	return _shown_mine.duplicate(true)
 
 
-## The rival's bottles as shown, for tests: [{"tier" ("I", "II", "III"), "pack" (always "")}].
+## The rival's bottles as shown, for tests: [{"tier" ("I", "II", "III"), "pack" (always ""),
+## "candidates" (M8: the checks of the packs its window offered at its tier, as the icons
+## under it show them)}].
 func rivals_shown() -> Array:
 	return _shown_rivals.duplicate(true)
 
@@ -260,8 +268,27 @@ func _refresh_rivals() -> void:
 		var tier: Label = shape.get_node("Tier")
 		tier.text = Game.TIER_NAMES[clampi(int(bottles[i]["tier"]), 0, 2)] if has else ""
 		shape.set_meta("tier", tier.text)
+		var shown := _show_candidates(shape, bottles[i]["candidates"] if has else [], int(bottles[i]["tier"]) if has else 0)
 		if has:
-			_shown_rivals.append({"tier": tier.text, "pack": ""})
+			_shown_rivals.append({"tier": tier.text, "pack": "", "candidates": shown})
+
+
+## (M8) The pack icons of a rival bottle's candidates under it, in CHECK_IDS order; the
+## checks shown.
+func _show_candidates(shape: Control, candidates: Array, tier: int) -> Array:
+	var row: HBoxContainer = shape.get_node("Candidates")
+	var shown := []
+	for i in row.get_child_count():
+		var icon := row.get_child(i) as TextureRect
+		var has := i < candidates.size()
+		icon.visible = has
+		if has:
+			var check := str(candidates[i])
+			if str(icon.get_meta("check", "")) != check:
+				icon.texture = Game.icon(str(Game.pack_info(check, tier)["icon"]))
+				icon.set_meta("check", check)
+			shown.append(check)
+	return shown
 
 
 # ── Pieces ──
@@ -372,25 +399,48 @@ func _bottle_button(i: int) -> Button:
 func _rival_bottle(i: int) -> Control:
 	var shape := Control.new()
 	shape.name = "Rival%d" % (i + 1)
-	shape.custom_minimum_size = BOTTLE_SIZE
+	# (the socket, and under it a row for the candidates, M8: three small packs side by side)
+	var width := maxf(BOTTLE_SIZE.x, CANDIDATE_SIZE * 3)
+	var left := (width - BOTTLE_SIZE.x) * 0.5
+	shape.custom_minimum_size = Vector2(width, BOTTLE_SIZE.y + CANDIDATE_SIZE + 2)
 	shape.mouse_filter = Control.MOUSE_FILTER_PASS
 	var well := Panel.new()
 	well.name = "Well"
 	well.add_theme_stylebox_override("panel", _socket)
-	well.set_anchors_preset(Control.PRESET_FULL_RECT)
+	well.position = Vector2(left, 0)
+	well.size = BOTTLE_SIZE
 	well.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shape.add_child(well)
 	# (the rival's glass is dark: corked, it shows nothing of what is inside)
 	var glass := _glass(Vector2(BOTTLE_SIZE.x, BOTTLE_SIZE.y - 12))
+	glass.position.x += left
 	glass.modulate = Color(0.55, 0.62, 0.66)
 	shape.add_child(glass)
 	var tier := _label("", Hud.TITLE_FONT, 15, Hud.GOLD)
 	tier.name = "Tier"
 	tier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tier.position = Vector2(0, BOTTLE_SIZE.y - 18)
+	tier.position = Vector2(left, BOTTLE_SIZE.y - 18)
 	tier.size = Vector2(BOTTLE_SIZE.x, 16)
 	tier.add_theme_constant_override("outline_size", 4)
 	shape.add_child(tier)
+	var candidates := HBoxContainer.new()
+	candidates.name = "Candidates"
+	candidates.alignment = BoxContainer.ALIGNMENT_CENTER
+	candidates.add_theme_constant_override("separation", 0)
+	candidates.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	candidates.position = Vector2(0, BOTTLE_SIZE.y + 2)
+	candidates.size = Vector2(width, CANDIDATE_SIZE)
+	for k in 3:
+		var icon := TextureRect.new()
+		icon.name = "Candidate%d" % (k + 1)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2(CANDIDATE_SIZE, CANDIDATE_SIZE)
+		icon.modulate = CANDIDATE_TINT
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.visible = false
+		candidates.add_child(icon)
+	shape.add_child(candidates)
 	shape.mouse_entered.connect(func() -> void: _hover("rival%d" % i))
 	shape.mouse_exited.connect(func() -> void: _hover(""))
 	return shape
@@ -487,9 +537,13 @@ func _show_tip(what: String) -> void:
 		var check := str(_packs[i].get_meta("check", ""))
 		if check == "":
 			if Game.duel_tier(window) < 0:
-				body = "The Drift opens before wave %d: then each window brings three of four packs, the same to both sides." % int(Game.duel_rules()["drift_from"])
+				# (how many it offers is the rules', as the numbers say it)
+				body = "The Drift opens before wave %d: then each window brings %s of %s packs, the same to both sides." % [
+					int(Game.duel_rules()["drift_from"]), Game.waves_word(int(Game.duel_rules()["offered"])).to_lower(),
+					Game.waves_word(SimContent.CHECK_IDS.size()).to_lower()
+				]
 			else:
-				body = "The next window's three packs show here when it opens, once both waves are over."
+				body = "The next window's %s packs show here when it opens, once both waves are over." % Game.waves_word(int(Game.duel_rules()["offered"])).to_lower()
 			title = "The Drift"
 		else:
 			var info := Game.pack_info(check, tier)
@@ -498,9 +552,13 @@ func _show_tip(what: String) -> void:
 			var gain := "then +%d gold a wave for the rest of the match" % Game.stipend_gain(window)
 			if Game.surge() > 0:
 				gain = "in the Surge stipends no longer grow"
-			body = "%d %s%s walk your rival's road · %s. Corked now for %d gold, uncorked in the next wave; %s. Your rival sees only a tier %s bottle." % [
+			# (the premium on a sent creep's health is its pack's in the rules, as the numbers
+			# say it)
+			var stronger := Game.send_premium_words(check)
+			body = "%d %s%s walk your rival's road · %s%s. Corked now for %d gold, uncorked in the next wave; %s. Your rival sees only a tier %s bottle." % [
 				int(info["count"]), creep, "s" if int(info["count"]) > 1 else "",
-				str(Game.CHECKS[check]["name"]), Game.cork_price(window), gain, Game.TIER_NAMES[tier]
+				str(Game.CHECKS[check]["name"]), ", " + stronger if stronger != "" else "",
+				Game.cork_price(window), gain, Game.TIER_NAMES[tier]
 			]
 			var why := Game.cork_refusal(check)
 			if why != "":
@@ -528,9 +586,9 @@ func _show_tip(what: String) -> void:
 		var bottles := Game.rival_bottles()
 		title = "Your rival's bottle"
 		if i < bottles.size():
-			body = "Tier %s, corked for wave %d. What is in it stays hidden until it is uncorked." % [Game.TIER_NAMES[clampi(int(bottles[i]["tier"]), 0, 2)], int(bottles[i]["window"])]
+			body = Game.rival_bottle_text(bottles[i], bottles)
 		else:
-			body = "Your rival's corked bottles stand here, showing only their tier."
+			body = "Your rival's corked bottles stand here, each with its tier and the packs it may hold."
 	_tip_title.text = title
 	_tip_body.text = body
 	_tip.visible = body != "" or title != ""

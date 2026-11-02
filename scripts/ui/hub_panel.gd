@@ -15,6 +15,14 @@
 ## Undertow (M7): its mode button lights once this build has the duel's rules
 ## (Profile.offers), the mode line says "1v1", and a duel's two rows are one a side, so
 ## neither moves; a party of one duels the caretaker offline, or finds a rival online.
+##
+## The level (M8, design 2.6 and 5.2): three words beside the arch's mode line, Normal ·
+## Hard · Very Hard, the party's lit (the profile's in a party of one, Session.difficulty_id);
+## the leader's click picks one (Session.set_difficulty), a member sees it and the words
+## answer no click; each word's tooltip says what it changes in numbers
+## (Game.difficulty_tip). In a mode without levels (Undertow) the words grey with why
+## (Game.DUEL_LEVEL). The mode line names a level other than Normal: "High Water · Hard ·
+## 1–4 players · 12 waves".
 class_name HubPanel
 extends Control
 
@@ -36,6 +44,8 @@ const MODE_TIPS := {
 }
 ## The two teams of a race, as the rows and the loading cards name them (design 5.6).
 const TEAM_NAMES := ["A", "B"]
+## (M8) A level's word where the mode takes none: darker than the dim text.
+const GREYED := Color("#6d6250")
 
 var shell: Shell
 var _rows: Array = []
@@ -45,6 +55,9 @@ var _subtitle: Label
 var _stars: Shell.Stars
 var _coverage: CoverageRow
 var _mode_line: Label
+## (M8) The level's words by DIFFICULTY_IDS, and the dots between them.
+var _levels := {}
+var _level_dots: Array[Label] = []
 var _modes := {}
 var _builders: Button
 var _join: Button
@@ -94,18 +107,17 @@ func refresh() -> void:
 	_stars.count = int(info["difficulty"])
 	_stars.queue_redraw()
 	_coverage.set_builders(Session.party_builders())
+	_mode_line.text = mode_text(mode, Session.difficulty_id())
+	# (how a race is won, where it is chosen: playtest halv s1, P10, "the hub says only
+	# 'Tide Race · 2–4 players · 12 waves'": the line's tooltip and the mode's button say the
+	# whole rule; the line itself stays the mode's, as wide as its widest wording, so the
+	# level's words beside it stand still and clear of the card, playtest halv s2, P9)
 	var played := Profile.played_mode(mode)
-	var waves := (SimContent.WAVES[SimContent.RULES[played]["waves"]] as Array).size()
-	var seats: Array = NetProtocol.spec()["modes"][mode]["seats"]
-	var players := "%d–%d players" % [seats[0], seats[1]]
-	if Session.is_duel(mode):
-		players = "1v1"
-	_mode_line.text = "%s · %s · %d waves" % [Profile.mode_name(mode), players, waves]
-	var won := Game.race_rule_words(played, true)
-	if won != "":
-		# (how a race is won, where it is chosen: playtest halv s1, P10, "the hub says only
-		# 'Tide Race · 2–4 players · 12 waves'")
-		_mode_line.text += " · " + won
+	_mode_line.tooltip_text = _sentence(Game.race_rule_words(played)) if Game.race_rule_words(played, true) != "" else ""
+	# (as wide as the widest line it can say, so the level's words beside it stand still when
+	# a click on one names the level in the line: playtest halv s2, P9)
+	_mode_line.custom_minimum_size.x = _widest_mode_text()
+	_fill_levels(mode)
 	for id: String in _modes:
 		var button: Button = _modes[id]
 		button.disabled = not Profile.offers(id) or not Session.is_leader()
@@ -120,13 +132,84 @@ func refresh() -> void:
 
 
 ## Mode `id`'s button tooltip: MODE_TIPS', and for a race how it is won, from its rules
-## ("... The lower time to clear wave 12 wins; each life lost adds 10 s.").
+## ("... The lower time to clear wave 12 wins; each life lost adds 60 s.").
 static func mode_tip(id: String) -> String:
 	var tip := str(MODE_TIPS.get(id, SOON))
 	var won := Game.race_rule_words(id)
 	if won != "":
-		tip += ". " + won[0].to_upper() + won.substr(1) + "."
+		tip += ". " + _sentence(won)
 	return tip
+
+
+## "the lower time ..." as a sentence: "The lower time ... 60 s.".
+static func _sentence(words: String) -> String:
+	return words[0].to_upper() + words.substr(1) + "."
+
+
+## The mode line for `mode` at level `difficulty`: "High Water · Hard · 1–4 players · 12
+## waves" (the level named where the mode plays one other than Normal, Game.mode_words).
+func mode_text(mode: String, difficulty: String) -> String:
+	var played := Profile.played_mode(mode)
+	var waves := (SimContent.WAVES[SimContent.RULES[played]["waves"]] as Array).size()
+	var seats: Array = NetProtocol.spec()["modes"][mode]["seats"]
+	var players := "%d–%d players" % [seats[0], seats[1]]
+	if Session.is_duel(mode):
+		players = "1v1"
+	var level := MatchRules.level_of(played, difficulty)
+	return "%s · %s · %d waves" % [Game.mode_words(Profile.mode_name(mode), level), players, waves]
+
+
+## The width of the widest mode line the hub can show, every mode at every level, in the
+## line's own font: the level's words stand that far along whatever the line says.
+func _widest_mode_text() -> float:
+	var font := _mode_line.get_theme_font("font")
+	var size := _mode_line.get_theme_font_size("font_size")
+	var widest := 0.0
+	for mode: String in Profile.HUB_MODES:
+		for id: String in SimContent.DIFFICULTY_IDS:
+			widest = maxf(widest, font.get_string_size(mode_text(mode, id), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x)
+	return ceilf(widest)
+
+
+## (M8) The level's three words: the party's lit; the leader's to click (offline and in a
+## party of one, mine) while the party forms (Session.picks_difficulty: queued, loading or in
+## a match the party's level stands); grey in a mode without levels, with why.
+func _fill_levels(mode: String) -> void:
+	var played := Profile.played_mode(mode)
+	var takes := Session.offers_difficulty(mode)
+	var shown := Session.difficulty_id()
+	var picks := Session.picks_difficulty()
+	for id: String in _levels:
+		var button: Button = _levels[id]
+		var lit := takes and id == shown
+		button.disabled = not picks
+		button.set_meta("lit", lit)
+		var tone := Shell.GOLD if lit else (Shell.DIM if takes else GREYED)
+		for key: String in ["font_color", "font_disabled_color", "font_pressed_color"]:
+			button.add_theme_color_override(key, tone)
+		button.add_theme_color_override("font_hover_color", Shell.TEXT if picks and not lit else tone)
+		button.add_theme_font_override("font", Shell.BOLD_FONT if lit else Shell.BODY_FONT)
+		button.tooltip_text = Game.difficulty_tip(id, played) if takes else Game.DUEL_LEVEL
+		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if picks else Control.CURSOR_ARROW
+	for dot: Label in _level_dots:
+		dot.add_theme_color_override("font_color", Shell.DIM if takes else GREYED)
+
+
+## The level's words as shown, for tests: "Normal | Hard (lit) | Very Hard", each "(greyed)"
+## in a mode without levels, and "(fixed)" where my click picks nothing (a member's).
+func level_words() -> String:
+	var out := PackedStringArray()
+	for id: String in _levels:
+		var button: Button = _levels[id]
+		var words := button.text
+		if bool(button.get_meta("lit", false)):
+			words += " (lit)"
+		if not Session.offers_difficulty(Session.mode_id()):
+			words += " (greyed)"
+		elif button.disabled:
+			words += " (fixed)"
+		out.append(words)
+	return " | ".join(out)
 
 
 ## The members in the order their rows show them: by row number; in a race by team, then
@@ -388,10 +471,52 @@ func _build_arch() -> void:
 	info.add_child(gap)
 	_coverage = CoverageRow.new()
 	info.add_child(_coverage)
+	# The mode line, and beside it the level's three words (M8), like the open-seats switch.
+	var row := HBoxContainer.new()
+	row.name = "ModeRow"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 12)
+	info.add_child(row)
 	_mode_line = Shell.label("", Shell.BODY_FONT, 12, Shell.DIM)
 	_mode_line.name = "ModeLine"
 	_mode_line.add_theme_constant_override("outline_size", 0)
-	info.add_child(_mode_line)
+	_mode_line.mouse_filter = Control.MOUSE_FILTER_PASS  # (a race's whole rule on hover)
+	row.add_child(_mode_line)
+	var levels := HBoxContainer.new()
+	levels.name = "Levels"
+	levels.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	levels.add_theme_constant_override("separation", 3)
+	row.add_child(levels)
+	for id: String in SimContent.DIFFICULTY_IDS:
+		if not _levels.is_empty():
+			var dot := Shell.label("·", Shell.BODY_FONT, 11, Shell.DIM)
+			dot.add_theme_constant_override("outline_size", 0)
+			_level_dots.append(dot)
+			levels.add_child(dot)
+		levels.add_child(_level_button(id))
+
+
+## One of the level's words: a flat word, no frame, as the open-seats switch is.
+func _level_button(id: String) -> Button:
+	var button := Button.new()
+	button.name = "Level_" + id
+	button.text = Game.level_name(id)
+	button.flat = true
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_font_override("font", Shell.BODY_FONT)
+	button.add_theme_font_size_override("font_size", 12)
+	button.add_theme_constant_override("outline_size", 0)
+	for st: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		var box := StyleBoxEmpty.new()
+		box.content_margin_left = 1
+		box.content_margin_right = 1
+		button.add_theme_stylebox_override(st, box)
+	# (as wide as the word lit, in bold, so lighting one moves none of them)
+	var bold := Shell.BOLD_FONT.get_string_size(button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	button.custom_minimum_size.x = ceilf(bold) + 2
+	button.pressed.connect(Session.set_difficulty.bind(id))
+	_levels[id] = button
+	return button
 
 
 func _build_card() -> void:

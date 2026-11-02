@@ -1,7 +1,8 @@
 ## The party strip (design 5.7): top left, one slim plate per player while more than one
 ## seat plays. Each plate shows the seat's glyph in its colour, its Builder's face, the
 ## name, the gold, link bars from the round trips the server relays (LINKS), and a Ready
-## mark during the build window. "away", "back next window", "caretaker" and "left" replace the gold when the
+## mark during the build window (M8: during a wave of a mode that stacks too, where a mark is a
+## call for the next wave, shown while one may be called or stands). "away", "back next window", "caretaker" and "left" replace the gold when the
 ## caretaker plays the seat ("in another tab" for an away seat whose browser tab is hidden, LINKS' hidden flag).
 ## My own plate is framed brighter.
 ##
@@ -318,21 +319,48 @@ func _fill(row: Dictionary, sim: SimMatch, client: MatchClient, seat: int) -> vo
 		var linked := client.phase <= MatchClient.Phase.PLAYING and not client.reconnecting
 		bars.set_bars(MatchClient.bars_for(client.rtts[seat - 1], client.link_flags[seat - 1]) if linked else 0)
 	var ready: ReadyMark = row["ready"]
-	var window := sim.hollows[s.hollow].phase == SimTypes.PHASE_PREP
+	var h := sim.hollows[s.hollow]
+	var window := h.phase == SimTypes.PHASE_PREP
+	# (M8: in a wave of a mode that stacks a mark is a call for the next wave, shown while
+	# the hollow may take one or a call stands)
+	if h.phase == SimTypes.PHASE_WAVE and sim.stack_max > 1:
+		window = sim.can_stack(h.id) or _calls_on(sim, h)
 	# (no Ready mark while no order goes out: before START, once the link is gone, and once
 	# the match is decided, a race whose hollow was still in a window too; a rival still
 	# racing after my hollow is done keeps its marks)
 	var calls := Game.accepts_commands() and not sim.over and Game.outcome() == ""
-	ready.visible = window and sim.hollows[s.hollow].wave < sim.last_wave() and calls
+	ready.visible = window and h.wave < sim.last_wave() and calls
 	# (the bead's room is kept while it hides, so the plate does not jump as a wave starts)
 	(row["ready_room"] as Control).visible = not ready.visible
-	var lit := s.ready or s.state != SimTypes.SEAT_PRESENT
+	# (a seat the caretaker plays counts as Ready beside a present player, so its bead is
+	# lit; on a hollow nobody is present at, a rival crew's in a race, the caretaker calls
+	# only as its plan says, so its bead lights only once it has said Ready: M8, in a wave a
+	# lit mark reads as a call for the next)
+	var lit := s.ready or (s.state != SimTypes.SEAT_PRESENT and _anyone_present(sim, h))
 	# My own bead lights from my press at once, as the horn button does, before the turn
 	# that carries it runs (the simulation's Ready follows a round trip later).
 	var controller: BuildController = main.get("controller") if main else null
 	if mine and s.state == SimTypes.SEAT_PRESENT and controller != null:
 		lit = controller.wants_ready()
 	ready.set_lit(lit)
+
+
+## Whether a seat of hollow `h` is present: the hollow's horn waits for its players, and a
+## caretaken seat beside them counts as Ready (SimWaves._all_ready).
+static func _anyone_present(sim: SimMatch, h: SimRecords.SimHollow) -> bool:
+	for n in h.seats:
+		if sim.seat(n).state == SimTypes.SEAT_PRESENT:
+			return true
+	return false
+
+
+## (M8) Whether a present seat of hollow `h` has called the next wave during this one.
+static func _calls_on(sim: SimMatch, h: SimRecords.SimHollow) -> bool:
+	for n in h.seats:
+		var s := sim.seat(n)
+		if s.ready and s.state == SimTypes.SEAT_PRESENT:
+			return true
+	return false
 
 
 func _text(value: String, font: Font, size: int, color: Color) -> Label:

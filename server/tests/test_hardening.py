@@ -79,7 +79,9 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
     async def test_versions_say_which_side_is_behind(self):
         await self.start()
         # (another version's subprotocol is let in to hear which side is behind)
-        for version, code in ((0, ERRORS["game_older"]), (2, ERRORS["server_older"]), (900, ERRORS["server_older"])):
+        older, newer = SPEC["version"] - 1, SPEC["version"] + 1
+        for version, code in ((0, ERRORS["game_older"]), (older, ERRORS["game_older"]), (newer, ERRORS["server_older"]),
+                              (900, ERRORS["server_older"])):
             client, (name, error) = await self.connect(version=version, subprotocol=f"groundhold.v{version}")
             self.assertEqual(client.protocol, f"groundhold.v{version}")
             self.assertEqual((name, error["code"]), ("ERROR", code))
@@ -97,7 +99,7 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
                 self.clients.append(client)
                 await client.open(self.port)
                 # (the name's length byte says 17: HELLO's held match and seat follow the name)
-                data = protocol.encode("HELLO", version=1, build_seq=1, rules_hash=RULES,
+                data = protocol.encode("HELLO", version=SPEC["version"], build_seq=1, rules_hash=RULES,
                                        token=b"\x01" * 16, flags=0, name="x", match=0, seat=255)
                 await client.send(data[:-7] + bytes((17,)) + name.encode() + data[-5:])
                 answer = await client.next()
@@ -108,7 +110,7 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         client = Client()
         self.clients.append(client)
         await client.open(self.port)
-        await client.send(protocol.encode("HELLO", version=1, build_seq=1, rules_hash=RULES, token=b"\x01" * 16,
+        await client.send(protocol.encode("HELLO", version=SPEC["version"], build_seq=1, rules_hash=RULES, token=b"\x01" * 16,
                                           flags=0, name="Tamsin", match=0, seat=255) + b"x")
         self.assertEqual((await client.next())[1]["code"], ERRORS["protocol"])
         self.assertFalse(self.server.players)
@@ -178,11 +180,11 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         await self.start()
         native = ("GET /causeway HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nUpgrade: websocket\r\n"
                   "Connection: Upgrade\r\nSec-WebSocket-Key: MDEyMzQ1Njc4OWFiY2RlZg==\r\n"
-                  "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: groundhold.v1\r\n\r\n")
+                  "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: " + SPEC["subprotocol"] + "\r\n\r\n")
         self.assertTrue(self.server.origins)
         answer = await self.raw_request(native.format(port=self.port).encode(), whole=False)
         self.assertTrue(answer.startswith(b"HTTP/1.1 101"), answer)
-        self.assertIn(b"Sec-WebSocket-Protocol: groundhold.v1", answer)
+        self.assertIn(b"Sec-WebSocket-Protocol: " + SPEC["subprotocol"].encode(), answer)
 
     async def test_health_answers_on_the_same_port(self):
         await self.start(dev_match="classic:2")
@@ -190,7 +192,7 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         response = await self.raw_request(b"GET /health HTTP/1.1\r\nHost: x\r\n\r\n")
         self.assertTrue(response.startswith(b"HTTP/1.1 200"))
         health = json.loads(response.split(b"\r\n\r\n", 1)[1])
-        self.assertEqual(health, {"status": "ok", "protocol": 1, "version": VERSION, "build": BUILD,
+        self.assertEqual(health, {"status": "ok", "protocol": SPEC["version"], "version": VERSION, "build": BUILD,
                                   "name": "Test Shore", "motd": "Hold the road",
                                   "players": 1, "player_cap": 64, "matches": 0, "maintenance": None,
                                   "dev_match": "classic:2", "turn_ms": 50})

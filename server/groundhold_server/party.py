@@ -4,11 +4,14 @@ together, as whom, in which mode, and whether they are ready.
 The rules, all the server's:
 
 - The creator leads. If the leader leaves, the member who joined earliest
-  leads. The leader picks the mode, open seats and teams, and can remove a
-  member, who cannot rejoin that code. Members change only their own
-  Builders (main and backup) and Ready; the leader's Ready is its Start.
-- Changing the mode clears every Ready; changing your Builders clears
-  yours; moving a member to another team clears theirs.
+  leads. The leader picks the mode, the level (M8: Normal, Hard, Very Hard),
+  open seats and teams, and can remove a member, who cannot rejoin that
+  code. Members change only their own Builders (main and backup) and Ready;
+  the leader's Ready is its Start.
+- Changing the mode or the level clears every Ready; changing your Builders
+  clears yours; moving a member to another team clears theirs. A party
+  keeps its level through a mode change, and a mode without levels plays
+  Normal (`level`, protocol.level_of).
 - Start, with every other member Ready, everyone on one rules hash, and the
   party a size the mode takes (two equal teams for a Race), counts 3 s down;
   anyone can cancel, and anything that breaks the rule stops it.
@@ -64,6 +67,7 @@ class Member:
 class Party:
     def __init__(self, code, mode, lan=False):
         self.code, self.mode, self.lan = code, mode, lan
+        self.difficulty = protocol.NORMAL   # the leader's pick (contract-m8 §3); a new party's is Normal
         self.open = False
         self.members = {}           # number -> Member
         self.leader = None
@@ -141,6 +145,18 @@ class Party:
             self.open = False
         self.lay_out_teams()
 
+    def set_difficulty(self, difficulty):
+        """The level changed (the leader's PARTY difficulty): every Ready cleared, as a
+        mode change does; the teams and open seats stay."""
+        self.difficulty = difficulty
+        for member in self.members.values():
+            member.ready = False
+
+    def level(self):
+        """The level the party's match plays: its own where the mode takes one, else Normal
+        (a duel, classic)."""
+        return protocol.level_of(MODES[self.mode][0], self.difficulty)
+
     def lay_out_teams(self):
         """One team: everyone on it. Two: alternate by when they joined."""
         teams = self.teams()
@@ -186,7 +202,7 @@ class Party:
         members = [dict(member=m.number, team=m.team, main=m.main, backup=m.backup, state=self.state(m),
                         rtt_ms=min(0xffff, m.player.round_trip) if m.player else 0, build_seq=m.build_seq,
                         rules_hash=m.rules_hash, name=m.name) for m in self.ordered()]
-        return protocol.encode("PARTY_STATE", code=self.code, mode=self.mode,
+        return protocol.encode("PARTY_STATE", code=self.code, mode=self.mode, difficulty=self.difficulty,
                                flags=(FLAGS["open"] if self.open else 0) | (FLAGS["lan"] if self.lan else 0),
                                leader=self.leader.number if self.leader else NOBODY, you=you, phase=self.phase,
                                countdown_ms=min(0xffffffff, left), members=members)
@@ -194,5 +210,5 @@ class Party:
 
 def no_party():
     """PARTY_STATE for a player in no party: five zero bytes for the code, no members."""
-    return protocol.encode("PARTY_STATE", code=codes.NONE, mode=0, flags=0, leader=NOBODY, you=NOBODY, phase=FORMING,
-                           countdown_ms=0, members=[])
+    return protocol.encode("PARTY_STATE", code=codes.NONE, mode=0, difficulty=protocol.NORMAL, flags=0, leader=NOBODY,
+                           you=NOBODY, phase=FORMING, countdown_ms=0, members=[])

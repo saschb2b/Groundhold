@@ -20,9 +20,11 @@
 ## refuses its new links for `frames` frames (-1, the default: for good): in a match the
 ## MatchClient reconnects meanwhile with a resume HELLO (M4) and takes its seat back after.
 ##
-## The queue (M6): stranger(name, main, backup, accepts) puts a stranger in the queue (it
-## fills an open seat, or a race's rival team, in the order strangers came; one made with
-## `accepts` false answers Match Found only through stranger_answer(name, yes));
+## The queue (M6): stranger(name, main, backup, accepts, level) puts a stranger in the queue (it
+## fills an open seat, or a race's rival team, in the order strangers came, at its level only
+## (M8: "normal" unless named); one made with `accepts` false answers Match Found only through
+## stranger_answer(name, yes)); party_difficulty(level) sends the leader's PARTY difficulty,
+## refused as the server refuses it (M8);
 ## party_mode(mode) sets the party's mode as its leader would (a race party, which this
 ## build's hub cannot pick before track A's preset); party_open(on) sets its open seats and
 ## queue_party() queues it as a scripted
@@ -78,9 +80,18 @@ func set_member(who: String, key: String, value: Variant) -> void:
 	seq.set_member(who, key, value)
 
 
-## A stranger queued (M6): the fake's add_stranger.
-func stranger(who: String, main := "lamplighter", backup := "lookout", accepts := true) -> void:
-	seq.add_stranger(who, main, backup, accepts)
+## A stranger queued (M6) at `level` (M8): the fake's add_stranger.
+func stranger(
+	who: String, main := "lamplighter", backup := "lookout", accepts := true, level := MatchRules.NORMAL
+) -> void:
+	seq.add_stranger(who, main, backup, accepts, level)
+
+
+## The party's level by name, sent as a scripted leader's PARTY difficulty (M8): the op's own
+## rules, so the level the party has, or one while queued, loading or in a match, changes
+## nothing and is answered to the leader alone.
+func party_difficulty(level: String) -> void:
+	seq.set_party_difficulty(level)
 
 
 ## A stranger's answer to Match Found.

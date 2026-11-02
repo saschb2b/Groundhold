@@ -1,0 +1,30 @@
+{
+  "name": "sim_stacked_waves_spawn_together",
+  "description": "Two waves' schedules run together after a stacked horn (contract-m8 §2, design 2.7): solo High Water, no towers, 200 lives (a setter), wave 2 called on tick 27 of wave 1, so on tick 54 both send a Gourdling (wave 1's every 54 ticks from 0, wave 2's every 27 from 27). The older wave's comes first (the lower id), each creep comes with its own wave and grows by it (wave 1's 24.00, wave 2's 25% more), and what wave 1 still had to send waits in SimHollow.behind on the ticks its queue would have sent it. A checkpoint taken while both send round-trips byte for byte, and a second client joined from it (the M8 block's behind) plays on in step with the first through both waves' spawns and clears.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.debug(2, 0, 200)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(27)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_ticks(1)"},
+    {"assert": "scene.rows('WAVE', ['tick', 'wave', 'stacked'], {'start': true}) == [[0, 1, null], [27, 2, true]]", "msg": "wave 2 called on tick 27 of wave 1"},
+    {"eval": "Array(scene.client(1).hollows[0].behind)", "as": "held"},
+    {"assert": "held.size() == 27 and held.slice(0, 3) == [0, 1, 54] and held.slice(3, 6) == [0, 1, 108] and held.slice(24, 27) == [0, 1, 486]", "msg": "wave 1's nine still to come wait on the ticks its schedule had: 54, 108, ... 486 (kind 0, the Gourdling, of wave 1)"},
+    {"eval": "scene.run_to(40)"},
+    {"eval": "scene.checkpoint()", "as": "bytes"},
+    {"assert": "scene.client(1).serialize() == bytes and scene.decodes(bytes, 'high_water')", "msg": "a checkpoint while both waves send decodes"},
+    {"eval": "scene.join_from(bytes)"},
+    {"eval": "scene.run_to(55)"},
+    {"eval": "scene.rows('SPAWN', ['id', 'tick'], {'tick': 54})", "as": "both"},
+    {"assert": "both.size() == 2 and both[0][0] < both[1][0] and scene.creep_wave(both[0][0]) == 1 and scene.creep_wave(both[1][0]) == 2", "msg": "on tick 54 both waves send a Gourdling, the older wave's first"},
+    {"assert": "scene.creep(both[0][0]).max_hp_c == 2400 and scene.creep(both[1][0]).max_hp_c == 3000", "msg": "each grows by its own wave: wave 1's 24.00, wave 2's 25% more"},
+    {"assert": "scene.client(2).creeps_on(0) == scene.client(1).creeps_on(0) and scene.client(2).hollows[0].behind == scene.client(1).hollows[0].behind and scene.client(2).state_hash_hex() == scene.client(1).state_hash_hex()", "msg": "the client joined from the checkpoint sent the same creeps and holds the same schedule"},
+    {"eval": "scene.run_to(3000)"},
+    {"assert": "scene.rows('WAVE', ['wave'], {'cleared': true}) == [[1], [2]] and scene.client(1).hollows[0].phase == 0", "msg": "both waves cleared, in order, into the window"},
+    {"assert": "scene.hashes_agree() and scene.client(2).state_hash_hex() == scene.client(1).state_hash_hex()", "msg": "and the two clients agree on every hash on the way"}
+  ]
+}

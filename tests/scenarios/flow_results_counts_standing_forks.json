@@ -1,0 +1,29 @@
+{
+  "name": "flow_results_counts_standing_forks",
+  "description": "The results' Towers column counts what stands at the end, as design 5.8 draws it ('9 (4 forked)': the towers standing and how many of them stand forked). It counted every fork ever made, a sold tower's too (playtest halv s2, P10, f45152: '9 (18 forked)' after the Lamplighter sold and forked her Skyward Lofts into Longbows all match). Here three Arrow Towers, two forked, the forked one at (6, 3) sold: two stand, one of them forked, so the row says '2 (1 forked)' while the seat has made 2 forks. Without the fix it said '2 (2 forked)'.",
+  "seed": 1,
+  "timeout_frames": 1500,
+  "steps": [
+    {"wait": 3},
+    {"set": "node('NameField').text", "value": "Sascha"},
+    {"key": "Enter"},
+    {"eval": "Session.play_offline('lamplighter', false, 0)"},
+    {"wait_until": "scene_path() == 'res://scenes/main.tscn' and Game.sim != null", "timeout": 60},
+    {"set": "Game.gold", "value": 600},
+    {"assert": "scene.build('arrow', Vector2i(6, 3)) and scene.build('arrow', Vector2i(8, 3)) and scene.build('arrow', Vector2i(5, 3))", "msg": "three Arrow Towers"},
+    {"wait_until": "scene.settled()", "timeout": 30},
+    {"eval": "scene.fork(Vector2i(6, 3), 0)"},
+    {"eval": "scene.fork(Vector2i(8, 3), 1)"},
+    {"wait_until": "scene.settled()", "timeout": 30},
+    {"assert": "scene.tower_at(Vector2i(6, 3)).form == 'longbow_loft' and scene.tower_at(Vector2i(8, 3)).form == 'skyward_loft'", "msg": "two forked, a Longbow and a Skyward Loft"},
+    {"eval": "scene.sell(Vector2i(6, 3))"},
+    {"wait_until": "scene.settled()", "timeout": 30},
+    {"assert": "scene.tower_at(Vector2i(6, 3)) == null and Game.sim.seat(1).towers == 2 and Game.sim.seat(1).forks == 2", "msg": "the forked Longbow sold: two stand, and the seat has made two forks"},
+    {"set": "Game.lives", "value": 0},
+    {"wait_until": "node('ResultsPanel') != null", "timeout": 60},
+    {"wait": 2},
+    {"assert": "node('ResultsPanel').results['rows'][0]['towers'] == 2 and node('ResultsPanel').results['rows'][0]['forks'] == 1", "msg": "two towers stand, one of them forked"},
+    {"assert": "node('Seat1').get_child(5).text == '2 (1 forked)'", "msg": "the row's Towers cell says 2 (1 forked), not the forks ever made"},
+    {"capture": "results_standing_forks"}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "race_stacked_fall_wave",
+  "description": "A Holdfast that falls with two waves on its road fell on the older one (contract-m8 §2, design 2.7): Tide Race, seat 1 (team 0, present) with two arrows by the Welling calls wave 2 during wave 1, and wave 1's first Gourdling is held far down the road (logged setters) so wave 1 stays on the road while the arrows kill creeps of both waves. Team 0's lives set to 0 then (a setter): it fell on wave 1, its waves cleared plus one, and the fall's kills are those of wave 1's own creeps, not of every creep since the last horn; the kills of wave 2 stand apart (SimTeam.stack_kills). EV_RACE says fell on wave 1, cleared_waves(0) is 0, and the race is decided by the fall once the caretaker's team has cleared wave 1.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 60,
+  "steps": [
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'caretakers': [2]})"},
+    {"eval": "[scene.cmd(1, 'BUILD', 0, 4, 3), scene.cmd(1, 'BUILD', 0, 6, 3), scene.cmd(1, 'READY', 1)]"},
+    {"eval": "scene.run_ticks(3)"},
+    {"assert": "scene.towers_of(1).size() == 2 and scene.client(1).hollows[0].wave == 1", "msg": "two arrows by the Welling, wave 1 walks"},
+    {"eval": "scene.events_where('SPAWN', {'hollow': 0})[0]['id']", "as": "held"},
+    {"eval": "[scene.debug(5, held, 40000000), scene.hold(held)]"},
+    {"eval": "scene.run_to(30)"},
+    {"eval": "scene.cmd(1, 'READY', 1)"},
+    {"eval": "scene.run_to(1200)"},
+    {"eval": "[scene.client(1).waves_on_road(0), scene.kills_of_wave(0, 1), scene.kills_of_wave(0, 2), scene.creep(held).alive]", "as": "before"},
+    {"assert": "before[0] == PackedInt32Array([1, 2]) and before[1] > 0 and before[2] > 0 and before[3]", "msg": "both waves on the road, creeps of each killed, wave 1's held Gourdling alive"},
+    {"assert": "scene.client(1).teams[0].wave_kills == before[1] and scene.client(1).teams[0].stack_kills == PackedInt32Array([before[2]])", "msg": "each wave's kills counted apart"},
+    {"eval": "scene.debug(2, 0, 0)"},
+    {"eval": "scene.run_ticks(1)"},
+    {"eval": "[scene.client(1).teams[0].fell_wave, scene.client(1).teams[0].fell_kills, scene.client(1).cleared_waves(0), scene.client(1).hollows[0].phase]", "as": "fell"},
+    {"assert": "fell == [1, before[1], 0, 3]", "msg": "it fell on wave 1, the oldest on its road, with wave 1's own kills; no wave cleared"},
+    {"assert": "scene.rows('RACE', ['what', 'team', 'wave'], {'what': 'fell'}) == [['fell', 0, 1]]", "msg": "EV_RACE: team 0 fell on wave 1"},
+    {"eval": "scene.run_until_over(20000)"},
+    {"assert": "scene.client(1).decided_by() == 'fell' and scene.client(1).outcomes() == [1, 0] and scene.client(1).cleared_waves(1) >= 1", "msg": "the rival won once it cleared wave 1"}
+  ]
+}

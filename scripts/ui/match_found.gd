@@ -8,6 +8,7 @@
 ## (MATCH_CONFIG) or dissolves (QUEUE_STATE): everyone accepts, Loading; a decline or the
 ## time running out, back to the hub, or to the queue's front ("A player didn't accept. You
 ## keep your place."). A duel's plate says "1v1" for its two players (M7), with two pips.
+## (M8) A level other than Normal follows the mode: "High Water · Hard · 4 players · ~13 min".
 ##
 ## The two sounds are track B's (sfx/match_found.wav, sfx/countdown_tick.wav): each loads
 ## only where it exists, so the overlay works without them.
@@ -150,7 +151,10 @@ func refresh() -> void:
 	var seats := int(found["seats"])
 	# (a duel is one against one: "Undertow · 1v1 · ~15 min"; the others count their players)
 	var players := "1v1" if Session.is_duel(mode) else "%d players" % seats
-	_line.text = "%s · %s · ~%d min" % [Profile.mode_name(mode), players, int(MINUTES.get(mode, 13))]
+	# (M8: the queue finds only parties of one level, so the party's own is the match's,
+	# named where it is not Normal: "High Water · Hard · 4 players · ~13 min")
+	var level := MatchRules.level_of(mode, Session.difficulty_id())
+	_line.text = "%s · %s · ~%d min" % [Game.mode_words(Profile.mode_name(mode), level), players, int(MINUTES.get(mode, 13))]
 	_pips.seats = seats
 	_pips.lit = int(found["accepted"])
 	_pips.queue_redraw()

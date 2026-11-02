@@ -1,7 +1,7 @@
 {
  "transcript": "m6_queue",
  "format": 1,
- "protocol": 1,
+ "protocol": 2,
  "clients": 4,
  "note": "The queue on a hand-moved clock (its draws from random.Random(20261101)): Tamsin alone, then Edda and Ottilie's party, then Sefa queue with open seats on; MATCH_FOUND to the four, Tamsin's accept, Sefa's decline (her party forming; the others NOTICE match_dissolved and requeued at the front), Sefa queued again, the next MATCH_FOUND, everyone's ACCEPT, each party loading, and MATCH_CONFIG with the strangers' Builders unclashed (the Lamplighter, the Lookout as Edda's backup, the Bellfounder, and the Beekeeper for Sefa, whose main and backup were both taken).",
  "records": [
@@ -10,7 +10,7 @@
    "client": 0,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
@@ -51,6 +51,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -87,6 +88,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -122,6 +124,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -157,7 +160,7 @@
    "client": 1,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "1112131415161718191a1b1c1d1e1f20",
@@ -198,6 +201,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -223,7 +227,7 @@
    "client": 2,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "2122232425262728292a2b2c2d2e2f30",
@@ -264,6 +268,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -302,6 +307,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -350,6 +356,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -388,6 +395,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -435,6 +443,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -473,6 +482,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -520,6 +530,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -558,6 +569,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -604,6 +616,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -642,6 +655,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -698,7 +712,7 @@
    "client": 3,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "3132333435363738393a3b3c3d3e3f40",
@@ -739,6 +753,7 @@
    "fields": {
     "code": "505a425242",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -776,6 +791,7 @@
    "fields": {
     "code": "505a425242",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -812,6 +828,7 @@
    "fields": {
     "code": "505a425242",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -847,6 +864,7 @@
    "fields": {
     "code": "505a425242",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1008,6 +1026,7 @@
    "fields": {
     "code": "505a425242",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1100,6 +1119,7 @@
    "fields": {
     "code": "505a425242",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1365,6 +1385,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1392,6 +1413,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1430,6 +1452,7 @@
    "fields": {
     "code": "483356584d",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -1468,6 +1491,7 @@
    "fields": {
     "code": "505a425242",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1495,6 +1519,7 @@
    "fields": {
     "match": 2,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -1539,6 +1564,7 @@
    "fields": {
     "match": 2,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -1583,6 +1609,7 @@
    "fields": {
     "match": 2,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -1627,6 +1654,7 @@
    "fields": {
     "match": 2,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",

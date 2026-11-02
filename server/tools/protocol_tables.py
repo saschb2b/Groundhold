@@ -88,10 +88,11 @@ def tables():
     for name in ("errors", "notices", "outcomes", "end_reasons", "load_states", "member_states", "party_phases",
                  "party_ops", "queue_ops", "queue_states", "hello_flags", "welcome_flags", "seat_flags",
                  "hash_flags", "link_flags", "party_flags", "config_flags", "visibility_states", "resync_reasons",
-                 "maps", "builders"):
+                 "maps", "builders", "difficulties"):
         lines.append(enum_row(name))
     modes = ", ".join(f"{name} {spec['id']} ({spec['teams']} team{'s' if spec['teams'] > 1 else ''}, "
-                      f"{spec['seats'][0]} to {spec['seats'][1]} seats)" for name, spec in SPEC["modes"].items())
+                      f"{spec['seats'][0]} to {spec['seats'][1]} seats{', takes a level' if spec.get('levels') else ''})"
+                      for name, spec in SPEC["modes"].items())
     lines += [f"| `modes` | {modes} |", "", END]
     return "\n".join(lines)
 

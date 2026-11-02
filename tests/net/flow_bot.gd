@@ -26,6 +26,11 @@
 ##   FLOW found <match> seats <n>                (--queue: Match Found, accepted)
 ##   FLOW match <mode> seat <k> of <n> builders <b1,b2,...>   (as this build fields them)
 ##   FLOW config builders <b1,b2,...>            (MATCH_CONFIG's, as the server chose them)
+##   FLOW level <level> rules <level> lives <n> numbers <ok | what differs>
+##                                               (M8: MATCH_CONFIG's level, the one the
+##                                                simulation's rules name, their lives, and
+##                                                whether their numbers are that level's by
+##                                                SimContent.DIFFICULTIES: MatchRules.level_problem)
 ##   FLOW results <outcome> <the results' title>
 ##   FLOW back <code> members <n> phase <phase>
 ##   FLOW notice <text>   FLOW failed <why>
@@ -34,7 +39,8 @@
 ## once the plan bot has corked and built in the window both hollows share); --matches=N
 ## plays N matches before it is done (default 1); --quit-after-flow quits when done (exit
 ## 0) or on a failure (exit 1); --linger=S stays S seconds on the results before Play again
-## (the server closes a connection silent for 15 s: the plate must keep it).
+## (the server closes a connection silent for 15 s: the plate must keep it). --difficulty=hard
+## (Session's boot flag, unsaved) makes the party at that level, or queues at it (M8).
 extends Node
 
 ## Frames on the results before Play again (the plate is read, as a player would).
@@ -262,6 +268,11 @@ func _play() -> void:
 		for entry: Dictionary in client.config.get("seats", []):
 			chosen.append(NetProtocol.enum_name("builders", int(entry["builder"])))
 		print("FLOW config builders %s" % ",".join(chosen))
+		var problem := MatchRules.level_problem(client.sim.rules)
+		print("FLOW level %s rules %s lives %d numbers %s" % [
+			client.difficulty, MatchRules.level_played(client.sim.rules), int(client.sim.rules.get("lives", -1)),
+			problem if problem != "" else "ok"
+		])
 	if flags.has("ready-calls") and Game.state == Game.State.PREP and Game.accepts_commands():
 		var controller: BuildController = main.get("controller")
 		if controller and not controller.wants_ready() and _frame - _asked_at >= ASK_FRAMES and _window_played(main):

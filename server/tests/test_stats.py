@@ -1,6 +1,6 @@
 """The daily totals and GET /stats (docs/design/core-loop.md §6.10, §6.12):
 joins, identities as a count, the peak, matches started and finished per
-mode, desyncs, reconnects, resyncs, rejoins, caretaker seats and HELLOs per
+mode and level (M8), desyncs, reconnects, resyncs, rejoins, caretaker seats and HELLOs per
 protocol version; a day written at its end and as the server stops, taken up
 again after a restart the same day, and kept stats_days.
 
@@ -80,7 +80,7 @@ class StatsTests(HubTest, unittest.IsolatedAsyncioTestCase):
                                                      "desyncs", "reconnects", "caretaker_seats", "versions")},
                          {"day": "2026-10-22", "joins": 3, "identities": 2, "peak": 3,
                           "started": {"high_water": 1}, "finished": {"high_water": 1}, "desyncs": 0,
-                          "reconnects": 0, "caretaker_seats": 1, "versions": {"0": 1, "1": 3}})
+                          "reconnects": 0, "caretaker_seats": 1, "versions": {"0": 1, str(SPEC["version"]): 3}})
         # (no identity, name or address anywhere in it)
         text = json.dumps(await self.served())
         for secret in (tamsin.welcome["identity"].hex(), "Tamsin", "127.0.0.1"):
@@ -100,6 +100,32 @@ class StatsTests(HubTest, unittest.IsolatedAsyncioTestCase):
         await one.until("MATCH_END", skip=("LOAD_STATE", "START", "TURN", "LINKS"))
         today = (await self.served())["today"]
         self.assertEqual((today["desyncs"], today["started"], today["finished"]), (1, {"classic": 1}, {}))
+
+    async def test_matches_count_by_mode_and_level(self):
+        # (M8: a match at Hard or Very Hard under its mode and level, one at Normal under its
+        # mode alone, as before; a mode without levels plays Normal, so a duel is "undertow")
+        for dev, key in (("high_water:1:hard", "high_water:hard"), ("tide_race:2:very_hard", "tide_race:very_hard"),
+                         ("high_water:1", "high_water"), ("undertow:2", "undertow")):
+            mode, seats, *level = dev.split(":")
+            await self.start(dev_match=dev)
+            clients = [await self.join(f"Tamsin{k}", 10 + k) for k in range(int(seats))]
+            configs = await start_match(self.clock, clients)
+            self.assertEqual({config["difficulty"] for config in configs},
+                             {SPEC["difficulties"][level[0]] if level else 0}, dev)
+            await self.clock.turns(25)
+            outcomes = [dict(outcome=0)] * SPEC["modes"][mode]["teams"]
+            for client in clients:
+                await client.send_message("RESULT", tick=60, hash=FINAL, outcomes=outcomes)
+            for client in clients:
+                await client.until("MATCH_END", skip=("TURN", "LINKS", "PONG"))
+            today = (await self.served())["today"]
+            self.assertEqual((today["started"], today["finished"]), ({key: 1}, {key: 1}), dev)
+            for client in clients:
+                await client.drop()
+            self.clients = []
+            await self.server.close()
+            self.server = None
+            (self.dir / stats.LOG).unlink(missing_ok=True)
 
     async def test_a_day_is_written_at_its_end_and_as_the_server_stops(self):
         await self.start()

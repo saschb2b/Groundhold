@@ -60,7 +60,7 @@ land. Wrack falls apart into its stuff with a hiss of foam. There is no gore.
 | End of a map (hearth) | **the Holdfast** | What holds a land in place, as a kelp holdfast holds to a rock. Lives show as a floodmark climbing it |
 | Menu lines | Match Found: *"The tide turns at Wickhollow"* · Loading: *"Walking out"* · Results: *"the Ebb"* | |
 | Difficulty (M8) | **Normal · Hard · Very Hard** | Plain words, as every tower defense says them, so a level reads at a glance in any language; no tide word, since a level runs on every map. Spring Tide names no level: the spring tide stays the race's mirror |
-| A wave called during a wave (M8) | **called early** ("Wave 8 called early") | The horn sounded before slack water calls the next surge in behind the last. "Stack" is the code's word and the design's, never the screen's |
+| A wave called during a wave (M8) | **called early** ("Wave 8 called early") | The horn sounded before slack water calls the next surge in while the last still runs. "Stack" is the code's word and the design's, never the screen's |
 
 **The v1 Builders**
 

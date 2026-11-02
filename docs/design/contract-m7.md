@@ -17,9 +17,12 @@ bytes and, once track A adds it, the `undertow` preset.
   button greyed (`Profile.offers`).
 - **Packs are checks.** A pack's id is the `CHECK_IDS` id it tests (`swarm`, `swift`, `armored`, `winged`), on the
   wire and in the codec as its `CHECK_IDS` index. `content.gd`'s `PACKS[map][check]` names the creep it sends and
-  its count per tier: on the hollow, Gourdlings 6, 10, 14; Scuttlers 6, 10, 14; Thornbacks 2, 3, 5; Duskmoths 4, 6,
-  9 (*tunable*). Display names are `Game`'s: `Game.PACKS[map][check]` = `name`, `icon` (Gourd Rush, Scuttle, Thorn
-  Herd, Moth Cloud on Wickhollow), so no map's flavour reaches an id.
+  its count per tier: on the hollow, Gourdlings 6, 14, 20; Scuttlers 8, 17, 28; Thornbacks 3, 5, 9; Duskmoths 4,
+  5, 7 (*tunable*; the Scuttle, the Thorn Herd and the tier II Moth Cloud retuned by the sends' pass, the owner's
+  decision of 2 November 2026: 6, 10, 14; 2, 3, 5; and 6 before; then by the packs' matrix, each pack against the
+  Builders weak to its check: the Gourd Rush 6, 10, 14, the Scuttle 8, 13, 18, the Thorn Herd 3, 5, 7 and the
+  Moth Cloud 4, 5, 9 before). Display names are `Game`'s: `Game.PACKS[map][check]` = `name`, `icon` (Gourd Rush,
+  Scuttle, Thorn Herd, Moth Cloud on Wickhollow), so no map's flavour reaches an id.
 - **Events** (`sim_types.gd`): `EV_DRIFT` 21, `EV_CORK` 22, `EV_UNCORK` 23, `EV_FIZZLE` 24, `EV_BREACH` 25,
   `EV_SEAWALL` 26, `EV_SURGE` 27, with the fields their comments list. Refusals are M1's reserved ones:
   `NO_CORKS_LEFT` (7), `TOO_EARLY` (8), `NOTHING_CORKED` (9), `BAD_REVEAL` (10), `NO_CHARGE` (11),
@@ -29,11 +32,18 @@ bytes and, once track A adds it, the `undertow` preset.
 
 - **Preset `undertow`:** `high_water`'s keys with `teams` 2, `seats` [2, 2], `clock` `"shared"` (both hollows' windows,
   Ready and horn are one: the horn sounds when both seats are Ready or the shared countdown ends) and a `duel` block
-  (*tunable*): `drift_from` 2; `offered` 3; `tiers` `[{"windows": [2, 4], "price": 30, "stipend": 4}, {"windows":
-  [5, 8], "price": 55, "stipend": 6}, {"windows": [9, 12], "price": 85, "stipend": 8}]`; `corks` 1, and
+  (*tunable*): `drift_from` 2; `offered` 3; `tiers` `[{"windows": [2, 4], "price": 45, "stipend": 4}, {"windows":
+  [5, 8], "price": 55, "stipend": 6}, {"windows": [9, 12], "price": 85, "stipend": 12}]` (the sends' pass: tier I
+  was 30 and tier III's stipend 8, so a tier paid back about its price from its first window: 124%, 120% and 99%,
+  where they were 187%, 120% and 66%); `corks` 1, and
   `corks_two` 2 from window `corks_two_from` 9; `uncork_after_t` 180 (3 s after the horn), `auto_uncork_t` 1440
   (24 s, the client's), `fizzle_t` 1500 (25 s); `pack_interval_t` 30 (an uncorked pack's creeps set out half a
-  second apart); `breach_pay` 2 (times the bounty); `seawall` `{"every_lives": 4, "charges": 2,
+  second apart); `breach_pay` 2 (times the bounty); `send_hp_pm` 1250 (the sends' pass: an uncorked creep's health,
+  per mille of the wave's own of its kind, so a sent creep comes a quarter stronger); `pack_hp_pm` `{"swarm": 1500,
+  "swift": 1400}` and `pack_gap_t` `{"swarm": 15, "armored": 60}` (the packs' matrix: a pack's own premium in place of
+  `send_hp_pm` and its own spacing in place of `pack_interval_t`, by the check it tests, so a Gourdling comes half
+  again as strong and a Scuttler two fifths, a Gourd Rush a quarter second apart and a Thorn Herd a second apart);
+  `seawall` `{"every_lives": 4, "charges": 2,
   "radius_mm": 3000, "stun_t": 120, "hp_pm": 250, "boss_hp_pm": 80, "boss_slow_pm": 500, "cooldown_t": 900}`;
   `surge` `{"waves": [9, 10, 11], "hp_pm": 1350, "window_t": 480, "cork_price_pm": 500}`.
 - **The Drift:** from window `drift_from`, each window offers `offered` of the four packs, drawn from the match's
@@ -43,7 +53,9 @@ bytes and, once track A adds it, the `undertow` preset.
   this window, charges the tier's price at once and stands a bottle (`EV_CORK`; the rival sees tier and price only).
   At most `corks` per window. `UNCORK(a = pack, b, c = the salt's two halves)` during the next wave, from
   `uncork_after_t` after the horn: the simulation recomputes the commit and spawns the pack on the **rival's** road
-  (`sent_by` the seat) only if it matches and the pack was offered in the bottle's window; otherwise `BAD_REVEAL`.
+  (`sent_by` the seat, each creep with its pack's premium on its wave's health, `pack_hp_pm` or else `send_hp_pm`,
+  and `pack_gap_t` or else `pack_interval_t` after the one before) only if it matches and the pack was offered in
+  the bottle's window; otherwise `BAD_REVEAL`.
   A bottle with no valid reveal by `fizzle_t` fizzles (`EV_FIZZLE`): the gold stays spent. A wave a rival's bottle
   is corked for does not clear while the bottle is corked or its pack is still to come (`SimUndertow.holds`), so a
   fast wave never ends before its sender may uncork: the defender's road may stand empty while its wave waits (up
@@ -74,8 +86,12 @@ bytes and, once track A adds it, the `undertow` preset.
   checkpoint bytes.
 - **The caretaker** in a duel builds from its plan and corks by a policy (the cheapest tier, while its corks stay
   within `CORK_SHARE_PM`, a fifth, of everything it holds, corked before the plan spends: a plan always waits on a
-  step it cannot pay yet, so "keeping its plan's next build" never corks; the pack the rival's towers take longest
-  to kill, `SimUndertow.weakest_pack`; uncorked at `uncork_after_t`), so `duel_caretaker_plays_full_match` and Duel
+  step it cannot pay yet, so "keeping its plan's next build" never corks; the pack the rival's defence has shown it
+  should send, all of it public and never a rival's bottle, `SimUndertow.pick_pack`: the offered check of which the
+  most creeps have reached the rival's Holdfast so far, from two (`SimTeam.leaked`, in the codec's M7 block), else
+  the winged pack where the rival's towers deal a flier less than half what they deal the ground, else the one its
+  towers take longest to kill, `weakest_pack`; since the sends' pass, `CARETAKER_VERSION` 6, where it was
+  `weakest_pack` alone; uncorked at `uncork_after_t`), so `duel_caretaker_plays_full_match` and Duel
   the caretaker have a rival. It plays the first tick of the shared window (`SimUndertow.shared_window_tick`) and
   only then says Ready, so a player's instant Ready never takes its window. While its hollow stands in its window
   and the rival's still plays the wave, its plan waits (`Caretaker.holds_plan`), so on that first tick it corks

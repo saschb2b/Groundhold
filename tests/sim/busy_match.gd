@@ -22,6 +22,12 @@
 ## and then the decided race are in the state for the rest of the log. duel_log (M7) plays
 ## a busy Undertow duel for the codec's M7 block (sim_checkpoint_roundtrip_undertow), and
 ## roundtrip_chain compares a duel's own state (duel_state) across every trip too.
+## (M8) busy_log plays at a `difficulty`, and with `stack` seat 1's Ready presses go out
+## during waves too, so a preset that stacks calls waves while the last still sends its
+## creeps (beside its caretaken partner, or while seat 3 is away): the M8 block's state
+## (sim_checkpoint_roundtrip_m8), the older wave's spawns still to come among it. Without it, they go out only where they would have been
+## taken before M8 (in a window that its countdown does not end before they land, or in a
+## preset that never stacks), so the match plays as it did before M8's rules.
 extends RefCounted
 
 
@@ -29,7 +35,8 @@ extends RefCounted
 ## (LocalSequencer.log_for) with the hash at every tick ("per_tick") and a summary.
 static func busy_log(
 	seed_value := 7, limit := 60000, mode := "classic",
-	builders := ["lamplighter", "lamplighter", "lamplighter"], fall := []
+	builders := ["lamplighter", "lamplighter", "lamplighter"], fall := [], difficulty := "normal",
+	stack := false
 ) -> Dictionary:
 	var two_teams := int(SimContent.rules(mode)["teams"]) == 2
 	var seats := [
@@ -37,7 +44,7 @@ static func busy_log(
 		{"team": 0, "builder": builders[1], "caretaker": true},
 		{"team": 1 if two_teams else 0, "builder": builders[2]},
 	]
-	var sim := SimMatch.new(SimContent.rules(mode), seats, seed_value)
+	var sim := SimMatch.new(SimContent.rules(mode, difficulty), seats, seed_value)
 	sim.play_on = sim.race and fall.size() == 2
 	var seq := LocalSequencer.new(3)
 	var cursors := {1: 0, 3: 0}
@@ -51,10 +58,14 @@ static func busy_log(
 	# (M6) ticks on which a creep stood stunned or cracked, a tower hastened or under a
 	# cloud, an Apiary bolt flew
 	var m6_seen := {"stunned": 0, "cracked": 0, "hastened": 0, "clouds": 0, "bolts": 0}
+	# (M8) ticks on which a hollow had two waves on its road, a creep of the older walked, and
+	# the older still had creeps to send while the newer sent its own
+	var stacked_seen := {"two_waves": 0, "older_creeps": 0, "two_spawning": 0}
 	while not sim.over and sim.tick < limit:
 		for tower in sim.towers:
 			most_marked = maxi(most_marked, tower.marked.size())
 		_count_m6(sim, m6_seen)
+		_count_m8(sim, stacked_seen)
 		for shot in sim.shots:
 			if shot.bounce > 0:
 				bounces_seen += 1
@@ -69,7 +80,7 @@ static func busy_log(
 		if t % 97 == 0:
 			seq.submit_as(3, SimTypes.CMD_SIGNAL, 1000 + t, 2000, 0)
 			signals += 1
-		if t % 131 == 0:
+		if t % 131 == 0 and (stack or _taken_before_m8(sim, t)):
 			seq.submit_as(1, SimTypes.CMD_READY, 1)
 		if t % 400 == 7:
 			seq.submit_as(3, SimTypes.CMD_BUILD, 7, 1, 1)  # (no such slot)
@@ -99,10 +110,13 @@ static func busy_log(
 		away_seen = away_seen or sim.seat(3).state == SimTypes.SEAT_AWAY
 		per_tick[sim.tick] = sim.state_hash_hex()
 	var record := seq.log_for(sim, seats)
+	record["difficulty"] = difficulty
 	record["per_tick"] = per_tick
 	record["final_tick"] = sim.tick
 	record["over"] = sim.over
 	record["wave"] = sim.hollows[0].wave
+	record["stacked_seen"] = stacked_seen
+	record["m8_state"] = m8_state(sim)
 	record["towers"] = sim.towers.size()
 	record["sold"] = sold
 	record["signals"] = signals
@@ -241,7 +255,8 @@ static func _count_duel(sim: SimMatch, seen: Dictionary) -> void:
 
 ## (M7) A duel's own state as the codec's M7 block holds it: the decision, the Drift, the
 ## horn, per seat [stipend, Seawall charges, lives toward the next, ready tick], per team its
-## breach dealt, per hollow its sends, and every bottle's fields; [] outside a duel.
+## breach dealt and its creeps through by check, per hollow its sends, and every bottle's
+## fields; [] outside a duel.
 static func duel_state(sim: SimMatch) -> Array:
 	if not sim.duel:
 		return []
@@ -254,17 +269,63 @@ static func duel_state(sim: SimMatch) -> Array:
 	return [
 		sim.decided_by(), sim.outcomes(), sim.drift_window, sim.drift_left, Array(sim.drift_packs),
 		sim.horn_tick, seats, [sim.teams[0].breach_dealt, sim.teams[1].breach_dealt],
+		[Array(sim.teams[0].leaked), Array(sim.teams[1].leaked)],
 		[Array(sim.hollows[0].sends), Array(sim.hollows[1].sends)], bottles,
 	]
 
 
 ## A race's own state as the codec's trailing block holds it: the decision's rule and
-## outcomes, then per team [fell_wave, fell_kills, wave_kills, clear_tick, lives].
+## outcomes, then per team [fell_wave, fell_kills, wave_kills, clear_tick, lives, (M8) the
+## kills of the younger waves on its road].
 static func race_state(sim: SimMatch) -> Array:
 	var per_team := []
 	for t in sim.teams:
-		per_team.append([t.fell_wave, t.fell_kills, t.wave_kills, t.clear_tick, t.lives])
+		per_team.append([t.fell_wave, t.fell_kills, t.wave_kills, t.clear_tick, t.lives, Array(t.stack_kills)])
 	return [sim.decided_by(), sim.outcomes(), per_team]
+
+
+## (M8) Whether seat 1's READY sent at tick `t` lands where the rules before M8 took it: in
+## its hollow's window, before the countdown ends (it lands on the next turn's tick), or in
+## any phase of a preset that never stacks, which refuses one in a wave as before. Elsewhere
+## a preset that stacks would take it as a call for the next wave.
+static func _taken_before_m8(sim: SimMatch, t: int) -> bool:
+	if sim.stack_max < 2:
+		return true
+	var h := sim.hollows[sim.seat(1).hollow]
+	if h.phase == SimTypes.PHASE_WAVE:
+		return false
+	var lands := posmod(-t, SimTypes.TURN_TICKS)
+	return h.phase != SimTypes.PHASE_PREP or h.countdown_t > lands
+
+
+## (M8) What the codec's M8 block holds, read from the records: the level, each hollow's
+## waves cleared, the waves on its road and the older waves' spawns still to come, and every
+## creep's [id, wave].
+static func m8_state(sim: SimMatch) -> Array:
+	var per_hollow := []
+	for h in sim.hollows:
+		per_hollow.append([h.cleared, Array(sim.waves_on_road(h.id)), Array(h.behind)])
+	var per_creep := []
+	for c in sim.creeps:
+		per_creep.append([c.id, c.wave])
+	return [sim.level, per_hollow, per_creep]
+
+
+static func _count_m8(sim: SimMatch, seen: Dictionary) -> void:
+	var two := false
+	var spawning := false
+	for h in sim.hollows:
+		two = two or sim.waves_on_road(h.id).size() >= 2
+		spawning = spawning or (not h.behind.is_empty() and h.cursor * 2 < h.queue.size())
+	var older := false
+	for c in sim.creeps:
+		older = older or c.wave < sim.hollows[c.hollow].wave
+	if two:
+		seen["two_waves"] = int(seen["two_waves"]) + 1
+	if older:
+		seen["older_creeps"] = int(seen["older_creeps"]) + 1
+	if spawning:
+		seen["two_spawning"] = int(seen["two_spawning"]) + 1
 
 
 static func _count_m6(sim: SimMatch, seen: Dictionary) -> void:
@@ -327,9 +388,12 @@ static func _plan(sim: SimMatch, seq: LocalSequencer, seat_no: int, cursor: int)
 ## its race's decision (`play_on`, a switch and no state) gives it to every copy.
 ## Returns {"first_bad": the first tick that differs or -1, "why", "trips": round trips
 ## made, "final": the last tick reached, "race": race_state at the end, "decided_trips":
-## trips made while the race stood decided}.
+## trips made while the race stood decided, (M8) "stacked_trips": trips made while a hollow
+## had two waves on its road, "spawning_trips": those made while an older wave still had
+## creeps to send beside the newest's (SimHollow.behind)}. A record with a "difficulty" plays
+## that level.
 static func roundtrip_chain(record: Dictionary, every := 7, offset := 0, events := false) -> Dictionary:
-	var rules := SimContent.rules(str(record["mode"]))
+	var rules := SimContent.rules(str(record["mode"]), str(record.get("difficulty", "normal")))
 	var seats: Array = record["seats"]
 	var sim := SimMatch.new(rules, seats, int(record["seed"]))
 	sim.events_on = events
@@ -338,11 +402,16 @@ static func roundtrip_chain(record: Dictionary, every := 7, offset := 0, events 
 	var reference: Dictionary = record["per_tick"]
 	var trips := 0
 	var decided_trips := 0
+	var stacked_trips := 0
+	var spawning_trips := 0
 	var why := ""
 	while sim.tick < int(record["final_tick"]):
 		if sim.tick % every == offset % every:
 			var bytes := sim.serialize()
 			var back := SimMatch.deserialize(bytes, rules)
+			if back == null:
+				why = "the bytes did not decode"
+				break
 			back.events_on = events
 			back.play_on = sim.play_on
 			if back.serialize() != bytes:
@@ -354,8 +423,19 @@ static func roundtrip_chain(record: Dictionary, every := 7, offset := 0, events 
 			if duel_state(back) != duel_state(sim):
 				why = "the duel's state differs"
 				break
+			if m8_state(back) != m8_state(sim):
+				why = "the stacked waves' state differs"
+				break
 			if sim.decided_by() != "":
 				decided_trips += 1
+			for h in sim.hollows:
+				if sim.waves_on_road(h.id).size() >= 2:
+					stacked_trips += 1
+					break
+			for h in sim.hollows:
+				if not h.behind.is_empty():
+					spawning_trips += 1
+					break
 			sim = back
 			trips += 1
 		if source.advance(sim, 1) == 0:
@@ -368,4 +448,5 @@ static func roundtrip_chain(record: Dictionary, every := 7, offset := 0, events 
 	return {
 		"first_bad": sim.tick if why != "" else -1, "why": why, "trips": trips,
 		"final": sim.tick, "race": race_state(sim), "decided_trips": decided_trips,
+		"stacked_trips": stacked_trips, "spawning_trips": spawning_trips,
 	}

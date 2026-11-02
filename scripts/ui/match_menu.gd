@@ -12,6 +12,9 @@
 ## that ends the match on the first row and Stay on the second. No answer stands where the
 ## asking button stood, so a second stray click there ends nothing. Stay, Esc, Enter and
 ## Space go back to the menu.
+##
+## Under the title the plate names the match played, the mode with its level where it is not
+## Normal (M8, design 2.6): "High Water · Hard · Wickhollow".
 class_name MatchMenu
 extends CanvasLayer
 
@@ -37,6 +40,7 @@ const BUTTONS := ["MenuConfirm", "MenuResume", "MenuRestart", "MenuLeave", "Menu
 var main: Node
 var _root: Control
 var _title: Label
+var _match: Label
 var _line: Label
 var _restart: Button
 var _confirm: Button
@@ -83,6 +87,11 @@ func setup(scene: Node) -> void:
 	_title.name = "MenuTitle"
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_title)
+	_match = Shell.label("", Shell.BOLD_FONT, 12, Shell.DIM)
+	_match.name = "MenuMatch"
+	_match.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_match.add_theme_constant_override("outline_size", 0)
+	box.add_child(_match)
 	box.add_child(Shell.gilt_rule(200))
 	_line = Shell.label("", Shell.BODY_FONT, 13, Shell.DIM)
 	_line.name = "MenuLine"
@@ -126,6 +135,20 @@ func ask(what: String) -> void:
 func stay() -> void:
 	_asking = ""
 	_show()
+
+
+## The match played as the plate names it (M8): the mode, its level where it is not Normal,
+## and the map: "High Water · Hard · Wickhollow"; "" before the match stands.
+func match_line() -> String:
+	var sim: SimMatch = main.get("sim") if main else null
+	if sim == null:
+		return ""
+	var spec: Variant = main.get("_spec")
+	var shown := str((spec as Dictionary).get("shown_mode", sim.mode)) if spec is Dictionary else sim.mode
+	var words := Game.mode_words(Profile.mode_name(shown), MatchRules.level_played(sim.rules))
+	var script := main.get_script() as Script
+	var map := str(script.get_script_constant_map().get("MAP_NAME", "")) if script else ""
+	return "%s · %s" % [words, map] if map != "" else words
 
 
 ## What the plate asks now, for tests: "leave", "restart", or "" while it offers the menu.
@@ -180,6 +203,7 @@ func _online() -> bool:
 
 ## The plate as it stands: the menu, or the question.
 func _show() -> void:
+	_match.text = match_line()
 	var online := _online()
 	var asked := _asking != ""
 	if asked:

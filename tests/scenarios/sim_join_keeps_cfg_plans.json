@@ -1,0 +1,17 @@
+{
+  "name": "sim_join_keeps_cfg_plans",
+  "description": "The sim harness's join_from gives a client loaded from a checkpoint what cfg gives every client at start and no checkpoint holds: the stack lists (\"stacks\"), the plans (\"plans\", \"never_patch\") its caretakers play and \"play_on\". A Tide Race of two caretakers, the Lamplighter handed the list [4] and the Lookout none, played on past the decision: a client joined at tick 3 stacks as client 1 does and plays the decided race on with it, every hash the same (review of M8's rules: joined clients took the plans' own lists, [2, 3] and [5], and stopped at the decision).",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "steps": [
+    {"eval": "scene.start({'mode': 'tide_race', 'seats': 2, 'builders': ['lamplighter', 'lookout'], 'caretakers': [1, 2], 'events': false, 'play_on': true, 'stacks': {'lamplighter': [4], 'lookout': []}})"},
+    {"eval": "scene.run_ticks(3)"},
+    {"eval": "scene.join_from(scene.checkpoint(1))", "as": "joined"},
+    {"assert": "joined.stacks['lamplighter'] == PackedInt32Array([4]) and joined.stacks['lookout'] == PackedInt32Array() and joined.play_on", "msg": "the joined client plays cfg's lists, played on"},
+    {"eval": "scene.play_out([])"},
+    {"eval": "[scene.stacked_waves(0), scene.stacked_waves(1), scene.client(1).decided_by(), scene.decided_tick(1), scene.client(1).tick, scene.client(2).tick]", "as": "ran"},
+    {"assert": "ran[0] == [4] and ran[1] == [] and ran[2] != '' and ran[3] > 0 and ran[4] > ran[3]", "msg": "client 1 stacked wave 4 on the Lamplighter's hollow and none on the Lookout's, and played the decided race on"},
+    {"assert": "ran[5] == ran[4] and scene.hashes_agree() and scene.hash_at(ran[4] / 60 * 60, 2) != ''", "msg": "the joined client played every tick with it, every hash the same to the end"}
+  ]
+}

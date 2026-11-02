@@ -102,10 +102,12 @@ func debug_at(tick: int) -> Array:
 	return out
 
 
-## Everything a replay needs: the match's set-up and its log.
+## Everything a replay needs: the match's set-up (its mode and the level it plays, M8) and
+## its log.
 func log_for(sim: SimMatch, seat_list: Array) -> Dictionary:
 	return {
 		"mode": sim.mode,
+		"difficulty": MatchRules.level_played(sim.rules),
 		"seed": sim.match_seed,
 		"seats": seat_list,
 		"turns": turns.duplicate(),
@@ -113,11 +115,13 @@ func log_for(sim: SimMatch, seat_list: Array) -> Dictionary:
 	}
 
 
-## Plays a recorded log into a fresh match up to `to_tick`. With `hashes`, records the
-## state hash at every HASH_EVERY tick into it (tick -> hex).
+## Plays a recorded log into a fresh match up to `to_tick`, at its level (a record from
+## before M8 names none: Normal). With `hashes`, records the state hash at every HASH_EVERY
+## tick into it (tick -> hex).
 static func replay(record: Dictionary, to_tick: int, hashes := {}) -> SimMatch:
 	var seat_list: Array = record["seats"]
-	var sim := SimMatch.new(SimContent.rules(str(record["mode"])), seat_list, int(record["seed"]))
+	var rules := MatchRules.of(str(record["mode"]), str(record.get("difficulty", MatchRules.NORMAL)))
+	var sim := SimMatch.new(rules, seat_list, int(record["seed"]))
 	sim.events_on = false
 	var source := LocalSequencer.replaying(record["turns"], record["debug"], seat_list.size())
 	while sim.tick < to_tick:

@@ -37,9 +37,21 @@ LOAD_STATES = SPEC["load_states"]
 VISIBILITY = SPEC["visibility_states"]
 RESYNC_REASONS = SPEC["resync_reasons"]
 SYSTEM_SEAT = SPEC["system_seat"]
+# (M8, contract-m8.md §3 and §5) the levels by wire id, Normal the default
+DIFFICULTIES = SPEC["difficulties"]
+DIFFICULTY_NAMES = {value: name for name, value in DIFFICULTIES.items()}
+NORMAL = DIFFICULTIES["normal"]
 NAME = re.compile(SPEC["name_pattern"])
 SCALARS = {"u8": struct.Struct("!B"), "u16": struct.Struct("!H"), "u32": struct.Struct("!I"),
            "u64": struct.Struct("!Q"), "i32": struct.Struct("!i")}
+
+
+def level_of(mode, difficulty):
+    """The level (wire id) a match of `mode` (its name) plays when `difficulty` is asked:
+    the asked one where protocol.json's mode takes levels (`levels`), else Normal. The
+    simulation's SimContent.level_of reads the same rule from its presets, which
+    contract_m8_tables holds to agree with protocol.json (the server never reads content.gd)."""
+    return difficulty if SPEC["modes"][mode].get("levels", False) else NORMAL
 
 
 class ProtocolError(Exception):

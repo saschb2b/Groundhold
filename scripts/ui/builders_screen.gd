@@ -90,9 +90,19 @@ func select(builder: String) -> void:
 	# (a member of a queued party waits for the queue: Session.try_refusal says why)
 	var refusal := Session.try_refusal()
 	_try.disabled = refusal != ""
-	_try.tooltip_text = refusal if refusal != "" else TRY_TIP
+	_try.tooltip_text = refusal if refusal != "" else try_tip()
 	_fill_kit(builder)
 	_hover(_tip_slot)  # (an open card shows this Builder's tower on its slot)
+
+
+## Try's tooltip: a solo High Water, at the hub's level where it is not Normal (M8: "A solo
+## practice match with this Builder, offline, at Hard"); Normal where the hub lights no level
+## (Undertow: Session.try_level).
+static func try_tip() -> String:
+	var level := Session.try_level()
+	if level == MatchRules.NORMAL:
+		return TRY_TIP
+	return "%s, at %s" % [TRY_TIP, Game.level_name(level)]
 
 
 ## Esc back to the hub; Q W E show a tower's tooltip; 1 to 4 pick from the roster.
@@ -400,7 +410,7 @@ func _fill_kit(builder: String) -> void:
 			glyph.mouse_filter = Control.MOUSE_FILTER_STOP
 			if helps != "":
 				glyph.texture = Game.icon(str(Game.CHECKS[helps]["icon"]))
-				glyph.tooltip_text = Game.lifts_line(helps)
+				glyph.tooltip_text = Game.lifts_line(helps, branch_id)
 			_kit.add_child(glyph)
 	for child in _kit.get_children():
 		if child is Label:

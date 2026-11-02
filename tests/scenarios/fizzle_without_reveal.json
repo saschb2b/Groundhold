@@ -1,6 +1,6 @@
 {
   "name": "fizzle_without_reveal",
-  "description": "A corked bottle with no valid reveal by fizzle_t (25 s after the horn) fizzles (contract-m7 §2): seat 2 corks the Gourd Rush in window 2 and never uncorks; at 1499 ticks after the horn it is still corked, on the 1500th EV_FIZZLE, the 30 gold stays spent, no stipend and no creep follow, and an UNCORK after it finds nothing corked. Seat 1's wave waits for the bottle (SimUndertow.holds): its eight arrows by the Welling have killed all of wave 2 long before, yet its wave clears only on the fizzle's tick, and SimMatch.wave_held says so to the views meanwhile (seat 2's, with no bottle aimed at it, is not).",
+  "description": "A corked bottle with no valid reveal by fizzle_t (25 s after the horn) fizzles (contract-m7 §2): seat 2 corks the Gourd Rush in window 2 and never uncorks; at 1499 ticks after the horn it is still corked, on the 1500th EV_FIZZLE, the 45 gold stays spent, no stipend and no creep follow, and an UNCORK after it finds nothing corked. Seat 1's wave waits for the bottle (SimUndertow.holds): its eight arrows by the Welling have killed all of wave 2 long before, yet its wave clears only on the fizzle's tick, and SimMatch.wave_held says so to the views meanwhile (seat 2's, with no bottle aimed at it, is not).",
   "scene": "res://tests/sim/sim_harness.tscn",
   "seed": 1,
   "timeout_frames": 120,
@@ -21,6 +21,6 @@
     {"assert": "scene.events_where('WAVE', {'hollow': 0, 'cleared': true, 'wave': 2})[0]['tick'] == horn + 1500 and not m.wave_held(0)", "msg": "and seat 1's wave cleared on that tick"},
     {"eval": "scene.uncork(2, 0, 9, 9)"},
     {"eval": "scene.run_to_window()"},
-    {"assert": "scene.last_refusal(2) == 'NOTHING_CORKED' and m.stipend(2) == 0 and scene.sent_by(2) == [] and scene.rows('GOLD', ['change'], {'seat': 2, 'why': 'cork'}) == [[-30]] and scene.gold_to(2, 'stipend') == 0", "msg": "too late to reveal: the gold stays spent, no stipend, no creeps"}
+    {"assert": "scene.last_refusal(2) == 'NOTHING_CORKED' and m.stipend(2) == 0 and scene.sent_by(2) == [] and scene.rows('GOLD', ['change'], {'seat': 2, 'why': 'cork'}) == [[-45]] and scene.gold_to(2, 'stipend') == 0", "msg": "too late to reveal: the gold stays spent, no stipend, no creeps"}
   ]
 }

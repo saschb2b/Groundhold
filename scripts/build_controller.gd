@@ -18,6 +18,18 @@
 ## turn comes (within 50 ms offline). Until then a placed tower stands as a pulsing ghost
 ## and its cost is kept back from the gold; the simulation confirms or refuses it.
 ##
+## Waves stack (M8, design 2.7 and 5.7): in a wave of a mode that stacks (High Water, Tide
+## Race) Ready calls the next wave, which sets out as the call lands, and a call takes a
+## second press: the first press of D, N or Space, or a click on the horn, asks "Call wave 8
+## now? Press again" for two seconds (call_asked), and only a second press within them sends
+## it; one the simulation would not take is refused here with why (Game.stack_refusal). A
+## READY 1 names the wave it calls (Game.called_wave), and the simulation takes it only for
+## that wave, so one that lands after the horn it was pressed for calls nothing. A press in a
+## build window's last moments (Game.late_in_window: the window's horn sounds before its
+## READY can land) asks for the second press too, which calls the wave after the window's:
+## it waits for the window's horn and then goes out naming that wave. Un-Ready takes one
+## press, in a wave as in a window.
+##
 ## Networked, orders go out only while the match runs and its link holds, and no faster
 ## than the server's command bucket allows (Game.can_command): otherwise an order is
 ## refused here with the reason ("The match has not started", "No link to the server",
@@ -34,6 +46,9 @@ extends Node3D
 signal selection_changed(tower: Tower)
 signal creep_selected(creep: Creep)
 signal mode_changed(kind: String)
+## (M8) A stacked call's first press asks for the second: `text` for `seconds`, "" once
+## the call went out or was let go.
+signal call_asked(text: String, seconds: float)
 
 ## How close (screen pixels) a click must land to a creep to select it.
 const CREEP_PICK_RADIUS := 36.0
@@ -78,6 +93,15 @@ var pending := {}
 ## Ready as the latest press asked for it, still to be sent (one READY is on its way):
 ## -1 nothing waiting, 0 or 1.
 var ready_wanted := -1
+## (M8) The physics frame until which a stacked call's first press waits for the second
+## (-1: none asked), and the wave it would call.
+var call_until := -1
+var call_for := 0
+## (M8) The state and wave a Ready still to be sent (ready_wanted) was asked for in: a horn
+## between the press and its sending makes it another question, and it is let go. A call
+## for the wave after the window's, confirmed in the window's last moments, is asked for in
+## the wave its horn brings ([WAVE, that wave]): it waits for that horn (_send_ready).
+var _wanted_at := []
 
 var _ghost: Node3D
 var _ghost_material: StandardMaterial3D
@@ -443,8 +467,15 @@ func signal_at(screen: Vector2) -> bool:
 ## The war horn: Ready, or not Ready any more. When every seat is Ready the next wave
 ## comes at once and each second left pays every seat one gold. While a READY of mine is
 ## on its way, a press only changes what the next one will ask for (sent once it lands).
+## (M8) In a wave of a mode that stacks, a call for the next wave takes a second press
+## within CALL_PRESS_FRAMES (the first only asks: call_armed()), and is refused here with
+## why while the simulation would not take it; taking a call back takes one press. A press
+## in a window's last moments (Game.late_in_window) asks for the second press too: its READY
+## would land after the window's horn, so the press means the wave after it (design 5.7).
+## The second, there, waits for the window's horn and then calls that wave.
 func toggle_ready() -> bool:
-	if Game.state != Game.State.PREP or Game.wave >= Game.last_wave():
+	var in_wave := Game.state == Game.State.WAVE and Game.stacks()
+	if not in_wave and (Game.state != Game.State.PREP or Game.wave >= Game.last_wave()):
 		return false
 	if Game.order_refusal() != "":
 		_refuse(Game.order_refusal())
@@ -454,11 +485,50 @@ func toggle_ready() -> bool:
 		_refuse(Game.ready_refusal())
 		return false
 	var want := not wants_ready()
+	if in_wave and want:
+		var why := Game.stack_refusal()
+		if why != "":
+			_let_go_call()
+			_refuse(why)
+			return false
+	if want and (in_wave or Game.late_in_window()) and not call_armed():
+		call_until = Engine.get_physics_frames() + Game.CALL_PRESS_FRAMES
+		# (in a window's last moments, the wave after the window's: its horn is all but here)
+		call_for = Game.called_wave() if in_wave else Game.wave + 2
+		Sfx.play("click", -10.0)
+		call_asked.emit(
+			"Call %s now? Press again" % Game.wave_name(call_for).to_lower(),
+			Game.CALL_PRESS_FRAMES / float(Engine.physics_ticks_per_second)
+		)
+		selection_changed.emit(selected)
+		return true
+	# (the second press in a window's last moments: the call for the wave after the window's)
+	var after_horn := want and not in_wave and call_armed()
+	_let_go_call()
 	ready_wanted = 1 if want else 0
+	_wanted_at = [Game.State.WAVE, Game.wave + 1] if after_horn else [Game.state, Game.wave]
 	Sfx.play("click", -6.0)
 	_send_ready()
 	selection_changed.emit(selected)
 	return true
+
+
+## (M8) Whether a stacked call's first press waits for its second now: within its two
+## seconds, for the wave a call would still call, in a wave that may still take one, or
+## still in the window's last moments it was asked in.
+func call_armed() -> bool:
+	if call_until < 0 or Engine.get_physics_frames() > call_until:
+		return false
+	if Game.state == Game.State.WAVE:
+		return call_for == Game.called_wave()
+	return Game.state == Game.State.PREP and call_for == Game.wave + 2 and Game.late_in_window()
+
+
+## (M8) Lets a stacked call's first press go: its question leaves the notice.
+func _let_go_call() -> void:
+	if call_until >= 0:
+		call_until = -1
+		call_asked.emit("", 0.0)
 
 
 ## Space (design 5.7): Ready, as D and N, except while a duel's wave runs (on either
@@ -558,17 +628,27 @@ func wants_ready() -> bool:
 
 
 ## Sends the Ready the player wants when none is on its way and the bucket has room;
-## a want that matches the simulation already is dropped.
+## a want that matches the simulation already is dropped. (M8) A READY 1 names the wave it
+## calls (Game.called_wave(): the window's, or in a wave the next), so one that lands after
+## another horn calls nothing; a call confirmed in a window's last moments waits here for the
+## window's horn, then names the wave after it.
 func _send_ready() -> void:
 	if ready_wanted < 0 or _pending_ready() or not Game.can_command():
 		return
 	var want := ready_wanted == 1
+	if want and _wanted_at == [Game.State.WAVE, Game.wave + 1] and Game.state == Game.State.PREP:
+		return  # (its window's horn has not sounded here yet)
 	ready_wanted = -1
 	if want == Game.is_ready():
 		return
-	if Game.state != Game.State.PREP or Game.wave >= Game.last_wave():
+	if want and _wanted_at != [Game.state, Game.wave]:
+		return  # (M8: a horn sounded since the press: a window's Ready never becomes a call)
+	# (in a window as before; M8: in a wave that stacks, a call, or a call taken back,
+	# which the simulation always takes)
+	var in_wave := Game.state == Game.State.WAVE and Game.stacks()
+	if not in_wave and (Game.state != Game.State.PREP or Game.wave >= Game.last_wave()):
 		return
-	var seq := Game.command(SimTypes.CMD_READY, 1 if want else 0)
+	var seq := Game.command(SimTypes.CMD_READY, 1 if want else 0, Game.called_wave() if want else 0)
 	if seq >= 0:
 		_add_pending(seq, "ready", 0, Vector2i(-1, -1), null, want)
 
@@ -586,6 +666,8 @@ func _physics_process(_delta: float) -> void:
 			ready_wanted = -1
 		else:
 			_send_ready()
+	if call_until >= 0 and not call_armed():
+		_let_go_call()  # (its two seconds are over, or the wave it would call came)
 
 
 ## No order of mine is still waiting for its turn, nor a Ready still to be sent.
@@ -602,6 +684,7 @@ func forget_pending() -> void:
 			ghost.queue_free()
 	pending.clear()
 	ready_wanted = -1
+	_let_go_call()  # (M8: a stacked call's question goes with the orders)
 	signaling = false
 	Game.forget_duel_orders()  # (the duel's corks, uncorkings and Seawall on their way too)
 	_count_pending()

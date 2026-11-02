@@ -1,7 +1,7 @@
 {
  "transcript": "m3_party",
  "format": 1,
- "protocol": 1,
+ "protocol": 2,
  "clients": 3,
  "note": "The hub on a hand-moved clock (party codes from random.Random(20261030)): Tamsin creates a High Water party; Edda tries a wrong code, then joins in lower case; Ottilie's older build needs to reload, the start is refused and she is removed; mode, team, open seats, QUEUE (idle before M6), Ready, the 3 s countdown, its cancel, and MATCH_CONFIG.",
  "records": [
@@ -10,7 +10,7 @@
    "client": 0,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "0102030405060708090a0b0c0d0e0f10",
@@ -51,6 +51,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -76,7 +77,7 @@
    "client": 1,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 8,
     "rules_hash": "47726f756e646831",
     "token": "1112131415161718191a1b1c1d1e1f20",
@@ -135,6 +136,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -173,6 +175,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -221,6 +224,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -259,6 +263,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -295,7 +300,7 @@
    "client": 2,
    "type": "HELLO",
    "fields": {
-    "version": 1,
+    "version": 2,
     "build_seq": 7,
     "rules_hash": "47726f756e646830",
     "token": "2122232425262728292a2b2c2d2e2f30",
@@ -345,6 +350,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -394,6 +400,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -443,6 +450,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 2,
@@ -501,6 +509,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -550,6 +559,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -599,6 +609,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 2,
@@ -656,6 +667,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -723,6 +735,7 @@
    "fields": {
     "code": "0000000000",
     "mode": 0,
+    "difficulty": 0,
     "flags": 0,
     "leader": 255,
     "you": 255,
@@ -738,6 +751,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -776,6 +790,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -847,6 +862,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 2,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -885,6 +901,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 2,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -933,6 +950,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 2,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -971,6 +989,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 2,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -1018,6 +1037,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 0,
@@ -1056,6 +1076,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 0,
     "leader": 0,
     "you": 1,
@@ -1103,6 +1124,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1141,6 +1163,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -1206,6 +1229,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1244,6 +1268,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -1290,6 +1315,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1328,6 +1354,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -1374,6 +1401,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1412,6 +1440,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -1458,6 +1487,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1496,6 +1526,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -1534,6 +1565,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 0,
@@ -1572,6 +1604,7 @@
    "fields": {
     "code": "4e394e445a",
     "mode": 1,
+    "difficulty": 0,
     "flags": 1,
     "leader": 0,
     "you": 1,
@@ -1610,6 +1643,7 @@
    "fields": {
     "match": 1,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",
@@ -1640,6 +1674,7 @@
    "fields": {
     "match": 1,
     "mode": 1,
+    "difficulty": 0,
     "map": 0,
     "seed": 20261029,
     "rules_hash": "47726f756e646831",

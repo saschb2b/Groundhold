@@ -1,0 +1,30 @@
+{
+  "name": "sim_checkpoint_roundtrip_m8",
+  "description": "The codec round-trips every field M8 added (contract-m8 §2): the busy three-seat match of sim_checkpoint_roundtrip_busy played as Tide Race at Hard by three Lamplighters, seat 1 (present, by command, Ready every 131 ticks) stacking waves on the first hollow beside its caretaken partner, so the M8 block holds the level, a hollow's waves cleared with two waves on its road, the older wave's spawns still to come while the newer sends its own (SimHollow.behind, since the waves truly overlap), creeps of the older wave and the race's kills of the younger. Replayed into a simulation replaced by deserialize(serialize()) every 7 ticks and every 61 with events on, many of the trips while two waves walk and some while two send: every tick's hash equals the uninterrupted run's, and the waves cleared, the waves on each road, the spawns held back, every creep's wave and the race's kills of each wave are the same after each trip. The same busy match in High Water at Normal stacks while seat 3 is away, and round-trips the same with no level in the block. A checkpoint loads only under the level it was made at: Hard's bytes refuse Normal's rules, Normal's refuse Hard's.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 300,
+  "ignore_errors": ["checkpoint is of level"],
+  "steps": [
+    {"eval": "resource('res://tests/sim/busy_match.gd')", "as": "B"},
+    {"eval": "B.busy_log(11, 15000, 'tide_race', ['lamplighter', 'lamplighter', 'lamplighter'], [], 'hard', true)", "as": "rec"},
+    {"eval": "[rec['final_tick'], rec['wave'], rec['stacked_seen'], rec['race_state']]", "as": "summary"},
+    {"assert": "rec['difficulty'] == 'hard' and rec['m8_state'][0] == 1 and rec['stacked_seen']['two_waves'] > 3000 and rec['stacked_seen']['older_creeps'] > 3000", "msg": "a race at Hard whose first hollow had two waves on its road, creeps of the older among them, for thousands of ticks"},
+    {"assert": "rec['stacked_seen']['two_spawning'] > 1000", "msg": "and ticks on which the older wave still had creeps to send while the newer sent its own"},
+    {"eval": "B.roundtrip_chain(rec, 7, 3, false)", "as": "every7"},
+    {"assert": "every7['first_bad'] == -1 and every7['final'] == rec['final_tick'] and every7['trips'] > 1000 and every7['stacked_trips'] > 400", "msg": "a round trip every 7 ticks keeps every tick's hash and the stacked waves' state, many trips while two waves walk"},
+    {"assert": "every7['spawning_trips'] > 150", "msg": "trips made while an older wave's spawns waited in SimHollow.behind"},
+    {"eval": "B.roundtrip_chain(rec, 61, 59, true)", "as": "every61"},
+    {"assert": "every61['first_bad'] == -1 and every61['final'] == rec['final_tick'] and every61['stacked_trips'] > 40 and every61['spawning_trips'] > 15", "msg": "and every 61 ticks with events on"},
+    {"eval": "B.busy_log(7, 12000, 'high_water', ['lamplighter', 'lamplighter', 'lamplighter'], [], 'normal', true)", "as": "hw"},
+    {"assert": "hw['m8_state'][0] == 0 and hw['stacked_seen']['two_waves'] > 1000 and hw['stacked_seen']['two_spawning'] > 300", "msg": "High Water at Normal stacked too, two waves sending at once"},
+    {"eval": "B.roundtrip_chain(hw, 7, 3, false)", "as": "hw7"},
+    {"assert": "hw7['first_bad'] == -1 and hw7['final'] == hw['final_tick'] and hw7['stacked_trips'] > 100 and hw7['spawning_trips'] > 40", "msg": "and round-trips"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1, 'difficulty': 'hard'})"},
+    {"eval": "scene.checkpoint()", "as": "hard_bytes"},
+    {"eval": "scene.start({'mode': 'high_water', 'seats': 1})"},
+    {"eval": "scene.checkpoint()", "as": "normal_bytes"},
+    {"assert": "scene.decodes(hard_bytes, 'high_water', 'hard') and not scene.decodes(hard_bytes, 'high_water', 'normal') and scene.decodes(normal_bytes, 'high_water') and not scene.decodes(normal_bytes, 'high_water', 'hard')", "msg": "bytes load only under their own level"},
+    {"assert": "hard_bytes != normal_bytes and hard_bytes.size() > normal_bytes.size()", "msg": "Hard's tick 0 carries the M8 block, Normal's does not"}
+  ]
+}

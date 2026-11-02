@@ -1,0 +1,33 @@
+{
+  "name": "duel_caretaker_sends_what_leaked",
+  "description": "The caretaker sends what the rival's defence has shown, all of it public (the owner's decision of 2 November 2026; contract-m7 §2, SimUndertow.pick_pack): the offered check of which the most creeps have reached the rival's Holdfast so far (SimTeam.leaked, from two), else the Moth Cloud where the rival's sky is weak, else the pack its towers take longest to kill; never what the rival has corked. Seed 1's window 2 offers the Gourd Rush, the Thorn Herd and the Moth Cloud. A Lamplighter's opening reaches no flier, so against her it sends the Moth Cloud; a Lookout's sky is strong, so against her the Thorn Herd her towers take longest to kill, until two Gourdlings slip through her Holdfast, and then the Gourd Rush. A bottle the rival corks changes none of it, and the leaks are kept in the duel's checkpoint.",
+  "scene": "res://tests/sim/sim_harness.tscn",
+  "seed": 1,
+  "timeout_frames": 200,
+  "steps": [
+    {"eval": "resource('res://scripts/sim/sim_undertow.gd')", "as": "U"},
+    {"eval": "U.get_script_constant_map()['SKY_WEAK_PM']", "as": "weak"},
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1, 'builders': ['lamplighter', 'lamplighter']})"},
+    {"eval": "scene.duel_to_window(2)"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"assert": "Array(m.drift_packs) == [0, 2, 3] and m.teams[0].leaked.is_empty() and m.teams[1].leaked.is_empty()", "msg": "window 2 offers swarm, armored and winged; nothing leaked in wave 1"},
+    {"assert": "U.sky_pm(m, 1) < weak and U.pick_pack(m, 1) == 3 and U.pick_pack(m, 2) == 3", "msg": "a Lamplighter's opening reaches no flier: each sends the other the Moth Cloud"},
+    {"eval": "scene.start({'mode': 'undertow', 'seats': 2, 'seed': 1, 'builders': ['lookout', 'lookout']})"},
+    {"eval": "scene.duel_to_window(2)"},
+    {"eval": "scene.client(1)", "as": "m"},
+    {"assert": "Array(m.drift_packs) == [0, 2, 3] and U.sky_pm(m, 1) >= weak", "msg": "the Lookout's sky is strong"},
+    {"assert": "U.pick_pack(m, 1) == 2 and U.pick_pack(m, 1) == U.weakest_pack(m, 1)", "msg": "with nothing leaked and a strong sky it sends the pack her towers take longest to kill, the Thorn Herd"},
+    {"eval": "scene.spawn('gourdling', m.hollows[1].road.length_um - 2000, 1)", "as": "first"},
+    {"eval": "scene.run_ticks(5)"},
+    {"assert": "Array(m.teams[1].leaked) == [1, 0, 0, 0] and U.pick_pack(m, 1) == 2", "msg": "one Gourdling through seat 2's Holdfast is not yet a weakness"},
+    {"eval": "scene.spawn('gourdling', m.hollows[1].road.length_um - 2000, 1)", "as": "second"},
+    {"eval": "scene.run_ticks(5)"},
+    {"assert": "Array(m.teams[1].leaked) == [2, 0, 0, 0] and m.teams[0].leaked.is_empty()", "msg": "a second: the record counts the rival's check, and only on its own team"},
+    {"assert": "U.pick_pack(m, 1) == 0 and U.pick_pack(m, 2) == 2", "msg": "now seat 1 sends seat 2 the Gourd Rush, while seat 2, whose rival leaked nothing, still sends the Thorn Herd"},
+    {"eval": "scene.cork(2, 3)"},
+    {"eval": "scene.run_ticks(6)"},
+    {"assert": "U.corks_of(m, 2, 2) == 1 and U.pick_pack(m, 1) == 0", "msg": "the rival's bottle (a Moth Cloud, with salt 0 its pack in plain sight) changes nothing: the pick never reads a bottle"},
+    {"eval": "scene.join_from(scene.checkpoint(1))", "as": "joined"},
+    {"assert": "Array(joined.teams[1].leaked) == [2, 0, 0, 0] and U.pick_pack(joined, 1) == 0", "msg": "the leaks are kept in the duel's checkpoint, so a client that joins from it picks alike"}
+  ]
+}

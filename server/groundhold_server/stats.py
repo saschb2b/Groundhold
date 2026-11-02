@@ -7,7 +7,9 @@ A day counts its joins; its distinct public identities, as a number only
 and never served; it holds at most SEEN_MAX of them, since anyone can mint
 tokens: past that each join of an identity not in it counts as a new one,
 an upper bound in bounded memory); the most players online at once; the matches started
-and finished per mode (finished: ended by an agreed result); the desyncs,
+and finished per mode and level (finished: ended by an agreed result; a match at Normal
+or of a mode without levels under its mode, "high_water", one at Hard or Very Hard under
+its mode and level, "high_water:hard", M8); the desyncs,
 the health gauge of the lockstep choice (every disagreement the hash or
 result referee found, a minority of three included); the reconnects (a
 party seat taken back after a drop); the resyncs (every RESYNC sent: a
@@ -40,7 +42,7 @@ SHOWN = 30              # the days /stats serves besides today
 VERSIONS = 16           # protocol versions counted apart; the rest as "other"
 SEEN_MAX = 100_000      # a day's distinct identities held in memory (about 10 MB at most)
 COUNTS = ("joins", "peak", "desyncs", "reconnects", "resyncs", "rejoins", "caretaker_seats")
-TABLES = ("started", "finished", "versions")     # per mode, per mode, per protocol version
+TABLES = ("started", "finished", "versions")     # per mode and level, the same, per protocol version
 
 
 def day_of(now):

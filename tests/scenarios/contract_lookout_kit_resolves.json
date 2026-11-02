@@ -50,6 +50,6 @@
     {"eval": "scene.run_ticks(30)"},
     {"assert": "scene.client(1).hollows[0].wave == 1", "msg": "a caretaken Lookout stands Ready: the horn sounds as soon as seat 1 is"},
     {"eval": "scene.run_ticks(1200)"},
-    {"assert": "scene.client(1).seat(2).towers >= 2 and scene.tower_at(12, 8).kind == 'hawk_roost' and scene.tower_at(12, 8).owner == 2", "msg": "and it builds its kit by its plan, the first Hawk Roost where the plan puts it"}
+    {"assert": "scene.client(1).seat(2).towers >= 1 and scene.tower_at(12, 8).kind == 'hawk_roost' and scene.tower_at(12, 8).owner == 2 and scene.client(1).seat(2).plan_cursor >= 1", "msg": "and it builds its kit by its plan, the first Hawk Roost where the plan puts it (since M8's fork pass her plan forks it into a Kestrel Flock before she builds the second)"}
   ]
 }

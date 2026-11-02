@@ -16,12 +16,22 @@ class SimTeam:
 	var clear_tick := -1
 	## Tide Race (M6), counted only in a race (SimMatch.race): the wave its Holdfast went
 	## under on (0 while it stands), how many of that wave's creeps it had killed by then,
-	## and the kills of the wave it is on (from its horn).
+	## and the kills of the wave it is on (from its horn); (M8) with waves stacked, the
+	## oldest wave on its road, whichever horn its creeps came with.
 	var fell_wave := 0
 	var fell_kills := 0
 	var wave_kills := 0
+	## (M8) In a race, the kills of each younger wave on the road (the one after the oldest
+	## first): a stacked horn opens one, the oldest wave's clear hands the first to
+	## wave_kills. Empty while one wave or none is on the road.
+	var stack_kills := PackedInt32Array()
 	## Undertow (M7): lives this team's uncorked creeps took from the rival's Holdfast.
 	var breach_dealt := 0
+	## Undertow (the sends' pass): the creeps of each check (by CHECK_IDS index, the creep a
+	## pack of that check sends on this map; a boss is none) that reached this team's
+	## Holdfast so far, the wave's and the rival's uncorked alike: what its defence has shown
+	## the rival, whose caretaker sends by it (SimUndertow.pick_pack). Empty until the first.
+	var leaked := PackedInt32Array()
 
 
 class SimHollow:
@@ -32,15 +42,27 @@ class SimHollow:
 	## Tower id per cell, row by row; 0 for an empty cell.
 	var occupied := PackedInt32Array()
 	var phase := SimTypes.PHASE_PREP
-	## 1-based index of the current or last wave; 0 before the first.
+	## 1-based index of the current or last wave; 0 before the first. (M8) With waves
+	## stacked, the newest called.
 	var wave := 0
+	## (M8) The waves cleared, in order: waves cleared + 1 to `wave` are on the road while the
+	## phase is WAVE (one, or up to the rules' stack_max once waves stack); `wave` in a
+	## window and once done.
+	var cleared := 0
 	## Ticks left in the build window.
 	var countdown_t := 0
-	## The current wave's spawns as pairs [creep kind index, ticks to wait before it].
+	## The current wave's spawns as pairs [creep kind index, ticks to wait before it]; (M8)
+	## with waves stacked, the newest's.
 	var queue := PackedInt32Array()
 	## How many entries of the queue have spawned.
 	var cursor := 0
 	var spawn_wait_t := 0
+	## (M8) The older waves' spawns still to come while a younger wave spawns too, as
+	## triples [creep kind index, its wave, the tick it spawns on], oldest wave first and each
+	## wave's in its own order: a stacked horn moves the rest of the newest wave's queue here,
+	## on the ticks it would have spawned on, so both schedules run (SimWaves.stack_wave).
+	## Empty while one wave spawns or none.
+	var behind := PackedInt32Array()
 	## Seats on this hollow, in seat order.
 	var seats := PackedInt32Array()
 	## The first tick of the current build window, for the caretaker.
@@ -177,6 +199,10 @@ class SimCreep:
 	var crack_seat := 0
 	## Undertow (M7): the seat that uncorked this creep, 0 for the wave's own.
 	var sent_by := 0
+	## (M8) The wave it came with: its hollow's newest when it spawned (an uncorked creep's
+	## is the wave it walks), the coming one for a creep a debug write put on the road in a
+	## window. Waves clear in order of it (SimWaves.check_clear).
+	var wave := 0
 	## False once it died or leaked; views keep the record after the match drops it.
 	var alive := true
 
