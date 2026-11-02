@@ -78,13 +78,18 @@ FLATS = {
     'C': 'C4 G4 C5 E5 G5 E5 C5 G4', 'G/D': 'D4 G4 B4 D5 G5 D5 B4 G4', 'Dm': 'D4 A4 D5 F5 A5 F5 D5 A4',
     'Em7': 'E4 B4 D5 G5', 'Asus4': 'A3 E4 A4 D5', 'G/B': 'B3 G4 B4 D5', 'Bbmaj7': 'D4 F4 A4 D5',
     'Bb': 'D4 F4 Bb4 D5', 'F': 'F4 A4 C5 F5', 'G': 'G4 B4 D5 G5', 'C4': 'E4 G4 C5 E5',
+    # whole bars of a chord the sketches only held for half a bar (the hub's theme)
+    'Bbmaj7 bar': 'D4 F4 A4 D5 F5 D5 A4 F4', 'Asus4 bar': 'A3 E4 A4 D5 E5 D5 A4 E4',
+    'Cadd9/D': 'D4 G4 C5 D5 E5 D5 C5 G4',
 }
 
 
 def flats(harp, at: float, names, vel: int = 58, ring: float = 1.5, accent: int = 8):
     """The harp over one bar from beat `at`: one chord's figure of eight eighths, or two chords' of four each."""
     if len(names) == 1:
-        arp(harp, at, FLATS['Dsus2' if names[0] == 'Dm' else names[0]], 0.5, vel=vel, ring=ring, accent=accent)
+        name = 'Dsus2' if names[0] == 'Dm' else names[0]
+        name = name + ' bar' if name + ' bar' in FLATS else name
+        arp(harp, at, FLATS[name], 0.5, vel=vel, ring=ring, accent=accent)
     else:
         for i, name in enumerate(names):
             arp(harp, at + 2 * i, FLATS['C4' if name == 'C' else name], 0.5, vel=vel, ring=ring,

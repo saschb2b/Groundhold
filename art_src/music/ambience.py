@@ -2,6 +2,7 @@
 """The Causeway's ambience bed: wind over the flats, water moving on sand, and a far bell, as a seamless loop.
 
     python3 art_src/music/ambience.py [--seconds 30] [--seed 1] [--out DIR] [--name causeway_ambience]
+    python3 art_src/music/ambience.py --under PIECE [--out DIR]    # the bed under a rendered loop, as the hub plays
 
 front-end.md §4.6 asks for it: "a seamless loop of wind over the flats, water moving on sand and a far bell". It
 belongs to no map (the Flats and the Tide run on every map; AGENTS.md), so it carries no night, insects or lanterns.
@@ -21,6 +22,12 @@ circular convolution, so the loop has no seam. The bed is brought to -28 LUFS (u
 Mix) and checked: its loudness, its bands, and the seam (the level either side of it and the step across it).
 Seeded and deterministic. Writes NAME.wav (48 kHz, 24-bit), .ogg, .mp3 and .spectrum.png into DIR
 (.build/music-sketches/ by default).
+
+`--under PIECE` hears the front end as it will sound (front-end.md §4.6, music_rules.md's loudness): it makes a bed
+as long as PIECE's rendered loop (DIR/PIECE.wav, render.py's; .build/music/ by default), so the two loop together,
+and lays the music at its -20 LUFS over the bed at -28, untouched: DIR/PIECE_ambience.* (the bed alone),
+DIR/PIECE_with_ambience.* (the two, one loop, its check and spectrogram) and PIECE_with_ambience_twice.mp3 (the loop
+played twice through, to hear its seam without a player that repeats).
 """
 
 from __future__ import annotations
@@ -184,17 +191,47 @@ def build(seconds: float, seed: int):
     return circ(lambda v: highpass(v, 30.0), bed), loud
 
 
-def seam_lines(x, sr):
+def encode(wav: str, base: str) -> None:
+    for ext, codec in (('ogg', ['-c:a', 'libvorbis', '-q:a', '6']), ('mp3', ['-c:a', 'libmp3lame', '-q:a', '2'])):
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav] + codec + [f'{base}.{ext}'], check=True)
+
+
+def under(piece: str, out_dir: str) -> int:
+    """The bed under a rendered loop at the front end's levels: the music as rendered (-20 LUFS), the bed at -28."""
     import numpy as np
     import mix
-    w = int(0.1 * sr)
-    head = mix.db(float(np.sqrt(np.mean(x[:w] ** 2))))
-    tail = mix.db(float(np.sqrt(np.mean(x[-w:] ** 2))))
-    step = float(np.max(np.abs(x[0] - x[-1])))
-    typical = float(np.percentile(np.abs(np.diff(x, axis=0)), 99))
-    ok = abs(head - tail) <= 3.0 and step <= 2 * typical
-    return [f'the seam: last 100 ms {tail:.1f} dBFS, first 100 ms {head:.1f}; the step across it {step:.5f} '
-            f'against a 99th-percentile step of {typical:.5f}' + ('' if ok else '  MISS')]
+    import check
+    music, sr = mix.read_wav(os.path.join(out_dir, f'{piece}.wav'))
+    seconds = len(music) / sr
+    bed, _ = build(seconds, 1)
+    bed = bed[:len(music)]
+    bed = bed * mix.undb(TARGET_LUFS - mix.integrated(bed, RATE))
+    base = os.path.join(out_dir, f'{piece}_ambience')
+    mix.write_wav(base + '.wav', bed, RATE, 24)
+    encode(base + '.wav', base)
+    both = music + bed
+    peak = mix.true_peak(both)
+    base = os.path.join(out_dir, f'{piece}_with_ambience')
+    mix.write_wav(base + '.wav', both, RATE, 24)
+    encode(base + '.wav', base)
+    mix.write_wav(base + '_twice.wav', np.concatenate([both, both]), RATE, 24)
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', base + '_twice.wav', '-c:a', 'libmp3lame', '-q:a', '2',
+                    base + '_twice.mp3'], check=True)
+    os.remove(base + '_twice.wav')
+    x, _ = check.decode(base + '.wav')
+    lines = [f'== {piece} over the Causeway\'s ambience: the music as rendered '
+             f'({mix.integrated(music, RATE):.1f} LUFS), '
+             f'the bed at {mix.integrated(bed, RATE):.1f} LUFS, a loop of {seconds:.1f} s']
+    lines += check.sound_lines(x, sr, 80, 4)
+    lines += check.seam_lines(both, RATE)
+    lines.append(f'true peak of the two together {peak:.1f} dBTP' + ('' if peak <= -1.0 else '  MISS'))
+    report = '\n'.join(lines)
+    with open(base + '.check.txt', 'w') as f:
+        f.write(report + '\n')
+    print(report)
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', base + '.wav', '-lavfi', check.SPECTRUM,
+                    base + '.spectrum.png'], check=True)
+    return 0
 
 
 def main(argv: list[str]) -> int:
@@ -205,6 +242,9 @@ def main(argv: list[str]) -> int:
     seconds, seed = 30.0, 1
     out_dir = os.path.join(render.ROOT, '.build', 'music-sketches')
     name = 'causeway_ambience'
+    if '--under' in argv:
+        return under(argv[argv.index('--under') + 1],
+                     os.path.abspath(argv[argv.index('--out') + 1]) if '--out' in argv else render.DEFAULT_OUT)
     for flag in ('--seconds', '--seed', '--out', '--name'):
         if flag in argv:
             v = argv[argv.index(flag) + 1]
@@ -231,7 +271,7 @@ def main(argv: list[str]) -> int:
     lines = [f'== the Causeway\'s ambience bed ({seconds:g} s loop, seed {seed}), target {TARGET_LUFS:g} LUFS']
     x, sr = check.decode(wav)
     lines += check.sound_lines(x, sr, 60, 4)
-    lines += seam_lines(mix.read_wav(wav)[0], RATE)
+    lines += check.seam_lines(mix.read_wav(wav)[0], RATE)
     lines.append('layers (LUFS as made, before the bed\'s gain of %+.1f dB): ' % gain
                  + ', '.join(f'{k} {v:.1f}' for k, v in loud.items()))
     report = '\n'.join(lines)

@@ -82,7 +82,7 @@ class Note:
 class Part:
     name: str
     inst: str                         # an id of palette.INSTRUMENTS
-    role: str = 'harmony'             # lead, counter, harmony, bass, drone, ostinato, perc, colour
+    role: str = 'harmony'             # lead, distant, counter, harmony, bass, drone, ostinato, perc, colour
     notes: list[Note] = field(default_factory=list)
     gain_db: float = 0.0
     pan: float = 0.0                  # -1 left .. 1 right (constant power)
