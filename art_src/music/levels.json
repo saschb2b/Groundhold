@@ -1,0 +1,290 @@
+{
+ "note": "Written by `python3 art_src/music/render.py --calibrate`: each instrument's trim to -30 LUFS for the median of its notes at velocity 80 (every fourth semitone across its range), and its low, middle and high thirds against that median, dB. Never edited by hand.",
+ "reference_lufs": -30.0,
+ "register_db": {
+  "alto_recorder": [
+   -10.3,
+   1.3,
+   8.4
+  ],
+  "bass_drum": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "basses": [
+   -3.1,
+   1.4,
+   3.6
+  ],
+  "bassoon": [
+   -3.1,
+   0.3,
+   3.3
+  ],
+  "celli": [
+   -0.1,
+   0.2,
+   -0.0
+  ],
+  "celli_pizz": [
+   -2.8,
+   1.4,
+   1.8
+  ],
+  "choir": [
+   -1.7,
+   0.1,
+   2.6
+  ],
+  "clarinet": [
+   -5.1,
+   -0.3,
+   5.1
+  ],
+  "concert_harp": [
+   -8.2,
+   1.6,
+   1.2
+  ],
+  "fiddle": [
+   0.9,
+   1.3,
+   -1.2
+  ],
+  "flute": [
+   -9.0,
+   -1.1,
+   8.5
+  ],
+  "flute_nv": [
+   -13.3,
+   0.1,
+   9.9
+  ],
+  "folk_harp": [
+   0.1,
+   0.2,
+   2.5
+  ],
+  "frame_drum": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "glockenspiel": [
+   -1.3,
+   -1.5,
+   -0.6
+  ],
+  "gm_bagpipe": [
+   -3.5,
+   0.8,
+   0.3
+  ],
+  "gm_whistle": [
+   -1.1,
+   -0.1,
+   3.0
+  ],
+  "hand_bells": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "hand_chimes": [
+   -2.0,
+   -1.2,
+   0.5
+  ],
+  "harp": [
+   -12.4,
+   1.1,
+   1.9
+  ],
+  "horn": [
+   -6.1,
+   -2.6,
+   8.3
+  ],
+  "horn_stac": [
+   -13.8,
+   -1.0,
+   8.3
+  ],
+  "mark_tree": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "oboe": [
+   -3.3,
+   2.7,
+   -3.1
+  ],
+  "ocarina": [
+   -4.3,
+   -1.1,
+   0.0
+  ],
+  "ocean_drum": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "psaltery": [
+   -1.4,
+   0.1,
+   1.2
+  ],
+  "psaltery_bowed": [
+   2.0,
+   0.1,
+   -0.5
+  ],
+  "recorder": [
+   -14.9,
+   -0.2,
+   1.1
+  ],
+  "snare_rope": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "strumstick": [
+   0.1,
+   -1.1,
+   1.5
+  ],
+  "sus_cymbal": [
+   -8.1,
+   5.8,
+   -10.8
+  ],
+  "timpani": [
+   -12.1,
+   1.1,
+   -0.9
+  ],
+  "timpani_roll": [
+   -3.1,
+   1.7,
+   0.3
+  ],
+  "tom": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "triangle": [
+   -7.9,
+   -2.7,
+   0.0
+  ],
+  "trombone": [
+   -5.2,
+   -1.3,
+   6.3
+  ],
+  "trumpet": [
+   -7.8,
+   0.4,
+   1.0
+  ],
+  "tuba": [
+   -3.6,
+   1.2,
+   1.9
+  ],
+  "tubular_bells": [
+   -2.8,
+   1.1,
+   -2.6
+  ],
+  "violas": [
+   -1.7,
+   0.7,
+   0.2
+  ],
+  "violins": [
+   -2.0,
+   0.4,
+   2.1
+  ],
+  "violins_pizz": [
+   -6.7,
+   -1.6,
+   2.2
+  ],
+  "violins_trem": [
+   -2.6,
+   -1.0,
+   4.8
+  ],
+  "voices": [
+   -4.7,
+   -0.3,
+   4.0
+  ],
+  "wine_glass": [
+   -0.7,
+   -0.5,
+   2.5
+  ],
+  "woodblock": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "trim_db": {
+  "alto_recorder": -4.5,
+  "bass_drum": 3.6,
+  "basses": 9.9,
+  "bassoon": -0.2,
+  "celli": -1.6,
+  "celli_pizz": 12.8,
+  "choir": -11.7,
+  "clarinet": -5.6,
+  "concert_harp": 10.7,
+  "fiddle": 0.8,
+  "flute": -2.4,
+  "flute_nv": -1.0,
+  "folk_harp": 9.4,
+  "frame_drum": 4.9,
+  "glockenspiel": 23.6,
+  "gm_bagpipe": -14.9,
+  "gm_whistle": -13.1,
+  "hand_bells": 10.2,
+  "hand_chimes": 0.6,
+  "harp": 15.4,
+  "horn": 0.8,
+  "horn_stac": 0.7,
+  "mark_tree": 16.1,
+  "oboe": 4.9,
+  "ocarina": -1.9,
+  "ocean_drum": 16.5,
+  "psaltery": 7.2,
+  "psaltery_bowed": -1.5,
+  "recorder": -7.4,
+  "snare_rope": 18.2,
+  "strumstick": 19.0,
+  "sus_cymbal": 1.5,
+  "timpani": 19.9,
+  "timpani_roll": 10.5,
+  "tom": 10.1,
+  "triangle": 7.2,
+  "trombone": 10.5,
+  "trumpet": -9.7,
+  "tuba": 6.5,
+  "tubular_bells": 2.1,
+  "violas": -3.1,
+  "violins": 3.5,
+  "violins_pizz": 5.5,
+  "violins_trem": 4.1,
+  "voices": -8.3,
+  "wine_glass": -2.3,
+  "woodblock": 8.9
+ }
+}
