@@ -1,6 +1,6 @@
 # Groundhold's front end
 
-*Proposed on 2 November 2026, from research into Blizzard's front-ends, the genre's and the craft's, reviewed as a
+*Adopted on 2 November 2026 (the owner's decisions are under §8), from research into Blizzard's front-ends, the genre's and the craft's, reviewed as a
 greenlight review would; the owner's decisions are §8. Where it differs from [`core-loop.md`](core-loop.md) §5, core-loop
 still holds until F0 rewrites it.*
 
@@ -593,6 +593,12 @@ The checks of `flow_hub_causeway_backdrop` (`props()`, `camera_z()`, `drift`) st
 | **F5: first launch and sign-off** | The arrival: the wordmark, then the camera rising onto the road, at most 3 s, played once per launch. Desktop plays it at once, and any input skips it. The web waits for the first gesture (the name prompt's Done, or "Click to enter"), which also starts the sound. The name on your nameplate; a pass at 200% text and in the safe area | **Persona:** a new fresh tester (Noa rotates out after three sessions), alone in the browser, from first launch. **Bar:** a running match within 30 s and a first tower within 60 s, without help; finds mode, level and Builder unaided. Then Halvard once: the front end must not slow a veteran down. Satisfaction in `lessons.md` must rise against the last hub sessions |
 
 ## 8. Risks and decisions for the owner
+
+**Decided on 2 November 2026:** a 3D lobby with 2D plates (1); start now with F0's slice, build behind `--front`, switch
+over after M8 (2); rivalry by placement, no VS (6). Music (3): the ambience and the UI cues now, and the sound and
+music are made the way Cyberworld Endless makes its trailers' music, by an agent with tools and soundfonts, rules
+read from the references and sketches for the owner's ear before any piece (the `music` skill). The recommendations
+on animation (4), web performance (5) and names (7) stand as written.
 
 1. **How far into the world?** I recommend a 3D lobby with 2D plates, at the level of Overwatch's shipped one-hero 3D lobby and its 3D post-match accolades. I do not recommend menus that are themselves objects (Hearthstone) or walking (Deep Rock Galactic). Clicks and speed matter more than the metaphor (principles 3 and 6).
 2. **Rewrite §5.1, and when.** I recommend lifting its three v1 rules: the shared console, no separate mode-select screen, and no settings beyond name and volume. They become shared materials, a Modes band and a full Settings sheet. Amend §3.6, §3.7 and §5.6 in the same change. Start F0 now and build F1 and F2 behind `--front` once the slice is approved. Only the switch-over waits for M8, so the two tracks never edit the same eight files.
