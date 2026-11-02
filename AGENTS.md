@@ -642,9 +642,12 @@ tune, the score against the rules) and a spectrogram and a piano roll. The rende
 the `groundhold-music` image (`art_src/music/Dockerfile`: sfizz 1.2.3 patched to write float, FluidSynth, NumPy,
 SciPy, ffmpeg; the libraries fetched at pinned commits, never committed), which any of the tools builds when it is
 missing (`docker build -t groundhold-music art_src/music` by hand; again after `palette.py` changes, then
-`render.py --verify` and `--calibrate`). `ambience.py` makes the Causeway's seamless bed; `cues.py` renders
-`cues.json`'s UI cues into `.build/music-cues/`, or with `--dest sfx` into `sfx/` with their manifest entries.
-Sketches go to `.build/music-sketches/` for the owner's ear; nothing goes into the game before he has heard it.
+`render.py --verify` and `--calibrate`). A piece of kind `loop` renders as a seamless loop (from `loop_from` on),
+its seam checked; `handover.py` plays a state change as the front end's `AudioStreamInteractive` will (the next bar
+line, a beat's fade). `ambience.py` makes the Causeway's seamless bed (`--under PIECE` lays it under a loop at the
+front end's levels); `cues.py` renders `cues.json`'s UI cues into `.build/music-cues/`, or with `--dest sfx` into
+`sfx/` with their manifest entries. Sketches go to `.build/music-sketches/` for the owner's ear; nothing goes into
+the game before he has heard it.
 `Game.TOWERS` holds each tower form's view (model, a head that turns or spins, its bore or muzzle, its shot and
 sound); `Tower.model_of(form)` stands one still for the placement ghosts. Views read the simulation's records after
 each step (a creep's slow, stun and mark, an Owl's Eye's marked creeps), so team effects need no events. M6's

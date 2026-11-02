@@ -150,6 +150,8 @@ class Score:
     parts: list[Part] = field(default_factory=list)
     tail: float = 3.0                        # seconds after the last bar that ring out
     kind: str = 'sketch'                     # sketch, theme, loop, sting, bed
+    loop_from: int = 0                       # a loop's first looped bar: the bars before it play once (Loading's
+                                             # build), and the player's loop_offset is this bar's time
     loudness: float = -20.0                  # the master's integrated loudness, LUFS
     hall_seconds: float = 2.4                # the hall's reverb time (RT60 at 500 Hz to 1 kHz)
     hall_air: float = 0.55                   # the hall's reverb time above 3.5 kHz, as a share of hall_seconds

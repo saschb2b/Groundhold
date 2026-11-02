@@ -132,8 +132,9 @@ could not check (the music by ear).
 ## Placing the hub's music (F4)
 
 The front end's F4 (front-end.md §4.6 and §7) wires the hub's sound in, after the switch-over; nothing here does it
-before then. The theme is `pieces/causeway_theme.py` (grown from sketch E, the owner's pick of 2 November 2026), the
-bed `ambience.py`'s. What F4 does with them, once the owner has heard the theme and said it ships (gate 5):
+before then. The theme is `pieces/causeway_theme.py` (grown from sketch E, the owner's pick of 2 November 2026),
+**approved by the owner on 2 November 2026** ("Yes, make the next": gate 5 met for the theme; lessons.md), the bed
+`ambience.py`'s (not yet heard on its own by him). What F4 does with them:
 
 - **Files.** Render the theme and a bed of its length into the project as `music/causeway_theme.ogg` and
   `music/causeway_ambience.ogg` (48 kHz stereo Ogg Vorbis, quality 6: the renders' own OGGs), each recorded in
@@ -148,11 +149,16 @@ bed `ambience.py`'s. What F4 does with them, once the owner has heard the theme 
   world's own sound; the cues on UI. Every bus at 0 dB by default: the renders carry the levels (music -20 LUFS,
   bed -28 LUFS, cues by their peaks), and `causeway_theme_with_ambience.mp3` is how the two should sound together.
 - **The music's states.** An `AudioStreamInteractive` with the theme as its first clip, "hub", started at bar 1
-  (the flats). The queue, Match Found and Loading are clips of their own, rendered from the same score when they
-  are made (the queue from the middle, bars 15 to 34, as its own loop; a sting for Match Found; Loading from the
-  echo and the flats), each moving on at `TRANSITION_FROM_TIME_NEXT_BAR` with a beat's fade, so a change of state
-  lands on the theme's bar. Leaving for a match, the music fades over a bar and the match's horn (A) sounds into
-  the D the hub left.
+  (the flats), and a clip for each other state, all in D at 80 from the theme's score (sketched in round 4, waiting
+  for the owner's ear): "queue" (`causeway_queue.py`, a 12-bar loop, -23 LUFS), "match_found"
+  (`causeway_found.py`, a two-bar sting and its ring, -19 LUFS) and "loading" (`causeway_loading.py`, 12 bars at
+  -20 LUFS whose first eight play once: `loop = true`, `loop_offset = 24.0`, the last four looping until the match
+  stands). Every transition into them: `TRANSITION_FROM_TIME_NEXT_BAR`, `TRANSITION_TO_TIME_START`, `FADE_OUT`
+  with `fade_beats = 1` (the clip leaving fades over a beat, the one arriving starts whole on the bar line).
+  `python3 art_src/music/handover.py FROM TO --after-bar N` renders a change exactly so, to hear it before F4
+  wires it. After the sting rings, the stream goes back to "queue" (`set_clip_auto_advance` with
+  `AUTO_ADVANCE_ENABLED` and "queue" as its next clip) until everyone has accepted and "loading" comes. Leaving
+  for the match, Loading's last bar holds the horns' A, and the match's own horn (A) lands as its arrival.
 - **The first sound.** On the web the first gesture (front-end.md §4.6) fades the bed up over about a second, then
   starts the theme; on desktop both start at once. The bed never stops while the hub stands (Brower: ambience is
   heard more than music).

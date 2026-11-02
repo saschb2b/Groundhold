@@ -109,9 +109,9 @@ Before the owner hears anything, say in the gate report (SKILL.md) how each of t
 | Piece | What it is | Length |
 | --- | --- | --- |
 | The Causeway (the hub) | The theme in Bush's three parts, grown from sketch E (A's theme with C's calm; the owner, 2 November 2026: "Grow E"): C's flats and the flute's call, A's tune, C's texture as the long ambient middle, A's strong close and the horn's echo into the flats; a seamless loop, its end running into its start (`pieces/causeway_theme.py`). WC3's 20 to 40 s of ambience alone between pieces is the player's to add if the owner wants it, never cut into the file | 2:12 (44 bars at 80), looping |
-| The queue | The ambient middle's material as a loop that can run for minutes: the ostinato and the drone, the call in fragments, nothing that builds | a loop of 1:00 to 2:00 |
-| Match Found | A sting over the queue's bar: the call on the horn over a rising harp and a bell (Hearthstone's stingers run about 5 s) | 4 to 6 s |
-| Loading ("Walking out") | The theme's head as a slow processional, the frame drum as footsteps, ending on the horn's A so the match's horn lands as its own | a loop of 0:45 to 1:30 |
+| The queue | The ambient middle's material as a loop that can run for minutes, nothing that builds: a patient pulse (the celli plucked, D and A, a slow heartbeat), a soft tick (the violins plucked on every beat), the flats slowed (the harp in quarters), and the call far off once every four bars, left open; quieter than the hub (-23 LUFS) | sketched as a 12-bar loop (0:36); 1:00 to 2:00 as a piece |
+| Match Found | A sting on the queue's (or the hub's) next bar: a harp running up Bb and C over a swelling tremolo and a timpani roll, then the call on the violins and horns over D major with the far bell, its E left ringing (Hearthstone's stingers run about 5 s); then back to the queue's loop until all accept | 6 s and its ring |
+| Loading ("Walking out") | The call turned into a march out (a rope-tension field drum and timpani, the low strings in eighths; never the frame drum's folk lilt, sketch B), building toward the match and ending on the horn's A so the match's horn lands as its own; played once, then its last bars looped (`Score.loop_from`) until the match stands | 0:30 to 0:45, its last bars looping |
 | The Ebb (results) | Later: a close of 35 to 55 s (Warcraft II's victory and defeat lengths), won and lost | 35 to 55 s |
 
 **The call.** Every Causeway piece grows from one figure: a rising fourth and a step, long-short-long (A, D, E in

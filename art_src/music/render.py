@@ -271,18 +271,22 @@ def shifted(score, beats: float):
     return s
 
 
-def folded(x, lead_in: int, length: int):
-    """A render made round: the loop's `length` samples after its lead-in, the lead-in added to the loop's end and
-    everything after the end (the last notes' release, the hall's tail) added to its start, wrapping as often as it
-    must. What a player looping the file plays, from the second time round on, is what this file is."""
+def folded(x, lead_in: int, length: int, loop_start: int = 0):
+    """A render made round: the loop's `length` samples after its lead-in, everything after the end (the last
+    notes' release, the hall's tail) added from the loop's start (`loop_start` samples in: a loop whose first bars
+    play once loops from there), wrapping round the looped part as often as it must, and, for a loop from its very
+    start, the lead-in (notes played a little early) added to its end. What a player looping the file plays, from the
+    second time round on, is what this file is."""
     out = x[lead_in:lead_in + length].copy()
     tail = x[lead_in + length:]
+    span = length - loop_start
     i = 0
     while i < len(tail):
-        take = min(length, len(tail) - i)
-        out[:take] += tail[i:i + take]
+        take = min(span, len(tail) - i)
+        out[loop_start:loop_start + take] += tail[i:i + take]
         i += take
-    out[length - lead_in:] += x[:lead_in]
+    if loop_start == 0:
+        out[length - lead_in:] += x[:lead_in]
     return out
 
 
@@ -291,7 +295,8 @@ def loop_mixdown(score, work: str, stems_dir: str | None = None):
     bar = score.beats_per_bar
     lead_in = int(round(bar * score.seconds_per_beat * RATE))
     length = int(round(score.length_s * RATE))
-    return mixdown(shifted(score, bar), work, stems_dir, shape=lambda x: folded(x, lead_in, length))
+    start = int(round(score.loop_from * bar * score.seconds_per_beat * RATE))
+    return mixdown(shifted(score, bar), work, stems_dir, shape=lambda x: folded(x, lead_in, length, start))
 
 
 def mixdown(score, work: str, stems_dir: str | None = None, trim: bool = True, hall: bool = True, shape=None):
