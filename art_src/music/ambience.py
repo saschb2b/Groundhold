@@ -223,7 +223,9 @@ def under(piece: str, out_dir: str) -> int:
              f'({mix.integrated(music, RATE):.1f} LUFS), '
              f'the bed at {mix.integrated(bed, RATE):.1f} LUFS, a loop of {seconds:.1f} s']
     lines += check.sound_lines(x, sr, 80, 4)
-    lines += check.seam_lines(both, RATE)
+    _, s = render.load_piece(piece)
+    lines += check.seam_lines(both, RATE, int(round(s.loop_from * s.beats_per_bar * s.seconds_per_beat * RATE)),
+                              int(round(s.beats_per_bar * s.seconds_per_beat * RATE)))
     lines.append(f'true peak of the two together {peak:.1f} dBTP' + ('' if peak <= -1.0 else '  MISS'))
     report = '\n'.join(lines)
     with open(base + '.check.txt', 'w') as f:

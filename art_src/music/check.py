@@ -306,9 +306,12 @@ def score_lines(score):
         share_back = back / (len(bars_played) or 1)
         returns = RHYTHM_RETURN_PIECE if score.kind in ('loop', 'theme') else RHYTHM_RETURN
         same_next = sum(1 for b in bars_played if rhythms.get(b + 1) == rhythms[b] and rhythms[b])
-        lines.append(f'  a bar\'s rhythm back within 8 bars: {100 * share_back:.0f}% '
-                     f'(rules {100 * returns[0]:.0f}-{100 * returns[1]:.0f}); the same rhythm in the next '
-                     f'bar {same_next} times' + mark(returns[0] <= share_back <= returns[1]))
+        if score.kind == 'sting':   # (a sting is one gesture: no bar of it is asked to come back)
+            lines.append(f'  a sting: {len(bars_played)} bar(s) of tune, no return asked of it')
+        else:
+            lines.append(f'  a bar\'s rhythm back within 8 bars: {100 * share_back:.0f}% '
+                         f'(rules {100 * returns[0]:.0f}-{100 * returns[1]:.0f}); the same rhythm in the next '
+                         f'bar {same_next} times' + mark(returns[0] <= share_back <= returns[1]))
         # the call: the tune's first three notes (their intervals and lengths), found again later in any key
         def shape(i):
             seg = ns[i:i + 3]
@@ -316,8 +319,9 @@ def score_lines(score):
         call = shape(0)
         again = [i for i in range(1, len(ns) - 2) if shape(i) == call]
         where = [f'bar {int(ns[i].start // score.beats_per_bar) + 1}' for i in again]
-        lines.append(f'  the call ({" ".join(sc.name_of(n.key) for n in ns[:3])}) comes back: '
-                     + (', '.join(where) if where else 'never') + mark(bool(again)))
+        if score.kind != 'sting':
+            lines.append(f'  the call ({" ".join(sc.name_of(n.key) for n in ns[:3])}) comes back: '
+                         + (', '.join(where) if where else 'never') + mark(bool(again)))
     # voices at once, on a half-beat grid
     end = score.bars * score.beats_per_bar
     counts = []
@@ -393,19 +397,32 @@ def score_lines(score):
     return lines
 
 
-def seam_lines(x, sr):
-    """A loop's seam: the level of its last and first 100 ms (within 3 dB), and the step from its last sample to its
-    first against the 99th percentile of every step in it (at most twice), so a player looping it clicks nowhere."""
+def seam_lines(x, sr, start: int = 0, bar: int = 0):
+    """A loop's seam: the step from its last sample to its first against the 99th percentile of every step in it
+    (at most twice), so a player looping it clicks nowhere; and its level either side. A bed (no bars) keeps its level
+    within 3 dB across the seam; a piece in bars rises across it as its own bar lines do (a downbeat's attacks after a
+    bar's decay): within the rises across its other bar lines, and a decibel either side. A loop from a later bar (`start`
+    samples in) is read across its end and that bar."""
     import numpy as np
     import mix
     w = int(0.1 * sr)
-    head = mix.db(float(np.sqrt(np.mean(x[:w] ** 2))))
-    tail = mix.db(float(np.sqrt(np.mean(x[-w:] ** 2))))
-    step = float(np.max(np.abs(x[0] - x[-1])))
+
+    def level(seg):
+        return mix.db(float(np.sqrt(np.mean(seg ** 2))))
+    head, tail = level(x[start:start + w]), level(x[-w:])
+    step = float(np.max(np.abs(x[start] - x[-1])))
     typical = float(np.percentile(np.abs(np.diff(x, axis=0)), 99))
-    ok = abs(head - tail) <= 3.0 and step <= 2 * typical
-    return [f'the seam: last 100 ms {tail:.1f} dBFS, first 100 ms {head:.1f}; the step across it {step:.5f} '
-            f'against a 99th-percentile step of {typical:.5f}' + mark(ok)]
+    rises = [level(x[t:t + w]) - level(x[t - w:t]) for t in range(start + bar, len(x) - w, bar)] if bar else []
+    if rises:
+        usual = sorted(rises)[len(rises) // 2]
+        ok = min(rises) - 1.0 <= head - tail <= max(rises) + 1.0 and step <= 2 * typical
+        level_words = (f'rising {head - tail:+.1f} dB across it, its other bar lines {min(rises):+.1f} to '
+                       f'{max(rises):+.1f} dB ({usual:+.1f} the median)')
+    else:
+        ok = abs(head - tail) <= 3.0 and step <= 2 * typical
+        level_words = f'last 100 ms {tail:.1f} dBFS, first 100 ms {head:.1f}'
+    return [f'the seam: {level_words}; the step across it {step:.5f} against a 99th-percentile step of '
+            f'{typical:.5f}' + mark(ok)]
 
 
 def stem_lines(stems_dir: str, score) -> list[str]:
@@ -427,14 +444,16 @@ def stem_lines(stems_dir: str, score) -> list[str]:
         main = ['<120', '120-500', '500-2k', '2k-6k', '>6k'][int(np.argmax(b))]
         main += f' Hz, {b[3] + b[4]:.0f}% above 2k'
         rows.append((loud, p, main, mix.db(float(np.max(np.abs(x))))))
-    leads = [(loud, p) for loud, p, _, _ in rows if p.role == 'lead' and not p.doubles]
+    leads = [(loud, p) for loud, p, _, _ in rows if p.role == 'lead' and not p.doubles] or \
+        [(loud, p) for loud, p, _, _ in rows if p.role == 'distant']   # (a piece whose call is only ever far off)
     tune = max((loud for loud, _ in leads), default=None)
     out = ['parts as placed (render.py --stems), each while it plays, against the tune\'s loudest statement:']
     for loud, p, main, peak in sorted(rows, key=lambda r: -r[0]):
         rel = loud - tune if tune is not None else 0.0
         rule = ROLE_BALANCE.get(p.role)
         ok = True
-        if p.role == 'lead' and not p.doubles:
+        if (p.role == 'lead' or (p.role == 'distant' and all(q.role == 'distant' for _, q in leads))) \
+                and not p.doubles:
             ok = rel >= -LEADS_APART
             want = f'within {LEADS_APART:g} of the loudest lead'
         elif rule and not p.doubles:
@@ -456,7 +475,12 @@ def report(wav: str, score, mod=None) -> str:
         whole = abs(len(x) / sr - score.length_s) < 0.002
         out.append(f'a loop of {score.bars} bars, {len(x) / sr:.3f} s' + ('' if whole else
                    f', not its {score.length_s:.3f} s') + mark(whole))
-        out += seam_lines(mix.read_wav(wav)[0], sr)
+        start = int(round(score.loop_from * score.beats_per_bar * score.seconds_per_beat * sr))
+        if score.loop_from:
+            out.append(f'its first {score.loop_from} bars play once; it loops from bar {score.loop_from + 1} '
+                       f'({start / sr:.3f} s: the player\'s loop_offset)')
+        out += seam_lines(mix.read_wav(wav)[0], sr, start,
+                          int(round(score.beats_per_bar * score.seconds_per_beat * sr)))
     stems_dir = wav[:-4] + '.stems'
     if os.path.isdir(stems_dir):
         out += stem_lines(stems_dir, score)
