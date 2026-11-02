@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The Linux packages' AppStream data: what a software centre shows for the .deb and the AppImage.
-     tools/release/pack_linux.py writes the release's line in place of the comment in <releases>. -->
+     tools/release/pack_linux.py writes the release's line in place of the comment in <releases>. No
+     vcs-browser url: AppStream 0.15 (Ubuntu 22.04's) knows no such type and fails the file on it. -->
 <component type="desktop-application">
   <id>io.github.saschb2b.Groundhold</id>
   <name>Groundhold</name>
@@ -28,7 +29,6 @@
   </provides>
   <url type="homepage">https://saschb2b.github.io/Groundhold/</url>
   <url type="bugtracker">https://github.com/saschb2b/Groundhold/issues</url>
-  <url type="vcs-browser">https://github.com/saschb2b/Groundhold</url>
   <screenshots>
     <screenshot type="default">
       <caption>High Water on Wickhollow: the party holds the road against the tenth wave</caption>

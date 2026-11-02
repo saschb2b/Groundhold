@@ -9,6 +9,8 @@ packaging image are read as the systems will read them.
 """
 
 import configparser
+import hashlib
+import io
 import os
 from pathlib import Path
 import re
@@ -111,6 +113,19 @@ class PackLinuxTest(unittest.TestCase):
         self.assertRegex(fields["Depends"], r"^libc6 \(>= 2\.\d+\)$")
         self.assertGreater(int(fields["Installed-Size"]), 0)
         self.assertTrue(control.endswith("\n") and "\n " in control, "a long description under the short one")
+        recommends = {alt.strip() for part in fields["Recommends"].split(",") for alt in part.split("|")}
+        # (the engine loads its X11 libraries itself at run time, so no ldd sees them)
+        self.assertTrue({"libvulkan1", "libgl1", "libx11-6", "libxcursor1", "libxinerama1", "libxrandr2", "libxi6",
+                         "libxext6"} <= recommends, recommends)
+        # (dpkg --verify and debsums check the installed files against DEBIAN/md5sums)
+        sums = (root / "DEBIAN" / "md5sums").read_text(encoding="utf-8").splitlines()
+        listed = {line.split("  ", 1)[1]: line.split("  ", 1)[0] for line in sums}
+        files = {p.relative_to(root).as_posix(): p for p in root.rglob("*")
+                 if p.is_file() and not p.is_symlink() and p.parts[len(root.parts)] != "DEBIAN"}
+        self.assertEqual(sorted(listed), sorted(files), "every file the package installs, no link, nothing of DEBIAN")
+        self.assertEqual(listed["usr/lib/groundhold/groundhold"],
+                         hashlib.md5(files["usr/lib/groundhold/groundhold"].read_bytes()).hexdigest())
+        self.assertEqual(sums, sorted(sums, key=lambda line: line.split("  ", 1)[1]))
         copyright_text = (root / "usr" / "share" / "doc" / "groundhold" / "copyright").read_text(encoding="utf-8")
         self.assertTrue(copyright_text.startswith("Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/\n"))
         for paragraph in ("Files: *\n", "\n\nLicense: Expat\n MIT License\n .\n Copyright (c) 2026 Sascha Becker\n",
@@ -133,6 +148,9 @@ class PackLinuxTest(unittest.TestCase):
         self.assertRegex(listing, r"-rwxr-xr-x root/root .* \./usr/lib/groundhold/groundhold\n")
         self.assertIn(f"./usr/share/applications/{package.APP_ID}.desktop", listing)
         self.assertNotIn("DEBIAN", listing)
+        control_files = subprocess.run(["dpkg-deb", "--ctrl-tarfile", str(made[0])], capture_output=True, check=True)
+        with tarfile.open(fileobj=io.BytesIO(control_files.stdout)) as tar:
+            self.assertEqual(sorted(Path(n).name for n in tar.getnames() if Path(n).name), ["control", "md5sums"])
         self.assertNotIn(f"{os.getuid()}/", listing.replace("root/root", ""), "no builder's user in it")
         self.assertIn(" 2026-11-02 00:00 ", listing, "the files' times are the release's (SOURCE_DATE_EPOCH)")
 
@@ -178,8 +196,17 @@ class PackLinuxTest(unittest.TestCase):
         done = subprocess.run(["sh", str(here / "install.sh"), "--remove"], env=env, capture_output=True, text=True,
                               check=False)
         self.assertEqual(done.returncode, 0, done.stderr)
-        left = [p for p in data.rglob("*") if p.is_file() and p.name != "mimeinfo.cache"]
-        self.assertEqual(left, [])
+        self.assertEqual(list(data.rglob("*")), [], "the entry, the icons, the menu's cache and the folders made for them")
+        # (a folder the player had before keeps its other entries and its cache)
+        (data / "applications").mkdir(parents=True)
+        (data / "applications" / "other.desktop").write_text("[Desktop Entry]\n", encoding="utf-8")
+        for flag in ([], ["--remove"]):
+            done = subprocess.run(["sh", str(here / "install.sh"), *flag], env=env, capture_output=True, text=True,
+                                  check=False)
+            self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(sorted(p.name for p in (data / "applications").iterdir() if p.name != "mimeinfo.cache"),
+                         ["other.desktop"])
+        self.assertFalse((data / "icons").exists())
         done = subprocess.run(["sh", str(here / "install.sh"), "--uninstall"], env=env, capture_output=True, text=True,
                               check=False)
         self.assertEqual(done.returncode, 2, "an unknown option installs nothing")
@@ -224,7 +251,9 @@ class SystemFilesTest(unittest.TestCase):
         self.assertEqual(component.find("content_rating").get("type"), "oars-1.1")
         urls = {url.get("type"): url.text for url in component.findall("url")}
         self.assertEqual(urls["homepage"], package.HOMEPAGE)
-        self.assertEqual(urls["vcs-browser"], "https://github.com/saschb2b/Groundhold")
+        self.assertEqual(urls["bugtracker"], "https://github.com/saschb2b/Groundhold/issues")
+        # (AppStream 0.15, Ubuntu 22.04's, fails a file with a url type it does not know: vcs-browser came later)
+        self.assertEqual(set(urls), {"homepage", "bugtracker"})
         shots = component.findall("screenshots/screenshot")
         self.assertEqual(sum(1 for s in shots if s.get("type") == "default"), 1)
         for shot in shots:

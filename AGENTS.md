@@ -900,9 +900,9 @@ a move when the `COOLIFY_*` secrets are set). Run by hand it is a dry run unless
 the files and `NOTES.md` kept as the `release-dry-run` artifact. Only GitHub and the user's session push tags, change
 secrets, make the ghcr package public or edit a published release; an agent never does.
 
-- The game's seven files (`package.py`, which `pack_windows.py`, `pack_linux.py` and `pack_macos.py` do the work
-  of): `groundhold-windows-x64-setup.exe`, an NSIS installer for the user alone (`%LOCALAPPDATA%\Programs\Groundhold`,
-  no administrator, a Start menu entry, on its Finish page a desktop shortcut left unticked and Start Groundhold, the
+- The game's seven files (`package.py`, which `pack_windows.py`, `pack_linux.py` and `pack_macos.py` do the work of):
+  `groundhold-windows-x64-setup.exe`, an NSIS installer for the user alone (`%LOCALAPPDATA%\Programs\Groundhold`, no
+  administrator, a Start menu entry, on its Finish page a desktop shortcut left unticked and Start Groundhold, the
   brand's emblem beside its welcome and finish pages (`packaging/icons/installer.bmp`, `app_icon.py`'s), an entry in
   Settings > Apps whose uninstaller removes only what it installed: the player's name, Builders and settings stay);
   `groundhold-windows-x64.zip`, the same files portable under one folder, `Groundhold/`; `groundhold-macos.dmg`,
@@ -910,9 +910,10 @@ secrets, make the ghcr package public or edit a published release; an agent neve
   (the `.desktop`, hicolor icons from 16 to 512 px, AppStream data with the release's line)
   `groundhold-x86_64.AppImage` on the static runtime (no libfuse2) with its `.zsync`, its update information asking
   this repository's newest release, `groundhold_amd64.deb` (`/usr/lib/groundhold`, a `/usr/bin/groundhold` link, a
-  DEP-5 copyright file) and `groundhold-linux-x64.tar.gz` (one folder, `Groundhold/`, whose `install.sh` adds a menu
-  entry and icons for the user and `install.sh --remove` takes them out). Each carries a `README-first.txt` for its
-  system from `tools/release/readme/` (the disk image's `Read me.txt`) and the game's, Godot's and the fonts'
+  DEP-5 copyright file, `md5sums` for `dpkg --verify`, the X11 libraries the engine loads among its Recommends) and
+  `groundhold-linux-x64.tar.gz` (one folder, `Groundhold/`, whose `install.sh` adds a menu entry and icons for the
+  user and `install.sh --remove` takes them out, with the folders it leaves empty). Each carries a `README-first.txt`
+  for its system from `tools/release/readme/` (the disk image's `Read me.txt`) and the game's, Godot's and the fonts'
   licences. The old `groundhold-macos.zip` and `groundhold-linux-x64.zip` are gone, links to them with them.
 - `assemble.TABLE` is the one table of a release's files, each with its system and what it is (versionless names,
   so `releases/latest/download/<file>` links last): `assemble.py` checks the built files against its names

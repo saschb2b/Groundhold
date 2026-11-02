@@ -11,8 +11,8 @@
                                  needed; APPIMAGE_EXTRACT_AND_RUN=1 where there is no FUSE), its update
                                  information gh-releases-zsync|saschb2b|Groundhold|latest|<name>.zsync
     ....AppImage.zsync           that update file (zsyncmake, called by appimagetool), beside it
-    groundhold_amd64.deb         the tree, a /usr/bin/groundhold link, a DEP-5 copyright and its
-                                 control, by dpkg-deb --root-owner-group -Zxz
+    groundhold_amd64.deb         the tree, a /usr/bin/groundhold link, a DEP-5 copyright, its control
+                                 and md5sums, by dpkg-deb --root-owner-group -Zxz
     groundhold-linux-x64.tar.gz  one folder, Groundhold/: the game, README-first.txt, the licences,
                                  icons/ and install.sh, which writes a menu entry for the user
                                  (--remove takes it away)
@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import datetime
 import gzip
+import hashlib
 import io
 import os
 from pathlib import Path
@@ -181,7 +182,10 @@ def control(version: str, installed_kb: int) -> str:
             "Maintainer: Sascha Becker <saschb2b@gmail.com>\n"
             f"Installed-Size: {installed_kb}\n"
             "Depends: libc6 (>= 2.28)\n"
-            "Recommends: libvulkan1, libgl1, libpulse0 | libasound2t64 | libasound2\n"
+            # (the engine loads these itself at run time, so no shared-library check finds them; every
+            # desktop has them, a minimal system may not)
+            "Recommends: libvulkan1, libgl1, libx11-6, libxcursor1, libxinerama1, libxrandr2, libxi6, libxext6, "
+            "libpulse0 | libasound2t64 | libasound2\n"
             "Section: games\n"
             "Priority: optional\n"
             f"Homepage: {common.HOMEPAGE}\n"
@@ -199,7 +203,23 @@ def deb_root(binary: Path, root: Path, version: str, date: str) -> Path:
     (root / "DEBIAN").mkdir()
     (root / "DEBIAN").chmod(0o755)
     _write(root / "DEBIAN" / "control", control(version, (size + 1023) // 1024).encode("utf-8"))
+    _write(root / "DEBIAN" / "md5sums", md5sums(root).encode("utf-8"))
     return root
+
+
+def md5sums(root: Path) -> str:
+    """DEBIAN/md5sums: every file the package installs (no link, nothing of DEBIAN), by its path, so
+    dpkg --verify and debsums can check them."""
+    files = sorted(p for p in root.rglob("*") if p.is_file() and not p.is_symlink()
+                   and p.relative_to(root).parts[0] != "DEBIAN")
+    lines = []
+    for path in files:
+        digest = hashlib.md5()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1 << 20), b""):
+                digest.update(block)
+        lines.append(f"{digest.hexdigest()}  {path.relative_to(root).as_posix()}\n")
+    return "".join(lines)
 
 
 def epoch(date: str) -> int:

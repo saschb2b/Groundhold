@@ -32,6 +32,17 @@ class ReadmeTest(unittest.TestCase):
             self.assertIn("https://saschb2b.github.io/Groundhold/policy.html", text, system)
             self.assertIn("wss://groundhold.saschb2b.com/causeway", text, system)
 
+    def test_every_heading_is_underlined_to_its_length(self):
+        # (the templates' title is underlined as long as "Groundhold $version for ...": three too many)
+        for system in ("linux", "windows", "macos"):
+            lines = package.readme(system, "0.9.0").replace("\r\n", "\n").split("\n")
+            rules = [i for i, line in enumerate(lines) if line and set(line) in ({"="}, {"-"})]
+            self.assertGreaterEqual(len(rules), 3, system)
+            for i in rules:
+                self.assertEqual(len(lines[i]), len(lines[i - 1]), f"{system}: {lines[i - 1]!r}")
+        self.assertEqual(package.underlined("Title 1.10.0\n=======\n\n--\n"), "Title 1.10.0\n============\n\n--\n",
+                         "a rule under nothing stays as it is")
+
     def test_windows_readme_has_windows_line_ends_and_both_ways_to_start(self):
         text = package.readme("windows", "1.2.0")
         self.assertIn("Groundhold 1.2.0 for Windows (x86_64)\r\n", text)
@@ -46,6 +57,9 @@ class ReadmeTest(unittest.TestCase):
         for words in ("cd Groundhold", "./groundhold", "./install.sh", "./install.sh --remove", assemble.APPIMAGE,
                       assemble.DEB, "sudo apt install ./groundhold_amd64.deb", "--rendering-driver opengl3"):
             self.assertIn(words, flat)
+        # (without a Vulkan driver the engine switches to OpenGL itself: the packages' review saw the hub drawn)
+        self.assertNotIn("needs a graphics driver with Vulkan", flat)
+        self.assertIn("switches to OpenGL by itself", flat)
 
     def test_macos_read_me_puts_the_terminal_first(self):
         # (Open and Open Anyway do not get past "is damaged"; the quarantine step does)

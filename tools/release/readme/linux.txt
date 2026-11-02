@@ -24,7 +24,8 @@ Gear Lever keep up to date; and groundhold_amd64.deb for Debian, Ubuntu and thei
 (sudo apt install ./groundhold_amd64.deb), which puts it in the application menu and on
 the path as groundhold.
 
-It needs a graphics driver with Vulkan; with an older one, start it as
+It draws with Vulkan, and where the graphics driver has none it switches to OpenGL by
+itself. Should it ever start badly on Vulkan, start it on OpenGL as
 
     ./groundhold --rendering-driver opengl3
 

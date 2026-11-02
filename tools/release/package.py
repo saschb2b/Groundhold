@@ -62,10 +62,22 @@ class PackError(Exception):
 
 
 def readme(system: str, version: str) -> str:
-    """tools/release/readme/<system>.txt with the version filled in (Windows' with its line ends)."""
+    """tools/release/readme/<system>.txt with the version filled in (Windows' with its line ends), each
+    heading's underline as long as its heading then is."""
     template = (HERE / "readme" / f"{system}.txt").read_text(encoding="utf-8")
-    text = string.Template(template).substitute(version=version)
+    text = underlined(string.Template(template).substitute(version=version))
     return crlf(text) if system == "windows" else text
+
+
+def underlined(text: str) -> str:
+    """Every line of = or - under a heading made as long as the heading (the template's is as long as
+    the heading with "$version" in it)."""
+    lines = text.split("\n")
+    for i in range(1, len(lines)):
+        rule, above = lines[i], lines[i - 1]
+        if rule and set(rule) <= {"="} | {"-"} and len(set(rule)) == 1 and above.strip():
+            lines[i] = rule[0] * len(above)
+    return "\n".join(lines)
 
 
 def crlf(text: str) -> str:
