@@ -17,10 +17,10 @@ release's media folder: .webp or .png for a still, .gif for a clip) and where it
     {"out": "hero.webp", "capture": "hero", "width": 1280}
         one capture, cut to `crop` ([x0, y0, x1, y1] in capture pixels, the whole frame without one) and
         scaled to `width` pixels (its own width without one);
-    {"out": "x.gif", "clip": "clip", "crop": [...], "width": 720, "fps": 12}
+    {"out": "x.gif", "clip": "clip", "crop": [...], "width": 720, "fps": 12, "hold": 1.25}
         every capture of that label in order, a GIF by ffmpeg's palettegen and paletteuse, kept under
         GIF_LIMIT by fewer colours, then a smaller width; capture every 5 frames at one tick a frame for
-        real time at 12 fps;
+        real time at 12 fps; `hold` keeps the last frame that many seconds more before it loops;
     {"out": "x.webp", "pair": ["normal", "very_hard"], "labels": ["Normal", "Very Hard"], "crop": [...]}
         two captures of this run side by side (`"layout": "stack"`: one over the other), each under its
         label;
@@ -28,7 +28,13 @@ release's media folder: .webp or .png for a still, .gif for a clip) and where it
         before and after: the same scenario run on the release before (a git worktree of its tag in
         .build/before/<tag>/, imported once; the scenario copied into it, with its "before" keys laid
         over it, say other steps where the old game lacks what the new one has) and on this tree, the
-        old capture on the left under the old version, the new on the right under this one.
+        old capture on the left under the old version, the new on the right under this one;
+    {"out": "compare-x.webp", "compare": ["royal", {"capture": "guard", "crop": [...]}], "crop": [...]}
+        several captures a version, each its own crop where it names one: each version's side by side in
+        a row under its version, their bottoms level, the old row over the new.
+
+Any entry's `crops` ([[x0, y0, x1, y1], ...]) in place of `crop` cuts each region of a capture and
+stacks them, one under the other, as one picture (two rows of a long list, say).
 
 Labels are in the game's own font and the console's colours. Needs Pillow, ffmpeg, godot and
 godot-agent; Godot runs one process at a time.
@@ -153,11 +159,33 @@ def captures(run: Path, name: str, label: str) -> list[Path]:
 
 
 def cut(path: Path, entry: dict) -> Image.Image:
+    """The capture cut to the entry's `crop`, or its `crops` stacked, one region under the other."""
     with Image.open(path) as opened:
         image = opened.convert("RGB")
+    if "crops" in entry:
+        parts = [image.crop(tuple(box)) for box in entry["crops"]]
+        sheet = Image.new("RGB", (max(part.width for part in parts),
+                                  sum(part.height for part in parts) + GAP // 2 * (len(parts) - 1)), INK)
+        y = 0
+        for part in parts:
+            sheet.paste(part, (0, y))
+            y += part.height + GAP // 2
+        return sheet
     if "crop" in entry:
         image = image.crop(tuple(entry["crop"]))
     return image
+
+
+def row(images: list[Image.Image]) -> Image.Image:
+    """The images side by side, GAP apart, their bottoms level (a tooltip grows up from the card), on the
+    console's ink."""
+    height = max(image.height for image in images)
+    sheet = Image.new("RGB", (sum(image.width for image in images) + GAP * (len(images) - 1), height), INK)
+    x = 0
+    for image in images:
+        sheet.paste(image, (x, height - image.height))
+        x += image.width + GAP
+    return sheet
 
 
 def scaled(image: Image.Image, width: int | None) -> Image.Image:
@@ -203,6 +231,7 @@ def save(image: Image.Image, out: Path) -> None:
 def gif(frames: list[Path], entry: dict, out: Path) -> None:
     """The frames as a GIF at `fps`, under GIF_LIMIT: fewer colours first, then a smaller width."""
     fps, width = int(entry.get("fps", 12)), entry.get("width")
+    frames = list(frames) + [frames[-1]] * round(float(entry.get("hold", 0)) * fps)
     for colours, shrink in ((256, 1.0), (160, 1.0), (128, 0.9), (96, 0.8), (64, 0.7)):
         with tempfile.TemporaryDirectory() as temp:
             for i, path in enumerate(frames):
@@ -234,9 +263,12 @@ def make(spec: dict, entry: dict, new_run: Path, old_run: Path | None, folder: P
     elif "compare" in entry:
         if old_run is None:
             raise PictureError(f"{name}: a compare needs the old build's run")
-        images = [scaled(cut(captures(run, name, entry["compare"])[-1], entry), entry.get("each"))
-                  for run in (old_run, new_run)]
-        save(scaled(labelled(images, [old, new], [DIM, GOLD], entry.get("layout", "side")), entry.get("width")), out)
+        items = entry["compare"] if isinstance(entry["compare"], list) else [entry["compare"]]
+        items = [item if isinstance(item, dict) else {"capture": item} for item in items]
+        images = [row([scaled(cut(captures(run, name, item["capture"])[-1], {**entry, **item}), entry.get("each"))
+                       for item in items]) for run in (old_run, new_run)]
+        layout = "stack" if len(items) > 1 else entry.get("layout", "side")
+        save(scaled(labelled(images, [old, new], [DIM, GOLD], layout), entry.get("width")), out)
     else:
         raise PictureError(f"{name}: {entry['out']} names no capture, clip, pair or compare")
     with Image.open(out) as image:
