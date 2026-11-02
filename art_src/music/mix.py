@@ -97,6 +97,21 @@ def filtered(x: np.ndarray, sr: int, hp: float = 0.0, lp: float = 0.0) -> np.nda
     return x
 
 
+def shelf(x: np.ndarray, sr: int, gain_db: float, f0: float = 5000.0, slope: float = 0.8) -> np.ndarray:
+    """A high shelf (RBJ's cookbook biquad): `gain_db` above about f0, nothing below. Air for a part whose upper
+    partials the samples keep quiet, never a cure for a dull writing."""
+    if not gain_db:
+        return x
+    a = 10 ** (gain_db / 40)
+    w0 = 2 * math.pi * f0 / sr
+    cw, sw = math.cos(w0), math.sin(w0)
+    alpha = sw / 2 * math.sqrt((a + 1 / a) * (1 / slope - 1) + 2)
+    sa = 2 * math.sqrt(a) * alpha
+    b = [a * ((a + 1) + (a - 1) * cw + sa), -2 * a * ((a - 1) + (a + 1) * cw), a * ((a + 1) + (a - 1) * cw - sa)]
+    den = [(a + 1) - (a - 1) * cw + sa, 2 * ((a - 1) - (a + 1) * cw), (a + 1) - (a - 1) * cw - sa]
+    return signal.lfilter(b, den, x, axis=0)
+
+
 def pan_gains(pan: float) -> tuple[float, float]:
     """Constant power, normalised so the middle keeps the stem's level on both sides."""
     angle = (max(-1.0, min(1.0, pan)) + 1) * math.pi / 4
@@ -122,15 +137,17 @@ def curve(n: int, sr: int, bpm: float, points: list[tuple[float, float]]) -> np.
 
 # ---- the hall -----------------------------------------------------------------------------------------------------
 
-def hall_ir(sr: int, rt60: float, seed: int = 7, predelay: float = 0.024) -> np.ndarray:
-    """A stereo hall: early reflections over the first 80 ms, then decorrelated noise decaying in three bands (the
-    lows at 1.25 of `rt60`, the highs at 0.55), its onset swelling over 60 ms. Unit energy."""
+def hall_ir(sr: int, rt60: float, seed: int = 7, predelay: float = 0.024, air: float = 0.55,
+            early: float = 0.9) -> np.ndarray:
+    """A stereo hall: early reflections over the first 80 ms (`early` loud), then decorrelated noise decaying in
+    three bands (the lows at 1.25 of `rt60`, the highs above 3.5 kHz at `air` of it), its onset swelling over 60 ms.
+    Unit energy."""
     rng = np.random.default_rng(seed)
     n = int((predelay + rt60 * 1.6) * sr)
     t = np.arange(n) / sr
     ir = np.zeros((n, 2))
     tail = np.clip((t - predelay) / 0.06, 0, 1) ** 2
-    for lo, hi, scale in ((0, 350, 1.25), (350, 3500, 1.0), (3500, 0, 0.55)):
+    for lo, hi, scale in ((0, 350, 1.25), (350, 3500, 1.0), (3500, 0, air)):
         noise = rng.standard_normal((n, 2))
         if lo and hi:
             sos = signal.butter(2, [lo, hi], 'bandpass', fs=sr, output='sos')
@@ -144,7 +161,7 @@ def hall_ir(sr: int, rt60: float, seed: int = 7, predelay: float = 0.024) -> np.
     for k in range(10):   # early reflections, alternating sides
         at = predelay + 0.008 + 0.072 * rng.random()
         side = k % 2
-        ir[int(at * sr), side] += 0.9 * (1 - (at - predelay) / 0.1) * rng.choice((-1, 1))
+        ir[int(at * sr), side] += early * (1 - (at - predelay) / 0.1) * rng.choice((-1, 1))
     ir /= math.sqrt(np.sum(ir ** 2) / 2)
     return ir
 

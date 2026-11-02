@@ -164,6 +164,13 @@ as its own skill then, beside this one. What carries over and what changes:
   about 120 Hz read the bands' numbers and the stem lines, not the picture. A far bell's strike carries a thud:
   high-pass it (160 Hz).
 - A loop's IIR filters start from silence: run them round the loop (`ambience.circ`) or the seam clicks.
+- Air is written, not filtered in: VSCO's harp and horn and a flute's low octave keep almost nothing above 2 kHz
+  (the stem lines' "above 2k"), so a shelf (`Part.air`) on them changes nothing heard; the violins (25-36% above
+  2 kHz), their soft high tremolo, a glockenspiel and a less damped hall (`Score.hall_air`, `early`) bring it. The
+  check's "air" line (2-6 kHz against 500-2000 Hz, dB) compares mixes: round 1 read -9 to -11 dB, round 2 -8 to -10.
+- A harp moved high to brighten a texture sits in the tune's octave: its chord tones ring a semitone from the
+  tune's held notes (D minor's F against the tune's E). Change the figure (`causeway.flats` plays D and E under D
+  minor) and let it ring less under the tune.
 - sfizz prints a line a block when a container cannot raise its threads' priority; `render.py` keeps it quiet
   unless the render fails.
 - A heredoc holding Python with backticks or `$` must be quoted (`<<'EOF'`), as in Cyberworld.

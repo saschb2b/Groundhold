@@ -207,6 +207,7 @@ def mixdown(score, work: str, stems_dir: str | None = None, trim: bool = True, h
         x = x[:n]
         x = x * mix.curve(n, RATE, score.bpm, part.dyn)[:, None]
         x = mix.filtered(x, RATE, part.hp, part.lp)
+        x = mix.shelf(x, RATE, part.air, 3000.0)
         x = mix.place(x, part.pan, part.width) * mix.undb(part.gain_db + trims.get(part.inst, 0.0))
         dry += x
         send += x * part.hall
@@ -214,7 +215,7 @@ def mixdown(score, work: str, stems_dir: str | None = None, trim: bool = True, h
             mix.write_wav(os.path.join(stems_dir, f'{part.name}.wav'), x, RATE)
     if not hall:
         return dry
-    ir = mix.hall_ir(RATE, score.hall_seconds)
+    ir = mix.hall_ir(RATE, score.hall_seconds, air=score.hall_air, early=score.early)
     wet = mix.filtered(mix.convolve(send, ir), RATE, hp=140.0)
     # a gentle high-pass on the whole: nothing under 25 Hz is music (a drum skin's or a room's rumble)
     out = mix.filtered(dry + wet, RATE, hp=25.0)
