@@ -1,6 +1,7 @@
-"""A desktop export packs as groundhold-<platform>.zip (assemble.GAME): one folder with the export,
-its executables still executable, and a README-first.txt for that system (macOS: the
-quarantine steps of an unsigned app).
+"""package.py's common parts and its command: each system's README-first.txt (the server's archives
+for that system, the official server's policy, Windows' line ends), the version as Windows writes it,
+the release's date from the CHANGELOG, a missing packaging tool named, and the command's refusals.
+Each system's files are test_pack_windows.py's, test_pack_linux.py's and test_pack_macos.py's.
 
     python3 -m unittest discover -s tools/release -t tools/release
 """
@@ -9,109 +10,116 @@ import contextlib
 import io
 from pathlib import Path
 import re
-import stat
 import tempfile
 import unittest
-import zipfile
 
 import assemble
 import package
 
 
-def mode_of(info: zipfile.ZipInfo) -> int:
-    return info.external_attr >> 16
+class ReadmeTest(unittest.TestCase):
+    def test_every_readme_names_the_servers_archives_for_its_system_and_the_policy(self):
+        for system, wanted in (("linux", ["linux-x64", "linux-arm64", "python"]),
+                               ("windows", ["windows-x64", "python"]),
+                               ("macos", ["macos-arm64", "macos-x64", "python"])):
+            text = package.readme(system, "1.2.0")
+            self.assertIn("Groundhold 1.2.0 for ", text, system)
+            self.assertNotIn("$", text, f"{system}: every placeholder filled")
+            for target in wanted:
+                self.assertIn(f"groundhold-server-{target}.zip", text, system)
+            for name in set(re.findall(r"groundhold-server[\w.-]*\.(?:zip|pyz)", text)):
+                self.assertIn(name, assemble.SERVER, f"{system}: {name} is no file of a release")
+            self.assertIn("https://saschb2b.github.io/Groundhold/policy.html", text, system)
+            self.assertIn("wss://groundhold.saschb2b.com/causeway", text, system)
 
+    def test_windows_readme_has_windows_line_ends_and_both_ways_to_start(self):
+        text = package.readme("windows", "1.2.0")
+        self.assertIn("Groundhold 1.2.0 for Windows (x86_64)\r\n", text)
+        self.assertNotIn("\n", text.replace("\r\n", ""), "Notepad's line ends throughout")
+        flat = " ".join(text.split())
+        for words in (assemble.WINDOWS_SETUP, assemble.WINDOWS_ZIP, "Start menu", "More info, then Run anyway",
+                      r"%APPDATA%\Godot\app_userdata\Groundhold"):
+            self.assertIn(words, flat)
 
-class PackageTest(unittest.TestCase):
-    def setUp(self):
-        folder = tempfile.TemporaryDirectory()
-        self.addCleanup(folder.cleanup)
-        self.root = Path(folder.name)
+    def test_linux_readme_starts_the_tarballs_game_and_names_the_other_packages(self):
+        flat = " ".join(package.readme("linux", "1.2.0").split())
+        for words in ("cd Groundhold", "./groundhold", "./install.sh", "./install.sh --remove", assemble.APPIMAGE,
+                      assemble.DEB, "sudo apt install ./groundhold_amd64.deb", "--rendering-driver opengl3"):
+            self.assertIn(words, flat)
 
-    def test_linux_keeps_the_binary_executable(self):
-        export = self.root / "linux"
-        export.mkdir()
-        binary = export / "groundhold.x86_64"
-        binary.write_bytes(b"\x7fELF game")
-        binary.chmod(0o755)
-        target = package.package(export, "1.2.0", "linux-x64", self.root / "dist")
-        self.assertEqual(target.name, "groundhold-linux-x64.zip", "no version: the newest release's link stays")
-        with zipfile.ZipFile(target) as archive:
-            names = sorted(archive.namelist())
-            self.assertEqual(names, ["groundhold-1.2.0-linux-x64/README-first.txt",
-                                     "groundhold-1.2.0-linux-x64/groundhold.x86_64"])
-            game = archive.getinfo("groundhold-1.2.0-linux-x64/groundhold.x86_64")
-            self.assertTrue(mode_of(game) & stat.S_IXUSR, "the binary keeps its executable bit")
-            self.assertEqual(archive.read(game), b"\x7fELF game")
-            text = archive.read("groundhold-1.2.0-linux-x64/README-first.txt").decode()
-            self.assertIn("Groundhold 1.2.0 for Linux", text)
-            self.assertIn("./groundhold.x86_64", text)
-            self.assertIn("wss://groundhold.saschb2b.com/causeway", text)
-            self.assertNotIn("$", text, "every placeholder filled")
-
-    def test_windows_readme_has_windows_line_ends(self):
-        export = self.root / "windows"
-        export.mkdir()
-        (export / "Groundhold.exe").write_bytes(b"MZ")
-        target = package.package(export, "1.2.0", "windows-x64", self.root / "dist")
-        with zipfile.ZipFile(target) as archive:
-            text = archive.read("groundhold-1.2.0-windows-x64/README-first.txt")
-        self.assertIn(b"Groundhold 1.2.0 for Windows (x86_64)\r\n", text)
-        self.assertIn(b"More info, then Run anyway", text, "the SmartScreen step of an unsigned game")
-        self.assertNotIn(b"\n", text.replace(b"\r\n", b""), "Notepad's line ends throughout")
-
-    def test_macos_copies_godots_zip_with_its_modes_and_the_quarantine_steps(self):
-        export = self.root / "Groundhold.zip"
-        with zipfile.ZipFile(export, "w") as archive:
-            folder = zipfile.ZipInfo("Groundhold.app/")
-            folder.external_attr = (stat.S_IFDIR | 0o755) << 16
-            archive.writestr(folder, b"")
-            app = zipfile.ZipInfo("Groundhold.app/Contents/MacOS/Groundhold")
-            app.create_system = 3
-            app.external_attr = (stat.S_IFREG | 0o755) << 16
-            archive.writestr(app, b"\xca\xfe\xba\xbe")
-            archive.writestr("Groundhold.app/Contents/Info.plist", b"<plist/>")
-        target = package.package(export, "1.2.0", "macos", self.root / "dist")
-        self.assertEqual(target.name, "groundhold-macos.zip")
-        with zipfile.ZipFile(target) as archive:
-            top = "groundhold-1.2.0-macos/"
-            binary = archive.getinfo(top + "Groundhold.app/Contents/MacOS/Groundhold")
-            self.assertTrue(mode_of(binary) & stat.S_IXUSR, "the app's executable keeps its bit")
-            self.assertEqual(archive.read(binary), b"\xca\xfe\xba\xbe")
-            self.assertTrue(archive.getinfo(top + "Groundhold.app/").is_dir())
-            text = archive.read(top + "README-first.txt").decode()
+    def test_macos_read_me_puts_the_terminal_first(self):
+        # (Open and Open Anyway do not get past "is damaged"; the quarantine step does)
+        text = package.readme("macos", "1.2.0")
+        flat = " ".join(text.split())
+        self.assertIn("Drag Groundhold onto Applications", flat)
         self.assertIn("xattr -dr com.apple.quarantine /Applications/Groundhold.app", text)
-        self.assertIn("Control-click", text)
-        self.assertIn("Open Anyway", text)
-        # (the Terminal step first: Open and Open Anyway do not get past "is damaged", which an
-        # unsigned app on Apple silicon is likely to be called)
+        self.assertIn("codesign --force --deep --sign - /Applications/Groundhold.app", text)
         self.assertLess(text.index("xattr -dr"), text.index("Control-click"))
         self.assertLess(text.index("xattr -dr"), text.index("Open Anyway"))
 
-    def test_an_unknown_platform_or_empty_export_is_refused(self):
-        with self.assertRaises(ValueError):
-            package.package(self.root, "1.2.0", "amiga", self.root / "dist")
-        (self.root / "empty").mkdir()
+
+class CommonTest(unittest.TestCase):
+    def test_the_version_in_four_numbers(self):
+        self.assertEqual(package.file_version("1.2.3"), "1.2.3.0")
+        self.assertEqual(package.file_version("0.9.0"), "0.9.0.0")
+        for wrong in ("1.2.3-beta", "v1.2.3", "", "1.2.3.4.5"):
+            with self.assertRaises(package.PackError, msg=wrong):
+                package.file_version(wrong)
+
+    def test_the_release_date_is_the_changelogs_or_today(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "CHANGELOG.md").write_text("# Changelog\n\n## 1.1.0 · TBD\n\nSoon.\n\n"
+                                               "## 1.0.0 · 2026-11-02\n\nFirst.\n", encoding="utf-8")
+            self.assertEqual(package.release_date("1.0.0", root), "2026-11-02")
+            self.assertRegex(package.release_date("1.1.0", root), r"^\d{4}-\d{2}-\d{2}$")
+            self.assertRegex(package.release_date("9.9.9", root), r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_a_missing_tool_says_where_it_lives(self):
+        with self.assertRaises(package.PackError) as caught:
+            package.run(["groundhold-no-such-tool", "--version"])
+        self.assertIn("packaging image", str(caught.exception))
+        with self.assertRaises(package.PackError) as caught:
+            package.run(["sh", "-c", "echo broken >&2; exit 3"])
+        self.assertIn("sh failed (3)", str(caught.exception))
+        self.assertIn("broken", str(caught.exception))
+
+    def test_every_licence_a_package_carries_exists(self):
+        self.assertTrue(package.LICENSE.is_file())
+        for name, source in package.LICENSES.items():
+            self.assertTrue(source.is_file(), name)
+            self.assertTrue(name.endswith(".txt"), "Notepad opens it")
+
+
+class CommandTest(unittest.TestCase):
+    def run_it(self, *argv):
         err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            code = package.main(["--version", "1.2.0", "--platform", "linux-x64",
-                                 str(self.root / "empty"), "--out", str(self.root / "dist")])
-        self.assertEqual(code, 1)
-        self.assertIn("is empty", err.getvalue())
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            code = package.main(list(argv))
+        return code, err.getvalue()
 
-    def test_the_platforms_make_the_releases_game_files(self):
-        self.assertEqual({platform: package.zip_name(platform) for platform in package.PLATFORMS}, assemble.GAME)
-
-    def test_every_readme_names_the_servers_archives_for_its_system_and_the_policy(self):
-        for platform, wanted in (("linux-x64", ["linux-x64", "linux-arm64", "python"]),
-                                 ("windows-x64", ["windows-x64", "python"]),
-                                 ("macos", ["macos-arm64", "macos-x64", "python"])):
-            text = package.readme(platform, "1.2.0")
-            for target in wanted:
-                self.assertIn(f"groundhold-server-{target}.zip", text, platform)
-            for name in set(re.findall(r"groundhold-server[\w.-]*\.(?:zip|pyz)", text)):
-                self.assertIn(name, assemble.SERVER, f"{platform}: {name} is no file of a release")
-            self.assertIn("https://saschb2b.github.io/Groundhold/policy.html", text, platform)
+    def test_an_export_without_its_game_or_a_wrong_version_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "empty").mkdir()
+            out, work = str(root / "dist"), str(root / "work")
+            code, err = self.run_it("windows", str(root / "empty"), "--version", "1.2.0", "--out", out, "--work", work)
+            self.assertEqual(code, 1)
+            self.assertIn("has no Groundhold.exe", err)
+            code, err = self.run_it("linux", str(root / "empty"), "--version", "1.2.0", "--out", out, "--work", work)
+            self.assertEqual(code, 1)
+            self.assertIn("has no groundhold.x86_64", err)
+            code, err = self.run_it("macos", str(root / "empty"), "--version", "1.2.0", "--out", out, "--work", work)
+            self.assertEqual(code, 1)
+            self.assertIn("is not Godot's macOS export zip", err)
+            code, err = self.run_it("linux", str(root / "empty"), "--version", "v1.2", "--out", out)
+            self.assertEqual(code, 1)
+            self.assertIn("is not X.Y.Z", err)
+            code, err = self.run_it("windows", str(root / "empty"), "--version", "1.2.0", "--only", "msi", "--out", out,
+                                    "--work", work)
+            self.assertEqual(code, 1)
+            self.assertIn("no Windows part msi", err)
+            self.assertFalse((root / "dist").exists(), "nothing made")
 
 
 if __name__ == "__main__":

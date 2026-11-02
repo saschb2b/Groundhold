@@ -8,19 +8,25 @@ Source, changes and help: https://github.com/saschb2b/Groundhold
 Start it
 --------
 
-Unpack this folder anywhere and run groundhold.x86_64 (double-click it, or from a
-terminal):
+Unpack groundhold-linux-x64.tar.gz anywhere and run groundhold in its Groundhold folder
+(double-click it, or from a terminal):
 
-    cd $folder
-    ./groundhold.x86_64
+    cd Groundhold
+    ./groundhold
 
-If your file manager unpacked it without its executable bit:
+./install.sh adds Groundhold to your desktop's application menu with its icon, pointing at
+this folder (run it again after moving the folder); ./install.sh --remove takes the entry
+and the icons away again.
 
-    chmod +x groundhold.x86_64
+The same release page has the game two more ways: groundhold-x86_64.AppImage, one file to
+make executable and run (chmod +x groundhold-x86_64.AppImage), which AppImageUpdate and
+Gear Lever keep up to date; and groundhold_amd64.deb for Debian, Ubuntu and their kin
+(sudo apt install ./groundhold_amd64.deb), which puts it in the application menu and on
+the path as groundhold.
 
 It needs a graphics driver with Vulkan; with an older one, start it as
 
-    ./groundhold.x86_64 --rendering-driver opengl3
+    ./groundhold --rendering-driver opengl3
 
 Your name, Builders and settings live in ~/.local/share/godot/app_userdata/Groundhold/.
 
@@ -39,3 +45,10 @@ page: groundhold-server-linux-x64.zip (groundhold-server-linux-arm64.zip on ARM6
 groundhold-server-python.zip with Python 3.11 or newer. Its window prints the address to
 type; the game lists it under Join, Nearby. The others join with the code on your strip. A
 firewall must let TCP port 8766 in, and UDP port 8767 for Nearby.
+
+
+Licences
+--------
+
+Groundhold's code and art: the MIT License, LICENSE. It runs on Godot Engine
+(licenses/Godot-Engine.txt) and shows the Noto Serif fonts (licenses/Noto-fonts-OFL.txt).

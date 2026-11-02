@@ -5,33 +5,33 @@ A co-op tower defense for one to four players. MIT License, by Sascha Becker.
 Source, changes and help: https://github.com/saschb2b/Groundhold
 
 
-Start it
---------
+Install
+-------
 
-Move Groundhold.app to Applications (or anywhere you like).
+Drag Groundhold onto Applications, beside it in this window, then open it from your
+Applications folder. (It runs on macOS 11 or newer on Apple silicon, 10.13 or newer on
+Intel.)
 
-The app is not signed or notarised by Apple, so the first time macOS says it "cannot be
-opened" or "is damaged". It is neither: macOS marks every app downloaded from the internet
-(the quarantine), and refuses an unsigned one so marked. Take the mark off in Terminal,
-once, then open the app as any other:
+The app is not notarised by Apple, so the first time macOS refuses to open it: "Apple could
+not verify..." or "cannot be opened". Take the mark macOS puts on every app downloaded from
+the internet (the quarantine) off in Terminal, once, then open the app as any other:
 
        xattr -dr com.apple.quarantine /Applications/Groundhold.app
 
 (with the app elsewhere, write its path instead: drag it into the Terminal window).
 
-If it still will not start on an Apple silicon Mac, sign it for this Mac alone and open it
-again:
+If an Apple silicon Mac says it "is damaged", sign it for this Mac alone and open it again:
 
        codesign --force --deep --sign - /Applications/Groundhold.app
 
-Without Terminal, when macOS says it "cannot be opened" (not when it says "is damaged"):
-right-click (or Control-click) Groundhold.app, choose Open, then Open in the dialog. On
-macOS 15 and newer, after the first refusal open System Settings, Privacy & Security, and
-press Open Anyway beside Groundhold, then Open.
+Without Terminal: on macOS 15 and newer, after the first refusal, open System Settings,
+Privacy & Security, and press Open Anyway beside Groundhold, then Open. On macOS 14 and
+older, right-click (or Control-click) Groundhold in Applications, choose Open, then Open in
+the dialog.
 
-macOS asks once whether Groundhold may accept incoming network connections; Allow is only
-needed to be found on your home network. Your name, Builders and settings live in
-~/Library/Application Support/Godot/app_userdata/Groundhold/.
+macOS asks once whether Groundhold may find devices on your local network and accept
+incoming connections; Allow is only needed to play on your home network. Your name,
+Builders and settings live in ~/Library/Application Support/Godot/app_userdata/Groundhold/.
 
 
 Play together
@@ -49,3 +49,11 @@ on Intel (it needs the same xattr step, in its folder: xattr -d com.apple.quaran
 groundhold-server), or groundhold-server-python.zip with Python 3.11 or newer. Its window
 prints the address to type; the game lists it under Join, Nearby. The others join with the
 code on your strip. A firewall must let TCP port 8766 in, and UDP port 8767 for Nearby.
+
+
+Licences
+--------
+
+Groundhold's code and art: the MIT License. It runs on Godot Engine and shows the Noto
+Serif fonts (SIL Open Font License 1.1). The three licences are inside the app, in
+Groundhold.app/Contents/Resources/licenses (Control-click the app, Show Package Contents).

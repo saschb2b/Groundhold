@@ -146,12 +146,21 @@
 			(<kbd>J</kbd>) and its Official row make one, a code joins one, and the party strip's copy link opens the game in a friend's
 			browser and joins your party. A page served over https cannot reach a server on your home network.</p>
 			<p><b>On desktop</b> the game plays online too, and over your network. Download it from the
-			<a href="https://github.com/saschb2b/Groundhold/releases/latest">newest release</a>: <code>groundhold-windows-x64.zip</code>,
-			<code>groundhold-macos.zip</code> or <code>groundhold-linux-x64.zip</code>, each with a <code>README-first.txt</code>. The builds
-			are not signed: on a Mac, once, in Terminal, <code>xattr -dr com.apple.quarantine /Applications/Groundhold.app</code>,
+			<a href="https://github.com/saschb2b/Groundhold/releases/latest">newest release</a>. For Windows, the installer
+			<a href="https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-windows-x64-setup.exe"><code>groundhold-windows-x64-setup.exe</code></a>
+			(for your account, no administrator needed) or the same game to unpack anywhere,
+			<a href="https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-windows-x64.zip"><code>groundhold-windows-x64.zip</code></a>.
+			For macOS, <a href="https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-macos.dmg"><code>groundhold-macos.dmg</code></a>:
+			drag Groundhold onto Applications. For Linux,
+			<a href="https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-x86_64.AppImage"><code>groundhold-x86_64.AppImage</code></a>,
+			one file to make executable and run,
+			<a href="https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold_amd64.deb"><code>groundhold_amd64.deb</code></a>
+			for Debian and Ubuntu, or
+			<a href="https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-linux-x64.tar.gz"><code>groundhold-linux-x64.tar.gz</code></a>.
+			The builds are signed by no publisher: on a Mac, once, in Terminal, <code>xattr -dr com.apple.quarantine /Applications/Groundhold.app</code>,
 			and if an Apple silicon Mac still refuses it, <code>codesign --force --deep --sign - /Applications/Groundhold.app</code>.
-			Without Terminal, while macOS says it cannot be opened: Control-click the app and choose Open, or on macOS 15 and newer,
-			after the first refusal, System Settings › Privacy &amp; Security › Open Anyway. On Windows, choose More info, then Run anyway.
+			Without Terminal, after the first refusal: on macOS 15 and newer, System Settings › Privacy &amp; Security › Open Anyway;
+			on macOS 14 and older, Control-click the app and choose Open. On Windows, choose More info, then Run anyway.
 			For a party on your network one computer runs the server from the same page (<code>groundhold-server-windows-x64.zip</code> and
 			the others, nothing to install); Join lists it under Nearby, and the others join with your code.</p>
 			<p>The official server has no chat and writes no IP address anywhere: <a href="policy.html">its policy</a> says who runs it,

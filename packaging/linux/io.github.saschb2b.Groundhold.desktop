@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Groundhold
+GenericName=Tower Defense
+Comment=A co-op tower defense for one to four players
+Exec=groundhold
+Icon=io.github.saschb2b.Groundhold
+Terminal=false
+Categories=Game;StrategyGame;
+Keywords=tower defense;TD;co-op;multiplayer;strategy;
+StartupWMClass=Groundhold

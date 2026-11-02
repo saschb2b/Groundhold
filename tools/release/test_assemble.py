@@ -1,4 +1,5 @@
-"""A release gathers exactly its files (the three desktop zips and the server's six archives),
+"""A release gathers exactly its files (the game's seven: the Windows installer and zip, the macOS disk
+image, the AppImage and its .zsync, the .deb and the tar.gz; and the server's six archives),
 checksums them, and refuses to go on with one missing, empty, or one no release has.
 
     python3 -m unittest discover -s tools/release -t tools/release
@@ -53,7 +54,9 @@ class AssembleTest(unittest.TestCase):
 
     def test_the_releases_files(self):
         self.assertEqual(assemble.FILES, [
-            "groundhold-windows-x64.zip", "groundhold-macos.zip", "groundhold-linux-x64.zip",
+            "groundhold-windows-x64-setup.exe", "groundhold-windows-x64.zip", "groundhold-macos.dmg",
+            "groundhold-x86_64.AppImage", "groundhold-x86_64.AppImage.zsync", "groundhold_amd64.deb",
+            "groundhold-linux-x64.tar.gz",
             "groundhold-server-python.zip", "groundhold-server-windows-x64.zip", "groundhold-server-macos-arm64.zip",
             "groundhold-server-macos-x64.zip", "groundhold-server-linux-x64.zip", "groundhold-server-linux-arm64.zip"])
         self.assertEqual(set(assemble.WHAT), set(assemble.FILES) | {assemble.SUMS}, "each file says what it is")
@@ -64,7 +67,7 @@ class AssembleTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(files, assemble.FILES + ["SHA256SUMS.txt"])
         sums = (self.dist / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines()
-        self.assertEqual(len(sums), 9)
+        self.assertEqual(len(sums), 13)
         for line in sums:
             digest, name = line.split("  ")
             self.assertEqual(digest, hashlib.sha256((self.dist / name).read_bytes()).hexdigest())
@@ -79,12 +82,21 @@ class AssembleTest(unittest.TestCase):
 
     def test_an_empty_file_or_one_no_release_has_stops_it(self):
         self.put(*assemble.FILES)
-        (self.dist / "groundhold-macos.zip").write_bytes(b"")
-        (self.dist / "groundhold-0.6.0-linux-x86_64.zip").write_bytes(b"an older name")
+        (self.dist / "groundhold-macos.dmg").write_bytes(b"")
+        (self.dist / "groundhold-macos.zip").write_bytes(b"an older release's name")
         code, files, out = self.run_it()
         self.assertEqual((code, files), (1, []))
-        self.assertIn("groundhold-macos.zip is empty", out)
-        self.assertIn("groundhold-0.6.0-linux-x86_64.zip is no file of a release", out)
+        self.assertIn("groundhold-macos.dmg is empty", out)
+        self.assertIn("groundhold-macos.zip is no file of a release", out)
+
+    def test_the_appimages_update_file_is_a_file_of_every_release(self):
+        # (the AppImage's update information asks the newest release for this .zsync: never renamed;
+        # test_pack_*.py hold each package to its name here)
+        import pack_linux
+
+        self.assertTrue(pack_linux.UPDATE.endswith(f"|latest|{assemble.ZSYNC}"))
+        self.assertEqual(assemble.ZSYNC, assemble.APPIMAGE + ".zsync")
+        self.assertIn(assemble.ZSYNC, assemble.FILES)
 
     def test_the_server_files_are_what_its_packaging_makes(self):
         release = server_release()

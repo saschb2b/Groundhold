@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """Boots an exported desktop game headless to the hub and quits: a release's Linux build must
-start, read its data and stand the hub before it ships.
+start, read its data and stand the hub before it ships, and so must the game in each package.
 
     python3 tools/release/desktop_smoke.py build/desktop/linux/groundhold.x86_64 [--build-seq 42]
+    APPIMAGE_EXTRACT_AND_RUN=1 python3 tools/release/desktop_smoke.py dist/groundhold-x86_64.AppImage
+    python3 tools/release/desktop_smoke.py "$RUNNER_TEMP/deb/usr/bin/groundhold"   # dpkg-deb -x's
+    python3 tools/release/desktop_smoke.py build/package/macos/dmg/Groundhold.app/Contents/MacOS/Groundhold
+
+(the AppImage's runtime unpacks it where there is no FUSE, as on a CI runner, and passes the
+arguments on through AppRun; a binary in a folder or behind a link finds its pack all the same.)
 
 It runs the binary with `--headless --quit-after N` (N frames) in a fresh home folder (so it
 never reads or writes the player's own user://), and passes when the binary exits 0 within the

@@ -1,102 +1,138 @@
 #!/usr/bin/env python3
-"""Packs a desktop export as a release file: groundhold-<platform>.zip (tools/release/assemble.py's
-GAME names them all).
+"""Packs the desktop game's exports as the release's files, each the way its system installs a game
+(tools/release/assemble.py's GAME names them all):
 
-    python3 tools/release/package.py --version 1.0.0 --platform linux-x64 build/desktop/linux --out dist
-    python3 tools/release/package.py --version 1.0.0 --platform windows-x64 build/desktop/windows --out dist
-    python3 tools/release/package.py --version 1.0.0 --platform macos build/desktop/macos/Groundhold.zip --out dist
+    python3 tools/release/package.py windows build/desktop/windows --version 1.0.0 --out dist
+        groundhold-windows-x64-setup.exe, an NSIS installer for the user who runs it, and
+        groundhold-windows-x64.zip, the same files in one folder, Groundhold/ (pack_windows.py)
+    python3 tools/release/package.py linux build/desktop/linux --version 1.0.0 --out dist
+        groundhold-x86_64.AppImage and its .zsync, groundhold_amd64.deb and
+        groundhold-linux-x64.tar.gz, all from one install tree (pack_linux.py)
+    python3 tools/release/package.py macos build/desktop/macos/Groundhold.zip --version 1.0.0 --out dist
+        groundhold-macos.dmg, Godot's app signed ad hoc beside an Applications link and a
+        Read me (pack_macos.py; on a Mac, whose codesign and hdiutil it runs)
 
-The zip's name has no version, so a link to the newest release's file stays the same from release
-to release (releases/latest/download/groundhold-windows-x64.zip). It holds one folder,
-groundhold-<version>-<platform>/, with the export and a README-first.txt written from
-tools/release/readme/<os>.txt (how to start it on that system, online and LAN play, and for macOS
-the quarantine steps of an unsigned app). The export is a folder (Linux, Windows: its files, their
-modes kept, so the Linux binary stays executable) or a zip (Godot's macOS export: its entries
-copied as they are, the app's executable bit with them). Standard library only.
+The installer and the Linux packages need the tools of the packaging image (packaging/Dockerfile:
+makensis, appimagetool with the AppImage runtime, zsyncmake, dpkg-deb), so release.yml runs the
+first two inside it, as a local build does:
+
+    docker build -t groundhold-packaging packaging
+    docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/src" -w /src groundhold-packaging \\
+        python3 tools/release/package.py linux build/desktop/linux --version 1.0.0 --out dist
+
+The names carry no version, so a link to the newest release's file stays the same from release to
+release. Every package carries a README-first.txt for its system (the .dmg's "Read me.txt"),
+written from tools/release/readme/<os>.txt, and the licences: the game's (LICENSE), the engine's
+(packaging/licenses/Godot-Engine.txt) and the fonts' (fonts/OFL.txt). `--only` makes some of a
+system's files (zip, setup; appimage, deb, tarball), `--work` stages them somewhere other than
+build/package/<system>. Standard library only.
 """
 
+from __future__ import annotations
+
 import argparse
+import datetime
 import os
 from pathlib import Path
-import stat
 import string
+import subprocess
 import sys
-import zipfile
 
 HERE = Path(__file__).resolve().parent
-PLATFORMS = {"linux-x64": "linux", "windows-x64": "windows", "macos": "macos"}
+ROOT = HERE.parents[1]
+sys.path.insert(0, str(HERE))
+import gate  # noqa: E402
+
+NAME = "Groundhold"
+APP_ID = "io.github.saschb2b.Groundhold"
+REPOSITORY = "saschb2b/Groundhold"
+HOMEPAGE = "https://saschb2b.github.io/Groundhold/"
+PUBLISHER = "Sascha Becker"
+PACKAGING = ROOT / "packaging"
+ICONS = PACKAGING / "icons"
 README = "README-first.txt"
+# the licences every package carries: the game's, then licenses/ (the engine's and the fonts')
+LICENSE = ROOT / "LICENSE"
+LICENSES = {"Godot-Engine.txt": PACKAGING / "licenses" / "Godot-Engine.txt", "Noto-fonts-OFL.txt": ROOT / "fonts" / "OFL.txt"}
+SYSTEMS = ("windows", "linux", "macos")
 
 
-def readme(platform: str, version: str) -> str:
-    template = (HERE / "readme" / (PLATFORMS[platform] + ".txt")).read_text(encoding="utf-8")
-    text = string.Template(template).substitute(version=version, folder=folder_name(version, platform))
-    return text.replace("\r\n", "\n").replace("\n", "\r\n") if PLATFORMS[platform] == "windows" else text
+class PackError(Exception):
+    """A package that could not be made, with why."""
 
 
-def folder_name(version: str, platform: str) -> str:
-    return f"groundhold-{version}-{platform}"
+def readme(system: str, version: str) -> str:
+    """tools/release/readme/<system>.txt with the version filled in (Windows' with its line ends)."""
+    template = (HERE / "readme" / f"{system}.txt").read_text(encoding="utf-8")
+    text = string.Template(template).substitute(version=version)
+    return crlf(text) if system == "windows" else text
 
 
-def zip_name(platform: str) -> str:
-    return f"groundhold-{platform}.zip"
+def crlf(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\n", "\r\n")
 
 
-def _entry(name: str, mode: int) -> zipfile.ZipInfo:
-    info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
-    info.create_system = 3
-    info.external_attr = (mode & 0xFFFF) << 16
-    info.compress_type = zipfile.ZIP_DEFLATED
-    return info
+def file_version(version: str) -> str:
+    """The version as Windows keeps it, four numbers: 1.2.3 is 1.2.3.0."""
+    parts = version.split(".")
+    if not 1 <= len(parts) <= 4 or not all(part.isdigit() for part in parts):
+        raise PackError(f"the version {version!r} is not X.Y.Z")
+    return ".".join(parts + ["0"] * (4 - len(parts)))
 
 
-def package(source: Path, version: str, platform: str, out: Path) -> Path:
-    if platform not in PLATFORMS:
-        raise ValueError(f"no platform {platform!r}: one of {', '.join(PLATFORMS)}")
-    top = folder_name(version, platform)
-    out.mkdir(parents=True, exist_ok=True)
-    target = out / zip_name(platform)
-    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        archive.writestr(_entry(f"{top}/{README}", stat.S_IFREG | 0o644), readme(platform, version))
-        if source.is_dir():
-            files = sorted(p for p in source.rglob("*") if p.is_file())
-            if not files:
-                raise ValueError(f"{source} is empty")
-            for path in files:
-                mode = path.stat().st_mode
-                with path.open("rb") as stream:
-                    archive.writestr(_entry(f"{top}/{path.relative_to(source).as_posix()}", mode), stream.read())
-        elif zipfile.is_zipfile(source):
-            with zipfile.ZipFile(source) as export:
-                infos = export.infolist()
-                if not infos:
-                    raise ValueError(f"{source} is empty")
-                for info in infos:
-                    copied = zipfile.ZipInfo(f"{top}/{info.filename}", info.date_time)
-                    copied.create_system = info.create_system
-                    copied.external_attr = info.external_attr
-                    copied.compress_type = zipfile.ZIP_STORED if info.is_dir() else zipfile.ZIP_DEFLATED
-                    archive.writestr(copied, b"" if info.is_dir() else export.read(info))
-        else:
-            raise ValueError(f"{source} is neither a folder nor a zip")
-    return target
+def release_date(version: str, root: Path = ROOT) -> str:
+    """The release's date from CHANGELOG.md's heading for it (## 1.0.0 · 2026-11-02), else today's (UTC):
+    a release being prepared, or a dry run."""
+    found = gate.DATE.search(gate.changelog_heading(root, version) or "")
+    return found.group(0) if found else datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+
+
+def run(command: list[str], cwd: Path | None = None, env: dict | None = None) -> str:
+    """Runs a packaging tool; PackError with its output when it is missing or fails."""
+    try:
+        done = subprocess.run([str(part) for part in command], cwd=cwd, env=env, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True, errors="replace", check=False)
+    except FileNotFoundError:
+        raise PackError(f"{command[0]} is not installed here: run this in the packaging image "
+                        f"(packaging/Dockerfile)") from None
+    if done.returncode != 0:
+        raise PackError(f"{Path(str(command[0])).name} failed ({done.returncode}):\n{done.stdout.strip()}")
+    return done.stdout
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("source", type=Path, help="the export: a folder, or Godot's macOS zip")
+    parser.add_argument("system", choices=SYSTEMS)
+    parser.add_argument("source", type=Path, help="the export: its folder (Windows, Linux) or Godot's macOS zip")
     parser.add_argument("--version", required=True)
-    parser.add_argument("--platform", required=True, choices=sorted(PLATFORMS))
     parser.add_argument("--out", type=Path, default=Path("dist"))
+    parser.add_argument("--work", type=Path, help="where to stage (default build/package/<system>)")
+    parser.add_argument("--only", action="append", help="make only this file (repeatable): "
+                        "windows zip, setup; linux appimage, deb, tarball")
+    parser.add_argument("--date", help="the release's date for the AppStream data (default: CHANGELOG.md's)")
     args = parser.parse_args(argv)
+    work = args.work or ROOT / "build" / "package" / args.system
     try:
-        target = package(args.source, args.version, args.platform, args.out)
-    except (OSError, ValueError, zipfile.BadZipFile) as exc:
-        print(f"::error::{exc}", file=sys.stderr)
+        file_version(args.version)
+        if args.system == "windows":
+            import pack_windows
+            made = pack_windows.make(args.source, args.version, args.out, work, args.only)
+        elif args.system == "linux":
+            import pack_linux
+            made = pack_linux.make(args.source, args.version, args.out, work, args.only,
+                                   args.date or release_date(args.version))
+        else:
+            import pack_macos
+            made = pack_macos.make(args.source, args.version, args.out, work)
+    except (OSError, PackError, ValueError) as exc:
+        print(f"::error title=Package {args.system}::{exc}", file=sys.stderr)
         return 1
-    print(f"{target} ({os.path.getsize(target) // 1024} KB)")
+    for path in made:
+        print(f"{path} ({os.path.getsize(path) // 1024} KB)")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # (run as the module the pack_* modules import, so the PackError they raise is the one caught)
+    import package
+    sys.exit(package.main())

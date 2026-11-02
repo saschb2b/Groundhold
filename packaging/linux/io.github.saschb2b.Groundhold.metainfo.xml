@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The Linux packages' AppStream data: what a software centre shows for the .deb and the AppImage.
+     tools/release/pack_linux.py writes the release's line in place of the comment in <releases>. -->
+<component type="desktop-application">
+  <id>io.github.saschb2b.Groundhold</id>
+  <name>Groundhold</name>
+  <summary>A co-op tower defense for one to four players</summary>
+  <developer id="io.github.saschb2b">
+    <name>Sascha Becker</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT AND OFL-1.1</project_license>
+  <description>
+    <p>
+      Every land was raised out of the Tide, and the Tide wants it back. Each player is a Builder with
+      three towers of their own, and the party holds one road together, from the Welling, where the
+      Tide wells up, to the Holdfast.
+    </p>
+    <p>
+      Play alone, or with up to three others online on the official server or over your own network:
+      High Water together, Tide Race as two crews on twin roads, or Undertow, a duel of one against one
+      where each side sends packs of creeps onto the other's road.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.saschb2b.Groundhold.desktop</launchable>
+  <provides>
+    <binary>groundhold</binary>
+  </provides>
+  <url type="homepage">https://saschb2b.github.io/Groundhold/</url>
+  <url type="bugtracker">https://github.com/saschb2b/Groundhold/issues</url>
+  <url type="vcs-browser">https://github.com/saschb2b/Groundhold</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>High Water on Wickhollow: the party holds the road against the tenth wave</caption>
+      <image>https://saschb2b.github.io/Groundhold/media/high_water.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>The hub on the Causeway: your party, your Builder and the modes</caption>
+      <image>https://saschb2b.github.io/Groundhold/media/hub.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>The Builders: each with three towers and their branches</caption>
+      <image>https://saschb2b.github.io/Groundhold/media/builders.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>A party of three on a server of your own</caption>
+      <image>https://saschb2b.github.io/Groundhold/media/party.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>The results after a match</caption>
+      <image>https://saschb2b.github.io/Groundhold/media/results.webp</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">mild</content_attribute>
+  </content_rating>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <categories>
+    <category>Game</category>
+    <category>StrategyGame</category>
+  </categories>
+  <releases>
+    <!-- release -->
+  </releases>
+</component>

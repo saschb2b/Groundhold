@@ -8,14 +8,20 @@ Source, changes and help: https://github.com/saschb2b/Groundhold
 Start it
 --------
 
-Unpack this folder anywhere (right-click the zip, Extract All) and double-click
-Groundhold.exe.
+Installed (groundhold-windows-x64-setup.exe): start Groundhold from the Start menu, or from
+the desktop shortcut if you asked for one. The installer puts it in your own account's
+programs, no administrator needed; installing a newer one updates it in place, and
+Settings, Apps, Installed apps removes it again.
 
-The game is not signed, so the first start may show "Windows protected your PC". Choose
-More info, then Run anyway. Windows asks once whether Groundhold may use the network: allow
+Portable (groundhold-windows-x64.zip): unpack the zip anywhere (right-click it, Extract
+All) and double-click Groundhold.exe in the Groundhold folder.
+
+Neither is signed, so the first start may show "Windows protected your PC". Choose More
+info, then Run anyway. Windows asks once whether Groundhold may use the network: allow
 private networks to play on your home network.
 
-Your name, Builders and settings live in %APPDATA%\Godot\app_userdata\Groundhold\.
+Your name, Builders and settings live in %APPDATA%\Godot\app_userdata\Groundhold\. They
+stay when you uninstall the game or delete its folder.
 
 
 Play together
@@ -32,3 +38,10 @@ page: groundhold-server-windows-x64.zip, or groundhold-server-python.zip with Py
 or newer. Its window prints the address to type; the game lists it under Join, Nearby.
 The others join with the code on your strip. A firewall must let TCP port 8766 in, and UDP
 port 8767 for Nearby.
+
+
+Licences
+--------
+
+Groundhold's code and art: the MIT License, LICENSE.txt. It runs on Godot Engine
+(licenses\Godot-Engine.txt) and shows the Noto Serif fonts (licenses\Noto-fonts-OFL.txt).

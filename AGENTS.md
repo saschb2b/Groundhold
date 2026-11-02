@@ -882,8 +882,12 @@ Releases (design §7.6 and M5; `server/README.md`, At a release, is the checklis
 `config/version` and a dated `## X.Y.Z · YYYY-MM-DD` section of `CHANGELOG.md` agree, and `on-main`: the tag is on
 `main`, or nothing builds; a heading still `· TBD` is a release being prepared), `desktop` (Godot and its templates
 checked against Godot's `SHA512-SUMS.txt`, the `Linux`, `Windows` and `macOS` presets exported with `data/build.json`
-stamped, the Linux build booted headless by `desktop_smoke.py`, each packed by `package.py` as
-`groundhold-<platform>.zip`), `server-native` and `server-image` (called with the gate's commit, version and `push`;
+stamped, `Groundhold.exe` read by `pe_resources.py` for the icon and version the export writes into it, the Linux
+build booted headless by `desktop_smoke.py`, then `package.py` run in the packaging image, `packaging/Dockerfile`:
+`groundhold-windows-x64-setup.exe` (NSIS, per user) and `groundhold-windows-x64.zip` (one folder, `Groundhold/`),
+`groundhold-x86_64.AppImage` with its `.zsync`, `groundhold_amd64.deb` and `groundhold-linux-x64.tar.gz` from one install
+tree, each started or opened as its system would), `macos` (on `macos-15`: Godot's app signed ad hoc and packed as
+`groundhold-macos.dmg`, `lipo`, `codesign --verify` and `hdiutil verify`), `server-native` and `server-image` (called with the gate's commit, version and `push`;
 each server archive holds one folder, `groundhold-server-<version>-<target>/`; the image's `X.Y` and `latest` move
 only for the newest release, `deploy.py newest`), `publish` (`assemble.py`: exactly `assemble.FILES` plus
 `SHA256SUMS.txt`; the notes are `gate.py notes`) and, last, `deploy` (`deploy.py push` force-moves the `release`
@@ -895,22 +899,44 @@ GitHub and the user's session push tags, change secrets or make the ghcr package
 - `assemble.FILES` is the one list of a release's files (versionless names, so `releases/latest/download/<file>`
   links last): README.md, `server/README.md`, the site and the `README-first.txt` templates may name only those, and
   the READMEs must name all of them (`tools/release/test_workflows.py`). The self-host Compose pulls the image
-  `server-image.yml` pushes. Change a file's name in `assemble.py`, `package.py` or `server/release.py` together.
+  `server-image.yml` pushes. Change a file's name in `assemble.py` (the game's, which `pack_*.py` take from there)
+  or `server/release.py` together; never the AppImage's or its `.zsync`'s, which installed AppImages ask the newest
+  release for.
+- The desktop packages (`package.py` and `pack_windows.py`, `pack_linux.py`, `pack_macos.py`; their sources in
+  `packaging/`, which Godot neither imports nor exports): the game's id is `io.github.saschb2b.Groundhold` (the
+  macOS bundle, the Linux `.desktop`, icons and AppStream file, the installer's registry key); the window class
+  Godot gives an exported game is the project's name, the `.desktop`'s `StartupWMClass=Groundhold`. The icons in
+  `packaging/icons/` (16 to 512 px PNGs, `groundhold.ico`, `groundhold.icns` from a 1024 px canvas) are written by
+  `python3 tools/release/app_icon.py`, which paints the brand's emblem with `art_src/ui/wordmark.py` (its favicon's
+  cut at 32 px and below; `--check` says whether they are current); the export presets embed the `.ico` in the exe
+  and the `.icns` in the app, and `project.godot`'s `config/icon` is the brand's `ui/brand/icon.png`. The Windows
+  exe's icon and version come from Godot's own export (`application/modify_resources`; the version from
+  `config/version`), never rcedit or Wine. AppImage tooling is pinned by version and SHA-256 in
+  `packaging/appimage.sh` (appimagetool 1.9.1, the static type-2 runtime: no libfuse2, `APPIMAGE_EXTRACT_AND_RUN=1`
+  without FUSE). The macOS app is signed ad hoc on the Mac, never notarised; the Gatekeeper steps stay in the
+  READMEs, the site and the disk image's `Read me.txt`.
 - The official server's policy is `server/README.md`'s The official server and `web/policy.html` (published beside
   the site's `index.html`); `server/tests/test_policy.py` holds both to `deploy/coolify/server.ini`, the kick and
   name rules and `data/net.json`. Change the settings and both pages together.
 - Test the release's steps: `python3 -m unittest discover -s tools/release -t tools/release` (the gate and plan, the
-  desktop zips, the files, the deploy against a bare repository and a fake Coolify, and the workflows' shape with
-  PyYAML). Locally, as far as GitHub's runners go: `python3 server/release.py` (the zipapp's archive, smoke-tested
-  outside the checkout); in a venv with `server/requirements-build.txt`, `server/release.py --native --target
-  linux-x64`; `bash deploy/check.sh` (Docker: the image and both stacks, removed afterwards; never beside another
-  Docker or Godot job); and the desktop build: `python3 tools/release/stamp.py build-json --build-seq 0`, `godot
-  --headless --path . --import`, `mkdir -p build/desktop/linux && godot --headless --path . --export-release "Linux"
-  build/desktop/linux/groundhold.x86_64` (Godot makes no export folder itself), `python3
-  tools/release/desktop_smoke.py build/desktop/linux/groundhold.x86_64`, `python3 tools/release/package.py --version
-  0.6.0 --platform linux-x64 build/desktop/linux --out dist`. Delete `data/build.json` afterwards (it is ignored by
-  git, but a local run reads it as its build number). The export templates are Godot 4.7.1's
-  (`~/.local/share/godot/export_templates/4.7.1.stable`).
+  packages with fake makensis, appimagetool, codesign and hdiutil and a real dpkg-deb where there is one, the icons,
+  the exe's resources, the files, the deploy against a bare repository and a fake Coolify, and the workflows' shape
+  with PyYAML). Locally, as far as GitHub's runners go: `python3 server/release.py` (the zipapp's archive,
+  smoke-tested outside the checkout); in a venv with `server/requirements-build.txt`, `server/release.py --native
+  --target linux-x64`; `bash deploy/check.sh` (Docker: the image and both stacks, removed afterwards; never beside
+  another Docker or Godot job); and the desktop build: `python3 tools/release/stamp.py build-json --build-seq 0`,
+  `godot --headless --path . --import`, `mkdir -p build/desktop/linux && godot --headless --path . --export-release
+  "Linux" build/desktop/linux/groundhold.x86_64` (Godot makes no export folder itself), `mkdir -p
+  build/desktop/windows && godot --headless --path . --export-release "Windows" build/desktop/windows/Groundhold.exe`,
+  `python3 tools/release/desktop_smoke.py build/desktop/linux/groundhold.x86_64`, `python3
+  tools/release/pe_resources.py build/desktop/windows/Groundhold.exe --icon packaging/icons/groundhold.ico`, then
+  `docker build -t groundhold-packaging packaging` and, in it (`docker run --rm -u "$(id -u):$(id -g)" -v
+  "$PWD:/src" -w /src groundhold-packaging python3 tools/release/package.py ...`), `package.py windows
+  build/desktop/windows --version 0.9.0 --out dist` and `package.py linux build/desktop/linux --version 0.9.0 --out
+  dist`; `APPIMAGE_EXTRACT_AND_RUN=1 python3 tools/release/desktop_smoke.py dist/groundhold-x86_64.AppImage` boots
+  the AppImage. The disk image needs a Mac (`package.py macos`, release.yml's `macos` job). Delete `data/build.json`
+  afterwards (it is ignored by git, but a local run reads it as its build number). The export templates are Godot
+  4.7.1's (`~/.local/share/godot/export_templates/4.7.1.stable`).
 
 Assets are generated, never hand-edited: change the recipe in `art_src/models/` and rebuild with
 `godot-agent asset mesh`, or the Blender build script in `art_src/blender/` (plants, rocks, creeps) and rebuild

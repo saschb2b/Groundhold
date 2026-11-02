@@ -1,10 +1,11 @@
 """What a release depends on, read from the files themselves: the export presets (three desktop
 presets beside Web, the data and contract files in, the server, deploy files, tests and packaging out,
 the brand's icon and the game's id in the Windows exe and the macOS app, macOS universal and left for
-the Mac to sign), and release.yml and pages.yml as GitHub would run them (the gate before any
-build, every job on the gate's commit, every preset it exports and template it needs, the server's
-workflows by path with the inputs they declare, the artifacts the release downloads, the deploy last,
-Pages numbering its build and publishing the policy page); and across the repository, that the pages
+the Mac to sign), and release.yml and pages.yml as GitHub would run them (the gate before any build,
+every job on the gate's commit, every preset it exports and template it needs, each package made in
+the packaging image or on the Mac and started or opened there, the server's workflows by path with the
+inputs they declare, the artifacts the release downloads, the deploy last, Pages numbering its build
+and publishing the policy page); and across the repository, that the pages
 which tell players what to download name the release's own files, and the self-host pulls the image
 the release pushes, the pages that tell hosts who reaches their server keep to what the browser
 build can do, and the build commands they give work in a fresh clone. A workflow file is read with
@@ -30,6 +31,8 @@ import package
 
 ROOT = Path(__file__).resolve().parents[2]
 GAME_ID = "io.github.saschb2b.Groundhold"  # the macOS bundle, the Linux packages, the installer (package.APP_ID)
+# the game's files, by the job that makes them
+LINUX_AND_WINDOWS = [name for name in assemble.GAME if name != assemble.MACOS_DMG]
 try:
     import yaml
 except ImportError:  # (the release's own runner has it; the tests below say so when skipped)
@@ -163,8 +166,57 @@ class ReleaseWorkflowTest(unittest.TestCase):
         for template in ("linux_release.x86_64", "windows_release_x86_64.exe", "macos.zip", "version.txt"):
             self.assertIn("templates/" + template, text)
         self.assertIn("desktop_smoke.py build/desktop/linux/groundhold.x86_64", text)
-        self.assertEqual(sorted(re.findall(r"--platform (\S+)", text)), sorted(package.PLATFORMS))
         self.assertLess(text.index("stamp.py build-json"), text.index("--export-release"))
+
+    def test_the_desktop_job_packs_in_the_packaging_image_and_starts_each_package(self):
+        text = runs(self.jobs["desktop"])
+        # (the icon and version Godot writes into the exe, read before anything is packed)
+        self.assertIn("pe_resources.py build/desktop/windows/Groundhold.exe --icon packaging/icons/groundhold.ico "
+                      '--version "$VERSION"', text)
+        self.assertIn("docker build -t groundhold-packaging packaging", text)
+        self.assertIn('docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/src" -w /src groundhold-packaging', text)
+        self.assertEqual(re.findall(r'"\$\{pack\[@\]\}" (\w+) build/desktop/\w+ --version "\$VERSION" --out dist', text),
+                         ["windows", "linux"])
+        self.assertLess(text.index("docker build"), text.index('"${pack[@]}" windows'))
+        for check in ("file dist/groundhold-windows-x64-setup.exe | tee /dev/stderr | grep -q 'Nullsoft Installer'",
+                      "pe_resources.py dist/groundhold-windows-x64-setup.exe",
+                      "unzip -l dist/groundhold-windows-x64.zip",
+                      "readelf -p .upd_info dist/groundhold-x86_64.AppImage",
+                      "'gh-releases-zsync|saschb2b|Groundhold|latest|groundhold-x86_64.AppImage.zsync'",
+                      "test -s dist/groundhold-x86_64.AppImage.zsync",
+                      "APPIMAGE_EXTRACT_AND_RUN=1 python3 tools/release/desktop_smoke.py dist/groundhold-x86_64.AppImage",
+                      "dpkg-deb -I dist/groundhold_amd64.deb",
+                      'dpkg-deb -x dist/groundhold_amd64.deb "$RUNNER_TEMP/deb"',
+                      'desktop_smoke.py "$RUNNER_TEMP/deb/usr/bin/groundhold"',
+                      "tar -xvzf dist/groundhold-linux-x64.tar.gz",
+                      'desktop_smoke.py "$RUNNER_TEMP/tar/Groundhold/groundhold"'):
+            self.assertIn(check, text)
+        boots = re.findall(r'desktop_smoke\.py (\S+) --build-seq "\$BUILD_SEQ"', text)
+        self.assertEqual(len(boots), 4, f"the export, the AppImage, the .deb's and the tar.gz's game: {boots}")
+        upload = [s["with"] for s in self.jobs["desktop"]["steps"] if s.get("uses", "").startswith("actions/upload-artifact")]
+        self.assertEqual(upload[0]["name"], "game-desktop")
+        self.assertEqual(upload[0]["path"].split(), [f"dist/{name}" for name in LINUX_AND_WINDOWS])
+        self.assertEqual(upload[1], {"name": "macos-export", "path": "build/desktop/macos/Groundhold.zip",
+                                     "if-no-files-found": "error", "retention-days": 3})
+
+    def test_the_macos_job_signs_packs_and_checks_on_a_mac(self):
+        job = self.jobs["macos"]
+        self.assertEqual(job["runs-on"], "macos-15")
+        self.assertEqual(GAME_ID, package.APP_ID)
+        self.assertEqual(self.needs("macos"), {"gate", "desktop"})
+        download = next(s["with"] for s in job["steps"] if s.get("uses", "").startswith("actions/download-artifact"))
+        self.assertEqual(download, {"name": "macos-export", "path": "build/desktop/macos"})
+        text = runs(job)
+        self.assertIn('package.py macos build/desktop/macos/Groundhold.zip --version "$VERSION" --out dist', text)
+        for check in ('lipo -archs "$bin"', '*" x86_64 "*', '*" arm64 "*', 'codesign --verify --deep --strict',
+                      "plutil -extract CFBundleIdentifier raw", f"= {package.APP_ID}",
+                      "plutil -extract LSMinimumSystemVersion raw",
+                      'desktop_smoke.py "$bin" --build-seq "$BUILD_SEQ"', "hdiutil verify dist/groundhold-macos.dmg",
+                      'test -L "$RUNNER_TEMP/dmg/Applications"', 'test -s "$RUNNER_TEMP/dmg/Read me.txt"'):
+            self.assertIn(check, text)
+        self.assertLess(text.index("package.py macos"), text.index("hdiutil verify"))
+        upload = next(s["with"] for s in job["steps"] if s.get("uses", "").startswith("actions/upload-artifact"))
+        self.assertEqual((upload["name"], upload["path"]), ("game-macos", f"dist/{assemble.MACOS_DMG}"))
 
     def test_godot_and_its_templates_are_checked_before_they_are_unpacked(self):
         # (the step itself, in bash, with a curl that serves files from a folder: right sums pass,
@@ -229,22 +281,27 @@ class ReleaseWorkflowTest(unittest.TestCase):
     def test_the_image_is_pushed_only_once_the_release_builds(self):
         # (a tag whose export or native smoke fails publishes no release and moves no branch:
         # nor may its image become the self-hosts' `latest`; review M5 round 2)
-        self.assertTrue({"gate", "desktop", "server-native"} <= self.needs("server-image"))
+        self.assertTrue({"gate", "desktop", "macos", "server-native"} <= self.needs("server-image"))
 
     def test_the_release_downloads_what_the_jobs_upload(self):
         native = workflow("server-native.yml")["jobs"]["native"]
         upload = next(s for s in native["steps"] if s.get("uses", "").startswith("actions/upload-artifact"))
         self.assertEqual(upload["with"]["name"], "server-${{ matrix.target }}")
         self.assertEqual(upload["with"]["path"], "build/release/groundhold-server-*.zip")
-        desktop = next(s for s in self.jobs["desktop"]["steps"] if s.get("uses", "").startswith("actions/upload-artifact"))
         downloads = [s["with"] for s in self.jobs["publish"]["steps"]
                      if s.get("uses", "").startswith("actions/download-artifact")]
         self.assertIn({"pattern": "server-*", "merge-multiple": True, "path": "dist"}, downloads)
-        self.assertIn({"name": desktop["with"]["name"], "path": "dist"}, downloads)
+        uploaded = set()
+        for job in ("desktop", "macos"):
+            game = next(s["with"] for s in self.jobs[job]["steps"] if s.get("uses", "").startswith("actions/upload-artifact"))
+            self.assertIn({"name": game["name"], "path": "dist"}, downloads, job)
+            uploaded |= {Path(path).name for path in game["path"].split()}
+        self.assertEqual(uploaded, set(assemble.GAME), "every game file reaches the release")
+        self.assertNotIn("macos-export", {d.get("name") for d in downloads}, "the export is no file of a release")
 
     def test_the_release_carries_the_notes_and_every_file(self):
         publish = self.jobs["publish"]
-        self.assertEqual(self.needs("publish"), {"gate", "desktop", "server-native"})
+        self.assertEqual(self.needs("publish"), {"gate", "desktop", "macos", "server-native"})
         self.assertEqual(publish["permissions"]["contents"], "write")
         text = runs(publish)
         self.assertIn("tools/release/assemble.py dist --list files.txt", text)
@@ -293,14 +350,27 @@ class ReleaseWorkflowTest(unittest.TestCase):
 class AcrossTheRepositoryTest(unittest.TestCase):
     """What players and hosts are told to download or pull is what a release makes."""
 
-    MENTIONED = re.compile(r"groundhold-[A-Za-z0-9.-]*\.zip")
+    # (any file name a page could send a player to download; a server's backup archive,
+    # groundhold-state-<time>.tar.gz, and the server's program in its archive, groundhold-server.exe,
+    # are no downloads)
+    MENTIONED = re.compile(r"\bgroundhold[-_](?!state-|server\.)[A-Za-z0-9._-]*?"
+                           r"\.(?:zip|exe|dmg|AppImage\.zsync|AppImage|deb|tar\.gz)\b")
 
     def test_the_pages_that_name_release_files_name_only_those(self):
+        seen = set()
         for page in ("README.md", "server/README.md", "web/index.html", "web/policy.html",
                      *[f"tools/release/readme/{name}" for name in ("linux.txt", "windows.txt", "macos.txt")]):
             text = (ROOT / page).read_text(encoding="utf-8")
             for name in set(self.MENTIONED.findall(text)):
+                seen.add(name)
                 self.assertIn(name, assemble.FILES, f"{page} names {name}, which no release has")
+        self.assertTrue(set(assemble.GAME) <= seen, "the pattern sees every kind of the game's files")
+
+    def test_the_pattern_sees_old_and_wrong_names(self):
+        text = ("groundhold-macos.zip, groundhold-linux-x64.zip, groundhold-0.6.0-linux-x86_64.zip, groundhold.dmg, "
+                "groundhold-amd64.deb, groundhold-state-20261030-001500.tar.gz, groundhold-server.exe")
+        self.assertEqual(self.MENTIONED.findall(text), ["groundhold-macos.zip", "groundhold-linux-x64.zip",
+                                                         "groundhold-0.6.0-linux-x86_64.zip", "groundhold-amd64.deb"])
 
     def test_the_macos_steps_put_the_terminal_first(self):
         # (Control-click > Open and Open Anyway do not get past "is damaged"; the quarantine step does)
@@ -319,9 +389,22 @@ class AcrossTheRepositoryTest(unittest.TestCase):
 
     def test_the_readmes_name_every_file(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        for name in assemble.GAME.values():
+        for name in assemble.GAME:
             self.assertTrue(name in readme, f"README.md, Play together, names no {name}")
+            if name != assemble.ZSYNC:
+                link = f"https://github.com/saschb2b/Groundhold/releases/latest/download/{name}"
+                self.assertIn(link, readme, f"README.md links {name} on the newest release")
         self.assertIn("releases/latest", readme)
+        site = (ROOT / "web/index.html").read_text(encoding="utf-8")
+        for name in assemble.GAME:
+            if name != assemble.ZSYNC:
+                self.assertIn(f"releases/latest/download/{name}", site, f"the site links {name}")
+
+    def test_the_engines_licence_names_the_engine_the_release_builds_with(self):
+        version = workflow("release.yml")["env"]["GODOT_VERSION"]
+        text = (ROOT / "packaging/licenses/Godot-Engine.txt").read_text(encoding="utf-8")
+        self.assertIn(f"Godot Engine {version} ", text)
+        self.assertIn(f"/blob/{version}-stable/COPYRIGHT.txt", text)
         server = (ROOT / "server/README.md").read_text(encoding="utf-8")
         for name in assemble.SERVER:
             self.assertTrue(name.removeprefix("groundhold-server") in server, f"server/README.md names no {name}")

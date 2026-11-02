@@ -3,10 +3,11 @@
 
     python3 tools/release/assemble.py dist --list files.txt
 
-`dist` holds what release.yml's jobs made: the desktop game (groundhold-<platform>.zip for
-linux-x64, windows-x64 and macos, tools/release/package.py) and the server's archives
-(groundhold-server-<target>.zip for its five native targets and groundhold-server-python.zip, the
-zipapp for any computer with Python 3.11 or newer; server-native.yml). FILES is that list, the one
+`dist` holds what release.yml's jobs made: the desktop game (tools/release/package.py: for Windows
+an installer and a portable zip, for macOS a disk image, for Linux an AppImage with its .zsync, a
+.deb and a tar.gz) and the server's archives (groundhold-server-<target>.zip for its five native
+targets and groundhold-server-python.zip, the zipapp for any computer with Python 3.11 or newer;
+server-native.yml). FILES is that list, the one
 every page that tells players what to download names (README.md, server/README.md, the release's
 notes; tools/release/test_workflows.py holds them to it). It fails, naming each, on a file missing
 or one no release has; then it writes SHA256SUMS.txt and the list of files to attach (one path a
@@ -18,20 +19,31 @@ import hashlib
 from pathlib import Path
 import sys
 
-# the game, by tools/release/package.py's platform
-GAME = {"windows-x64": "groundhold-windows-x64.zip", "macos": "groundhold-macos.zip",
-        "linux-x64": "groundhold-linux-x64.zip"}
+# the game, as tools/release/package.py makes it (versionless names, so releases/latest/download/<file>
+# lasts; the AppImage's update information names its .zsync, so neither may change)
+WINDOWS_SETUP = "groundhold-windows-x64-setup.exe"
+WINDOWS_ZIP = "groundhold-windows-x64.zip"
+MACOS_DMG = "groundhold-macos.dmg"
+APPIMAGE = "groundhold-x86_64.AppImage"
+ZSYNC = APPIMAGE + ".zsync"
+DEB = "groundhold_amd64.deb"
+LINUX_TAR = "groundhold-linux-x64.tar.gz"
+GAME = [WINDOWS_SETUP, WINDOWS_ZIP, MACOS_DMG, APPIMAGE, ZSYNC, DEB, LINUX_TAR]
 # the server's native targets, as server/release.py and server-native.yml name them
 SERVER_TARGETS = ("windows-x64", "macos-arm64", "macos-x64", "linux-x64", "linux-arm64")
 SERVER = ["groundhold-server-python.zip"] + [f"groundhold-server-{target}.zip" for target in SERVER_TARGETS]
 SUMS = "SHA256SUMS.txt"
-FILES = list(GAME.values()) + SERVER
+FILES = GAME + SERVER
 
 # what each file is, for the release's notes (tools/release/gate.py notes)
 WHAT = {
-    "groundhold-windows-x64.zip": "The game for 64-bit Windows 10 or 11",
-    "groundhold-macos.zip": "The game for macOS, Apple silicon and Intel (unsigned: see below)",
-    "groundhold-linux-x64.zip": "The game for Linux on x86-64",
+    WINDOWS_SETUP: "The game for 64-bit Windows 10 or 11: an installer for your account, no administrator needed",
+    WINDOWS_ZIP: "The same game in a folder, to unpack anywhere and run `Groundhold.exe`",
+    MACOS_DMG: "The game for macOS, Apple silicon and Intel: drag it to Applications (not notarised: see below)",
+    APPIMAGE: "The game for Linux on x86-64 in one file: make it executable and run it",
+    ZSYNC: "The AppImage's update file, for AppImageUpdate and Gear Lever",
+    DEB: "The game for Debian, Ubuntu and their kin: `sudo apt install ./groundhold_amd64.deb`",
+    LINUX_TAR: "The game for Linux in a folder, with `install.sh` for the application menu",
     "groundhold-server-python.zip": "The server for any computer with Python 3.11 or newer",
     "groundhold-server-windows-x64.zip": "The server for 64-bit Windows, nothing to install",
     "groundhold-server-macos-arm64.zip": "The server for an Apple silicon Mac",

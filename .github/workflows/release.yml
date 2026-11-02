@@ -6,8 +6,15 @@
 #   and the tag must be on main (gate.py on-main), or nothing is built; the release tools' tests; the
 #   build number of the Pages build of the commit;
 # - desktop: the game for Linux, Windows and macOS (export_presets.cfg's desktop presets, Godot 4.7.1
-#   and its templates, cached), the Linux build booted headless to the hub, each packed as
-#   groundhold-<platform>.zip with a README-first.txt (tools/release/package.py);
+#   and its templates, cached), Groundhold.exe checked for the icon and version the export writes
+#   into it, the Linux build booted headless to the hub; then, in the packaging image
+#   (packaging/Dockerfile), the Windows installer (NSIS) and portable zip, and the Linux AppImage
+#   with its .zsync, .deb and tar.gz (tools/release/package.py), each started or opened as its
+#   system would (the AppImage and the .deb's and tar.gz's game booted to the hub, the installer
+#   known as a Nullsoft one);
+# - macos, on a Mac: Godot's app signed ad hoc and packed as groundhold-macos.dmg with an
+#   Applications link and a Read me, the app checked universal, signed and booting, the image
+#   verified;
 # - server-native and server-image: the server's five native archives and its zipapp's
 #   (server-native.yml), and its image on ghcr.io (server-image.yml);
 # - publish: the GitHub release, its notes the CHANGELOG section and the files' table (gate.py
@@ -186,18 +193,102 @@ jobs:
           test -x build/desktop/linux/groundhold.x86_64
           test -s build/desktop/windows/Groundhold.exe
           test -s build/desktop/macos/Groundhold.zip
+      # (export_presets.cfg's application/modify_resources: Godot writes the icon and the version
+      # into the exe itself, no rcedit or Wine)
+      - name: The Windows game carries its icon, version and manifest
+        run: python3 tools/release/pe_resources.py build/desktop/windows/Groundhold.exe --icon packaging/icons/groundhold.ico --version "$VERSION"
       - name: The Linux build boots to the hub
         run: python3 tools/release/desktop_smoke.py build/desktop/linux/groundhold.x86_64 --build-seq "$BUILD_SEQ"
-      - name: Pack each with its README-first.txt
+      # makensis, appimagetool on the static AppImage runtime (both pinned by version and SHA-256),
+      # zsyncmake, dpkg-deb and the desktop-file and AppStream validators, in an image built here
+      - name: Build the packaging image
+        run: docker build -t groundhold-packaging packaging
+      - name: Pack the Windows installer and zip, and the AppImage, .deb and tar.gz
         run: |
           set -euo pipefail
-          python3 tools/release/package.py --version "$VERSION" --platform linux-x64 build/desktop/linux --out dist
-          python3 tools/release/package.py --version "$VERSION" --platform windows-x64 build/desktop/windows --out dist
-          python3 tools/release/package.py --version "$VERSION" --platform macos build/desktop/macos/Groundhold.zip --out dist
+          pack=(docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/src" -w /src groundhold-packaging
+            python3 tools/release/package.py)
+          "${pack[@]}" windows build/desktop/windows --version "$VERSION" --out dist
+          "${pack[@]}" linux build/desktop/linux --version "$VERSION" --out dist
+      - name: Each package starts or opens as its system would
+        run: |
+          set -euo pipefail
+          file dist/groundhold-windows-x64-setup.exe | tee /dev/stderr | grep -q 'Nullsoft Installer'
+          python3 tools/release/pe_resources.py dist/groundhold-windows-x64-setup.exe --icon packaging/icons/groundhold.ico --version "$VERSION"
+          unzip -l dist/groundhold-windows-x64.zip
+          readelf -p .upd_info dist/groundhold-x86_64.AppImage | tee /dev/stderr \
+            | grep -qF 'gh-releases-zsync|saschb2b|Groundhold|latest|groundhold-x86_64.AppImage.zsync'
+          test -s dist/groundhold-x86_64.AppImage.zsync
+          APPIMAGE_EXTRACT_AND_RUN=1 python3 tools/release/desktop_smoke.py dist/groundhold-x86_64.AppImage --build-seq "$BUILD_SEQ"
+          dpkg-deb -I dist/groundhold_amd64.deb
+          dpkg-deb -x dist/groundhold_amd64.deb "$RUNNER_TEMP/deb"
+          python3 tools/release/desktop_smoke.py "$RUNNER_TEMP/deb/usr/bin/groundhold" --build-seq "$BUILD_SEQ"
+          mkdir -p "$RUNNER_TEMP/tar"
+          tar -xvzf dist/groundhold-linux-x64.tar.gz -C "$RUNNER_TEMP/tar"
+          python3 tools/release/desktop_smoke.py "$RUNNER_TEMP/tar/Groundhold/groundhold" --build-seq "$BUILD_SEQ"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: game-desktop
-          path: dist/*.zip
+          path: |
+            dist/groundhold-windows-x64-setup.exe
+            dist/groundhold-windows-x64.zip
+            dist/groundhold-x86_64.AppImage
+            dist/groundhold-x86_64.AppImage.zsync
+            dist/groundhold_amd64.deb
+            dist/groundhold-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      # (the macOS job signs and packs it on a Mac)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos-export
+          path: build/desktop/macos/Groundhold.zip
+          if-no-files-found: error
+          retention-days: 3
+
+  # The app signed ad hoc (Apple silicon runs nothing unsigned; it is not notarised) and its disk
+  # image, made with Apple's codesign and hdiutil, which run only on a Mac.
+  macos:
+    name: Game for macOS
+    needs: [gate, desktop]
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      VERSION: ${{ needs.gate.outputs.version }}
+      BUILD_SEQ: ${{ needs.gate.outputs.build_seq }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: macos-export
+          path: build/desktop/macos
+      - name: Sign the app and pack the disk image
+        run: python3 tools/release/package.py macos build/desktop/macos/Groundhold.zip --version "$VERSION" --out dist
+      - name: One app for Apple silicon and Intel, signed, that boots, in an image that verifies
+        run: |
+          set -euo pipefail
+          app=build/package/macos/dmg/Groundhold.app
+          bin="$app/Contents/MacOS/Groundhold"
+          archs=" $(lipo -archs "$bin") "
+          echo "architectures:$archs"
+          [[ "$archs" == *" x86_64 "* && "$archs" == *" arm64 "* ]]
+          codesign --verify --deep --strict --verbose=2 "$app"
+          test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = io.github.saschb2b.Groundhold
+          test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$VERSION"
+          test -n "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")"
+          python3 tools/release/desktop_smoke.py "$bin" --build-seq "$BUILD_SEQ"
+          hdiutil verify dist/groundhold-macos.dmg
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/dmg" dist/groundhold-macos.dmg
+          ls -la "$RUNNER_TEMP/dmg"
+          test -L "$RUNNER_TEMP/dmg/Applications" && test -s "$RUNNER_TEMP/dmg/Read me.txt"
+          codesign --verify --deep --strict "$RUNNER_TEMP/dmg/Groundhold.app"
+          hdiutil detach "$RUNNER_TEMP/dmg"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: game-macos
+          path: dist/groundhold-macos.dmg
           if-no-files-found: error
           retention-days: 14
 
@@ -215,7 +306,7 @@ jobs:
   # whose export or native smoke fails pushes no image (self-hosts pull `latest`); a dry run builds
   # it and pushes nothing
   server-image:
-    needs: [gate, desktop, server-native]
+    needs: [gate, desktop, macos, server-native]
     uses: ./.github/workflows/server-image.yml
     permissions:
       contents: read
@@ -227,7 +318,7 @@ jobs:
 
   publish:
     name: GitHub release
-    needs: [gate, desktop, server-native]
+    needs: [gate, desktop, macos, server-native]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -247,6 +338,10 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: game-desktop
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: game-macos
           path: dist
       - name: Every file, and their checksums
         run: python3 tools/release/assemble.py dist --list files.txt

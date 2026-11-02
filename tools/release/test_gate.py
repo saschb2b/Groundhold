@@ -152,7 +152,8 @@ class GateTest(unittest.TestCase):
             self.assertIn(f"| `{name}` |", out)
         for words in ("ghcr.io/saschb2b/groundhold-server:1.2.0", "xattr -dr com.apple.quarantine", "Open Anyway",
                       "SmartScreen", "wss://groundhold.saschb2b.com/causeway",
-                      "https://saschb2b.github.io/Groundhold/policy.html"):
+                      "https://saschb2b.github.io/Groundhold/policy.html", "drag Groundhold onto Applications",
+                      "Settings > Apps", "AppImageUpdate", "install.sh"):
             self.assertIn(words, out)
         self.assertLess(out.index("xattr -dr com.apple.quarantine"), out.index("Control-click"), "Terminal first")
 

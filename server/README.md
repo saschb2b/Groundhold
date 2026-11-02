@@ -525,7 +525,7 @@ A release carries the server six ways, none with any of the game: the five nativ
 zipapp's, `groundhold-server-<target>.zip` and `groundhold-server-python.zip`
 ([Host your own](#on-your-computer-for-players-on-your-network) lists what each runs on;
 `tools/release/assemble.py`'s `SERVER` is the list a release checks). Each holds one folder,
-`groundhold-server-<version>-<target>/` as the game's zips hold theirs, with the program, a short
+`groundhold-server-<version>-<target>/` (so an unzip in Downloads makes that folder alone), with the program, a short
 `README.txt` for its system, `LICENSE`, `server.example.ini` and `BUILD.json` (target, version, Python,
 protocol). A native one needs no Python: it is a PyInstaller
 one-file build, and its `licenses/` holds the notices of what was frozen into it, written at build time
@@ -723,12 +723,17 @@ A release is a tag `vX.Y.Z` on `main`. `.github/workflows/release.yml` then runs
    `## X.Y.Z · YYYY-MM-DD` with text in it; and `gate.py on-main`: the tag is on `main`; or nothing is
    built (a dry run of a tag elsewhere only warns). The release tools' tests; the build
    number of the Pages build of the same commit, which the desktop builds carry.
-2. **desktop**: the Linux, Windows and macOS exports, the Linux one booted headless to the hub
-   (`desktop_smoke.py`), each packed with its `README-first.txt` (`package.py`); **server-native**:
-   the five native archives and the zipapp's (`server-native.yml`), each smoke-tested outside the
-   checkout; then **server-image**: the image for both architectures (`server-image.yml`), once
-   both have passed, so a tag whose build fails pushes no image either (self-hosts pull `latest`).
-3. **publish**: exactly the release's files (`assemble.py`: the three game zips, the six server
+2. **desktop**: the Linux, Windows and macOS exports, the Windows exe checked for the icon and
+   version the export writes into it (`pe_resources.py`), the Linux one booted headless to the hub
+   (`desktop_smoke.py`); then in the packaging image (`packaging/Dockerfile`) the Windows installer
+   and portable zip, and the AppImage with its `.zsync`, the `.deb` and the `tar.gz` (`package.py`),
+   the AppImage's, the `.deb`'s and the `tar.gz`'s game each booted to the hub too; **macos**, on a
+   Mac: the app signed ad hoc and packed as `groundhold-macos.dmg`, checked universal, signed,
+   booting and verified; **server-native**: the five native archives and the zipapp's
+   (`server-native.yml`), each smoke-tested outside the checkout; then **server-image**: the image
+   for both architectures (`server-image.yml`), once all have passed, so a tag whose build fails
+   pushes no image either (self-hosts pull `latest`).
+3. **publish**: exactly the release's files (`assemble.py`: the game's seven, the six server
    archives) and `SHA256SUMS.txt`, attached to the GitHub release `vX.Y.Z`, whose notes are the
    CHANGELOG's section and the files' table (`gate.py notes`).
 4. **deploy**, last: `release` moved to the tag when it is the newest release, and Coolify asked

@@ -173,18 +173,22 @@ address field, and a page served over https could not reach a server on your hom
 
 | Download | For | Start it |
 |---|---|---|
-| [`groundhold-windows-x64.zip`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-windows-x64.zip) | 64-bit Windows 10 or 11 | unpack it and run `Groundhold.exe` |
-| [`groundhold-macos.zip`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-macos.zip) | macOS, Apple silicon and Intel | unpack it and move `Groundhold.app` to Applications |
-| [`groundhold-linux-x64.zip`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-linux-x64.zip) | Linux on x86-64 | unpack it and run `./groundhold.x86_64` (`chmod +x` it if your unpacker dropped the bit) |
+| [`groundhold-windows-x64-setup.exe`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-windows-x64-setup.exe) | 64-bit Windows 10 or 11 | run it: it installs for your account, no administrator needed, with a Start menu entry and an uninstaller in Settings › Apps |
+| [`groundhold-windows-x64.zip`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-windows-x64.zip) | the same, portable | unpack it anywhere and run `Groundhold\Groundhold.exe` |
+| [`groundhold-macos.dmg`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-macos.dmg) | macOS, Apple silicon and Intel | open it and drag Groundhold onto Applications |
+| [`groundhold-x86_64.AppImage`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-x86_64.AppImage) | Linux on x86-64, most distributions | `chmod +x` it and run it; AppImageUpdate and Gear Lever update it from its `groundhold-x86_64.AppImage.zsync` |
+| [`groundhold_amd64.deb`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold_amd64.deb) | Debian, Ubuntu and their kin | `sudo apt install ./groundhold_amd64.deb`, then Groundhold in the application menu, or `groundhold` |
+| [`groundhold-linux-x64.tar.gz`](https://github.com/saschb2b/Groundhold/releases/latest/download/groundhold-linux-x64.tar.gz) | Linux on x86-64, in a folder | unpack it and run `Groundhold/groundhold`; `Groundhold/install.sh` adds it to the application menu |
 
-Each holds a `README-first.txt` for its system. The builds are not signed, so the first start needs a step:
+The installer, the zip, the tar.gz and the disk image each carry a `README-first.txt` (the disk image's
+`Read me.txt`) for their system. The builds are signed by no publisher, so the first start needs a step:
 
-- **macOS** says the app "cannot be opened" or "is damaged": it is neither, macOS refuses an unsigned app
-  downloaded from the internet. Once, in Terminal: `xattr -dr com.apple.quarantine /Applications/Groundhold.app`,
-  then open it. If an Apple silicon Mac still refuses it, `codesign --force --deep --sign -
-  /Applications/Groundhold.app` signs it for that Mac alone. Without Terminal, and only for "cannot be opened":
-  Control-click `Groundhold.app`, choose Open, then Open again; on macOS 15 and newer, after the first refusal,
-  **System Settings › Privacy & Security › Open Anyway**.
+- **macOS** says Apple could not verify the app, or that it "cannot be opened" or "is damaged": it is
+  neither, macOS refuses an app downloaded from the internet that Apple has not notarised. Once, in Terminal:
+  `xattr -dr com.apple.quarantine /Applications/Groundhold.app`, then open it. If an Apple silicon Mac still
+  refuses it, `codesign --force --deep --sign - /Applications/Groundhold.app` signs it for that Mac alone.
+  Without Terminal: on macOS 15 and newer, after the first refusal, **System Settings › Privacy & Security ›
+  Open Anyway**; on macOS 14 and older, Control-click `Groundhold.app`, choose Open, then Open again.
 - **Windows** SmartScreen may say it protected your PC: **More info**, then **Run anyway**.
 
 The desktop game joins the official server like the browser, and the same parties. For a party on your network,

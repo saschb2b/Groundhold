@@ -151,15 +151,21 @@ network with one of the server's archives above. The server's image is
 `ghcr.io/saschb2b/groundhold-server:{version}`; [server/README.md]({REPOSITORY}/blob/main/server/README.md)
 says how to host one.
 
-**macOS:** the game and the server are not signed or notarised by Apple, so macOS refuses to open
-them the first time ("cannot be opened" or "is damaged"). Once, in Terminal:
+**macOS:** open the disk image and drag Groundhold onto Applications. The game is signed only ad hoc
+and the server not at all, and neither is notarised by Apple, so macOS refuses to open them the first
+time ("Apple could not verify..." or "cannot be opened"). Once, in Terminal:
 `xattr -dr com.apple.quarantine /Applications/Groundhold.app` (the server:
-`xattr -d com.apple.quarantine groundhold-server` in its folder). Without Terminal, for "cannot be
-opened": Control-click `Groundhold.app`, choose Open, then Open; or, after the refusal,
-**System Settings > Privacy & Security > Open Anyway**. Each zip's README-first.txt says more.
+`xattr -d com.apple.quarantine groundhold-server` in its folder). Without Terminal: on macOS 15 and
+newer, after the refusal, **System Settings > Privacy & Security > Open Anyway**; on macOS 14 and older,
+Control-click `Groundhold.app`, choose Open, then Open. The disk image's Read me says more.
 
-**Windows:** the builds are not signed either: if SmartScreen says it protected your PC, choose
-**More info**, then **Run anyway**.
+**Windows:** the installer puts the game in your own account's programs, with a Start menu entry
+and an uninstaller in Settings > Apps; the zip is the same game to unpack anywhere. Neither is signed:
+if SmartScreen says it protected your PC, choose **More info**, then **Run anyway**.
+
+**Linux:** the AppImage runs on most distributions as it is (`chmod +x`, then run it) and updates with
+AppImageUpdate or Gear Lever; the .deb installs it for Debian and Ubuntu with its menu entry; the
+tar.gz's `install.sh` adds a menu entry for the folder you unpacked.
 """
 
 
