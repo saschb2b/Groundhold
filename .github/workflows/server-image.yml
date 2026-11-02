@@ -79,10 +79,15 @@ jobs:
             org.opencontainers.image.title=Groundhold server
             org.opencontainers.image.description=The multiplayer server of Groundhold: the hub and the turn sequencer
             org.opencontainers.image.licenses=MIT
+      - id: commit
+        name: The commit built, for the server's /health
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: server/Dockerfile
+          build-args: |
+            SOURCE_COMMIT=${{ steps.commit.outputs.sha }}
           platforms: linux/amd64,linux/arm64
           push: ${{ inputs.push }}
           tags: ${{ steps.meta.outputs.tags }}

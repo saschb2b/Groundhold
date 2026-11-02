@@ -66,8 +66,9 @@ refused before they became a game's socket (a wrong path, no WebSocket: scanners
 one `refused_requests` line a minute, by reason. The console log on standard
 error is the same events without names or identities.
 
-`GET /health` on the same port answers status, protocol, name, players, running matches, the
-maintenance line and the dev match; `GET /stats` the day's totals (below).
+`GET /health` on the same port answers status, protocol, the release's version and the commit it was
+built from (`build`; none in a checkout), name, players, running matches, the maintenance line and the
+dev match, and nothing else about the build or the host; `GET /stats` the day's totals (below).
 
 The hosting computer's firewall must let TCP port 8766 in; Nearby needs the server's broadcasts to UDP
 port 8767 to reach the others (a firewall that drops them only hides it from Nearby, and players can

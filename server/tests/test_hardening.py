@@ -21,6 +21,7 @@ import unittest
 from support import (MOST_MESSAGES, RULES, Client, ManualClock, hello, masked, server, start_match, until,
                      upgrade_request)
 from groundhold_server import protocol
+from groundhold_server.build_info import BUILD, VERSION
 from groundhold_server.protocol import SPEC
 
 ERRORS = SPEC["errors"]
@@ -189,7 +190,8 @@ class HardeningTests(unittest.IsolatedAsyncioTestCase):
         response = await self.raw_request(b"GET /health HTTP/1.1\r\nHost: x\r\n\r\n")
         self.assertTrue(response.startswith(b"HTTP/1.1 200"))
         health = json.loads(response.split(b"\r\n\r\n", 1)[1])
-        self.assertEqual(health, {"status": "ok", "protocol": 1, "name": "Test Shore", "motd": "Hold the road",
+        self.assertEqual(health, {"status": "ok", "protocol": 1, "version": VERSION, "build": BUILD,
+                                  "name": "Test Shore", "motd": "Hold the road",
                                   "players": 1, "player_cap": 64, "matches": 0, "maintenance": None,
                                   "dev_match": "classic:2", "turn_ms": 50})
 

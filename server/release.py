@@ -35,7 +35,7 @@ import subprocess
 import sys
 import zipfile
 
-from build import build, zip_entry
+from build import build, build_json, zip_entry
 from notices import collect, readme as notices_readme
 from smoke import smoke
 
@@ -112,7 +112,7 @@ def readme(target, version):
     return "\n".join(lines) + "\n"
 
 
-def native(work):
+def native(work, version=None):
     """A one-file PyInstaller build of the server for this computer: its path."""
     try:
         installed = importlib.metadata.version("pyinstaller")
@@ -121,11 +121,15 @@ def native(work):
     if installed != PYINSTALLER:
         raise RuntimeError(f"PyInstaller {PYINSTALLER} is needed (found {installed}): "
                            "pip install --require-hashes -r server/requirements-build.txt")
+    stamp = work / "build.json"
+    stamp.write_bytes(build_json(ROOT, version, os.environ.get("GITHUB_SHA")))
     args = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--noupx",
             "--name", NAME, "--distpath", str(work / "dist"), "--workpath", str(work / "work"),
             "--specpath", str(work), "--paths", str(ROOT / "server"),
-            # (protocol.json beside the package's modules, where protocol.py's files() looks)
+            # (protocol.json and build.json beside the package's modules, where protocol.py's and
+            # build_info.py's files() look)
             "--add-data", str(ROOT / "shared/net/protocol.json") + ":groundhold_server",
+            "--add-data", str(stamp) + ":groundhold_server",
             str(ROOT / "server/main.py")]
     environment = dict(os.environ, PYTHONHASHSEED="0", SOURCE_DATE_EPOCH="315532800",
                        PYINSTALLER_CONFIG_DIR=str(work / "cache"))
@@ -197,11 +201,12 @@ def main(argv=None):
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
     if args.native:
-        executable = native(work)
+        executable = native(work, args.version)
         destination = archive(executable, target, args.output, args.version, native_notices(work, target),
                               PYINSTALLER)
     else:
-        destination = archive(build(work / executable_name(target)), target, args.output, args.version)
+        destination = archive(build(work / executable_name(target), args.version, os.environ.get("GITHUB_SHA")),
+                              target, args.output, args.version)
     try:
         smoke(destination)
     except BaseException:

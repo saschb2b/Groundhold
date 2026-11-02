@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The server's `GET /health` names the release it runs and the commit it was built from (`"version": "0.8.0",
+  "build": "ef83fd29c820"`), so a deploy can be checked from outside and a self-host knows its release; nothing
+  else about the build or the host is told. The image's build context lets in `project.godot` for its version line,
+  and the image takes the commit as the build argument `SOURCE_COMMIT`.
+
 ## 0.8.0 · 2026-11-02
 
 Undertow, the duel (M7). Two players, each on their own hollow under one clock, cork packs from the Drift and

@@ -10,3 +10,5 @@
 !server/server.example.ini
 !server/groundhold_server/*.py
 !shared/net/protocol.json
+# (project.godot only for its config/version, the release /health names: build.py reads that line)
+!project.godot

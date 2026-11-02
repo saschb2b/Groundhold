@@ -21,9 +21,11 @@ FROM scratch AS sources
 COPY . /
 
 FROM python:3.13-slim AS build
+# (the commit /health names: Coolify and server-image.yml pass it; without it the build names none)
+ARG SOURCE_COMMIT=""
 COPY --from=sources / /workspace/
 WORKDIR /workspace
-RUN python3 server/build.py --output /dist/groundhold-server.pyz
+RUN python3 server/build.py --output /dist/groundhold-server.pyz --commit "$SOURCE_COMMIT"
 
 FROM python:3.13-slim
 # (GROUNDHOLD_SERVER_STATE_DIR: every command, --admin and --backup too, finds

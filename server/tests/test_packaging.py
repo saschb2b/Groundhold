@@ -51,7 +51,7 @@ class ZipappTests(unittest.TestCase):
             first = build.build(Path(directory) / "a/server.pyz")
             second = build.build(Path(directory) / "b/server.pyz")
             self.assertEqual(first.read_bytes(), second.read_bytes())
-            expected = {"__main__.py", "LICENSE", "groundhold_server/protocol.json"}
+            expected = {"__main__.py", "LICENSE", "groundhold_server/protocol.json", "groundhold_server/build.json"}
             expected.update("groundhold_server/" + file.name for file in (ROOT / "server/groundhold_server").glob("*.py"))
             with zipfile.ZipFile(first) as archive:
                 self.assertEqual(set(archive.namelist()), expected)

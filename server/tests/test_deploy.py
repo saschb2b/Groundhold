@@ -22,8 +22,10 @@ import tempfile
 import time
 import unittest
 import urllib.request
+import zipfile
 
 from support import ROOT
+from groundhold_server import build_info   # noqa: E402
 from groundhold_server.protocol import SPEC   # noqa: E402
 
 DOCKERFILE = ROOT / "server/Dockerfile"
@@ -140,6 +142,11 @@ class DockerfileTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(sorted(path.name for path in (context / "dist").iterdir()),
                              ["LICENSE", "README.md", "groundhold-server.pyz", "server.example.ini"])
+            # (the context holds project.godot, so the image's /health names the release, not "dev")
+            with zipfile.ZipFile(context / "dist/groundhold-server.pyz") as built:
+                stamp = json.loads(built.read("groundhold_server/build.json"))
+            self.assertEqual(stamp["version"], build_info.version_of(ROOT))
+            self.assertNotEqual(stamp["version"], "dev")
 
 
 class HealthCheckTests(unittest.TestCase):

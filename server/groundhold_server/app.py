@@ -39,6 +39,7 @@ import time
 
 from . import protocol, retention, websocket
 from .beacon import Beacon
+from .build_info import BUILD, VERSION
 from .holds import HOLD_MS, Holds
 from .identity import IdentityStore
 from .lobby import LOOKUP_BURST, LOOKUP_REFILL, PARTIES_PER_PLAYER, Lobby, Timers
@@ -566,7 +567,9 @@ class Server:
             raise ProtocolError("Unknown or out-of-order message")
 
     def health(self):
-        return {"status": "ok", "protocol": SPEC["version"], "name": self.name, "motd": self.motd,
+        # (version and build: which release and commit answer, build_info.py; nothing more of the build)
+        return {"status": "ok", "protocol": SPEC["version"], "version": VERSION, "build": BUILD,
+                "name": self.name, "motd": self.motd,
                 "players": len(self.players), "player_cap": self.player_cap, "matches": len(self.matches),
                 "maintenance": self.maintenance or None, "dev_match": self.dev_match_text(),
                 "turn_ms": self.turn_ms}
