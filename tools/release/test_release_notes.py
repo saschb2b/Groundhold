@@ -1,13 +1,16 @@
 """A release's text: its own page where there is one, pinned at the tag (pictures as raw files, links as
-the blob view), else its CHANGELOG section, else nothing and a failure; then the Downloads block, every
-file of the release under the system it is for, the one to pick first marked, the server's apart, the
-help for an unsigned build folded, and the checksums; the title; and every page held to the rules.
+the blob view) with its line of downloads under the summary, else its CHANGELOG section, else nothing
+and a failure; then the Downloads block, every file the release attaches (its version's table) under
+the system it is for, the one to pick first in bold and the others under it, the help for an unsigned
+build next to them, the server's archives and the checksums folded; a published release's assets
+checked against its table; the title; and every page held to the rules.
 
     python3 -m unittest discover -s tools/release -t tools/release
 """
 
 import contextlib
 import io
+import json
 from pathlib import Path
 import re
 import tempfile
@@ -42,6 +45,10 @@ title: "Groundhold 1.2.0"
 </p>
 
 <h2 align="center">A tagline.</h2>
+
+<p align="center"><b>New in 1.2.0:</b> the summary.</p>
+
+<!-- downloads -->
 
 See [the design](../design/core-loop.md#27-stacked-waves), the [changelog](../../CHANGELOG.md), the
 [media folder](media/v1.2.0/) and [the site](https://saschb2b.github.io/Groundhold/).
@@ -120,106 +127,171 @@ class BodyTest(unittest.TestCase):
 
 
 class DownloadsTest(unittest.TestCase):
-    def block(self, table=None, dist=None) -> str:
-        return notes.downloads("v1.2.0", table=table, dist=dist)
+    def block(self, table=None, dist=None, tag="v1.2.0", assets=None, hosts="") -> str:
+        return notes.downloads(tag, table=table, dist=dist, assets=assets, hosts=hosts)
 
     def section(self, text: str, heading: str) -> str:
         start = text.index(heading)
-        found = re.search(r"^##", text[start + len(heading):], re.M)
+        found = re.search(r"^(##|<details>)", text[start + len(heading):], re.M)
         return text[start:start + len(heading) + found.start()] if found else text[start:]
 
-    def test_each_system_its_files_the_first_choice_marked(self):
+    def test_each_system_its_first_choice_in_bold_and_the_others_under_it(self):
         text = self.block()
         windows, mac, linux = (self.section(text, f"### {h}") for _, h, _ in notes.SYSTEMS)
-        self.assertLess(windows.index("groundhold-windows-x64-setup.exe"), windows.index("groundhold-windows-x64.zip"))
-        self.assertIn(f"**[Installer]({DOWNLOAD}/v1.2.0/groundhold-windows-x64-setup.exe)** · recommended", windows)
-        self.assertIn(f"**[Portable]({DOWNLOAD}/v1.2.0/groundhold-windows-x64.zip)** · `", windows)
-        self.assertIn(f"**[Disk image]({DOWNLOAD}/v1.2.0/groundhold-macos.dmg)** · `", mac,
-                      "macOS has one choice: nothing to recommend")
-        self.assertNotIn("recommended", mac)
-        order = [linux.index(name) for name in ("groundhold-x86_64.AppImage`", "groundhold_amd64.deb",
-                                                "groundhold-linux-x64.tar.gz", "groundhold-x86_64.AppImage.zsync")]
-        self.assertEqual(order, sorted(order), "the AppImage first, then the package and the archive, the zsync last")
-        self.assertIn("**[AppImage]", linux)
-        self.assertIn("· recommended", linux.split("\n- ")[1], "the AppImage is the one to pick")
+        self.assertIn(f"**[Installer]({DOWNLOAD}/v1.2.0/groundhold-windows-x64-setup.exe)**<br>\nInstalls Groundhold",
+                      windows)
+        self.assertIn(f"<sub><b>Also:</b> [Portable zip]({DOWNLOAD}/v1.2.0/groundhold-windows-x64.zip) · Nothing to "
+                      "install", windows)
+        self.assertLess(windows.index("setup.exe"), windows.index("<b>Also:</b>"))
+        self.assertIn(f"**[Disk image]({DOWNLOAD}/v1.2.0/groundhold-macos.dmg)**<br>", mac)
+        self.assertNotIn("Also:", mac, "macOS has one choice")
+        self.assertIn("see **Your system will not start it?** below", mac, "the help named where it is")
+        self.assertIn(f"**[AppImage]({DOWNLOAD}/v1.2.0/groundhold-x86_64.AppImage)**<br>", linux)
+        self.assertIn(f"from its [update file]({DOWNLOAD}/v1.2.0/groundhold-x86_64.AppImage.zsync).", linux,
+                      "the zsync linked in the AppImage's words, no row of its own")
+        also = linux[linux.index("<b>Also:</b>"):]
+        self.assertLess(also.index("groundhold_amd64.deb"), also.index("groundhold-linux-x64.tar.gz"))
         self.assertIn("chmod +x groundhold-x86_64.AppImage", linux)
         self.assertIn("sudo apt install ./groundhold_amd64.deb", linux)
         self.assertIn("./install.sh --remove", linux)
-        self.assertIn("<sub>[`groundhold-x86_64.AppImage.zsync`]", linux, "the zsync is a footnote, not a choice")
+        for part in (windows, mac, linux):
+            self.assertNotIn("recommended", part)
+            self.assertNotIn("`groundhold", part.split("<b>Also:</b>")[0].replace("`groundhold-x86_64", ""),
+                             "no file name in monospace beside the first choice")
 
     def test_the_order_of_the_block(self):
         text = self.block()
         marks = ["## ⬇️ Download", "saschb2b.github.io/Groundhold/play/", "### 🪟 Windows", "### 🍎 macOS",
-                 "### 🐧 Linux", "## 🖥️ Host a server", "<details>", "**Checksums:**"]
+                 "### 🐧 Linux", "<summary><b>Your system will not start it?</b>", "<summary><b>🖥️ Host a server</b>",
+                 "<summary><b>Checksums</b>"]
         found = [text.index(mark) for mark in marks]
-        self.assertEqual(found, sorted(found), "the browser first, the systems, then the server, help and sums")
+        self.assertEqual(found, sorted(found), "the browser first, the systems and their help, then the server, sums")
+        self.assertEqual(text.count("<details>"), 3)
+        self.assertEqual(text.count("</details>"), 3)
 
-    def test_the_server_apart_with_its_image(self):
-        server = self.section(self.block(), "## 🖥️ Host a server")
+    def test_the_server_folded_with_its_image_and_a_word_for_hosts(self):
+        server = self.section(self.block(), "<summary><b>🖥️ Host a server</b>")
         for row in assemble.TABLE:
             if row.system == "server":
                 self.assertIn(f"| [`{row.name}`]({DOWNLOAD}/v1.2.0/{row.name}) | {row.what} |", server)
-        self.assertEqual(LINKED.findall(server[:server.index("<details>")]), assemble.SERVER,
-                         "the server's archives, in the table's order")
+        self.assertEqual(LINKED.findall(server), assemble.SERVER, "the server's archives, in the table's order")
         self.assertIn("docker pull ghcr.io/saschb2b/groundhold-server:1.2.0", server)
         self.assertIn(f"{BLOB}/v1.2.0/server/README.md", server)
         self.assertIn("wss://groundhold.saschb2b.com/causeway", server)
         self.assertIn("https://saschb2b.github.io/Groundhold/policy.html", server)
-        self.assertNotIn("setup.exe", server)
+        self.assertNotIn("New for hosts", server)
+        hosts = self.section(self.block(hosts="The health check names the release."), "<summary><b>🖥️ Host a server")
+        self.assertIn("**New for hosts in 1.2.0:** The health check names the release.\n\n</details>", hosts)
 
-    def test_the_help_for_an_unsigned_build_is_folded(self):
+    def test_the_help_for_an_unsigned_build_comes_after_the_systems(self):
         text = self.block()
-        help_ = text[text.index("<details>"):text.index("</details>")]
+        help_ = self.section(text, "<summary><b>Your system will not start it?</b>")
         for words in ("**More info**", "**Run anyway**", "xattr -dr com.apple.quarantine /Applications/Groundhold.app",
                       "codesign --force --deep --sign - /Applications/Groundhold.app", "**Open Anyway**",
                       "Control-click", "--appimage-extract-and-run"):
             self.assertIn(words, help_)
-        self.assertLess(help_.index("xattr -dr"), help_.index("Open Anyway"), "Terminal first")
-        self.assertLess(help_.index("xattr -dr"), help_.index("Control-click"), "Terminal first")
+        # (the image's app is signed ad hoc: the steps without Terminal open it; Terminal is for "is damaged")
+        self.assertLess(help_.index("Open Anyway"), help_.index("xattr -dr"), "no Terminal first")
+        self.assertLess(help_.index("Control-click"), help_.index("xattr -dr"), "no Terminal first")
+        self.assertLess(help_.index('"is damaged"'), help_.index("xattr -dr"))
         without = [row for row in assemble.TABLE if not row.name.startswith(assemble.APPIMAGE)]
         self.assertNotIn("--appimage-extract-and-run", self.block(table=without), "no AppImage, no word of FUSE")
 
-    def test_the_checksums_and_with_the_files_their_sizes(self):
+    def test_the_checksums_folded_and_with_the_files_their_sizes(self):
         text = self.block()
-        self.assertIn(f"[`SHA256SUMS.txt`]({DOWNLOAD}/v1.2.0/SHA256SUMS.txt)", text)
-        self.assertIn("sha256sum -c SHA256SUMS.txt --ignore-missing", text)
+        sums = self.section(text, "<summary><b>Checksums</b>")
+        self.assertIn(f"[`SHA256SUMS.txt`]({DOWNLOAD}/v1.2.0/SHA256SUMS.txt)", sums)
+        self.assertIn("sha256sum -c SHA256SUMS.txt --ignore-missing", sums)
         self.assertNotIn(" MB", text, "no sizes without the files")
         with tempfile.TemporaryDirectory() as folder:
             dist = Path(folder)
             (dist / "groundhold-windows-x64-setup.exe").write_bytes(b"\0" * (95 * 1024 * 1024 + 7))
-            (dist / "groundhold-macos.dmg").write_bytes(b"\0" * (3 * 1024 * 1024 // 2))
+            (dist / "groundhold-windows-x64.zip").write_bytes(b"\0" * (3 * 1024 * 1024 // 2))
             (dist / "groundhold-x86_64.AppImage.zsync").write_bytes(b"\0" * 300 * 1024)
             (dist / "SHA256SUMS.txt").write_text("abc  groundhold-macos.dmg\n", encoding="utf-8")
             text = self.block(dist=dist)
-        self.assertIn("`groundhold-windows-x64-setup.exe` · 95 MB<br>", text)
-        self.assertIn("`groundhold-macos.dmg` · 1.5 MB<br>", text)
-        self.assertIn("groundhold-x86_64.AppImage.zsync`](", text)
-        self.assertIn(" · 300 KB: the AppImage's update file", text)
-        self.assertIn("```\nabc  groundhold-macos.dmg\n```", text, "the sums themselves, folded")
+        self.assertIn("/groundhold-windows-x64-setup.exe)** · 95 MB<br>", text)
+        self.assertIn("/groundhold-windows-x64.zip) · 1.5 MB · Nothing to install", text)
+        self.assertIn("```\nabc  groundhold-macos.dmg\n```", self.section(text, "<summary><b>Checksums</b>"),
+                      "the sums themselves, folded")
 
     def test_a_row_is_shown_in_its_own_words(self):
-        # (the block has no words of its own for a file: a new row of assemble.TABLE shows as it says)
+        # (the block has no words of its own for a file: a new row of the table shows as it says)
         table = list(assemble.TABLE) + [assemble.File("groundhold-macos-legacy.zip", "macos", "For an old Mac.",
                                                       "Legacy")]
         mac = self.section(self.block(table=table), "### 🍎 macOS")
-        self.assertIn(f"**[Disk image]({DOWNLOAD}/v1.2.0/groundhold-macos.dmg)** · recommended", mac,
-                      "two choices now: the first marked")
-        self.assertIn(f"**[Legacy]({DOWNLOAD}/v1.2.0/groundhold-macos-legacy.zip)** · `groundhold-macos-legacy.zip`"
-                      "<br>For an old Mac.", mac)
+        self.assertIn(f"**[Disk image]({DOWNLOAD}/v1.2.0/groundhold-macos.dmg)**<br>", mac, "the first stays first")
+        self.assertIn(f"<sub><b>Also:</b> [Legacy]({DOWNLOAD}/v1.2.0/groundhold-macos-legacy.zip) · For an old Mac.",
+                      mac)
         with self.assertRaisesRegex(notes.NotesError, r"no system for groundhold-tvos.ipa \('tvos'\)"):
             self.block(table=[assemble.File("groundhold-tvos.ipa", "tvos", "For a television.", "App")])
+        stray = [assemble.File("a.AppImage", "linux", "No link here.", "AppImage", "Linux"),
+                 assemble.File("a.AppImage.zsync", "linux", "update file", inside="a.AppImage")]
+        with self.assertRaisesRegex(notes.NotesError, "no words link a.AppImage.zsync"):
+            self.block(table=stray)
 
     def test_the_block_names_exactly_the_releases_files(self):
-        # (assemble.TABLE is the one table of a release's files: assemble.py checks dist against its names,
-        # and the block links each of them once, the checksums too, and nothing else)
-        text = notes.downloads("v9.9.9")
-        self.assertEqual(sorted(LINKED.findall(text)), sorted(assemble.FILES + [assemble.SUMS]))
-        for key, heading, _ in notes.SYSTEMS:
-            shown = LINKED.findall(self.section(text, f"### {heading}"))
-            self.assertEqual(sorted(shown), sorted(row.name for row in assemble.TABLE if row.system == key), heading)
-        for row in assemble.TABLE:
-            if row.system != "server":
-                self.assertIn(row.what.format(name=row.name), text, f"{row.name} in its own words")
+        # (a release's table is the one list of its files: assemble.py checks dist against its names, and
+        # the block links each of them once, the checksums too, and nothing else)
+        for tag in ("v9.9.9", "v0.9.0"):
+            table = assemble.table_for(tag[1:])
+            text = notes.downloads(tag)
+            self.assertEqual(sorted(LINKED.findall(text)), sorted([row.name for row in table] + [assemble.SUMS]), tag)
+            for key, heading, _ in notes.SYSTEMS:
+                shown = LINKED.findall(self.section(text, f"### {heading}"))
+                self.assertEqual(sorted(shown), sorted(row.name for row in table if row.system == key), heading)
+            for row in table:
+                if row.system != "server" and not row.inside:
+                    self.assertIn(row.what.format(name=row.name, link="").split("[")[0][:40], text, row.name)
+
+    def test_a_release_before_the_packages_downloads_its_zips(self):
+        # (v0.9.0's GitHub release attaches one zip a system: a link to the installer or the AppImage would 404)
+        text = notes.downloads("v0.9.0")
+        self.assertEqual(LINKED.findall(text), [
+            "groundhold-windows-x64.zip", "groundhold-macos.zip", "groundhold-linux-x64.zip", *assemble.SERVER,
+            assemble.SUMS])
+        self.assertNotIn(".AppImage", text)
+        self.assertNotIn("--appimage-extract-and-run", text)
+        self.assertIn(f"**[Zip]({DOWNLOAD}/v0.9.0/groundhold-macos.zip)**<br>", text)
+
+    def test_a_published_releases_assets_give_sizes_and_sums_and_must_be_its_tables(self):
+        names = [row.name for row in assemble.ZIPS] + [assemble.SUMS]
+        assets = {name: (1024 * 1024 * (i + 1), f"{i:064x}") for i, name in enumerate(names)}
+        text = self.block(tag="v0.9.0", assets=assets)
+        self.assertIn(f"**[Zip]({DOWNLOAD}/v0.9.0/groundhold-windows-x64.zip)** · 1.0 MB<br>", text)
+        sums = self.section(text, "<summary><b>Checksums</b>")
+        self.assertIn(f"{0:064x}  groundhold-windows-x64.zip\n{1:064x}  groundhold-macos.zip\n", sums)
+        self.assertNotIn("  SHA256SUMS.txt", sums, "the sums list the files, not themselves")
+        with self.assertRaisesRegex(notes.NotesError, "missing .*groundhold-x86_64.AppImage"):
+            self.block(tag="v1.2.0", assets=assets)
+        extra = dict(assets, **{"groundhold-extra.zip": (1, "")})
+        with self.assertRaisesRegex(notes.NotesError, "not in the table groundhold-extra.zip"):
+            self.block(tag="v0.9.0", assets=extra)
+
+    def test_assets_read_from_gh(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "assets.json"
+            path.write_text(json.dumps({"assets": [
+                {"name": "groundhold-macos.zip", "size": 72770442, "digest": "sha256:ab12"},
+                {"name": "SHA256SUMS.txt", "size": 862}]}), encoding="utf-8")
+            self.assertEqual(notes.read_assets(path), {"groundhold-macos.zip": (72770442, "ab12"),
+                                                       "SHA256SUMS.txt": (862, "")})
+
+
+class QuickLineTest(unittest.TestCase):
+    def test_each_systems_first_and_the_browser_by_direct_link(self):
+        line = notes.quick_line("v1.2.0")
+        self.assertEqual(line, '<p align="center"><b>Download:</b> '
+                         f'<a href="{DOWNLOAD}/v1.2.0/groundhold-windows-x64-setup.exe">Windows installer</a> · '
+                         f'<a href="{DOWNLOAD}/v1.2.0/groundhold-macos.dmg">macOS</a> · '
+                         f'<a href="{DOWNLOAD}/v1.2.0/groundhold-x86_64.AppImage">Linux AppImage</a> · '
+                         '<a href="https://saschb2b.github.io/Groundhold/play/">Play in the browser</a></p>')
+        self.assertIn(f'<a href="{DOWNLOAD}/v0.9.0/groundhold-macos.zip">macOS</a>', notes.quick_line("v0.9.0"))
+
+    def test_the_page_carries_it_under_its_summary(self):
+        text = notes.body(Tree(self).root, "v1.2.0")
+        self.assertNotIn("<!-- downloads -->", text)
+        self.assertIn("the summary.</p>\n\n" + notes.quick_line("v1.2.0"), text)
 
 
 class NotesTest(unittest.TestCase):
@@ -228,6 +300,26 @@ class NotesTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertLess(out.index("<h2 align=\"center\">A tagline.</h2>"), out.index("---\n\n## ⬇️ Download"))
         self.assertTrue(out.endswith("\n") and not out.endswith("\n\n"))
+
+    def test_the_hosts_line_comes_from_the_pages_frontmatter(self):
+        tree = Tree(self, page=PAGE.replace('title: "Groundhold 1.2.0"', "hosts: The health check names its release."))
+        text = notes.notes(tree.root, "v1.2.0")
+        self.assertIn("**New for hosts in 1.2.0:** The health check names its release.", text)
+        self.assertNotIn("hosts:", text)
+
+    def test_assets_on_the_command_line(self):
+        tree = Tree(self)
+        names = [row.name for row in assemble.TABLE] + [assemble.SUMS]
+        path = tree.root / "assets.json"
+        path.write_text(json.dumps({"assets": [{"name": n, "size": 2048, "digest": "sha256:" + "f" * 64}
+                                               for n in names]}), encoding="utf-8")
+        code, out, err = run("v1.2.0", "--root", tree.root, "--assets", path)
+        self.assertEqual(code, 0, err)
+        self.assertIn("/groundhold-windows-x64-setup.exe)** · 2 KB<br>", out)
+        path.write_text(json.dumps({"assets": [{"name": "groundhold-macos.zip", "size": 1}]}), encoding="utf-8")
+        code, out, err = run("v1.2.0", "--root", tree.root, "--assets", path)
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("attaches other files than its table", err)
 
     def test_this_trees_newest_page_builds(self):
         newest = notes.pages(ROOT)[0]
@@ -251,6 +343,7 @@ class CheckTest(unittest.TestCase):
             'width="640" ': "has no width",
             'src="media/v1.2.0/hero.webp"': "is not in media/v1.2.0/",
             '<h2 align="center">A tagline.</h2>': "no tagline",
+            "<!-- downloads -->": "no <!-- downloads --> line",
         }
         for case, problem in cases.items():
             with self.subTest(problem=problem):

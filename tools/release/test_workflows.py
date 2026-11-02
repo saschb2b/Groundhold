@@ -388,8 +388,10 @@ class AcrossTheRepositoryTest(unittest.TestCase):
                                                          "groundhold-0.6.0-linux-x86_64.zip", "groundhold-amd64.deb"])
 
     def test_the_macos_steps_put_the_terminal_first(self):
-        # (Control-click > Open and Open Anyway do not get past "is damaged"; the quarantine step does)
-        for page in ("README.md", "web/index.html", "tools/release/readme/macos.txt", self.DOWNLOADS):
+        # (Control-click > Open and Open Anyway do not get past "is damaged"; the quarantine step does.
+        # The release's downloads lead with the steps without Terminal, which open the image's app signed
+        # ad hoc, and send "is damaged" to Terminal: test_release_notes holds that order)
+        for page in ("README.md", "web/index.html", "tools/release/readme/macos.txt"):
             text = self.text_of(page)
             self.assertLess(text.index("xattr -dr com.apple.quarantine"), text.index("Control-click"), page)
 

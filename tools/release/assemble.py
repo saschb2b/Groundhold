@@ -12,8 +12,10 @@ FILES, which this checks `dist` against, is its names, and the release's Downloa
 (tools/release/release_notes.py) lists its rows and nothing else; every page that tells players what
 to download names only FILES (README.md, server/README.md, the site; tools/release/test_workflows.py
 holds them to it). It fails, naming each, on a file missing or one no release has; then it writes
-SHA256SUMS.txt and the list of files to attach (one path a line, the checksums last). Standard
-library only.
+SHA256SUMS.txt and the list of files to attach (one path a line, the checksums last). ZIPS is the
+table of the releases before it, 0.6.0 to 0.9.0, one zip a system, which table_for(version) gives
+for those, so a page written for one of them downloads what it really attached. Standard library
+only.
 """
 
 import argparse
@@ -41,29 +43,20 @@ class File(NamedTuple):
 
     name: str
     system: str          # the heading it is listed under: windows, macos, linux or server
-    what: str            # what it is and how to start it, in a player's words ({name} is its name)
-    choice: str = ""     # its link's word where a player picks between a system's files; "" for a
-                         # file that only serves another (the AppImage's .zsync), shown in small type
-    first: bool = False  # the one to pick first, marked "recommended" where there is a choice
+    what: str            # what it is and how to start it, in a player's words ({name} is its name, {link}
+                         # where a file that serves this one is linked); for a file `inside` another,
+                         # the words of its link there
+    choice: str = ""     # its link's word where a player picks between a system's files
+    first: str = ""      # for the one to pick first, its words in the page's top line of downloads
+                         # ("Windows installer"); its system shows it first, in bold, the others under it
+    inside: str = ""     # for a file that only serves another (the AppImage's .zsync): that file's
+                         # name, whose words link this one at {link}
 
 
 # Every file of a release, in the order its page lists them.
-TABLE = (
-    File(WINDOWS_SETUP, "windows", "Installs Groundhold for your account alone, no administrator needed, with a "
-         "Start menu entry and, if you tick it, one on the desktop. **Settings › Apps** removes it again; your "
-         "saves stay.", "Installer", True),
-    File(WINDOWS_ZIP, "windows", "Nothing to install: unpack it anywhere and run `Groundhold.exe` in its "
-         "`Groundhold` folder.", "Portable"),
-    File(MACOS_DMG, "macos", "Open it and drag Groundhold onto Applications. The first start needs one step "
-         "more, below.", "Disk image", True),
-    File(APPIMAGE, "linux", "One file: make it executable (`chmod +x {name}`) and run it. AppImageUpdate or "
-         "Gear Lever brings it up to date from the newest release, fetching only what changed.", "AppImage", True),
-    File(ZSYNC, "linux", "the AppImage's update file, which AppImageUpdate reads to fetch only what changed; "
-         "you need not download it"),
-    File(DEB, "linux", "For Debian, Ubuntu, Mint and their kin: `sudo apt install ./{name}` puts Groundhold in "
-         "your menu.", "Debian package"),
-    File(LINUX_TAR, "linux", "Unpack it anywhere: `./install.sh` in its `Groundhold` folder adds Groundhold to "
-         "your menu for you alone, and `./install.sh --remove` takes it out again.", "Archive"),
+# (the downloads' help for a build no system knows the publisher of, release_notes.py's, is headed so)
+HELP = "Your system will not start it?"
+SERVERS = (
     File("groundhold-server-python.zip", "server", "The server for any computer with Python 3.11 or newer"),
     File("groundhold-server-windows-x64.zip", "server", "The server for 64-bit Windows, nothing to install"),
     File("groundhold-server-macos-arm64.zip", "server", "The server for an Apple silicon Mac"),
@@ -71,9 +64,47 @@ TABLE = (
     File("groundhold-server-linux-x64.zip", "server", "The server for Linux on x86-64"),
     File("groundhold-server-linux-arm64.zip", "server", "The server for Linux on ARM64 (a 64-bit Raspberry Pi OS)"),
 )
+TABLE = (
+    File(WINDOWS_SETUP, "windows", "Installs Groundhold for your account alone, no administrator needed, with a "
+         "Start menu entry and, if you tick it, one on the desktop. **Settings › Apps** removes it again; your "
+         "saves stay.", "Installer", "Windows installer"),
+    File(WINDOWS_ZIP, "windows", "Nothing to install: unpack it anywhere and run `Groundhold.exe` in its "
+         "`Groundhold` folder.", "Portable zip"),
+    File(MACOS_DMG, "macos", "Open it and drag Groundhold onto Applications. The first start needs one step "
+         f"more: see **{HELP}** below.", "Disk image", "macOS"),
+    File(APPIMAGE, "linux", "One file: make it executable (`chmod +x {name}`) and run it. AppImageUpdate or "
+         "Gear Lever brings it up to date from the newest release, fetching only what changed, from its {link}.",
+         "AppImage", "Linux AppImage"),
+    File(ZSYNC, "linux", "update file", inside=APPIMAGE),
+    File(DEB, "linux", "For Debian, Ubuntu, Mint and their kin: `sudo apt install ./{name}` puts Groundhold in "
+         "your menu.", "Debian package"),
+    File(LINUX_TAR, "linux", "Unpack it anywhere: `./install.sh` in its `Groundhold` folder adds Groundhold to "
+         "your menu for you alone, and `./install.sh --remove` takes it out again.", "Archive"),
+    *SERVERS,
+)
 FILES = [row.name for row in TABLE]
 GAME = [row.name for row in TABLE if row.system != "server"]
 SERVER = [row.name for row in TABLE if row.system == "server"]
+
+# The files of the releases before TABLE, 0.6.0 to 0.9.0 (their tools/release/assemble.py's FILES): the
+# game one zip a system, each holding one folder, groundhold-<version>-<platform>/, with the export and
+# its README-first.txt; the same server. Only a page for one of those releases shows them.
+ZIPS_UNTIL = (0, 9, 0)
+ZIPS = (
+    File("groundhold-windows-x64.zip", "windows", "Unpack it anywhere (right-click it, Extract All) and run "
+         "`Groundhold.exe` in its folder.", "Zip", "Windows"),
+    File("groundhold-macos.zip", "macos", "Unpack it and move `Groundhold.app` to Applications. The first start "
+         f"needs one step more: see **{HELP}** below.", "Zip", "macOS"),
+    File("groundhold-linux-x64.zip", "linux", "Unpack it anywhere and run `groundhold.x86_64` in its folder.",
+         "Zip", "Linux"),
+    *SERVERS,
+)
+
+
+def table_for(version: str) -> tuple[File, ...]:
+    """The files release `version` (X.Y.Z) attaches: ZIPS up to ZIPS_UNTIL, TABLE after."""
+    parts = tuple(int(n) for n in version.split("."))
+    return ZIPS if parts <= ZIPS_UNTIL else TABLE
 
 
 def digest(path: Path) -> str:

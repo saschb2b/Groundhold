@@ -67,17 +67,36 @@ class AssembleTest(unittest.TestCase):
         # (TABLE is the one table of a release's files: this checks dist against its names, and the
         # release's Downloads block, tools/release/release_notes.py, shows each row in its own words)
         self.assertEqual(len(set(assemble.FILES)), len(assemble.FILES), "no file twice")
-        for row in assemble.TABLE:
-            self.assertIn(row.system, ("windows", "macos", "linux", "server"), row.name)
-            self.assertTrue(row.what.strip(), f"{row.name} says what it is")
-            if row.system == "server":
-                self.assertEqual((row.choice, row.first), ("", False), f"{row.name}: the server's are a table")
-        for system in ("windows", "macos", "linux"):
-            rows = [row for row in assemble.TABLE if row.system == system]
-            self.assertEqual([row.first for row in rows].count(True), 1, f"{system}: one file to pick first")
-            self.assertTrue(all(row.choice for row in rows if row.first), f"{system}: the first is a choice")
+        for table in (assemble.TABLE, assemble.ZIPS):
+            names = [row.name for row in table]
+            for row in table:
+                self.assertIn(row.system, ("windows", "macos", "linux", "server"), row.name)
+                self.assertTrue(row.what.strip(), f"{row.name} says what it is")
+                if row.system == "server":
+                    self.assertEqual((row.choice, row.first, row.inside), ("", "", ""),
+                                     f"{row.name}: the server's are a table")
+                if row.inside:
+                    host = next(r for r in table if r.name == row.inside)
+                    self.assertEqual((row.choice, row.first, host.system), ("", "", row.system), row.name)
+                hosts = any(other.inside == row.name for other in table)
+                self.assertEqual("{link}" in row.what, hosts, f"{row.name}: a {{link}} where a file is linked")
+            for system in ("windows", "macos", "linux"):
+                rows = [row for row in table if row.system == system]
+                self.assertEqual(len([row for row in rows if row.first]), 1, f"{system}: one file to pick first")
+                self.assertTrue(all(row.choice for row in rows if row.first), f"{system}: the first is a choice")
+                self.assertTrue(all(row.choice or row.inside for row in rows), f"{system}: each file is shown")
+            self.assertEqual(len(set(names)), len(names), "no file twice")
         self.assertEqual([row.name for row in assemble.TABLE if row.system != "server" and not row.choice],
                          [assemble.ZSYNC], "only the AppImage's update file is no player's choice")
+
+    def test_each_release_its_own_table(self):
+        # (0.6.0 to 0.9.0 attached one zip a system, as v0.9.0's GitHub release lists them)
+        for version in ("0.6.0", "0.8.1", "0.9.0"):
+            self.assertEqual([row.name for row in assemble.table_for(version)], [
+                "groundhold-windows-x64.zip", "groundhold-macos.zip", "groundhold-linux-x64.zip",
+                *assemble.SERVER], version)
+        for version in ("0.9.1", "0.10.0", "1.0.0"):
+            self.assertIs(assemble.table_for(version), assemble.TABLE, version)
 
     def test_every_file_and_the_checksums_last(self):
         self.put(*assemble.FILES)

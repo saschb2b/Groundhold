@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """The text of a GitHub release (docs/design/core-loop.md 7.6; .claude/skills/release/SKILL.md says how a
 release's page and its pictures are made): the release's own page, docs/releases/vX.Y.Z.md, where there
-is one, else CHANGELOG.md's section for its version; then the Downloads block, every row of
-tools/release/assemble.py's TABLE (the files the release attaches, and nothing else) under the system it
-is for, in its words.
+is one, else CHANGELOG.md's section for its version; then the Downloads block, every file the release
+attaches (tools/release/assemble.py's table_for its version: TABLE, or ZIPS for 0.6.0 to 0.9.0) under
+the system it is for, in its words.
 
     python3 tools/release/release_notes.py v0.9.0 > NOTES.md     # the notes
     python3 tools/release/release_notes.py v0.9.0 --dist dist    # with each file's size, and the
                                                                  # checksums from dist/SHA256SUMS.txt
+    gh release view v0.9.0 --json assets > assets.json           # (a release already published:)
+    python3 tools/release/release_notes.py v0.9.0 --assets assets.json
+                                                                 # its sizes and digests, and a failure
+                                                                 # unless it attaches exactly the table's
     python3 tools/release/release_notes.py v0.9.0 --title        # the release's title: Groundhold v0.9.0
     python3 tools/release/release_notes.py v0.9.0 --ref main     # pictures and links at another ref than
                                                                  # the tag (a page written after its tag)
@@ -16,16 +20,21 @@ is for, in its words.
 A page names its pictures and links by paths relative to itself ("media/v0.9.0/hero.webp",
 "../../CHANGELOG.md"), so GitHub's view of the file shows them on any branch before the tag exists; the
 release's text gets them at the tag: pictures (and anything a link opens that is a picture or a clip) as
-raw files, other links as the blob view. A page may open with YAML frontmatter, which is not the
-release's text; its `stage:` (say `beta`) goes in the title, "Groundhold v1.0.0 (beta)". Exits 1, naming
-each, when there is no page and no CHANGELOG section, or when the page names a file the tree lacks.
+raw files, other links as the blob view. Its `<!-- downloads -->`, under the summary, becomes one
+centred line of direct links, each system's file to pick first and the browser game (GitHub gives a
+release's headings no anchors). A page may open with YAML frontmatter, which is not the release's text:
+its `stage:` (say `beta`) goes in the title, "Groundhold v1.0.0 (beta)", and its `hosts:` is a line for
+those who host a server, inside the Downloads block's server fold. Exits 1, naming each, when there is
+no page and no CHANGELOG section, or when the page names a file the tree lacks.
 
 `--check` holds every page to the rules: each picture has alt text and a width, sits in the page's own
-media/vX.Y.Z/ folder and is no larger than LIMITS says, the page is listed in docs/releases/index.md
-with its tagline, and every path it names exists. Python 3.11 or newer, standard library only.
+media/vX.Y.Z/ folder and is no larger than LIMITS says, the page has its `<!-- downloads -->` line and
+is listed in docs/releases/index.md with its tagline, and every path it names exists. Python 3.11 or
+newer, standard library only.
 """
 
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -48,8 +57,10 @@ MEDIA = (".png", ".webp", ".gif", ".jpg", ".jpeg", ".svg", ".mp4", ".webm")
 # the largest file of each kind a page may show (GitHub draws the release from these raw files)
 LIMITS = {".gif": 4 * 1024 * 1024, ".webp": 1024 * 1024, ".png": 1536 * 1024, ".jpg": 1024 * 1024}
 
+# where a page's summary gives way to the line of downloads
+QUICK = "<!-- downloads -->"
 # The game's systems, in the order the Downloads block gives them: (key, heading, what it runs on). Each
-# file's system, its words and the one to pick first are assemble.TABLE's.
+# file's system, its words and the one to pick first are its release's table's (assemble.table_for).
 SYSTEMS = (
     ("windows", "🪟 Windows", "64-bit Windows 10 or 11"),
     ("macos", "🍎 macOS", "one app for Apple silicon and Intel"),
@@ -151,11 +162,12 @@ def pin(text: str, ref: str, root: Path = ROOT) -> str:
 
 
 def body(root: Path, tag: str, ref: str | None = None) -> str:
-    """The release's own words: its page at `ref` (the tag by default), else its CHANGELOG section."""
+    """The release's own words: its page at `ref` (the tag by default), its line of downloads in place,
+    else its CHANGELOG section."""
     page = page_path(root, tag)
     if page.exists():
         _, text = split_frontmatter(page.read_text(encoding="utf-8"))
-        return pin(text.strip(), ref or tag, root)
+        return pin(text.strip(), ref or tag, root).replace(QUICK, quick_line(tag))
     section = gate.changelog_section(root, version_of(tag))
     if not section:
         raise NotesError(f"no {page.relative_to(root)} and no CHANGELOG.md section '## {version_of(tag)}'")
@@ -178,44 +190,98 @@ def size_text(size: int) -> str:
     return f"{max(1, round(size / 1024))} KB"
 
 
-def downloads(tag: str, table=None, dist: Path | None = None) -> str:
-    """The Downloads block: each system's files, the one to pick first marked where there is a choice,
-    the browser game, the server's archives and image, the help for an unsigned build, the checksums.
-    `table` is assemble.TABLE unless given; with `dist`, each file's size, and the checksums from its
-    SHA256SUMS.txt."""
-    table = list(assemble.TABLE if table is None else table)
+def quick_line(tag: str, table=None) -> str:
+    """The page's centred line of downloads: each system's file to pick first, by direct link, and the
+    browser game."""
+    table = assemble.table_for(version_of(tag)) if table is None else table
+    base = f"https://github.com/{REPO}/releases/download/{tag}/"
+    links = [f'<a href="{base}{row.name}">{row.first}</a>' for key, _, _ in SYSTEMS
+             for row in table if row.system == key and row.first]
+    links.append(f'<a href="{PLAY}">Play in the browser</a>')
+    return '<p align="center"><b>Download:</b> ' + " · ".join(links) + "</p>"
+
+
+def read_assets(path: Path) -> dict[str, tuple[int, str]]:
+    """{name: (size, SHA-256 hex or "")} from `gh release view <tag> --json assets`'s output (or its list)."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    rows = data.get("assets", []) if isinstance(data, dict) else data
+    found = {}
+    for row in rows:
+        digest = str(row.get("digest") or "")
+        found[row["name"]] = (int(row.get("size", 0)), digest.removeprefix("sha256:") if digest.startswith("sha256:") else "")
+    return found
+
+
+def downloads(tag: str, table=None, dist: Path | None = None, assets: dict | None = None, hosts: str = "") -> str:
+    """The Downloads block: each system's file to pick first in bold, the others under it, the help for
+    an unsigned build, then the server's archives and image and the checksums, each folded. `table` is
+    assemble.table_for the tag's version unless given; with `dist`, each file's size and the checksums
+    from its SHA256SUMS.txt; with `assets` (read_assets: a release already published), its sizes and
+    digests, and NotesError unless it attaches exactly the table's files and the checksums. `hosts` is
+    a line for those who host a server."""
     version = version_of(tag)
+    table = list(assemble.table_for(version) if table is None else table)
     base = f"https://github.com/{REPO}/releases/download/{tag}/"
     known = {key for key, _, _ in SYSTEMS} | {"server"}
     unknown = [f"{row.name} ({row.system!r})" for row in table if row.system not in known]
     if unknown:
         raise NotesError("no system for " + ", ".join(unknown) + ": it is windows, macos, linux or server")
+    names = {row.name for row in table}
+    lost = [row.name for row in table if row.inside and (row.inside not in names or
+            "{link}" not in next(r.what for r in table if r.name == row.inside))]
+    if lost:
+        raise NotesError("no words link " + ", ".join(lost) + ": its `inside` file's words need a {link}")
+    if assets is not None:
+        wanted, attached = names | {assemble.SUMS}, set(assets)
+        if wanted != attached:
+            raise NotesError(f"{tag}'s release attaches other files than its table: "
+                             + "; ".join(part for part in (
+                                 "missing " + ", ".join(sorted(wanted - attached)) if wanted - attached else "",
+                                 "not in the table " + ", ".join(sorted(attached - wanted)) if attached - wanted
+                                 else "") if part))
 
     def size(name: str) -> str:
+        if assets is not None and name in assets:
+            return f" · {size_text(assets[name][0])}"
         path = dist / name if dist else None
         return f" · {size_text(path.stat().st_size)}" if path and path.is_file() else ""
+
+    def words(row) -> str:
+        helper = next((r for r in table if r.inside == row.name), None)
+        link = f"[{helper.what}]({base}{helper.name})" if helper else ""
+        return row.what.format(name=row.name, link=link)
 
     out = ["## ⬇️ Download", "",
            f"Pick your system. Or play at once in the browser: **[{PLAY.removeprefix('https://')}]({PLAY})**, "
            "nothing to install, on the official server.", ""]
     for key, heading, runs_on in SYSTEMS:
-        mine = [row for row in table if row.system == key]
+        mine = [row for row in table if row.system == key and row.choice]
         if not mine:
             continue
-        # (the one to pick first, then the table's order; a file that serves another last, in small type)
-        choices = sorted((row for row in mine if row.choice), key=lambda row: not row.first)
-        out += [f"### {heading}", "", f"<sub>{runs_on}</sub>", ""]
-        for row in choices:
-            mark = " · recommended" if row.first and len(choices) > 1 else ""
-            out.append(f"- **[{row.choice}]({base}{row.name})**{mark} · `{row.name}`{size(row.name)}<br>"
-                       f"{row.what.format(name=row.name)}")
-        for row in mine:
-            if not row.choice:
-                out.append(f"- <sub>[`{row.name}`]({base}{row.name}){size(row.name)}: "
-                           f"{row.what.format(name=row.name)}.</sub>")
-        out.append("")
+        first = next((row for row in mine if row.first), mine[0])
+        out += [f"### {heading}", "", f"<sub>{runs_on}</sub>", "",
+                f"**[{first.choice}]({base}{first.name})**{size(first.name)}<br>", words(first), ""]
+        others = [f"[{row.choice}]({base}{row.name}){size(row.name)} · {words(row)}" for row in mine if row is not first]
+        if others:
+            out += ["<sub><b>Also:</b> " + "<br>\n".join(others) + "</sub>", ""]
+    out += ["<details>", f"<summary><b>{assemble.HELP}</b></summary>", "",
+            "The builds carry no publisher's signature that Windows or Apple knows, so each system warns the "
+            "first time.", "",
+            "**Windows:** if SmartScreen says it protected your PC, choose **More info**, then **Run anyway**.", "",
+            "**macOS:** Groundhold is not notarised by Apple, so macOS refuses to open it the first time (\"Apple "
+            "could not verify...\" or \"cannot be opened\"). On macOS 15 and newer, after that refusal, open "
+            "**System Settings › Privacy & Security** and choose **Open Anyway**; on macOS 14 and older, "
+            "Control-click `Groundhold.app`, choose **Open**, then **Open** again. If it still will not open, or "
+            "macOS says it \"is damaged\", run once in Terminal `xattr -dr com.apple.quarantine "
+            "/Applications/Groundhold.app` and open it; should an Apple silicon Mac still say \"is damaged\", "
+            "`codesign --force --deep --sign - /Applications/Groundhold.app` signs it for that Mac alone. The "
+            "server's archive needs the same, in its folder: `xattr -d com.apple.quarantine groundhold-server`.", ""]
+    if any(row.name.endswith(".AppImage") for row in table):
+        out += ["**Linux:** an AppImage that will not start on a system without FUSE runs with "
+                "`--appimage-extract-and-run`.", ""]
+    out += ["</details>", ""]
     servers = [row for row in table if row.system == "server"]
-    out += ["## 🖥️ Host a server", "",
+    out += ["<details>", "<summary><b>🖥️ Host a server</b></summary>", "",
             f"The browser game and the desktop game play online on the official server, `{OFFICIAL}` "
             f"([its policy]({POLICY})). To play on your own network, or to host for friends, run one of these; "
             f"[server/README.md](https://github.com/{REPO}/blob/{tag}/server/README.md) says how.", "",
@@ -224,34 +290,28 @@ def downloads(tag: str, table=None, dist: Path | None = None) -> str:
             for row in servers]
     out += ["", f"Or the image: `docker pull {IMAGE}:{version}`, with a Compose file for it in "
             f"[deploy/selfhost/](https://github.com/{REPO}/tree/{tag}/deploy/selfhost).", ""]
-    out += ["<details>", "<summary><b>Your system will not start it?</b></summary>", "",
-            "The builds carry no publisher's signature that Windows or Apple knows, so each system warns the "
-            "first time.", "",
-            "**Windows:** if SmartScreen says it protected your PC, choose **More info**, then **Run anyway**.", "",
-            "**macOS:** Groundhold is signed for itself alone and not notarised by Apple, so macOS refuses to open "
-            "it at first (\"Apple could not verify...\" or \"cannot be opened\"). Once, in Terminal: `xattr -dr "
-            "com.apple.quarantine /Applications/Groundhold.app`, then open it (the server: `xattr -d "
-            "com.apple.quarantine groundhold-server` in its folder). If an Apple silicon Mac then says it \"is "
-            "damaged\", `codesign --force --deep --sign - /Applications/Groundhold.app` signs it for that Mac "
-            "alone. Without Terminal: on macOS 15 and newer, after the first refusal, **System Settings › Privacy & "
-            "Security**, then **Open Anyway**; on macOS 14 and older, Control-click `Groundhold.app`, choose Open, "
-            "then Open again.", ""]
-    if any(row.name.endswith(".AppImage") for row in table):
-        out += ["**Linux:** an AppImage that will not start on a system without FUSE runs with "
-                "`--appimage-extract-and-run`.", ""]
+    if hosts:
+        out += [f"**New for hosts in {version}:** {hosts}", ""]
     out += ["</details>", ""]
-    sums = dist / assemble.SUMS if dist else None
-    out += [f"**Checksums:** [`{assemble.SUMS}`]({base}{assemble.SUMS}) lists every file's SHA-256. Beside your "
-            f"download, `sha256sum -c {assemble.SUMS} --ignore-missing` checks it on Linux, `shasum -a 256 -c "
-            f"{assemble.SUMS} --ignore-missing` on macOS, and `certutil -hashfile <file> SHA256` shows it on Windows."]
-    if sums and sums.is_file():
-        out += ["", "<details>", f"<summary>{assemble.SUMS}</summary>", "", "```",
-                sums.read_text(encoding="utf-8").strip(), "```", "", "</details>"]
+    if assets is not None:
+        sums = "".join(f"{assets[row.name][1]}  {row.name}\n" for row in table if assets[row.name][1])
+    else:
+        path = dist / assemble.SUMS if dist else None
+        sums = path.read_text(encoding="utf-8") if path and path.is_file() else ""
+    out += ["<details>", "<summary><b>Checksums</b></summary>", "",
+            f"[`{assemble.SUMS}`]({base}{assemble.SUMS}) lists every file's SHA-256. Beside your download, "
+            f"`sha256sum -c {assemble.SUMS} --ignore-missing` checks it on Linux, `shasum -a 256 -c {assemble.SUMS} "
+            "--ignore-missing` on macOS, and `certutil -hashfile <file> SHA256` shows it on Windows."]
+    if sums.strip():
+        out += ["", "```", sums.strip(), "```"]
+    out += ["", "</details>"]
     return "\n".join(out) + "\n"
 
 
-def notes(root: Path, tag: str, ref: str | None = None, dist: Path | None = None) -> str:
-    return f"{body(root, tag, ref)}\n\n---\n\n{downloads(tag, dist=dist)}"
+def notes(root: Path, tag: str, ref: str | None = None, dist: Path | None = None, assets: dict | None = None) -> str:
+    page = page_path(root, tag)
+    hosts = split_frontmatter(page.read_text(encoding="utf-8"))[0].get("hosts", "") if page.exists() else ""
+    return f"{body(root, tag, ref)}\n\n---\n\n{downloads(tag, dist=dist, assets=assets, hosts=hosts)}"
 
 
 def pages(root: Path) -> list[Path]:
@@ -272,6 +332,8 @@ def page_problems(root: Path, path: Path) -> list[str]:
     name = path.relative_to(root).as_posix()
     if not tagline(text):
         out.append(f'{name}: no tagline (<h2 align="center">...</h2>)')
+    if text.count(QUICK) != 1:
+        out.append(f"{name}: no {QUICK} line under the summary, where the release's text puts its downloads")
     try:
         pin(text, tag, root)
     except NotesError as exc:
@@ -317,6 +379,8 @@ def main(argv=None) -> int:
     parser.add_argument("--root", type=Path, default=ROOT, help="the tree to read (default: this checkout)")
     parser.add_argument("--ref", help="pin pictures and links at this ref, not the tag")
     parser.add_argument("--dist", type=Path, help="the release's files: their sizes and SHA256SUMS.txt")
+    parser.add_argument("--assets", type=Path, help="a published release's assets (gh release view TAG --json "
+                        "assets): their sizes and digests, checked against the table")
     parser.add_argument("--title", action="store_true", help="print the release's title instead")
     parser.add_argument("--check", action="store_true", help="hold every page to the rules")
     args = parser.parse_args(argv)
@@ -330,7 +394,9 @@ def main(argv=None) -> int:
             return 1 if found else 0
         if not args.tag:
             parser.error("give the release's tag, vX.Y.Z, or --check")
-        print(title(args.root, args.tag) if args.title else notes(args.root, args.tag, args.ref, args.dist), end="\n" if args.title else "")
+        assets = read_assets(args.assets) if args.assets else None
+        print(title(args.root, args.tag) if args.title else notes(args.root, args.tag, args.ref, args.dist, assets),
+              end="\n" if args.title else "")
     except NotesError as exc:
         print(f"::error title=Release notes::{exc}", file=sys.stderr)
         return 1
