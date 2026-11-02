@@ -205,6 +205,12 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertEqual(job["runs-on"], "macos-15")
         self.assertEqual(GAME_ID, package.APP_ID)
         self.assertEqual(self.needs("macos"), {"gate", "desktop"})
+        # (the release's tools need Python 3.10 or newer; macOS's own may be older: pinned, before any of them)
+        uses = [s.get("uses", "") for s in job["steps"]]
+        python = next(i for i, use in enumerate(uses) if use.startswith("actions/setup-python@"))
+        self.assertEqual(str(job["steps"][python]["with"]["python-version"]), "3.11")
+        first_run = next(i for i, s in enumerate(job["steps"]) if "python3" in str(s.get("run", "")))
+        self.assertLess(python, first_run)
         download = next(s["with"] for s in job["steps"] if s.get("uses", "").startswith("actions/download-artifact"))
         self.assertEqual(download, {"name": "macos-export", "path": "build/desktop/macos"})
         text = runs(job)

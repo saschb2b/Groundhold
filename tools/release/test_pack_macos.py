@@ -6,6 +6,8 @@ run on release.yml's macOS runner.
     python3 -m unittest discover -s tools/release -t tools/release
 """
 
+import contextlib
+import io
 import os
 from pathlib import Path
 import stat
@@ -99,6 +101,34 @@ class PackMacosTest(unittest.TestCase):
             self.make()
         self.assertIn("invalid signature", str(caught.exception))
         self.assertFalse(any(c["tool"] == "hdiutil" for c in self.tools.calls()))
+
+    def test_a_busy_hdiutil_create_is_tried_again(self):
+        # (GitHub's macOS runners now and then answer "Resource busy"; the second try goes through)
+        self.tools.add("hdiutil", "count = Path(sys.argv[0]).with_name('tries')\n"
+                                  "n = int(count.read_text()) if count.exists() else 0\n"
+                                  "count.write_text(str(n + 1))\n"
+                                  "if sys.argv[1] == 'create' and n < 2:\n"
+                                  "    print('hdiutil: create failed - Resource busy'); sys.exit(1)\n"
+                                  "if sys.argv[1] == 'create':\n    Path(sys.argv[-1]).write_bytes(b'koly')")
+        waits = []
+        stage = self.root / "stage"
+        pack_macos.unpack(godot_export(self.root / "Groundhold.zip"), stage)
+        with self.tools.path(), contextlib.redirect_stdout(io.StringIO()) as said:
+            made = pack_macos.disk_image(stage, "1.2.3", self.root / "dist", wait=waits.append)
+        self.assertIn("hdiutil create failed, trying again (2 of 4)", said.getvalue())
+        self.assertEqual(made.read_bytes(), b"koly")
+        self.assertEqual([c["args"][0] for c in self.tools.calls()], ["create", "create", "create", "verify"])
+        self.assertEqual(waits, [pack_macos.CREATE_WAIT, 2 * pack_macos.CREATE_WAIT])
+
+    def test_an_hdiutil_create_that_keeps_failing_stops_it(self):
+        self.tools.add("hdiutil", "print('hdiutil: create failed - Resource busy'); sys.exit(1)")
+        stage = self.root / "stage"
+        pack_macos.unpack(godot_export(self.root / "Groundhold.zip"), stage)
+        with self.tools.path(), contextlib.redirect_stdout(io.StringIO()), \
+                self.assertRaises(package.PackError) as caught:
+            pack_macos.disk_image(stage, "1.2.3", self.root / "dist", wait=lambda seconds: None)
+        self.assertIn(f"Resource busy (tried {pack_macos.CREATE_TRIES} times)", str(caught.exception))
+        self.assertEqual(len(self.tools.calls()), pack_macos.CREATE_TRIES)
 
     def test_an_export_without_the_app_or_with_a_path_outside_is_refused(self):
         with self.assertRaises(package.PackError) as caught:

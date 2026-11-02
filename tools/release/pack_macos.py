@@ -9,8 +9,10 @@ release.yml's macos job on macos-15):
     Applications        a link to /Applications to drag it onto
     Read me.txt         tools/release/readme/macos.txt: Gatekeeper's steps for an app not notarised
 
-made by hdiutil create -format UDZO and checked with hdiutil verify. Godot's export zip is unpacked
-here with its files' modes (the app's executable keeps its bit); codesign and hdiutil are Apple's.
+made by hdiutil create -format UDZO and checked with hdiutil verify; GitHub's macOS runners now and
+then refuse a create with "Resource busy", so a failed create is tried again, CREATE_TRIES times in
+all, a few seconds apart. Godot's export zip is unpacked here with its files' modes (the app's
+executable keeps its bit); codesign and hdiutil are Apple's.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 import stat
+import time
 import zipfile
 
 import assemble
@@ -26,6 +29,8 @@ import package as common
 APP = "Groundhold.app"
 VOLUME = "Groundhold"
 READ_ME = "Read me.txt"
+CREATE_TRIES = 4  # hdiutil create, at most; the waits between grow by CREATE_WAIT seconds
+CREATE_WAIT = 5
 
 
 def unpack(export: Path, stage: Path) -> Path:
@@ -70,15 +75,23 @@ def sign(app: Path, codesign: str = "codesign") -> None:
     common.run([codesign, "--verify", "--deep", "--strict", app])
 
 
-def disk_image(stage: Path, version: str, out: Path, hdiutil: str = "hdiutil") -> Path:
+def disk_image(stage: Path, version: str, out: Path, hdiutil: str = "hdiutil", wait=time.sleep) -> Path:
     """The Applications link and the Read me beside the app, then the image of it all."""
     (stage / "Applications").symlink_to("/Applications")
     (stage / READ_ME).write_text(common.readme("macos", version), encoding="utf-8")
     (stage / READ_ME).chmod(0o644)
     out.mkdir(parents=True, exist_ok=True)
     target = out / assemble.MACOS_DMG
-    target.unlink(missing_ok=True)
-    common.run([hdiutil, "create", "-volname", VOLUME, "-srcfolder", stage, "-ov", "-format", "UDZO", target])
+    for attempt in range(1, CREATE_TRIES + 1):
+        target.unlink(missing_ok=True)
+        try:
+            common.run([hdiutil, "create", "-volname", VOLUME, "-srcfolder", stage, "-ov", "-format", "UDZO", target])
+            break
+        except common.PackError as exc:
+            if attempt == CREATE_TRIES:
+                raise common.PackError(f"{exc} (tried {CREATE_TRIES} times)") from None
+            print(f"hdiutil create failed, trying again ({attempt} of {CREATE_TRIES}): {exc}")
+            wait(CREATE_WAIT * attempt)
     if not target.is_file():
         raise common.PackError(f"hdiutil made no {target.name}")
     common.run([hdiutil, "verify", target])

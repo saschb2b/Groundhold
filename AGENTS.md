@@ -885,13 +885,14 @@ Releases (design §7.6 and M5; `server/README.md`, At a release, is the checklis
 checked against Godot's `SHA512-SUMS.txt`, the `Linux`, `Windows` and `macOS` presets exported with `data/build.json`
 stamped, `Groundhold.exe` read by `pe_resources.py` for the icon and version the export writes into it, the Linux
 build booted headless by `desktop_smoke.py`; then `package.py` in the packaging image, `packaging/Dockerfile`, packs
-the Windows and Linux files below, each started or opened as its system would: the setup known as a Nullsoft
-installer with the icon and version, the zip listed, the AppImage's update information read and the AppImage's, the
-`.deb`'s and the `tar.gz`'s game booted to the hub), `macos` (on `macos-15`: Godot's app signed ad hoc and packed as
-`groundhold-macos.dmg`, then `lipo`, `codesign --verify`, the Info.plist, a headless boot, `hdiutil verify` and the
-mounted image's contents), `server-native` and `server-image` (called with the gate's commit, version and `push`;
-each server archive holds one folder, `groundhold-server-<version>-<target>/`; the image's `X.Y` and `latest` move
-only for the newest release, `deploy.py newest`), `publish` (`assemble.py`: exactly `assemble.FILES` plus
+the Windows and Linux files below, each started or opened as its system would: the setup known as a Nullsoft installer
+with the icon and version, the zip listed, the AppImage's update information read and the AppImage's, the `.deb`'s and
+the `tar.gz`'s game booted to the hub), `macos` (on `macos-15`, with Python 3.11 set up first, as the release's tools
+need 3.10 or newer: Godot's app signed ad hoc and packed as `groundhold-macos.dmg`, a create that `hdiutil` refuses as
+busy tried again up to four times, then `lipo`, `codesign --verify`, the Info.plist, a headless boot, `hdiutil verify`
+and the mounted image's contents), `server-native` and `server-image` (called with the gate's commit, version and
+`push`; each server archive holds one folder, `groundhold-server-<version>-<target>/`; the image's `X.Y` and `latest`
+move only for the newest release, `deploy.py newest`), `publish` (`assemble.py`: exactly `assemble.FILES` plus
 `SHA256SUMS.txt`; the text is `release_notes.py vX.Y.Z --dist dist`'s and the title its `--title`, below) and, last,
 `deploy` (`deploy.py push` force-moves the `release` branch the Coolify app tracks, on a tag push only to the newest
 release tag, `--newest-only`, while a run by hand may roll back; `deploy.py coolify` calls Coolify's deploy API after
