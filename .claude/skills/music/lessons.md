@@ -118,3 +118,37 @@ under the violins until raised; the voices and the glass sat under their roles' 
 
 Waiting for the owner: D or E (or a mix: E's opening and echo around D's order), and whether the air is enough.
 Then the piece: Bush's three parts at 2 to 3 minutes, looping, from the chosen sketch.
+
+## Round 3: the hub's theme grown from E (2 November 2026)
+
+The owner's ear on round 2: "Grow E". He did not ask for more brightness, so round 2's air stays.
+
+What was made: `pieces/causeway_theme.py`, a seamless loop of 44 bars in D at 80 (2:12), in Bush's three parts.
+I, the theme (0:00-0:42): four bars of C's flats, the flute's call, A's tune on the violins, then the horn taking
+the tune an octave down with the violins' descant over it. II, the ambient middle (0:42-1:42): C's texture over the
+held low D, the call handed at a distance from the flute to the horn to the violins and to the flute again, each
+time in a rhythm of its own and left open, two bars of breath after each; then four bars where the pedal lets go
+and the roots walk back toward the tune. III, the summation (1:42-2:12): A's tune at full voice with the horns
+under it, the close over Bb C onto D major, the horn's echo, and three bars of the flats that turn into bar 1.
+`render.py` folds a loop round (its tail onto its start), and the check reads its seam (2 dB between its last and
+first 100 ms, its step five times under a typical one). `ambience.py --under causeway_theme` lays a bed of the same
+length under it at -28 LUFS: together -19.4 LUFS.
+
+What the numbers caught: the horn's tune handed on sat 4 dB over the violins' (its top third is loud) until
+softened; the middle's horn statement stood out the same way; the middle's statements, quieter than the theme's by
+design, fell foul of the leads' 4 dB rule, so they became role `distant` with their own band; the call in the same
+rhythm in nearly every statement read 90% of bars sharing a rhythm, so the middle's calls now each have their own
+(augmented, turned) and a whole piece may reach 85%; the glass's and the contrabass's first notes were silent.
+
+That last one was not the writing: sfizz 1.2.3, rendering faster than real time, loses notes at random (a held note
+plays a fraction of a second and stops), differently from one render to the next. It had taken notes out of
+renders the owner already heard: sketch B's first bars of bassoon, D's flute call in the flats, and E's tune in its
+first bars, roots under it and some of its close. So the E he chose was missing notes he will now hear. `render.py`
+renders in blocks of 32 (far fewer losses), throws away a render that loses a note, and keeps a part's fullest
+render once it has come out twice: three clean renders of all five sketches came out byte for byte the same. Every
+sketch was rendered again so: A and C lost nothing (they differ from what he heard 40 dB under the music, the
+smaller blocks' rounding); B, D and E differ where their notes had been lost (E by 9 dB in its fifth bar).
+
+Waiting for the owner: the theme by ear (`.build/music/causeway_theme.mp3`, and with the bed under it,
+`causeway_theme_with_ambience.mp3` and `_twice.mp3` for the seam); then F4 places it (SKILL.md, Placing the hub's
+music).

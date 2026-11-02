@@ -108,7 +108,7 @@ Before the owner hears anything, say in the gate report (SKILL.md) how each of t
 
 | Piece | What it is | Length |
 | --- | --- | --- |
-| The Causeway (the hub) | The theme in Bush's three parts, grown from sketch A with sketch C's calm (owner, 2 November 2026): A's horn call and tune stated and answered, C's texture as the long ambient middle over the flats, A's strong close; then the ambience alone for 20 to 40 s before it comes back (WC3's gaps, WoW's silences), its last bars left open into the ambience so the loop's seam is a breath, not a cut | 2:00 to 3:00, then the gap |
+| The Causeway (the hub) | The theme in Bush's three parts, grown from sketch E (A's theme with C's calm; the owner, 2 November 2026: "Grow E"): C's flats and the flute's call, A's tune, C's texture as the long ambient middle, A's strong close and the horn's echo into the flats; a seamless loop, its end running into its start (`pieces/causeway_theme.py`). WC3's 20 to 40 s of ambience alone between pieces is the player's to add if the owner wants it, never cut into the file | 2:12 (44 bars at 80), looping |
 | The queue | The ambient middle's material as a loop that can run for minutes: the ostinato and the drone, the call in fragments, nothing that builds | a loop of 1:00 to 2:00 |
 | Match Found | A sting over the queue's bar: the call on the horn over a rising harp and a bell (Hearthstone's stingers run about 5 s) | 4 to 6 s |
 | Loading ("Walking out") | The theme's head as a slow processional, the frame drum as footsteps, ending on the horn's A so the match's horn lands as its own | a loop of 0:45 to 1:30 |
