@@ -631,6 +631,20 @@ inharmonic partials over a strike, the bee swarm) come from the game's own `art_
 `asset regen` reruns; `countdown_tick` is the kit's `blip`. `art_m6_painted` checks M6's art is in place, and holds
 every M6 model to its `asset_style.json` rules (triangles, size, materials, palette) and to the recipe it was built
 from, since CI runs the scenarios but not `asset check`.
+Music, the ambience and UI cues from real instruments are made in `art_src/music/` by the `music` skill
+(`.claude/skills/music/`: the owner's gates, `music_rules.md` from Blizzard's composers' own words, `lessons.md`). A
+piece is Python (`pieces/NAME.py`: a `Score` of parts in beats, each with its role and its place in the mix), rendered
+by `python3 art_src/music/render.py NAME --out DIR [--stems]`: each part alone through the free libraries
+`palette.py` names (VSCO 2 Community Edition and the Versilian Community Sample Library, CC0; FluidR3 GM, MIT; each
+licence read at its source), levelled by `levels.json`, mixed in a seeded hall and mastered to -20 LUFS under -1 dBTP,
+written as WAV, OGG, MP3 and MIDI with `check.py`'s numbers beside it (loudness, range, bands, each part against the
+tune, the score against the rules) and a spectrogram and a piano roll. The renderers and the libraries live only in
+the `groundhold-music` image (`art_src/music/Dockerfile`: sfizz 1.2.3 patched to write float, FluidSynth, NumPy,
+SciPy, ffmpeg; the libraries fetched at pinned commits, never committed), which any of the tools builds when it is
+missing (`docker build -t groundhold-music art_src/music` by hand; again after `palette.py` changes, then
+`render.py --verify` and `--calibrate`). `ambience.py` makes the Causeway's seamless bed; `cues.py` renders
+`cues.json`'s UI cues into `.build/music-cues/`, or with `--dest sfx` into `sfx/` with their manifest entries.
+Sketches go to `.build/music-sketches/` for the owner's ear; nothing goes into the game before he has heard it.
 `Game.TOWERS` holds each tower form's view (model, a head that turns or spins, its bore or muzzle, its shot and
 sound); `Tower.model_of(form)` stands one still for the placement ghosts. Views read the simulation's records after
 each step (a creep's slow, stun and mark, an Owl's Eye's marked creeps), so team effects need no events. M6's
