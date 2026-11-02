@@ -1,0 +1,29 @@
+{
+  "name": "wave_list_levels",
+  "scene": "res://scenes/main.tscn",
+  "description": "0.9.0's levels in the match (release page, Hard and Very Hard): High Water, the Lamplighter alone, in the first build window; the waves to come hovered, at Normal and then at Very Hard, each creep's health and armour at the level played (Very Hard: creeps 15% more health, the Bristlesow and the Crest 55% more and 1 more armour, 10 lives).",
+  "seed": 1,
+  "draw_only_captures": true,
+  "timeout_frames": 900,
+  "pictures": [
+    {"out": "wave-list-levels.webp", "pair": ["list_normal", "list_very_hard"], "labels": ["Normal", "Very Hard"], "crop": [716, 0, 1270, 368], "layout": "stack"}
+  ],
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 10},
+    {"hover": "node('WaveArea')"},
+    {"wait": 4},
+    {"assert": "node('WaveList').visible and Game.lives == 20", "msg": "Normal: 20 lives"},
+    {"eval": "node('Hud').wave_list_lines()", "as": "normal_lines"},
+    {"capture": "list_normal"},
+    {"hover": [640, 300]},
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'lamplighter'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1, null, 'very_hard')"},
+    {"wait": 10},
+    {"hover": "node('WaveArea')"},
+    {"wait": 4},
+    {"assert": "node('WaveList').visible and Game.level() == 'very_hard' and Game.lives == 10", "msg": "Very Hard: 10 lives"},
+    {"eval": "node('Hud').wave_list_lines()", "as": "very_hard_lines"},
+    {"capture": "list_very_hard"}
+  ]
+}

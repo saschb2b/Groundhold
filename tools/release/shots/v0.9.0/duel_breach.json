@@ -1,0 +1,36 @@
+{
+  "name": "duel_breach",
+  "scene": "res://scenes/main.tscn",
+  "description": "0.9.0's sends that bite (release page, Undertow): a duel on Undertow's own rules, me a Lamplighter defending with her plan, a caretaker Lamplighter the rival. In window 2 I cork the Moth Cloud (fliers, which the Lamplighter is weak to) with a click on the Drift tray, say Ready, and uncork it with Space once I may; nothing else is staged. My four Duskmoths fly the rival's road among its own wave 2; the camera on the rival's hollow (V), the moment the first of them reaches its Holdfast: 'Breach · +N gold', the duel bar counting my breach.",
+  "seed": 1,
+  "draw_only_captures": true,
+  "timeout_frames": 9000,
+  "pictures": [
+    {"out": "duel-breach.webp", "capture": "breach", "crop": [520, 0, 1280, 612]}
+  ],
+  "steps": [
+    {"wait": 2},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').start(scene)", "msg": "a duel on the real preset: me on the first hollow, a caretaker rival on the second"},
+    {"assert": "resource('res://tests/ui/duel_stage.gd').defend(scene)", "msg": "my seat plays its plan"},
+    {"set_ticks_per_frame": 10},
+    {"wait_until": "resource('res://tests/ui/duel_stage.gd').in_window(2)", "timeout": 800},
+    {"set_ticks_per_frame": 1},
+    {"wait": 2},
+    {"eval": "Game.drift_packs()", "as": "offer"},
+    {"assert": "offer.has('winged') and Game.gold >= Game.cork_price(2)", "msg": "the Moth Cloud is on offer and I can pay for it"},
+    {"click": "node('Pack' + str(offer.find('winged') + 1))"},
+    {"wait_until": "scene.settled()", "timeout": 30},
+    {"assert": "Game.my_bottles().size() == 1", "msg": "my bottle stands"},
+    {"key": "N"},
+    {"wait_until": "resource('res://tests/ui/duel_stage.gd').in_wave(2)", "timeout": 1800},
+    {"wait_until": "Game.sim.tick >= Game.sim.uncork_tick() + 2", "timeout": 600},
+    {"key": "Space"},
+    {"wait_until": "resource('res://tests/ui/duel_stage.gd').sent_creeps(1).size() > 0", "timeout": 600},
+    {"key": "V"},
+    {"hover": [640, 260]},
+    {"repeat": 4000, "steps": [{"wait": 1}], "until": "Game.sim.breach_dealt(0) > 0 or resource('res://tests/ui/duel_stage.gd').sent_creeps(1).is_empty()"},
+    {"assert": "Game.sim.breach_dealt(0) > 0 and scene.camera.viewing() == 1", "msg": "my Moth Cloud broke through, seen on the rival's hollow"},
+    {"wait": 8},
+    {"capture": "breach"}
+  ]
+}

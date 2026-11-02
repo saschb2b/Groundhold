@@ -17,8 +17,9 @@
 #   verified;
 # - server-native and server-image: the server's five native archives and its zipapp's
 #   (server-native.yml), and its image on ghcr.io (server-image.yml);
-# - publish: the GitHub release, its notes the CHANGELOG section and the files' table (gate.py
-#   notes), every file of tools/release/assemble.py's list and SHA256SUMS.txt attached;
+# - publish: the GitHub release, its text the release's page (docs/releases/vX.Y.Z.md, else the
+#   CHANGELOG section) and the downloads by system (tools/release/release_notes.py), every file of
+#   tools/release/assemble.py's list and SHA256SUMS.txt attached;
 # - deploy, last: the official server follows the release. The `release` branch, which the Coolify
 #   app tracks, moves to the tagged commit, and Coolify is asked to deploy it when the repository has
 #   the COOLIFY_API_URL, COOLIFY_TOKEN and COOLIFY_APP_UUID secrets (tools/release/deploy.py).
@@ -345,9 +346,12 @@ jobs:
           path: dist
       - name: Every file, and their checksums
         run: python3 tools/release/assemble.py dist --list files.txt
+      # (the release's page, docs/releases/vX.Y.Z.md, else its CHANGELOG section; then the downloads by
+      # system with their sizes and checksums: release_notes.py, .claude/skills/release/SKILL.md)
       - name: Notes
         run: |
-          python3 tools/release/gate.py notes "v$VERSION" > NOTES.md
+          python3 tools/release/release_notes.py "v$VERSION" --dist dist > NOTES.md
+          python3 tools/release/release_notes.py "v$VERSION" --title > TITLE.txt
           cat NOTES.md >> "$GITHUB_STEP_SUMMARY"
       - name: Publish
         if: needs.gate.outputs.publish == 'true'
@@ -356,11 +360,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           mapfile -t files < files.txt
+          title="$(cat TITLE.txt)"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" --clobber "${files[@]}"
-            gh release edit "$TAG" --title "Groundhold $TAG" --notes-file NOTES.md
+            gh release edit "$TAG" --title "$title" --notes-file NOTES.md
           else
-            gh release create "$TAG" --verify-tag --title "Groundhold $TAG" --notes-file NOTES.md "${files[@]}"
+            gh release create "$TAG" --verify-tag --title "$title" --notes-file NOTES.md "${files[@]}"
           fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: needs.gate.outputs.publish != 'true'

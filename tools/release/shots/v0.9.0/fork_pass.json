@@ -1,0 +1,31 @@
+{
+  "name": "fork_pass",
+  "scene": "res://scenes/main.tscn",
+  "description": "0.9.0's fork pass (release page, Every fork a choice): High Water, the Beekeeper alone, an Apiary of hers on (7, 11) in the first window, selected; the card's fork branches hovered, Q the Royal Apiary and W the Queen's Guard, in 0.8.0 (left) and this build. The same steps run on both builds.",
+  "seed": 1,
+  "draw_only_captures": true,
+  "timeout_frames": 900,
+  "pictures": [
+    {"out": "compare-royal-apiary.webp", "compare": "royal_tip", "crop": [972, 392, 1272, 716]},
+    {"out": "compare-queens-guard.webp", "compare": "guard_tip", "crop": [972, 392, 1272, 716]}
+  ],
+  "steps": [
+    {"wait": 2},
+    {"eval": "scene.begin('high_water', [{'team': 0, 'builder': 'beekeeper'}], 1, resource('res://scripts/net/local_sequencer.gd').new(1, 1), 1)"},
+    {"wait": 2},
+    {"set": "Game.countdown", "value": 90},
+    {"set": "Game.gold", "value": 600},
+    {"assert": "scene.build('apiary', Vector2i(7, 11))", "msg": "an Apiary of hers"},
+    {"wait_until": "scene.settled()", "timeout": 30},
+    {"eval": "node('BuildController').select(scene.tower_at(Vector2i(7, 11)))"},
+    {"wait": 2},
+    {"hover": "node('CardQ')"},
+    {"wait": 4},
+    {"assert": "node('Tooltip').visible", "msg": "Q's branch tooltip"},
+    {"capture": "royal_tip"},
+    {"hover": "node('CardW')"},
+    {"wait": 4},
+    {"assert": "node('Tooltip').visible", "msg": "W's branch tooltip"},
+    {"capture": "guard_tip"}
+  ]
+}

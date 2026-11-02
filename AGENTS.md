@@ -890,7 +890,7 @@ tree, each started or opened as its system would), `macos` (on `macos-15`: Godot
 `groundhold-macos.dmg`, `lipo`, `codesign --verify` and `hdiutil verify`), `server-native` and `server-image` (called with the gate's commit, version and `push`;
 each server archive holds one folder, `groundhold-server-<version>-<target>/`; the image's `X.Y` and `latest` move
 only for the newest release, `deploy.py newest`), `publish` (`assemble.py`: exactly `assemble.FILES` plus
-`SHA256SUMS.txt`; the notes are `gate.py notes`) and, last, `deploy` (`deploy.py push` force-moves the `release`
+`SHA256SUMS.txt`; the text is `release_notes.py`'s, below, and the title `Groundhold vX.Y.Z`) and, last, `deploy` (`deploy.py push` force-moves the `release`
 branch the Coolify app tracks, on a tag push only to the newest release tag, `--newest-only`, while a run by hand may
 roll back; `deploy.py coolify` calls Coolify's deploy API after a move when the `COOLIFY_*` secrets are set). Run by
 hand it is a dry run unless told otherwise: nothing published, the files kept as the `release-dry-run` artifact. Only
@@ -915,12 +915,30 @@ GitHub and the user's session push tags, change secrets or make the ghcr package
   `packaging/appimage.sh` (appimagetool 1.9.1, the static type-2 runtime: no libfuse2, `APPIMAGE_EXTRACT_AND_RUN=1`
   without FUSE). The macOS app is signed ad hoc on the Mac, never notarised; the Gatekeeper steps stay in the
   READMEs, the site and the disk image's `Read me.txt`.
+- A release's text (the release skill, `.claude/skills/release/SKILL.md`): its own page for players,
+  `docs/releases/vX.Y.Z.md` (listed in `docs/releases/index.md`), in Cyberworld Endless's shape: a hero picture, a
+  centred tagline and paragraph, a section a change with an emoji heading, pictures from the real game and a
+  paragraph, then "Everything else"; a player's words, no internal names. `tools/release/release_notes.py vX.Y.Z`
+  prints what GitHub shows: the page without its frontmatter and with every relative path pinned at the tag
+  (pictures raw, links to the blob view; `--ref` for a page written after its tag), else the CHANGELOG's section,
+  else it fails; then the downloads, every file of `assemble.FILES` under its system (the one to pick first marked,
+  `release_notes.KINDS`; a file of no kind in `assemble.WHAT`'s words), the browser game, the server's archives and
+  image apart, the unsigned-build help folded, the checksums (`--dist`: sizes and the sums themselves). `--title`
+  is `Groundhold vX.Y.Z`, and a page's frontmatter `stage:` adds it in brackets (none set). `--check` holds every
+  page to the rules (a tagline, alt text and a width on each picture, its pictures in `media/vX.Y.Z/` and under
+  `LIMITS`, every path there, the index); `test_release_notes.py` runs it.
+- A page's pictures: `tools/release/shots/vX.Y.Z/*.json`, godot-agent scenarios with a `pictures` list (a still, a
+  GIF from a clip of captures, a labelled pair, or a before/after `compare`), rendered by `python3
+  tools/release/pictures.py vX.Y.Z [NAMES] [--again]` with `--renderer gl_compatibility -j 1` into
+  `docs/releases/media/vX.Y.Z/`; a compare runs the same scenario (its `before` keys laid over it) on a worktree of
+  the previous tag in `.build/before/<tag>/`, imported once, and pastes old beside new under their versions in the
+  game's font. Staged only through the logged setters, and only to reach a moment the game reaches itself.
 - The official server's policy is `server/README.md`'s The official server and `web/policy.html` (published beside
   the site's `index.html`); `server/tests/test_policy.py` holds both to `deploy/coolify/server.ini`, the kick and
   name rules and `data/net.json`. Change the settings and both pages together.
 - Test the release's steps: `python3 -m unittest discover -s tools/release -t tools/release` (the gate and plan, the
   packages with fake makensis, appimagetool, codesign and hdiutil and a real dpkg-deb where there is one, the icons,
-  the exe's resources, the files, the deploy against a bare repository and a fake Coolify, and the workflows' shape
+  the exe's resources, the files, the release's text and pages, the deploy against a bare repository and a fake Coolify, and the workflows' shape
   with PyYAML). Locally, as far as GitHub's runners go: `python3 server/release.py` (the zipapp's archive,
   smoke-tested outside the checkout); in a venv with `server/requirements-build.txt`, `server/release.py --native
   --target linux-x64`; `bash deploy/check.sh` (Docker: the image and both stacks, removed afterwards; never beside
