@@ -729,8 +729,9 @@ A release is a tag `vX.Y.Z` on `main`. `.github/workflows/release.yml` then runs
    checkout; then **server-image**: the image for both architectures (`server-image.yml`), once
    both have passed, so a tag whose build fails pushes no image either (self-hosts pull `latest`).
 3. **publish**: exactly the release's files (`assemble.py`: the three game zips, the six server
-   archives) and `SHA256SUMS.txt`, attached to the GitHub release `vX.Y.Z`, whose notes are the
-   CHANGELOG's section and the files' table (`gate.py notes`).
+   archives) and `SHA256SUMS.txt`, attached to the GitHub release `vX.Y.Z`, whose text is the release's
+   page for players (`docs/releases/vX.Y.Z.md`, else the CHANGELOG's section) and the downloads by system
+   (`tools/release/release_notes.py`).
 4. **deploy**, last: `release` moved to the tag when it is the newest release, and Coolify asked
    ([Deploy on a release tag](#deploy-on-a-release-tag)).
 
@@ -765,7 +766,9 @@ Each release:
 1. On `main`, in one commit: `project.godot`'s `config/version` is `X.Y.Z`, and `CHANGELOG.md`'s
    section for it is headed `## X.Y.Z · YYYY-MM-DD`, the release's date (the Unreleased heading
    becomes it). `python3 tools/release/gate.py check vX.Y.Z` says they agree. A release being prepared
-   is headed `## X.Y.Z · TBD`, and the date goes over `TBD`.
+   is headed `## X.Y.Z · TBD`, and the date goes over `TBD`. For a minor release, the players' page
+   too, `docs/releases/vX.Y.Z.md` with its pictures (`.claude/skills/release/SKILL.md`), committed
+   before the tag so the release's pictures are at it: `python3 tools/release/release_notes.py --check`.
 2. The release gate (design §7.6): `godot-agent scenario . --determinism` and the native-against-web
    replay check.
 3. A dry run if anything in the release's build changed: **Actions › Release › Run workflow** on
